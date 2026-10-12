@@ -20,12 +20,14 @@ export function installRemoteInspection(w: any): any {
         "lifecycle",
         "input",
         "playback",
+        "aspect",
         "play_catalog",
         "play_archive_catalog",
         "vportal",
         "vportal_search",
         "vportal_random",
         "plex_queue",
+        "plex_library",
         "vportal_queue",
         "maintenance",
     ];
@@ -104,7 +106,10 @@ export function installRemoteInspection(w: any): any {
             state: record.state,
         };
     }
-    function request(item: any, done: (result: any) => void): void {
+    function request(
+        item: any,
+        done: (result: any) => void
+    ): void | (() => void) {
         var params = item.params || {};
         function finish(status: string, value: any): void {
             var result: any = {
@@ -121,7 +126,9 @@ export function installRemoteInspection(w: any): any {
         }
         if (
             params.version !== 1 ||
-            ["doctor", "snapshot", "operation"].indexOf(params.section) < 0 ||
+            ["doctor", "snapshot", "operation", "debug"].indexOf(
+                params.section
+            ) < 0 ||
             Object.keys(params).sort().join(",") !==
                 (params.section === "operation"
                     ? "operation_id,runtime,section,version"
@@ -132,6 +139,35 @@ export function installRemoteInspection(w: any): any {
         ) {
             finish("rejected", "invalid_request");
             return;
+        }
+        if (params.section === "debug") {
+            var collector = w.__ottRuntimeDebug;
+            if (!collector || typeof collector.snapshot !== "function") {
+                finish("unsupported", "unsupported");
+                return;
+            }
+            var cancelled = false;
+            try {
+                collector.snapshot().then(
+                    function (value: any) {
+                        if (cancelled) return;
+                        if (
+                            w.__ottRuntimeDebug !== collector ||
+                            params.runtime !== runtime()
+                        )
+                            finish("rejected", "unavailable");
+                        else finish("ok", value);
+                    },
+                    function () {
+                        if (!cancelled) finish("rejected", "unavailable");
+                    }
+                );
+            } catch (_) {
+                finish("rejected", "unavailable");
+            }
+            return function () {
+                cancelled = true;
+            };
         }
         try {
             finish(
@@ -150,6 +186,8 @@ export function installRemoteInspection(w: any): any {
             /^[a-f0-9]{32}$/.test(item.id || "") &&
             actions.indexOf(item.action) >= 0 &&
             item.action !== "vportal_search" &&
+            !(item.action === "plex_library" && params.op !== "play") &&
+            !(item.action === "aspect" && params.operation !== "set") &&
             !(item.action === "kiosk" && params.mode === "status") &&
             !(
                 item.action === "plex_queue" &&
@@ -169,7 +207,9 @@ export function installRemoteInspection(w: any): any {
             // Filtering avoids a second updated document consuming a request
             // meant for this one. Server-side validation fences legacy replies.
             return (
-                item.action !== "inspect" ||
+                (item.action !== "inspect" &&
+                    item.action !== "aspect" &&
+                    item.action !== "plex_library") ||
                 !!(item.params && item.params.runtime === runtime())
             );
         },
@@ -184,8 +224,7 @@ export function installRemoteInspection(w: any): any {
             ) => any
         ): any {
             if (item.action === "inspect") {
-                request(item, done);
-                return;
+                return request(item, done);
             }
             if (!mutation(item)) return execute(item, done, afterReply);
             var record = {
@@ -208,7 +247,17 @@ export function installRemoteInspection(w: any): any {
                     afterReply!(function () {
                         record.state = "invoked";
                         try {
-                            effect();
+                            var completed = (effect as () => any)();
+                            // Aspect reports a cancelled/failed setter locally;
+                            // completion still does not prove a physical display.
+                            if (
+                                item.action === "aspect" &&
+                                completed !== true
+                            ) {
+                                record.state = "rejected";
+                                record.evidence = evidence();
+                                return;
+                            }
                             record.evidence = evidence("handler_completed");
                         } catch (error) {
                             record.state = "rejected";

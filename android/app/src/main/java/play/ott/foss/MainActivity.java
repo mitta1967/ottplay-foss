@@ -1,12 +1,35 @@
 package play.ott.foss;
 
+import android.content.res.Configuration;
+import android.graphics.Color;
+import android.media.AudioManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.KeyEvent;
+import android.view.View;
+import android.view.ViewTreeObserver;
+import android.view.WindowManager;
 import android.webkit.WebView;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import play.ott.foss.plugin.MobileXmltvEpgPlugin;
 
 public class MainActivity extends BridgeActivity {
+    private View playerDecor;
+    private boolean keyboardWasVisible;
+    private final ViewTreeObserver.OnGlobalLayoutListener keyboardLayoutListener = () -> {
+        if (playerDecor == null) return;
+        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(playerDecor);
+        if (insets == null) return;
+        boolean visible = insets.isVisible(WindowInsetsCompat.Type.ime());
+        boolean keyboardClosed = keyboardWasVisible && !visible;
+        keyboardWasVisible = visible;
+        if (keyboardClosed) restoreImmersiveMode();
+    };
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // These local Kotlin plugins are not in Capacitor's generated npm plugin list.
@@ -18,7 +41,62 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MobileCommandQueuePlugin.class);
         registerPlugin(DashExoPlayerPlugin.class);
         registerPlugin(RemoteScreenshotPlugin.class);
+        registerPlugin(RuntimeDiagnosticsPlugin.class);
+        registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
+        playerDecor = getWindow().getDecorView();
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        // Keep transient system bars dark while entering text or opening a dialog.
+        getWindow().setStatusBarColor(Color.BLACK);
+        getWindow().setNavigationBarColor(Color.BLACK);
+        if (Build.VERSION.SDK_INT >= 29) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+        playerDecor.getViewTreeObserver().addOnGlobalLayoutListener(keyboardLayoutListener);
+        restoreImmersiveMode();
+    }
+
+    void restoreImmersiveMode() {
+        if (playerDecor == null || !hasWindowFocus() || (Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode())) return;
+        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(playerDecor);
+        // Do not interfere with the IME's navigation controls. Restore when it closes.
+        if (insets != null && insets.isVisible(WindowInsetsCompat.Type.ime())) return;
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+        WindowInsetsControllerCompat controller =
+                WindowCompat.getInsetsController(getWindow(), playerDecor);
+        controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightNavigationBars(false);
+        controller.setSystemBarsBehavior(
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        controller.hide(WindowInsetsCompat.Type.systemBars());
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (playerDecor != null) playerDecor.post(this::restoreImmersiveMode);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && playerDecor != null) playerDecor.post(this::restoreImmersiveMode);
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+        if (playerDecor != null) playerDecor.post(this::restoreImmersiveMode);
+    }
+
+    @Override
+    public void onDestroy() {
+        if (playerDecor != null && playerDecor.getViewTreeObserver().isAlive()) {
+            playerDecor.getViewTreeObserver().removeOnGlobalLayoutListener(keyboardLayoutListener);
+        }
+        playerDecor = null;
+        super.onDestroy();
     }
 
     private static String dispatchKey(String name) {
@@ -28,8 +106,21 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        int code = event.getKeyCode();
+        if (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            // Hardware volume must work while the WebView is locked, loading or stalled.
+            // Consume key-up too, so the page cannot receive half of this native gesture.
+            AudioManager audio = (AudioManager) getSystemService(AUDIO_SERVICE);
+            if (audio == null) return super.dispatchKeyEvent(event);
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                audio.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                        code == KeyEvent.KEYCODE_VOLUME_UP
+                                ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER,
+                        AudioManager.FLAG_SHOW_UI);
+            }
+            return true;
+        }
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
-            int code = event.getKeyCode();
             String script = null;
             boolean mediaAction = false;
 
@@ -69,12 +160,6 @@ public class MainActivity extends BridgeActivity {
                     script = "if(window.stbStop)window.stbStop();";
                     mediaAction = true;
                     break;
-                case KeyEvent.KEYCODE_VOLUME_UP:
-                    script = dispatchKey("VOL_UP");
-                    break;
-                case KeyEvent.KEYCODE_VOLUME_DOWN:
-                    script = dispatchKey("VOL_DOWN");
-                    break;
                 case KeyEvent.KEYCODE_MEDIA_NEXT:
                     script = dispatchKey("NEXT");
                     mediaAction = true;
@@ -100,7 +185,7 @@ public class MainActivity extends BridgeActivity {
                 if (getBridge() != null) {
                     WebView webView = getBridge().getWebView();
                     if (webView != null) {
-                        // One media action per press; navigation and volume still repeat.
+                        // One media action per press; navigation still repeats.
                         if (!mediaAction || event.getRepeatCount() == 0) {
                             webView.evaluateJavascript(script, null);
                         }

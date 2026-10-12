@@ -24,6 +24,11 @@ Subfolders are excluded. **Shuffle: Off** starts its videos in a random order. T
 queue includes every page of that folder and applies the current title filter;
 it does not descend into subfolders. A failed page cancels the new queue.
 
+During full-screen Plex playback, **Left/Right** seek backward/forward by
+10 seconds and **Up/Down** play the next/previous file. These controls also apply
+to a remote Plex queue while another TV provider is selected. Dedicated volume
+buttons still control volume; open lists and dialogs retain their own navigation.
+
 The playback buttons appear beside the description. **Repeat** cycles through
 **All**, **One**, and **Off**: repeat the queue, repeat the current video, or finish
 after its last video. Remote shortcuts are **5** (or **Play**) for shuffle and
@@ -75,6 +80,54 @@ ott l plex prev
 ott l plex stop
 ```
 
+To select a complete Plex library without entering individual media IDs:
+
+```sh
+ott l plex libraries
+ott l plex library --preview "Три кота"
+ott l plex shuffle "Три кота"
+ott l plex library --shuffle id:16
+ott l plex shuffle "Кукутики"
+```
+
+These commands use the player's saved Plex connection. `id:16` selects library
+section 16; it is not a media ratingKey. A plain numeric name remains a library
+name. Selection first checks normalized exact titles, then a unique partial
+match. Ambiguous names fail without changing playback; use `plex libraries`
+and an explicit section ID to disambiguate.
+
+Movie libraries collect movies, and TV libraries collect episodes across their
+shows and seasons. The player reads every inventory and media page before
+starting playback, accepts at most 1,000 library entries and 500 videos, and
+rejects duplicate, incomplete or changing results. Music libraries and physical
+filesystem folder traversal are not supported by this command. A failed lookup
+or collection leaves existing playback intact. Preview collects and validates
+metadata without starting a decoder. Shuffle makes one permutation of the
+complete result; subsequent episodes retain that order.
+
+Library queues validate each video's file metadata while reading the complete
+catalog. They reuse those records instead of asking Plex for the same metadata
+again in one large request. The first video is still resolved separately before
+playback starts. A missing or invalid file entry rejects the whole queue rather
+than silently skipping a video.
+
+On older players, `One or more Plex items are unavailable or not playable` can
+also mean that this redundant metadata request timed out. The message alone
+does not prove that the library or its files are missing. Reload an updated
+player and check the library without starting playback:
+
+```sh
+ott -t 45 l plex library --shuffle --preview "Кукутики"
+```
+
+Library commands require the separately advertised `plex_library` v1 capability.
+Existing `plex play ID...` and `plex preview ID...` remain available on older
+players. Library discovery shares the queue's cancellation, source and runtime
+checks: Stop, replacement playback, changed settings or request expiry cannot
+be undone by a late library response. List and preview cannot replace a pending
+play operation. The operation journal records library play only. These commands
+do not enable kiosk, change repeat settings or rewrite the Plex connection.
+
 The player uses its existing saved Plex profile even while a TV provider such as
 M3U is selected. It checks the server and all requested metadata, then resolves
 the first stream before handing playback over. The selected TV provider and
@@ -85,8 +138,9 @@ request is preparing playback, preview waits behind it. It does not test
 physical decoder compatibility.
 
 `play` starts the first ID at zero, ignores saved resume positions, and plays the
-IDs exactly in the supplied order. It never shuffles or repeats; completion of
-the last item stops playback. Manual next/previous at a boundary returns an
+IDs exactly in the supplied order. `plex play --shuffle ID...` shuffles the
+complete input once in the CLI. Without kiosk, completion of the last item stops
+playback. Manual next/previous at a boundary returns an
 error without stopping the current item. The completed queue remains available
 for status and previous. `ott l next` and `ott l prev` use that accepted queue
 until `plex stop` clears it. A failed first queue request does not take over TV
@@ -94,7 +148,7 @@ channel navigation. Stop only stops video still owned by the queue, so clearing
 an old queue cannot stop a TV channel selected afterwards.
 
 Status distinguishes `preparing`, `playing`, `paused`, `ended`, `error`, and
-`idle`; its index is zero-based. Requests contain 1–100 positive decimal IDs
+`idle`; its index is zero-based. Requests contain 1–500 positive decimal IDs
 without leading zeros. Responses contain IDs, bounded titles and static errors,
 never stream URLs or credentials. Commands target the discovered player runtime;
 a reload creates a new runtime and clears this in-memory queue. Disconnecting
@@ -129,9 +183,51 @@ Successful playback closes the channel/media list and cancels its stale TV
 preview, without restoring PiP. It does not discard an open unsaved settings or
 input dialog; close or finish that local draft to uncover the full video.
 
+To retain and loop the queue across application restarts, select the Plex provider,
+start the required queue, then enable kiosk:
+
+```sh
+ott f10 provider plex
+ott f10 plex play --shuffle 78777 78776 78775
+ott f10 kiosk on --strict
+ott f10 kiosk status
+```
+
+Kiosk repeats the same complete shuffled order and stores provider requests,
+source identity, cursor and position without retaining expiring stream URLs.
+After a page reload, use `kiosk status` for the durable queue; the separate remote
+queue controller is in-memory. Use `kiosk off` before replacing the queue or
+updating the application. Strict mode blocks local navigation and playback
+controls while allowing the information footer for five seconds. On the active
+core player, tapping or dragging its timeline seeks within the current episode;
+other controls remain locked. This support
+is shared by browser/hosted, server, Tauri, and Capacitor Android/iOS builds.
+
+If Plex cannot connect while kiosk is locked, the player keeps the saved kiosk
+policy and does not open Plex settings or a modal connection-error dialog.
+Inspect `ott f10 kiosk status` for recovery progress. To repair the connection
+or edit settings, explicitly unlock the player first:
+
+```sh
+ott f10 kiosk off
+ott f10 restart
+ott f10
+ott f10 plex preview 78777 78776 78775
+ott f10 plex play 78777 78776 78775
+ott f10 plex status
+```
+
+Wait for the restarted player to reconnect and finish loading its provider
+before starting playback. If necessary, repair its saved Plex connection while
+unlocked. `preview` checks server access; confirm actual playback before enabling
+`ott f10 kiosk on --strict` again. On older builds that already opened Plex
+settings under a strict lock, `ott f10 kiosk off` restores local navigation;
+restarting alone retains that lock.
+
 The wire contract is `plex_queue` with `op`, exact `runtime`, and `ids` for
 `play`/`preview`. `capabilities.plex_queue` advertises version 1, supported
-operations and `max_items: 100`. The shared examples and bounds are in
+operations and `max_items: 500`. The CLI respects older players that still
+advertise a smaller maximum. The shared examples and bounds are in
 [`contracts/plex-queue-v1.json`](../contracts/plex-queue-v1.json).
 
 For access away from home, the selected Plex server must have a reachable remote connection. Plex may impose account or subscription requirements for remote personal-media playback; see [Plex remote playback requirements](https://support.plex.tv/articles/requirements-for-remote-playback-of-personal-media/).

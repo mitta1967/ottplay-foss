@@ -48,9 +48,10 @@ ott l vp "три кота"
 ott l kiosk on --strict
 ```
 
-The matched episode queue repeats automatically. Local taps only show a read-only
-video footer for five seconds; playback, seeking, menus and player exit are
-blocked. `ott l kiosk off` releases the lock remotely. A website cannot block
+The matched episode queue repeats automatically. Local taps show the video footer
+for five seconds. On the active core player, tapping or dragging its timeline
+seeks within the current episode. Other playback controls, keyboard/remote seeking,
+menus and player exit remain blocked. `ott l kiosk off` releases the lock remotely. A website cannot block
 Android system navigation; app pinning with a PIN is separate.
 
 ## VPortal alongside television
@@ -112,3 +113,19 @@ and loops back to the first. Use `o1` or another configured player name to targe
 different instance. Search is case-insensitive. Stop playback to interrupt the
 queue. See [Remote VPortal queues](media-library.md#remote-vportal-queues) for
 cancellation, URL renewal and catalog limits.
+
+Updated players also accept `exact:` followed by a JSON array of 1–20 distinct
+movie titles. The existing CLI and controller forward this as a normal query:
+
+```sh
+ott fire8 vp --list 'exact:["Винни-Пух","Винни Пух идёт в гости","Винни Пух и день забот"]'
+ott fire8 vp 'exact:["Винни-Пух","Винни Пух идёт в гости","Винни Пух и день забот"]'
+ott fire8 kiosk on --strict
+```
+
+Each title must identify exactly one playable movie; matching ignores case but
+preserves punctuation. The queue follows the supplied order and loops. Missing
+or ambiguous titles reject the whole selection without starting a partial queue.
+Series folders are not expanded in this mode. The entire query retains the
+remote command's 1024-byte limit and the search's shared time and paging limits.
+Preview the exact selection on the target player before starting it.

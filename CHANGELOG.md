@@ -1,9 +1,83 @@
 # Changelog
 
+## [1.1.54] - Development line
+
+### Changes
+
+- Prepare Plex library queues from the complete, validated catalog without a
+  redundant bulk metadata request that could time out and incorrectly report
+  playable videos as unavailable. The first video is still resolved before
+  playback starts.
+- Start or preview a complete Plex movie/TV library by name or section ID,
+  optionally shuffled, using the player's saved connection and bounded complete
+  pagination. Ambiguous or incomplete selections leave existing playback intact.
+
+### Upgrade
+
+Update the control server and CLI to versions with `plex_library` support, then
+update or reload the player to use the new library commands. The player's saved
+Plex connection is reused; no settings or data migration is required.
+
+### Security
+
+Existing remote-control authorization, parental restrictions, runtime binding
+and request-cancellation checks remain in force. This release introduces no new
+credential format.
+
 ## [1.1.53] - Development line
 
 ### Changes
 
+- Discover Android XMLTV channels without retaining every channel's schedule.
+  Load only the selected channel's programmes, preserving archive entries and
+  descriptions, with bounded record, source-set and in-memory cache sizes.
+- Stream Android XMLTV downloads, gzip expansion and parsing through bounded
+  files/streams, avoiding full-document byte and UTF-16 copies on older tablets.
+  Preserve source-specific cache fallback and reject oversized/truncated input.
+- Bound Android provider and playlist HTTP responses to 8 MiB, including bodies
+  without Content-Length. Oversized responses now fail the request and close the
+  connection instead of exhausting the app heap during profile loading.
+- Report an unavailable current stream as a rejected restart with a stable
+  reason, rather than claiming that the player does not support stream restart.
+
+- Pause Android kiosk playback when the screen turns off or the app leaves the
+  foreground; suspend recovery while asleep and resume the same active episode.
+
+- Select an ordered, looping VPortal queue by exact movie titles through OTT,
+  rejecting missing or ambiguous titles instead of playing broader search results.
+
+- Keep Android hardware volume buttons working in strict kiosk mode and while
+  the WebView is loading or stalled by controlling media volume natively.
+
+- Add bounded runtime debug snapshots with event history, JavaScript scheduling
+  and frame counters, Capacitor Android/iOS and Tauri native process metadata,
+  and authenticated Rust companion diagnostics; remote connection authorization
+  applies without a second player permission switch.
+
+- Allow tapping or dragging the video footer timeline to seek within the current
+  episode in strict kiosk mode, while retaining the other input restrictions.
+
+- Plex: up to 500 remote queue items and persistent looping media kiosk across web and native shells.
+- Recover stalled kiosks with stream retries and a bounded player reload that
+  preserves the locked selection, queue and position; wait while offline.
+- Detect a stalled HTML video frame counter in kiosk even when its media clock
+  continues advancing, with guarded recovery and remote counter diagnostics.
+- Keep Plex connection failures from opening settings or modal errors beneath
+  a kiosk lock; explicitly turning kiosk off restores settings access.
+- Restore signed Full Capacitor Android APKs in beta, RC and stable releases,
+  using the current shared frontend and preserving existing installations.
+- Add staged APK updates through OTT with HTTPS, SHA-256, package, version and
+  signing-certificate checks. Android may require on-device confirmation.
+- Keep Fire tablet system bars hidden after keyboard dismissal and app resume,
+  with dark transient bars and the shared proportional startup logo.
+
+- Run a shorter validation suite for beta publication after pull-request checks:
+  lint, types and core playback/provider/UI regressions. Pull requests, nightlies
+  and release candidates retain full validation; every beta still builds and
+  verifies the complete package inventory.
+- Make full-screen Plex Left/Right seek backward/forward by 10 seconds on LG TVs
+  and other players, including remote Plex queues, instead of triggering the
+  configured volume, menu or information shortcuts.
 - Translate remote-command notifications and touchscreen-lock messages in all
   88 interface languages. Use the same Unicode search rules for remote channel
   selection and media-library filtering, including filtered shuffle playback.
@@ -40,6 +114,13 @@
 - Release notes accept optional closing hashes in Markdown headings while
   continuing to reject duplicate version sections.
 
+- Plex file selection immediately shows a loading indicator with a cancel action;
+  full-screen Up/Down controls select the next/previous file, including remote
+  queues, while stale loading callbacks cannot replace a newer selection.
+- macOS releases built without Apple signing credentials now receive a complete
+  ad-hoc app signature before packaging. Publication verifies both the original
+  app and its extracted ZIP copy, rejecting incomplete or damaged signatures.
+
 ### Upgrade
 
 Rebuild with the committed Cargo lockfile. The Rust server now rejects supplied
@@ -52,8 +133,9 @@ database migration is required. See the
 
 Retain provider profiles and exported settings before replacing a web, desktop or
 container installation. Follow the platform-specific build/install instructions;
-Android APK/AAB packages are maintained in ottplay-android. Automatic updating is
-not configured, and unsigned iOS packages require operator signing/sideloading.
+Full Capacitor Android APKs ship from this repository and support staged updates
+through OTT. Android TV APK/AAB packages remain in ottplay-android. Unsigned iOS
+packages require operator signing/sideloading.
 Validate playback, remote input and saved settings on the intended TV/STB/native
 platform; automated tests do not establish physical-device acceptance.
 

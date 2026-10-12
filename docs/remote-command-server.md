@@ -200,6 +200,44 @@ URL only for a local availability probe; ordinary catalogue and guide replies
 remain metadata-only. Playback uses the existing archive controller and validates
 the current catalogue receipt, channel access and a maximum 144-hour retention.
 
+### Aspect ratio
+
+`ott PLAYER aspect` reads the current main-video mode. `ott PLAYER aspect fit`
+uses **Fit to screen** (contain); `ott PLAYER aspect fill` uses **Fill screen**
+(cover). Fill preserves the video's proportions and crops its edges. It does
+not stretch the image or change the separate PiP window.
+
+The shared HTML player supports this during an active main-video session in
+Tauri, the OTT Server and here.now web frontends, and Capacitor iOS/Android.
+Other device engines must advertise support;
+the CLI never falls back to pressing a key or opening a menu.
+
+The typed `aspect` request accepts exactly `{operation:"get",runtime}` or
+`{operation:"set",runtime,mode:"fit"|"fill"}`. Obtain `runtime` from the current
+player capabilities. `capabilities.aspect` contains `version:1`, an `operations`
+array and a `modes` array. Unsupported players expose empty arrays; a locked
+player may advertise only `get`. Kiosk mode, protected local dialogs and parental
+settings locks prevent remote writes.
+
+A successful set reply contains `{version:1,runtime,operation:"set",mode,
+accepted:true,dispatched:false,effect:"aspect-after-ack"}`. Application and storage
+wait for the server acknowledgement and recheck the playback target and access
+policy. This reply confirms acceptance, not successful persistence. Read the mode
+again to verify the result. A get reply contains `{version:1,runtime,
+operation:"get",mode,saved_mode,persisted}`. `saved_mode` is `fit`, `fill` or
+`null`; `persisted` is true only when backing storage contains the current mode.
+Session-memory fallback does not count as saved.
+
+Rejected and unsupported replies also bind to the current `runtime` and
+`operation`; set replies include the requested `mode`. Their `error` code is one
+of `invalid_request`, `runtime_mismatch`, `restricted`, `unsupported` or
+`unavailable`. An older page's unbound reply cannot retire another page's request.
+
+Preferences keep their normal scope: the current channel for live TV and a shared
+media preference within the active provider/profile for VOD. The media setting
+is restored for subsequent videos and after a player restart, including kiosk
+restoration. Setting one live channel does not override all other channels.
+
 ### M3U profiles and restarts
 
 Select M3U with `ott NAME provider m3u` before using profile commands.
@@ -237,6 +275,11 @@ Full reload has the same session behavior as the player's existing restart:
 the in-memory VPortal automatic queue is not restored across page reloads.
 An expired response or changed controller connection discards a pending reload.
 Neither command retries a mutation after an uncertain response.
+
+If the backend supports restarting but has no current restartable stream, the
+request returns `rejected` with `reason: "no_restartable_stream"`. This can happen
+during startup or after playback ends; it does not mean the player lacks restart
+support. Wait for a stream to load or explicitly request a full player reload.
 
 These actions require updated CLI, control server and player versions. They
 do not change the existing provider-selection or active-playlist commands.
@@ -397,7 +440,7 @@ See [Remote diagnostics](remote-diagnostics.md) for connection-authorized suppor
 ### Kiosk mode
 
 Updated players, control servers and CLI builds support a device-local live-channel
-lock. Only an authenticated request delivered by the configured command server
+lock, plus persistent VPortal and Plex media queues. Only an authenticated request delivered by the configured command server
 can enable, replace or disable it. There is no local kiosk toggle.
 
 ```sh
@@ -408,6 +451,40 @@ ott tv kiosk set 7          # replace the locked channel through the controller
 ott tv kiosk status         # policy, channel metadata, health and retry count
 ott tv kiosk off            # release the lock
 ```
+
+With the VPortal or Plex provider selected, `kiosk on` without a channel query
+captures the current video or complete media queue and repeats it. Start playback
+first; an empty media library cannot be locked. For a shuffled Plex library, use
+`plex play --shuffle ID...` before `kiosk on --strict`. Media kiosk stores source
+requests and resumes the saved item/position when the application starts again.
+
+The local watchdog retries after 10 seconds without playback progress, allowing
+60 seconds for media startup and episode transitions. On a visible HTML video,
+it also samples playback-quality or WebKit decoded-frame counters. After a
+counter has advanced at least three times with gaps no greater than five seconds,
+15 seconds without another non-dropped frame
+stops treating an advancing media clock as healthy; the normal 10-second recovery
+grace then applies. Paused/seeking/ended video, insufficient buffered data,
+background pages, source changes and unavailable counters cannot trigger this
+additional signal. These counters cannot prove that the display or audio hardware
+is actually presenting output. The additive `video_progress` object in the raw
+kiosk response reports counter source, state, counts and frame age, without media
+URLs; older CLI versions may omit it from their formatted output.
+After a frame stall triggers a retry, the same locked item retains its failure
+state until ten seconds of steady frame progress. A counter that remains stuck
+after that retry gets the 60-second startup grace before another attempt. Brief
+bursts cannot clear the retry budget. Changing the locked item resets this state.
+
+After three unsuccessful
+stream retries, a subsequent stall reloads the player if its source still matches.
+The reload first saves and verifies the locked selection and media position.
+A persistent 10-minute cooldown prevents reload loops; stream retries continue
+during that cooldown. While the runtime reports that the network is offline,
+recovery waits instead of restarting. This cannot reconnect Android Wi-Fi or
+repair an unavailable NAS. A provider that failed during offline startup can
+reload after connectivity returns even before its catalog becomes ready.
+An authenticated `ott tv restart player` also reloads
+the player while retaining its saved kiosk policy.
 
 Arming without a channel does not capture the already playing channel. The first
 subsequent live selection that passes parental admission is retained, including
@@ -431,10 +508,17 @@ Use `kiosk off` before changing provider/profile or unlocking parental access,
 then enable kiosk again on the intended channel. Parental restrictions still apply.
 
 Add `--strict` for a child-facing player: `ott tv kiosk on --strict "Новости"`
-locks the channel and permits only a short tap or the Info key to show the
-read-only video footer for five seconds. Swipes, long presses, multiple fingers,
-double-click actions, pause, seeking, menus, player exit and local volume/mute
-controls are blocked. Repeated taps never expand the description. Remote
+locks the channel and permits a short tap or the Info key to show the video
+footer for five seconds. In a media queue, tapping or dragging the footer timeline
+seeks within the current episode. The gesture is cancelled if the episode, source,
+player or policy changes; multiple fingers and vertical swipes cancel it too.
+This exception requires the active core player and a known finite duration, and
+stops one second before the end instead of directly triggering the next episode.
+Outside the timeline, swipes and long presses remain blocked. Double-click actions,
+pause, keyboard/remote seeking, menus, player exit and local volume/mute controls
+are blocked. In the Capacitor Android app, physical Volume Up/Down keys control
+Android media output directly, including while the page is locked or unresponsive.
+Repeated taps never expand the description. Remote
 volume/mute, status and recovery remain available; stopping the current diagnostic
 capture remains available locally without disconnecting the remote controller.
 

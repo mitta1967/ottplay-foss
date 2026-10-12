@@ -334,7 +334,7 @@ function defineSetting(
               ? function (value) {
                     return String(value - 1);
                 }
-              : undefined,
+              : rules.encode,
         id: id,
         key: key,
         scope: scope,
@@ -443,7 +443,16 @@ export const settingsSchema: SettingDefinition[] = [
     defineSetting("yFun", "sYfun", { range: [0, 64] }),
     defineSetting("bFun", "sBfun", { range: [0, 64] }),
     defineSetting("alFun", "sALfun", { range: [0, 64] }),
-    defineSetting("arFun", "sARfun", { range: [0, 64] }),
+    defineSetting("arFun", "sARfun", {
+        // A signed integer keeps an explicit LG volume choice distinguishable
+        // from the old default in the same atomic, legacy-readable value.
+        encode: function (value) {
+            return value === 13 && defaultSettings().arFun === 4
+                ? "+13"
+                : String(value);
+        },
+        range: [0, 64],
+    }),
     defineSetting("auFun", "sAUfun", { range: [0, 64] }),
     defineSetting("adFun", "sADfun", { range: [0, 64] }),
     defineSetting("rwFun", "sRWfun", { range: [0, 64] }),
@@ -683,25 +692,14 @@ export const settingsStore = createSettingsStore(settingsSchema, {
     storage: function (entry) {
         var w = window as any;
         var driver = w.__ottActiveProviderDriver;
+        var key = entry.key;
         if (
             entry.scope === "provider" &&
             driver &&
             typeof driver.storageKey === "function"
         ) {
-            var key = driver.storageKey(entry.key);
-            return {
-                read: function () {
-                    return storage.get(key);
-                },
-                remove: function () {
-                    storage.del(key);
-                },
-                write: function (v) {
-                    storage.set(key, v);
-                },
-            };
-        }
-        if (
+            key = driver.storageKey(key);
+        } else if (
             entry.scope === "provider" &&
             typeof w.providerGetItem === "function"
         ) {
@@ -723,44 +721,31 @@ export const settingsStore = createSettingsStore(settingsSchema, {
         }
         return {
             read: function () {
-                return storage.get(entry.key);
+                return storage.get(key);
             },
             remove: function () {
-                storage.del(entry.key);
+                storage.del(key);
             },
             write: function (v) {
-                storage.set(entry.key, v);
+                storage.set(key, v);
             },
         };
     },
 });
 /** Typed and legacy views both forward to the same authoritative store. */
 export const settings = {} as PlayerSettings;
-settingsSchema.forEach(function (entry) {
-    Object.defineProperty(settings, entry.id, {
-        enumerable: true,
-        get: function () {
-            return settingsStore.get(entry.id);
-        },
-        set: function (value) {
-            settingsStore.observe(entry.id, value);
-        },
-    });
-});
-Object.defineProperty(settings, "nextCount", {
-    enumerable: true,
-    get: function () {
-        return Math.max(0, settings.nextCountList - 1);
-    },
-    set: function (value) {
-        settings.nextCountList = Number(value) + 1;
-    },
-});
-export function installSettingsFacade(target: Record<string, any>): void {
+function bindSettingsFacade(
+    target: Record<string, any>,
+    legacy: boolean
+): void {
     settingsSchema.forEach(function (entry) {
-        var key = entry.id === "nextCountList" ? "sNextCountL" : entry.key;
+        var key = legacy
+            ? entry.id === "nextCountList"
+                ? "sNextCountL"
+                : entry.key
+            : entry.id;
         Object.defineProperty(target, key, {
-            configurable: true,
+            configurable: legacy,
             enumerable: true,
             get: function () {
                 return settingsStore.get(entry.id);
@@ -770,16 +755,20 @@ export function installSettingsFacade(target: Record<string, any>): void {
             },
         });
     });
-    Object.defineProperty(target, "sNextCount", {
-        configurable: true,
+    Object.defineProperty(target, legacy ? "sNextCount" : "nextCount", {
+        configurable: legacy,
         enumerable: true,
         get: function () {
-            return settings.nextCount;
+            return Math.max(0, settings.nextCountList - 1);
         },
         set: function (value) {
-            settings.nextCount = value;
+            settings.nextCountList = Number(value) + 1;
         },
     });
+}
+bindSettingsFacade(settings, false);
+export function installSettingsFacade(target: Record<string, any>): void {
+    bindSettingsFacade(target, true);
     target.settings = settings;
 }
 export function loadSettings(): PlayerSettings {
@@ -789,6 +778,18 @@ export function loadSettings(): PlayerSettings {
         entry.defaultValue = (defaults as any)[entry.id];
     });
     settingsStore.reload();
+    // Older LG profiles inherited PC's Right = volume-up default. Explicit
+    // choices now carry their provenance in the same stored integer.
+    if (
+        defaults.arFun === 4 &&
+        settings.arFun === 13 &&
+        storage.get("sARfun") !== "+13"
+    ) {
+        settings.arFun = 4;
+        try {
+            storage.setI("sARfun", 4);
+        } catch (_error) {}
+    }
     var w = window as any;
     var nativeEditor =
         !!w.__TAURI__ ||

@@ -88,6 +88,12 @@ assert.equal(
     false
 );
 assert.equal(api.accept({ action: "inspect", params: { runtime } }), true);
+assert.equal(api.accept({ action: "aspect", params: { runtime } }), true);
+assert.equal(
+    api.accept({ action: "aspect", params: { runtime: "other-runtime" } }),
+    false
+);
+assert.equal(api.accept({ action: "aspect", params: {} }), false);
 assert.equal(api.accept({ action: "play" }), true);
 
 const id = "a".repeat(32);
@@ -133,10 +139,13 @@ assert.equal(result().state, "invoked");
 const readId = "b".repeat(32);
 for (const [action, params] of [
     ["plex_queue", { op: "status" }],
+    ["plex_library", { op: "list", runtime }],
+    ["plex_library", { library_id: "16", op: "preview", runtime }],
     ["vportal_queue", { operation: "status" }],
     ["maintenance", { operation: "health" }],
     ["vportal_search", { query: "fixture" }],
     ["kiosk", { mode: "status" }],
+    ["aspect", { operation: "get", runtime }],
 ]) {
     api.execute(
         { action, id: readId, params },
@@ -149,6 +158,57 @@ for (const [action, params] of [
         "unknown"
     );
 }
+// An aspect receipt records acceptance first, then only a successful setter's
+// completion. A fenced-out setter is not evidence of application or persistence.
+for (const outcome of ["applied", "storage", "target", "policy"]) {
+    const success = outcome === "applied";
+    const aspectId = String(
+        ["applied", "storage", "target", "policy"].indexOf(outcome) + 4
+    ).repeat(32);
+    let current = true,
+        locked = false;
+    w.__ottParental = { needs: () => locked };
+    w.captureAspectTarget = () => ({
+        current: () => current,
+        mode: "fit",
+        savedMode: null,
+        set: () => outcome !== "storage",
+    });
+    let aspectEffect;
+    api.execute(
+        {
+            action: "aspect",
+            id: aspectId,
+            params: { mode: "fill", operation: "set", runtime },
+        },
+        () => {},
+        (effect) => {
+            aspectEffect = effect;
+        },
+        (item, done, afterReply) =>
+            load("src/commands/remote-restart.ts").executeRemoteControl(
+                w,
+                item.action,
+                item.params,
+                done,
+                afterReply
+            )
+    );
+    const readAspect = () =>
+        query("operation", { operation_id: aspectId }).data.data;
+    assert.equal(readAspect().state, "accepted");
+    assert.equal(readAspect().evidence.kind, "none");
+    if (outcome === "target") current = false;
+    if (outcome === "policy") locked = true;
+    aspectEffect();
+    assert.equal(readAspect().state, success ? "invoked" : "rejected");
+    assert.equal(
+        readAspect().evidence.kind,
+        success ? "handler_completed" : "none"
+    );
+}
+delete w.captureAspectTarget;
+delete w.__ottParental;
 time += 600001;
 assert.equal(result().state, "expired");
 for (let i = 0; i < 130; i++) {
@@ -188,6 +248,27 @@ assert.equal(
     query("operation", { operation_id: pendingId }).data.data.state,
     "expired"
 );
+
+// Library play joins the existing receipt journal; discovery remains read-only.
+api.execute(
+    {
+        action: "plex_library",
+        id: readId,
+        params: { library_id: "16", op: "play", runtime },
+    },
+    () => {},
+    undefined,
+    (_item, done) => done({ data: {}, status: "ok" })
+);
+assert.equal(
+    query("operation", { operation_id: readId }).data.data.action,
+    "plex_library"
+);
+assert.equal(
+    api.accept({ action: "plex_library", params: { runtime: "retired-page" } }),
+    false
+);
+assert.equal(api.accept({ action: "plex_library", params: { runtime } }), true);
 
 // Redelivery refreshes one journal position, rather than leaving a second
 // eviction entry that can delete the newer receipt. Old callbacks keep their
@@ -311,3 +392,53 @@ try {
 console.log(
     "remote inspection: pure snapshots, target fencing, bounded truthful receipts and loaded build identity PASS"
 );
+
+(async () => {
+    let settle;
+    let replies = [];
+    const item = {
+        action: "inspect",
+        params: { runtime, section: "debug", version: 1 },
+    };
+    w.__ottRuntimeDebug = {
+        snapshot: () =>
+            new Promise((resolve) => {
+                settle = resolve;
+            }),
+    };
+    const cancel = api.execute(
+        item,
+        (value) => replies.push(value),
+        undefined,
+        forbidden
+    );
+    assert.equal(typeof cancel, "function");
+    cancel();
+    settle({ version: 1 });
+    await Promise.resolve();
+    assert.equal(replies.length, 0, "cancelled inspection replied");
+    api.request(item, (value) => replies.push(value));
+    w.__ottRuntimeDebug = { snapshot: () => Promise.resolve({}) };
+    settle({ version: 1 });
+    await Promise.resolve();
+    assert.equal(
+        replies[0].data.error,
+        "unavailable",
+        "retired collector was relabelled"
+    );
+    replies = [];
+    const data = { metrics: {}, runtime, version: 1 };
+    w.__ottRuntimeDebug = { snapshot: () => Promise.resolve(data) };
+    api.request(item, (value) => replies.push(value));
+    await Promise.resolve();
+    assert.equal(replies[0].status, "ok");
+    assert.equal(replies[0].data.data, data);
+    delete w.__ottRuntimeDebug;
+    assert.equal(query("debug").status, "unsupported");
+    console.log(
+        "remote debug inspection: asynchronous cancellation and collector ownership PASS"
+    );
+})().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

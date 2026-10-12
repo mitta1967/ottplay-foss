@@ -2,6 +2,12 @@ name: Build release assets
 'on':
   workflow_call:
     secrets:
+      CAPACITOR_KEYSTORE_BASE64:
+        required: true
+      CAPACITOR_KEY_ALIAS:
+        required: true
+      CAPACITOR_KEY_PASSWORD:
+        required: true
       APPLE_APP_SPECIFIC_PASSWORD:
         required: false
       APPLE_CERTIFICATE:
@@ -218,7 +224,7 @@ jobs:
         '
     - name: Build desktop package
       shell: bash
-      run: "EXTRA_CONFIG=()\nif [ \"${TAURI_SIGNING:-}\" = \"true\" ]; then\n  EXTRA_CONFIG+=(--config '{\"bundle\":{\"createUpdaterArtifacts\":true}}')\nfi\n\n# Apple notarize: only pass APPLE_* env when all secrets present.\n# Otherwise leave them unset so Tauri does not attempt codesign/notarize.\nif [ \"${{ steps.signs.outputs.apple_notarize }}\" = \"true\" ]; then\n  export APPLE_CERTIFICATE=\"$SIGN_APPLE_CERTIFICATE\"\n  export APPLE_CERTIFICATE_PASSWORD=\"$SIGN_APPLE_CERTIFICATE_PASSWORD\"\n  export APPLE_SIGNING_IDENTITY=\"$SIGN_APPLE_SIGNING_IDENTITY\"\n  export APPLE_ID=\"$SIGN_APPLE_ID\"\n  export APPLE_PASSWORD=\"$SIGN_APPLE_APP_SPECIFIC_PASSWORD\"\n  export APPLE_TEAM_ID=\"$SIGN_APPLE_TEAM_ID\"\nelse\n  export CSC_IDENTITY_AUTO_DISCOVERY=false\nfi\n\nif [ -n \"${TAURI_TARGET:-}\" ]; then\n  npx tauri build --ci --target \"$TAURI_TARGET\" \"${EXTRA_CONFIG[@]}\"\nelse\n  npx tauri build --ci \"${EXTRA_CONFIG[@]}\"\nfi\n"
+      run: "EXTRA_CONFIG=()\nif [ \"${TAURI_SIGNING:-}\" = \"true\" ]; then\n  EXTRA_CONFIG+=(--config '{\"bundle\":{\"createUpdaterArtifacts\":true}}')\nfi\n\n# Apple notarize: only pass APPLE_* env when all secrets present.\n# Otherwise sign the macOS bundle ad-hoc before Tauri packages its archives.\nif [ \"${{ steps.signs.outputs.apple_notarize }}\" = \"true\" ]; then\n  export APPLE_CERTIFICATE=\"$SIGN_APPLE_CERTIFICATE\"\n  export APPLE_CERTIFICATE_PASSWORD=\"$SIGN_APPLE_CERTIFICATE_PASSWORD\"\n  export APPLE_SIGNING_IDENTITY=\"$SIGN_APPLE_SIGNING_IDENTITY\"\n  export APPLE_ID=\"$SIGN_APPLE_ID\"\n  export APPLE_PASSWORD=\"$SIGN_APPLE_APP_SPECIFIC_PASSWORD\"\n  export APPLE_TEAM_ID=\"$SIGN_APPLE_TEAM_ID\"\nelse\n  export CSC_IDENTITY_AUTO_DISCOVERY=false\n  if [ \"${RUNNER_OS:-}\" = \"macOS\" ] \\\n    && [ -z \"${APPLE_SIGNING_IDENTITY:-}\" ] \\\n    && [ -z \"${APPLE_CERTIFICATE:-}\" ]; then\n    EXTRA_CONFIG+=(--config '{\"bundle\":{\"macOS\":{\"signingIdentity\":\"-\"}}}')\n  fi\nfi\n\nif [ -n \"${TAURI_TARGET:-}\" ]; then\n  npx tauri build --ci --target \"$TAURI_TARGET\" \"${EXTRA_CONFIG[@]}\"\nelse\n  npx tauri build --ci \"${EXTRA_CONFIG[@]}\"\nfi\n"
       working-directory: src-tauri
       env:
         CI: true
@@ -255,6 +261,68 @@ jobs:
         if-no-files-found: error
         retention-days: 14
     timeout-minutes: 90
+  android:
+    name: Build Capacitor Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - name: Harden the runner (Audit all outbound calls)
+      uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      with:
+        egress-policy: audit
+    - name: Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Set up release version tooling
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.12'
+    - name: Download frozen release version plan
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        name: ${{ inputs.release_plan_artifact }}
+        path: .
+    - name: Apply frozen release version inputs
+      shell: bash
+      run: python3 scripts/version_plan.py sync --root . --plan .release-plan.json
+    - name: Verify committed release version
+      run: python3 scripts/check-release-version.py "$RELEASE_VERSION" "$RELEASE_CHANNEL"
+    - name: Set up Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: '22'
+        cache: npm
+    - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      with:
+        distribution: temurin
+        java-version: '21'
+    - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+      with:
+        packages: platform-tools
+    - name: Install Android SDK components
+      run: bash scripts/ci-android-install-sdk.sh
+    - name: Install JS dependencies
+      run: npm ci --ignore-scripts
+    - name: Build and audit Full Capacitor APK
+      run: npm run android:full:release
+    - name: Build and audit API 22 Capacitor APK
+      run: npm run android:api22:release
+    - name: Sign the verified APK for in-place updates
+      env:
+        CAPACITOR_KEYSTORE_BASE64: ${{ secrets.CAPACITOR_KEYSTORE_BASE64 }}
+        CAPACITOR_KEY_ALIAS: ${{ secrets.CAPACITOR_KEY_ALIAS }}
+        CAPACITOR_KEY_PASSWORD: ${{ secrets.CAPACITOR_KEY_PASSWORD }}
+      run: |
+        python3 scripts/sign-android-apk.py android/app/build/outputs/apk/full/release/app-full-release-unsigned.apk ottplay-foss-android-full.apk
+        python3 scripts/sign-android-apk.py android/app/build-api22/outputs/apk/full/release/app-full-release-unsigned.apk ottplay-foss-android-api22.apk
+    - name: Stage APK under the frozen release version
+      run: python3 scripts/stage_release_assets.py --target mobile-android --pattern ottplay-foss-android-full.apk --pattern ottplay-foss-android-api22.apk
+    - name: Store release assets
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: release-assets-mobile-android
+        path: release-assets/mobile-android/*
+        if-no-files-found: error
+        retention-days: 14
   mobile:
     name: Build iOS
     runs-on: macos-latest

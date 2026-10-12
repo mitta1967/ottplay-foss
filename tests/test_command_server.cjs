@@ -803,7 +803,7 @@ assert.equal(batch.requests.at(-1).request.method, "GET");
 // wall clock may differ from the controller, but network delay still consumes TTL.
 {
     const previousClock = clock;
-    for (const action of ["plex_queue", "playback"])
+    for (const action of ["plex_queue", "plex_library", "playback"])
         for (const skew of [-120, 120])
             for (const lifetime of [30, 90]) {
                 clock = 5000000;
@@ -812,7 +812,9 @@ assert.equal(batch.requests.at(-1).request.method, "GET");
                 const params =
                     action === "plex_queue"
                         ? { ids: ["1", "2"], op: "play", runtime: "page-1" }
-                        : { operation: "next_channel" };
+                        : action === "plex_library"
+                          ? { library_id: "16", op: "play", runtime: "page-1" }
+                          : { operation: "next_channel" };
                 let dispatched;
                 let completeWork;
                 let cancellations = 0;
@@ -855,6 +857,14 @@ assert.equal(batch.requests.at(-1).request.method, "GET");
                 const result = JSON.parse(rpc.requests.at(-1).request.body);
                 assert.equal(result.status, "rejected");
                 assert.match(result.data.error, /timed out/i);
+                if (action === "plex_library")
+                    assert.deepEqual(result.data, {
+                        error: "Plex queue request timed out.",
+                        op: "play",
+                        runtime: "page-1",
+                        state: "error",
+                        version: 1,
+                    });
             }
     clock = previousClock;
     console.log(
@@ -1421,6 +1431,8 @@ vm.runInNewContext(plexCode, plexContext);
 const restartContext = {
     exports: {},
     require(name) {
+        if (name === "./remote-app-update")
+            return { remoteAppUpdateAvailable: () => false };
         assert.equal(name, "./remote-plex");
         return plexContext.exports;
     },
@@ -1504,7 +1516,7 @@ console.log(
 
 // Real controls use the transport's retained exact response; a lost reply never
 // repeats an input or native lifecycle effect, and retirement cancels both.
-for (const action of ["lifecycle", "input"]) {
+for (const action of ["lifecycle", "input", "aspect"]) {
     for (const outcome of ["ack", "disabled", "expired", "policy"]) {
         let effects = 0,
             locked = false;
@@ -1516,6 +1528,15 @@ for (const action of ["lifecycle", "input"]) {
             __ottParental: { needs: () => locked },
             __ottRemoteLifecycle: { exit: () => effects++, platform: "tauri" },
             $: () => ({ is: () => locked }),
+            captureAspectTarget: () => ({
+                current: () => true,
+                mode: "fit",
+                savedMode: null,
+                set: () => {
+                    effects++;
+                    return true;
+                },
+            }),
             keyHandler: () => effects++,
             keys: { UP: 38 },
         };
@@ -1538,7 +1559,16 @@ for (const action of ["lifecycle", "input"]) {
                     params:
                         action === "lifecycle"
                             ? { operation: "exit_app" }
-                            : { key: "up" },
+                            : action === "aspect"
+                              ? {
+                                    mode: "fill",
+                                    operation: "set",
+                                    runtime:
+                                        restartContext.exports.remotePlayerInfo(
+                                            w
+                                        ).runtime,
+                                }
+                              : { key: "up" },
                 },
             ],
             server_time: 5000,
@@ -1577,7 +1607,7 @@ for (const action of ["lifecycle", "input"]) {
     }
 }
 console.log(
-    "PASS actual lifecycle/input transport: lost ACK, byte-identical retry, single dispatch, duplicate replay, disable, expiry and local policy changes"
+    "PASS actual lifecycle/input/aspect transport: lost ACK, byte-identical retry, single dispatch, duplicate replay, disable, expiry and local policy changes"
 );
 
 // Image bytes expire independently of network progress and ordinary receipt caching.

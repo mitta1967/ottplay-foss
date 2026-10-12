@@ -6,8 +6,9 @@ the Capacitor-generated Swift package. `cap sync ios` therefore cannot recreate
 or overwrite a second implementation.
 
 `src/android/play/ott/foss/plugin/MobileXmltvEpgPlugin.kt` is the canonical
-archived Capacitor Android fixture. The JVM cache and edition tests compile it
-directly. The active native Android application lives in `ottplay-android`.
+Capacitor Android adapter. Both Full and API 22 APKs and the JVM cache/edition
+tests compile it directly. The independent native Android application lives in
+`ottplay-android`.
 
 Run `python3 tests/test_native_epg_cache.py --check-sources-only` from the
 repository root to verify ownership. The full command compiles and exercises
@@ -17,7 +18,7 @@ existing external callers.
 Guide matching, timestamp conversion, regional shifts and schedule windows
 delegate to the pinned `vendor/ottplay-core.*` distribution. Swift executes the
 same ES5 artifact as the browser and Rust through system JavaScriptCore; the
-archived Android adapter links the JVM artifact. Native XML, HTTP, gzip, source
+Android adapter links the JVM artifact. Native XML, HTTP, gzip, source
 ownership, caching and platform callbacks remain here.
 
 On iOS, XMLTV downloads and cached input are limited to 64 MiB of delivered
@@ -31,6 +32,30 @@ document fits as a gzip file. Temporary XML files are removed when loading ends.
 These limits bound input and decompression, not the complete parsed programme
 graph or all cached sources. Physical-device playback and EPG checks remain
 necessary when qualifying a release.
+
+Capacitor Android uses the same 64 MiB delivered-input and 512 MiB expanded-XML
+limits. Downloads are spooled to an owned temporary file; SAX parses plain XML
+or a bounded gzip stream directly, including cached files. It does not allocate
+the complete XML as a byte array or UTF-16 string. Loading validates the gzip
+trailer, closes response streams and removes temporary files on success/failure;
+the existing same-source fresh/stale cache policy remains in effect. Cache
+metadata is limited to 8 KiB. The JVM regression suite exercises a 24 MiB plain
+and compressed document with a 64 MiB heap.
+
+Android channel discovery retains only channel metadata. Schedule requests
+resolve the first owning source and parse only that channel's programmes;
+archive entries and descriptions are preserved. The existing single disk slot
+is reused where available, so alternating sources may require another download.
+An oversized individual record or channel schedule fails through the ordinary
+source/cache error path rather than returning a partial guide.
+
+Android additionally limits each record to 262,144 UTF-16 code units, estimates
+retained rows conservatively with a 4 MiB per-parse budget, and bounds the parsed
+cache to 16 entries/16 MiB of estimated rows. Parsing is serialized. A source set
+accepts at most eight feeds and 16 MiB of estimated metadata; pending loads and
+joined callbacks are bounded too. These are allocation guards, not a guarantee
+of total process heap usage. Dense-record tests exercise discovery, selected
+schedules, eviction, refresh and failure recovery under a 64 MiB JVM heap.
 
 The Xcode target bundles the core script, source receipt and license directly
 from `vendor`. Its Swift bridge verifies the script hash before execution; data

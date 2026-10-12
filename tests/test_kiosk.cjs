@@ -21,8 +21,14 @@ const unicode = {};
 vm.runInNewContext(localizationRuntime(), unicode);
 const casing = load("src/utils/caseless.ts", { require: () => unicode });
 const strictInput = load("src/plugins/strict-kiosk-input.ts");
+const videoProgress = load("src/plugins/kiosk-video-progress.ts");
 const { createKiosk } = load("src/plugins/kiosk.ts", {
-    require: (name) => (name.includes("strict-kiosk") ? strictInput : casing),
+    require: (name) =>
+        name.includes("strict-kiosk")
+            ? strictInput
+            : name.includes("kiosk-video-progress")
+              ? videoProgress
+              : casing,
 });
 function rig(storage = {}) {
     let time = 0,
@@ -64,6 +70,7 @@ function rig(storage = {}) {
             return 1;
         },
         stbGetItem: (key) => storage[key],
+        stbGetPersistedItem: (key) => storage[key],
         stbGetPosTime: () => {
             if (fail) throw Error("decoder");
             return position;
@@ -620,15 +627,15 @@ console.log(
     "Kiosk admission, recovery, persistence, remote replacement and input tests passed"
 );
 
-// VPortal has no TV channel list: lock the current request-backed media queue.
-{
+// Both library providers lock their current request-backed media queue.
+for (const provider of ["vportal", "plex"]) {
     const r = rig();
-    const source = "vportal:0@one";
+    const source = provider + ":0@one";
     r.source(source);
-    r.w.__ottActiveProviderDriver = { id: "vportal" };
+    r.w.__ottActiveProviderDriver = { id: provider };
     r.w.cList = [];
     r.w.curList = [];
-    const records = [0, 1].map((i) => ({
+    const records = [0, 1, 0].map((i) => ({
         __ottMediaRef: { itemId: "episode:" + i, sourceId: source },
         request: { episode: i },
         title: "Episode " + i,
@@ -642,6 +649,7 @@ console.log(
         current: () => ({
             ended: ended,
             ref: selection.records[selection.index].__ottMediaRef,
+            sequence: { index: selection.index, queueId: "test-queue" },
         }),
         keepKioskLoop: () => looped++,
         kioskSelection: () => selection,
@@ -662,11 +670,12 @@ console.log(
             },
         }),
     };
+    selection.queueId = "test-queue";
     const result = r.request({ mode: "on" });
     assert.equal(result.status, "ok");
     assert.equal(result.data.state, "locked");
     assert.equal(result.data.channel, null);
-    assert.equal(result.data.media.total, 2);
+    assert.equal(result.data.media.total, 3);
     assert.equal(looped, 1);
     assert.equal(
         r.kiosk.allowed("a"),
@@ -742,16 +751,35 @@ console.log(
         "episode cursor persists"
     );
     assert.equal(r.kiosk.snapshot().media.index, 1);
+    selection = { index: 2, position: 17, records, source };
+    r.advance(6, true);
+    assert.equal(
+        JSON.parse(r.storage.__ottKioskV1).media.index,
+        2,
+        "checkpoint retains the second occurrence of the same episode"
+    );
     const reloaded = rig(r.storage);
     reloaded.source(source);
-    reloaded.w.__ottActiveProviderDriver = { id: "vportal" };
+    reloaded.w.__ottActiveProviderDriver = { id: provider };
     reloaded.w.__ottMedia = r.w.__ottMedia;
     assert.equal(reloaded.kiosk.restoreMedia(), true);
-    assert.equal(restored.at(-1).value.index, 1);
+    assert.equal(restored.at(-1).value.index, 2);
     const guard = restored.at(-1).guard;
     assert.equal(guard(), true);
     reloaded.request({ mode: "off" });
     assert.equal(guard(), false, "unlock invalidates delayed resume");
+    let reloads = 0;
+    r.w.restart = () => reloads++;
+    r.play(false);
+    r.advance(200);
+    assert.equal(
+        reloads,
+        1,
+        "failed VOD recovery escalates to a player reload"
+    );
+    const persisted = JSON.parse(r.storage.__ottKioskV1);
+    assert.equal(persisted.media.index, 2);
+    assert.equal(persisted.media.position, 17);
     r.w.__ottMedia.sourceId = () => "vportal:1@two";
     r.advance(60);
     assert.equal(
@@ -761,6 +789,69 @@ console.log(
     );
     r.request({ mode: "off" });
     assert.equal(r.kiosk.allowedMedia(null), true);
+}
+{
+    const r = rig();
+    let reloads = 0;
+    r.w.restart = () => reloads++;
+    r.w.navigator = { onLine: false };
+    r.request({ mode: "on", query: "1", strict: true });
+    const before = r.played.length;
+    r.advance(100);
+    assert.equal(
+        r.played.length,
+        before,
+        "offline kiosks do not hammer sources"
+    );
+    assert.equal(reloads, 0);
+    r.w.navigator.onLine = true;
+    r.advance(30);
+    assert.equal(reloads, 0, "three soft retries precede reload");
+    r.advance(10);
+    assert.equal(reloads, 1);
+    const persisted = JSON.parse(r.storage.__ottKioskV1);
+    assert.equal(persisted.channel.id, "a");
+    assert.equal(persisted.strict, true);
+    const booted = rig(r.storage);
+    booted.w.restart = () => reloads++;
+    booted.advance(100);
+    assert.equal(reloads, 1, "reload cooldown survives a new runtime");
+    assert(booted.played.length > 3, "soft recovery continues during cooldown");
+    r.request({ mode: "off" });
+    r.advance(100);
+    assert.equal(reloads, 1, "unlocked kiosks never auto-reload");
+}
+for (const failure of ["policy-write", "cooldown-readback", "source-change"]) {
+    const r = rig();
+    let reloads = 0;
+    r.w.restart = () => reloads++;
+    r.request({ mode: "on", query: "1" });
+    const write = r.w.stbSetItem;
+    if (failure === "source-change") r.source("m3u:1@other");
+    else
+        r.w.stbSetItem = (key, value) => {
+            if (failure === "policy-write") throw Error("quota");
+            if (key !== "__ottKioskReloadV1") write(key, value);
+        };
+    r.advance(80);
+    assert.equal(reloads, 0, failure + " prevents an unsafe player reload");
+}
+{
+    const r = rig();
+    let reloads = 0;
+    r.w.restart = () => reloads++;
+    r.request({ mode: "on", query: "1" });
+    r.w.commandChannelsReady = false;
+    r.w.navigator = { onLine: false };
+    r.advance(100);
+    assert.equal(reloads, 0);
+    r.w.navigator.onLine = true;
+    r.advance(40);
+    assert.equal(
+        reloads,
+        1,
+        "a provider that failed during offline startup can reload after reconnect"
+    );
 }
 {
     const r = rig();
@@ -775,6 +866,68 @@ console.log(
         "empty library cannot masquerade as a locked video"
     );
     assert.equal(r.kiosk.enabled(), false);
+}
+{
+    const r = rig();
+    const config = {
+        address: "https://plex.example:32400",
+        token: "saved-token",
+    };
+    r.storage.plexcfg = JSON.stringify(config);
+    r.w.__ottActiveProviderDriver = {
+        credentials: () => ({ password: config.token, server: config.address }),
+        id: "plex",
+    };
+    r.w.commandChannelsReady = false;
+    r.w.providerMediaClient = null;
+    load("src/provider/source-identity.ts", { window: r.w });
+    load("src/media/classic-adapter.ts", { window: r.w });
+    const source = r.w.__ottMedia.sourceId();
+    assert.match(source, /^plex@/);
+    assert.equal(r.w.__ottMedia.current(), null);
+    const policy = JSON.stringify({
+        channel: null,
+        media: {
+            index: 0,
+            position: 12,
+            records: [
+                {
+                    __ottMediaRef: { itemId: "7", sourceId: source },
+                    request: { id: "7" },
+                    title: "Retained film",
+                },
+            ],
+            source,
+        },
+        provider: "plex",
+        source,
+        strict: true,
+    });
+    r.storage.__ottKioskV1 = policy;
+    let reloads = 0,
+        settings = 0;
+    r.w.restart = () => reloads++;
+    r.w.__ottEditProvider = r.w.alert = () => settings++;
+    r.kiosk.init();
+    r.advance(239);
+    assert.equal(
+        reloads,
+        0,
+        "unready media retains all three startup retry intervals"
+    );
+    assert.equal(r.kiosk.snapshot().retries, 3);
+    r.advance(1);
+    assert.equal(
+        reloads,
+        1,
+        "same-source Plex startup failure reloads without a backend"
+    );
+    assert.equal(settings, 0);
+    assert.equal(r.kiosk.strict(), true);
+    assert.equal(r.w.commandChannelsReady, false);
+    assert.equal(r.w.providerMediaClient, null);
+    assert.equal(r.storage.__ottKioskV1, policy);
+    assert.equal(r.storage.plexcfg, JSON.stringify(config));
 }
 console.log(
     "VPortal kiosk persistence, episode admission, startup grace and cancellation passed"
@@ -877,7 +1030,11 @@ console.log(
         node.dispatchEvent(e);
         assert(e.defaultPrevented, type + " consumes its native default");
     }
-    const point = (x, id = 1) => ({ clientX: x, clientY: 100, identifier: id });
+    const point = (x, id = 1) => ({
+        clientX: x,
+        clientY: 100,
+        identifier: id,
+    });
     const touch = (type, touches, changedTouches = touches) =>
         event(type, { changedTouches, touches });
     touch("touchstart", [point(100)]);
@@ -953,3 +1110,862 @@ console.log(
 console.log(
     "Strict kiosk persistence, gesture isolation and read-only input tests passed"
 );
+
+// Full-page recovery must survive the next runtime, unlike a session fallback.
+function quotaKioskStorage(saved) {
+    const document = {};
+    Object.defineProperty(document, "cookie", {
+        get() {
+            throw Error("cookies denied");
+        },
+        set() {
+            throw Error("cookies denied");
+        },
+    });
+    const localStorage = {
+        clear() {
+            throw Error("quota");
+        },
+        getItem: (key) => saved[key] ?? null,
+        key: (index) => Object.keys(saved)[index],
+        get length() {
+            return Object.keys(saved).length;
+        },
+        removeItem() {
+            throw Error("quota");
+        },
+        setItem() {
+            throw Error("quota");
+        },
+    };
+    return load("src/storage/index.ts", {
+        console,
+        document,
+        window: { document, localStorage },
+    });
+}
+{
+    const seed = rig();
+    seed.request({ mode: "on", query: "1", strict: true });
+    const saved = { ...seed.storage };
+    let reloads = 0;
+    for (let boot = 0; boot < 2; boot++) {
+        const storage = quotaKioskStorage(saved);
+        const r = rig();
+        r.w.stbGetItem = storage.stbGetItem;
+        r.w.stbSetItem = storage.stbSetItem;
+        r.w.stbGetPersistedItem = storage.stbGetPersistedItem;
+        r.w.restart = () => reloads++;
+        r.kiosk.init();
+        assert.equal(
+            r.kiosk.strict(),
+            true,
+            "pre-existing policy survives quota failure"
+        );
+        r.advance(80);
+        assert.equal(saved.__ottKioskReloadV1, undefined);
+        assert.equal(
+            reloads,
+            0,
+            "memory-only cooldown cannot authorize a full reload"
+        );
+        assert(
+            r.played.length >= 7,
+            "soft recovery continues with failed backing storage"
+        );
+    }
+}
+for (const failure of ["missing", "unreadable"]) {
+    const r = rig();
+    let reloads = 0;
+    r.w.restart = () => reloads++;
+    r.request({ mode: "on", query: "1", strict: true });
+    if (failure === "missing") delete r.w.stbGetPersistedItem;
+    else
+        r.w.stbGetPersistedItem = () => {
+            throw Error("backing unreadable");
+        };
+    r.advance(80);
+    assert.equal(
+        reloads,
+        0,
+        failure + " durable reader keeps full reload disabled"
+    );
+    assert(
+        r.played.length >= 7,
+        "soft recovery does not depend on durable read support"
+    );
+}
+{
+    const r = rig();
+    let reloads = 0;
+    r.w.restart = () => reloads++;
+    r.request({ mode: "on", query: "1", strict: true });
+    r.storage.__ottKioskReloadV1 = String(Date.now());
+    const read = r.w.stbGetItem;
+    r.w.stbGetItem = (key) => (key === "__ottKioskReloadV1" ? null : read(key));
+    r.advance(80);
+    assert.equal(
+        reloads,
+        0,
+        "persisted cooldown wins over a transient session view"
+    );
+    assert(r.played.length >= 7);
+}
+console.log(
+    "Kiosk full reload requires durable policy/cooldown; memory fallback retains soft recovery"
+);
+
+function decoderRig(fps = 25) {
+    const r = rig();
+    let frozen = null;
+    const video = {
+        buffered: { end: () => 10000, length: 1, start: () => 0 },
+        get currentTime() {
+            return r.w.stbGetPosTime();
+        },
+        ended: false,
+        error: null,
+        getVideoPlaybackQuality: () => ({
+            droppedVideoFrames: 0,
+            totalVideoFrames:
+                frozen === null
+                    ? Math.floor(r.w.stbGetPosTime() * fps)
+                    : frozen,
+        }),
+        paused: false,
+        playbackRate: 1,
+        readyState: 4,
+        seeking: false,
+        videoHeight: 1080,
+        videoWidth: 1920,
+    };
+    r.w.document.getElementById = () => video;
+    r.w.document.visibilityState = "visible";
+    r.w.document.hasFocus = () => true;
+    r.w.getComputedStyle = () => ({
+        display: "block",
+        opacity: "1",
+        visibility: "visible",
+    });
+    r.w.__ottClassicPlayback = { snapshot: () => ({ generation: 1 }) };
+    r.request({ mode: "on", query: "1", strict: true });
+    r.play(true);
+    return {
+        ...r,
+        freeze: () => {
+            frozen = Math.floor(r.w.stbGetPosTime() * fps);
+        },
+        resume: () => {
+            frozen = null;
+        },
+        video,
+    };
+}
+{
+    const r = decoderRig();
+    r.advance(5, true);
+    r.freeze();
+    r.advance(23, true);
+    assert.equal(
+        r.played.length,
+        1,
+        "a short frame gap must not restart playback"
+    );
+    assert.equal(r.kiosk.snapshot().video_progress.state, "stalled");
+    r.advance(2, true);
+    assert.equal(
+        r.played.length,
+        2,
+        "frozen decoded frames recover even while the media clock advances"
+    );
+    assert.equal(r.kiosk.snapshot().strict, true);
+    assert.equal(r.kiosk.snapshot().retries, 1);
+}
+{
+    const r = decoderRig();
+    let reloads = 0;
+    r.w.restart = () => reloads++;
+    r.advance(5, true);
+    r.freeze();
+    r.advance(205, true);
+    assert.equal(
+        reloads,
+        1,
+        "a failed decoder retry must escalate to a bounded player reload"
+    );
+    assert.equal(r.kiosk.snapshot().retries, 3);
+    assert.equal(r.kiosk.snapshot().strict, true);
+    r.advance(300, true);
+    assert.equal(
+        reloads,
+        1,
+        "persistent reload cooldown prevents a decoder reload loop"
+    );
+    assert(
+        r.kiosk.snapshot().retries > 3,
+        "soft retries continue during cooldown"
+    );
+}
+{
+    const r = decoderRig();
+    let reloads = 0;
+    r.w.restart = () => reloads++;
+    r.advance(5, true);
+    for (let i = 0; i < 4; i++) {
+        r.freeze();
+        r.advance(25, true);
+        r.resume();
+        r.advance(3, true);
+    }
+    assert.equal(
+        reloads,
+        1,
+        "brief frame bursts cannot continually erase the recovery budget"
+    );
+}
+for (const fps of [1, 25]) {
+    const r = decoderRig(fps);
+    r.advance(90, true);
+    assert.equal(
+        r.played.length,
+        1,
+        `${fps}fps playback must remain uninterrupted`
+    );
+    assert.equal(r.kiosk.snapshot().video_progress.state, "progressing");
+}
+for (const fps of [1 / 30, 1 / 10]) {
+    const r = decoderRig(fps);
+    r.advance(180, true);
+    assert.equal(
+        r.played.length,
+        1,
+        "sparse slideshow frames must not be called a decoder stall"
+    );
+    assert.equal(r.kiosk.snapshot().video_progress.state, "warming");
+}
+for (const suppress of [
+    (r) => {
+        r.video.paused = true;
+    },
+    (r) => {
+        r.video.seeking = true;
+    },
+    (r) => {
+        r.video.ended = true;
+    },
+    (r) => {
+        r.video.readyState = 2;
+    },
+    (r) => {
+        r.video.playbackRate = 2;
+    },
+    (r) => {
+        r.video.videoWidth = 0;
+    },
+    (r) => {
+        r.video.videoTracks = [];
+    },
+    (r) => {
+        r.video.buffered.end = () => r.video.currentTime + 1;
+    },
+    (r) => {
+        r.w.document.visibilityState = "hidden";
+    },
+    (r) => {
+        r.w.document.hasFocus = () => false;
+    },
+    (r) => {
+        r.w.getComputedStyle = () => ({ display: "none" });
+    },
+    (r) => {
+        r.w.getComputedStyle = () => ({ visibility: "hidden" });
+    },
+    (r) => {
+        r.w.getComputedStyle = () => ({ opacity: "0" });
+    },
+    (r) => {
+        r.video.parentElement = {};
+        r.w.getComputedStyle = (el) => ({
+            opacity: el === r.video ? "1" : "0",
+        });
+    },
+    (r) => {
+        r.video.parentElement = r.video;
+    },
+    (r) => {
+        r.video.getBoundingClientRect = () => ({ height: 0, width: 0 });
+    },
+    (r) => {
+        r.w.innerWidth = 1280;
+        r.video.getBoundingClientRect = () => ({
+            bottom: 800,
+            height: 800,
+            left: 1280,
+            right: 2560,
+            top: 0,
+            width: 1280,
+        });
+    },
+    (r) => {
+        r.video.getVideoPlaybackQuality = undefined;
+    },
+    (r) => {
+        r.video.getVideoPlaybackQuality = () => {
+            throw new Error("unavailable");
+        };
+    },
+    (r) => {
+        r.video.getVideoPlaybackQuality = () => ({
+            droppedVideoFrames: 0,
+            totalVideoFrames: 0,
+        });
+    },
+    (r) => {
+        r.video.getVideoPlaybackQuality = () => ({
+            droppedVideoFrames: 0,
+            totalVideoFrames: NaN,
+        });
+    },
+    (r) => {
+        r.video.getVideoPlaybackQuality = () => ({
+            droppedVideoFrames: 100,
+            totalVideoFrames: 1,
+        });
+    },
+]) {
+    const r = decoderRig();
+    r.advance(5, true);
+    suppress(r);
+    r.freeze();
+    r.advance(60, true);
+    assert.equal(
+        r.played.length,
+        1,
+        "missing, suspended or never-progressing frame evidence cannot force recovery"
+    );
+}
+for (const transition of [
+    (r) => {
+        r.w.__ottClassicPlayback.snapshot = () => ({ generation: 2 });
+    },
+    (r) => {
+        r.w.document.getElementById = () => ({ ...r.video });
+    },
+    (r) => {
+        r.video.getVideoPlaybackQuality = undefined;
+        r.video.webkitDecodedFrameCount = 125;
+        r.video.webkitDroppedFrameCount = 0;
+    },
+    (r) => {
+        r.w.performance.now = () => 600000;
+    },
+]) {
+    const r = decoderRig();
+    r.advance(5, true);
+    r.freeze();
+    r.advance(12, true);
+    transition(r);
+    r.advance(30, true);
+    assert.equal(
+        r.played.length,
+        1,
+        "a new source/counter/clock needs fresh evidence"
+    );
+}
+{
+    const r = decoderRig();
+    const count = r.video.getVideoPlaybackQuality;
+    r.video.getVideoPlaybackQuality = undefined;
+    Object.defineProperty(r.video, "webkitDecodedFrameCount", {
+        get: () => count().totalVideoFrames,
+    });
+    r.video.webkitDroppedFrameCount = 0;
+    r.advance(5, true);
+    assert.equal(r.kiosk.snapshot().video_progress.source, "webkit-decoded");
+    r.freeze();
+    r.advance(25, true);
+    assert.equal(
+        r.played.length,
+        2,
+        "legacy WebKit counters also detect a stall"
+    );
+}
+console.log(
+    "Kiosk decoder progress catches frozen frames with an advancing clock without restarting low-fps or unobservable playback"
+);
+
+function seekRig() {
+    const r = rig();
+    const source = "plex:0@local";
+    const records = [0, 1].map((i) => ({
+        __ottMediaRef: { itemId: "episode:" + i, sourceId: source },
+        request: { id: i },
+        title: "Episode " + i,
+        vportalSource: source,
+    }));
+    const selection = {
+        index: 0,
+        position: 10,
+        queueId: "seek-queue",
+        records,
+        source,
+    };
+    const state = {
+        generation: 1,
+        target: { channelId: "episode:0", kind: "vod", sourceId: source },
+    };
+    const sample = { duration: 120, phase: "playing" };
+    const seeks = [];
+    const handle = {
+        active: () => true,
+        seek: (value) => seeks.push(value),
+        snapshot: () => sample,
+    };
+    const backend = { current: () => handle };
+    r.source(source);
+    r.w.__ottActiveProviderDriver = { id: "plex" };
+    r.w.__ottCoreTransport = { play() {} };
+    r.w.stbPlay = r.w.__ottCoreTransport.play;
+    r.w.__ottCoreBackendPeek = () => backend;
+    r.w.__ottClassicPlayback = { snapshot: () => state };
+    r.w.__ottMedia = {
+        current: () => ({ ref: records[selection.index].__ottMediaRef }),
+        keepKioskLoop() {},
+        kioskSelection: () => selection,
+        sourceId: () => source,
+    };
+    r.request({ mode: "on", strict: true });
+    return { ...r, backend, handle, sample, seeks, selection, state };
+}
+{
+    const r = seekRig();
+    assert.equal(r.kiosk.beginSeek()(0.75), true);
+    assert.equal(r.kiosk.beginSeek()(0.25), true);
+    assert.equal(r.kiosk.beginSeek()(-2), true);
+    assert.equal(r.kiosk.beginSeek()(2), true);
+    assert.deepEqual(r.seeks, [90, 30, 0, 119]);
+    assert.equal(r.kiosk.snapshot().strict, true);
+    assert.equal(r.kiosk.snapshot().media.total, 2);
+    assert.equal(r.selection.index, 0);
+}
+for (const change of [
+    (r) => r.state.generation++,
+    (r) => {
+        r.selection.index = 1;
+        r.state.target.channelId = "episode:1";
+    },
+    (r) => {
+        r.w.__ottMedia.sourceId = () => "plex:1@other";
+    },
+    (r) => {
+        r.backend.current = () => ({ ...r.handle });
+    },
+    (r) => {
+        r.handle.active = () => false;
+    },
+    (r) => {
+        r.w.stbPlay = () => {};
+    },
+    (r) => {
+        r.sample.phase = "loading";
+    },
+    (r) => {
+        r.sample.duration = Infinity;
+    },
+    (r) => {
+        r.request({ mode: "off" });
+    },
+    (r) => {
+        r.request({ mode: "on", strict: false });
+    },
+]) {
+    const r = seekRig();
+    const commit = r.kiosk.beginSeek();
+    assert.equal(typeof commit, "function");
+    change(r);
+    assert.equal(
+        commit(0.5),
+        false,
+        "a changed player or kiosk retires the gesture"
+    );
+    assert.deepEqual(r.seeks, []);
+}
+{
+    const r = seekRig();
+    assert.equal(r.kiosk.beginSeek()(NaN), false);
+    r.state.target.kind = "live";
+    assert.equal(r.kiosk.beginSeek(), null);
+    assert.deepEqual(r.seeks, []);
+}
+for (const frozenSeconds of [20, 25]) {
+    const r = seekRig();
+    const clockPosition = r.w.stbGetPosTime;
+    let offset = 0,
+        frozenFrames = null,
+        reloads = 0;
+    r.sample.duration = 1200;
+    r.w.stbGetPosTime = () => clockPosition() + offset;
+    r.handle.seek = (value) => {
+        r.seeks.push(value);
+        offset = value - clockPosition();
+    };
+    r.w.__ottClassicPlayback.snapshot = () => ({
+        ...r.state,
+        position: r.w.stbGetPosTime(),
+    });
+    r.w.__ottMedia.restoreKiosk = () => true;
+    r.w.restart = () => reloads++;
+    const video = {
+        buffered: { end: () => 10000, length: 1, start: () => 0 },
+        get currentTime() {
+            return r.w.stbGetPosTime();
+        },
+        ended: false,
+        error: null,
+        getVideoPlaybackQuality: () => ({
+            droppedVideoFrames: 0,
+            totalVideoFrames:
+                frozenFrames === null
+                    ? Math.floor(clockPosition() * 25)
+                    : frozenFrames,
+        }),
+        paused: false,
+        playbackRate: 1,
+        readyState: 4,
+        seeking: false,
+        videoHeight: 1080,
+        videoWidth: 1920,
+    };
+    r.w.document.getElementById = () => video;
+    r.w.document.visibilityState = "visible";
+    r.w.document.hasFocus = () => true;
+    r.w.getComputedStyle = () => ({
+        display: "block",
+        opacity: "1",
+        visibility: "visible",
+    });
+    r.play(true);
+    r.advance(5, true);
+    frozenFrames = Math.floor(clockPosition() * 25);
+    r.advance(frozenSeconds, true);
+    const before = r.kiosk.snapshot().retries;
+    assert.equal(before, frozenSeconds === 20 ? 0 : 1);
+    assert.equal(
+        r.kiosk.snapshot().video_progress.state,
+        frozenSeconds === 20 ? "stalled" : "warming"
+    );
+    assert.equal(r.kiosk.beginSeek()(0.5), true);
+    assert.deepEqual(r.seeks, [600]);
+    r.advance(59, true);
+    assert.equal(
+        r.kiosk.snapshot().retries,
+        before,
+        "intentional seek receives its startup grace"
+    );
+    r.advance(1, true);
+    assert.equal(
+        r.kiosk.snapshot().retries,
+        before + 1,
+        "seek must preserve unresolved frame recovery"
+    );
+    r.advance(240, true);
+    assert.equal(
+        reloads,
+        1,
+        "frozen frames still reach bounded reload after seeking"
+    );
+    assert.equal(r.kiosk.snapshot().strict, true);
+    assert.equal(video.getVideoPlaybackQuality().totalVideoFrames, 125);
+}
+console.log(
+    "Kiosk footer seek stays within the captured episode, decoder and policy"
+);
+
+{
+    const dom = new JSDOM(
+        '<body><div id="info1"><div id="progress_div"><div id="progress"></div></div></div><button id="elsewhere"></button></body>'
+    );
+    const w = dom.window;
+    const bar = w.document.getElementById("progress_div");
+    const child = w.document.getElementById("progress");
+    const other = w.document.getElementById("elsewhere");
+    let time = 1000,
+        leaked = 0;
+    const seeks = [];
+    bar.getBoundingClientRect = () => ({
+        bottom: 124,
+        height: 24,
+        left: 40,
+        right: 240,
+        top: 100,
+        width: 200,
+    });
+    Object.defineProperty(w.performance, "now", { value: () => time });
+    w.showChannelInfo = () => {};
+    w.__ottKiosk = {
+        beginSeek: () => (f) => {
+            seeks.push(f);
+            return true;
+        },
+    };
+    strictInput.createStrictKioskInput(w, () => true);
+    for (const type of [
+        "touchstart",
+        "touchmove",
+        "touchend",
+        "click",
+        "pointerdown",
+        "pointerup",
+    ])
+        w.document.addEventListener(type, () => leaked++);
+    function send(node, type, props) {
+        const e = new w.Event(type, { bubbles: true, cancelable: true });
+        Object.assign(e, props);
+        node.dispatchEvent(e);
+        assert(e.defaultPrevented);
+    }
+    const point = (x, y = 110, identifier = 1) => ({
+        clientX: x,
+        clientY: y,
+        identifier,
+    });
+    function touch(node, type, points, changed = points) {
+        send(node, type, { changedTouches: changed, touches: points });
+    }
+    touch(child, "touchstart", [point(90)]);
+    touch(child, "touchmove", [point(200)]);
+    touch(child, "touchend", [], [point(200)]);
+    assert.deepEqual(seeks, [0.8], "one commit on drag release");
+    send(child, "click", { clientX: 200, clientY: 110, detail: 1 });
+    assert.equal(seeks.length, 1, "compatibility click cannot seek twice");
+    time += 1000;
+    touch(child, "touchstart", [point(90)]);
+    touch(child, "touchmove", [point(90, 180)]);
+    touch(child, "touchmove", [point(90)]);
+    touch(child, "touchend", [], [point(90)]);
+    assert.equal(seeks.length, 1, "returning vertical swipe remains cancelled");
+    touch(child, "touchstart", [point(190)]);
+    touch(child, "touchmove", [point(190, 135)]);
+    touch(child, "touchend", [], [point(190, 135)]);
+    assert.equal(seeks.length, 1, "short vertical swipe cannot become a seek");
+    touch(child, "touchstart", [point(90)]);
+    touch(child, "touchstart", [point(90), point(180, 110, 2)]);
+    touch(child, "touchend", [], [point(90)]);
+    assert.equal(seeks.length, 1, "multi-touch cannot seek");
+    touch(other, "touchstart", [point(90)]);
+    touch(child, "touchend", [], [point(90)]);
+    assert.equal(seeks.length, 1, "gesture must begin on the progress bar");
+    time += 1000;
+    send(child, "pointerdown", {
+        button: 0,
+        clientX: 140,
+        clientY: 110,
+        pointerId: 3,
+        pointerType: "mouse",
+    });
+    send(child, "pointerup", {
+        clientX: 90,
+        clientY: 110,
+        pointerId: 3,
+        pointerType: "mouse",
+    });
+    assert.deepEqual(seeks, [0.8, 0.25]);
+    touch(child, "touchstart", [point(90)]);
+    bar.id = "old-progress";
+    touch(child, "touchend", [], [point(90)]);
+    assert.equal(seeks.length, 2, "retired footer cannot commit");
+    assert.equal(
+        leaked,
+        0,
+        "seek exception never dispatches to ordinary controls"
+    );
+    dom.window.close();
+}
+console.log(
+    "Strict footer drag/tap has one seek, no escaped input, and cancels stale or multi-touch gestures"
+);
+
+function screenRig() {
+    const r = seekRig();
+    const calls = [];
+    let subscriber;
+    r.state.position = 37;
+    r.handle.pause = () => {
+        calls.push("pause");
+        r.sample.phase = "paused";
+        if (subscriber) subscriber({ handle: r.handle, type: "pause" });
+    };
+    r.handle.resume = () => {
+        calls.push("resume");
+        r.sample.phase = "playing";
+    };
+    r.backend.subscribe = (fn) => {
+        subscriber = fn;
+        return () => {
+            subscriber = null;
+        };
+    };
+    return { ...r, calls, publish: () => subscriber({ handle: r.handle }) };
+}
+{
+    const r = screenRig();
+    r.kiosk.setScreenAwake(false);
+    r.kiosk.setScreenAwake(false);
+    assert.deepEqual(
+        r.calls,
+        ["pause"],
+        "sleep is idempotent, including reentrant backend events"
+    );
+    assert.equal(JSON.parse(r.storage.__ottKioskV1).media.position, 37);
+    r.advance(900);
+    assert.equal(
+        r.kiosk.snapshot().retries,
+        0,
+        "sleep never trips the watchdog"
+    );
+    assert.equal(r.kiosk.snapshot().screen_suspended, true);
+    assert.equal(r.kiosk.snapshot().health, "waiting");
+    r.sample.phase = "playing";
+    r.events.play();
+    assert.deepEqual(
+        r.calls,
+        ["pause", "pause"],
+        "late HTML autoplay is paused"
+    );
+    r.sample.phase = "loading";
+    r.publish();
+    assert.equal(
+        r.calls.at(-1),
+        "pause",
+        "late native backend start is paused"
+    );
+    r.kiosk.setScreenAwake(true);
+    r.kiosk.setScreenAwake(true);
+    assert.equal(r.calls.filter((c) => c === "resume").length, 1);
+    assert.equal(r.state.position, 37);
+    assert.deepEqual(
+        r.seeks,
+        [],
+        "resume does not seek or replace the episode"
+    );
+    assert.equal(r.kiosk.snapshot().strict, true);
+    assert.equal(r.kiosk.snapshot().media.total, 2);
+    r.advance(9);
+    assert.equal(
+        r.kiosk.snapshot().retries,
+        0,
+        "wake starts a fresh watchdog grace"
+    );
+}
+for (const change of [
+    (r) => r.request({ mode: "off" }),
+    (r) => {
+        r.w.__ottMedia.sourceId = () => "plex:other";
+    },
+    (r) => {
+        r.backend.current = () => ({ ...r.handle });
+    },
+    (r) => {
+        r.handle.active = () => false;
+    },
+    (r) => {
+        r.sample.phase = "stopped";
+    },
+]) {
+    const r = screenRig();
+    r.kiosk.setScreenAwake(false);
+    change(r);
+    r.kiosk.setScreenAwake(true);
+    assert.equal(
+        r.calls.includes("resume"),
+        false,
+        "never resume a retired session"
+    );
+}
+{
+    const r = screenRig();
+    r.sample.phase = "paused";
+    r.kiosk.setScreenAwake(false);
+    r.kiosk.setScreenAwake(true);
+    assert.deepEqual(r.calls, [], "sleep does not own a pre-existing pause");
+    r.request({ mode: "off" });
+    r.sample.phase = "playing";
+    r.kiosk.setScreenAwake(false);
+    r.events.play();
+    r.advance(60);
+    assert.deepEqual(r.calls, [], "non-kiosk background audio is unaffected");
+}
+{
+    const r = rig();
+    r.kiosk.setScreenAwake(false);
+    r.request({ mode: "on", query: "1", strict: true });
+    r.advance(900);
+    assert.deepEqual(
+        r.played,
+        [],
+        "boot/remote selection cannot start while asleep"
+    );
+    r.kiosk.setScreenAwake(true);
+    assert.deepEqual(r.played, ["a"], "deferred kiosk startup runs on wake");
+}
+
+async function testScreenBridge() {
+    const { bindKioskScreen } = load("src/plugins/kiosk-screen.ts", {
+        Promise,
+    });
+    const states = [];
+    let listener, reply;
+    const w = {
+        __ottKiosk: { setScreenAwake: (v) => states.push(v) },
+        Capacitor: {
+            getPlatform: () => "android",
+            Plugins: {
+                MobileNativeMedia: {
+                    addListener: (name, fn) => {
+                        assert.equal(name, "screenStateChanged");
+                        listener = fn;
+                        return Promise.resolve({ remove() {} });
+                    },
+                    getScreenState: () =>
+                        new Promise((resolve) => {
+                            reply = resolve;
+                        }),
+                },
+            },
+        },
+    };
+    bindKioskScreen(w);
+    await Promise.resolve();
+    listener({ awake: false, ok: true, revision: 2 });
+    reply({ awake: true, ok: true, revision: 1 });
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    assert.deepEqual(
+        states,
+        [false, false],
+        "stale initial state cannot undo screen-off"
+    );
+    listener({ awake: true, ok: true, revision: 3 });
+    assert.equal(states.at(-1), true);
+    states.length = 0;
+    w.Capacitor.Plugins.MobileNativeMedia.getScreenState = () =>
+        Promise.reject(Error("old APK"));
+    bindKioskScreen(w);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    assert.deepEqual(
+        states,
+        [false, true],
+        "old APKs retain existing playback behavior"
+    );
+    states.length = 0;
+    w.Capacitor.getPlatform = () => "ios";
+    bindKioskScreen(w);
+    assert.deepEqual(states, [], "Android power bridge does not change iOS");
+    console.log(
+        "Android kiosk sleep pauses, suppresses recovery, checkpoints and safely resumes the active queue"
+    );
+}
+testScreenBridge().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

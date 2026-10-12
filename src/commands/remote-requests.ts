@@ -7,6 +7,7 @@ import {
 } from "../provider";
 import { caselessKey } from "../utils/caseless";
 import { handleCommand } from "./index";
+import { executeRemoteAppUpdate } from "./remote-app-update";
 import { handleRemoteArchive } from "./remote-archive";
 import { remotePlexQueue } from "./remote-plex";
 import { handleRemoteProfiles } from "./remote-profiles";
@@ -48,7 +49,7 @@ export function executeRemoteRequest(
     var params = request.params || {};
     if (request.action === "inspect" && w.__ottRemoteInspect)
         return w.__ottRemoteInspect.request(request, done);
-    if (request.action === "plex_queue")
+    if (request.action === "plex_queue" || request.action === "plex_library")
         return remotePlexQueue(w, remotePlayerInfo(w).runtime).execute(
             request,
             done
@@ -57,6 +58,7 @@ export function executeRemoteRequest(
         w.__ottKiosk &&
         w.__ottKiosk.enabled() &&
         [
+            "app_update",
             "status",
             "screenshot",
             "channels",
@@ -70,6 +72,7 @@ export function executeRemoteRequest(
             "lifecycle",
             "input",
             "playback",
+            "aspect",
         ].indexOf(request.action) < 0
     ) {
         done({
@@ -154,6 +157,9 @@ export function executeRemoteRequest(
         handleRemoteProfiles(request, done);
         return;
     }
+    if (request.action === "app_update") {
+        return executeRemoteAppUpdate(w, params, done, afterReply);
+    }
     if (request.action === "screenshot") {
         return executeRemoteScreenshot(w, params, done);
     }
@@ -162,7 +168,7 @@ export function executeRemoteRequest(
         return;
     }
     if (
-        ["capabilities", "lifecycle", "input", "playback"].indexOf(
+        ["capabilities", "lifecycle", "input", "playback", "aspect"].indexOf(
             request.action
         ) >= 0
     ) {

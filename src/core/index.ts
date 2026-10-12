@@ -16,7 +16,8 @@ declare function showSelectBox(
 ): void;
 declare function showShift(msg: string): void;
 declare function _(key: string, ...args: any[]): string;
-declare function saveChannelPreference(key: string, val: number): void;
+declare function saveChannelPreference(key: string, val: number): boolean;
+declare function captureChannelPreference(key: string): any;
 declare function applyChannelPreference(
     key: string,
     callback: (val: number) => void
@@ -359,6 +360,7 @@ var isFullscreen = true;
  * aAspects overrides when set.
  */
 var aspectRatio = 0;
+var aspectGeneration = 0;
 /**
  * Digital zoom index for HTML5: 0 = 100%, 1 = 125%, 2 = 150%, 3 = 175%.
  * Persisted per-channel in aZooms. Legacy only toggled body.stb-zoom with no CSS.
@@ -838,6 +840,18 @@ export function stbEventToKeyCode(event: any): number {
     var code = event.code || "";
     var digit = /^[0-9]$/.test(key) ? Number(key) : -1;
     var deviceKeys = (window as any).keys || {};
+    // Firefox uses 61/173 for these keyboard keys. Require keyboard identity:
+    // bare 173 is also a remote-control mute code on some platforms.
+    if (
+        (!keyCode || keyCode === 61 || keyCode === 187) &&
+        (code === "Equal" || key === "=" || key === "+")
+    )
+        keyCode = deviceKeys.CH_UP || 187;
+    else if (
+        (!keyCode || keyCode === 173 || keyCode === 189) &&
+        (code === "Minus" || key === "-" || key === "_")
+    )
+        keyCode = deviceKeys.CH_DOWN || 189;
     // NumLock/Shift can report a navigation legacy code with a numeric DOM key.
     if (digit >= 0 && (/^Numpad[0-9]$/.test(code) || event.location === 3))
         keyCode = deviceKeys["N" + digit] || 48 + digit;
@@ -1723,9 +1737,62 @@ export function stbInfo(): void {
  * Side effects: Calls applyAspectRatio which mutates video CSS object-fit.
  */
 export function setAspect(v: number): void {
-    aspectRatio = v;
+    aspectRatio = v === 1 ? 1 : 0;
+    aspectGeneration++;
     applyAspectRatio();
     applyZoom();
+}
+
+/** Observe the current main-video aspect and capture a fenced durable setter. */
+export function captureAspectTarget(): any {
+    var media = video;
+    var backend = coreMediaBackend;
+    var owner = backend && backend.current();
+    var transport = (window as any).__ottCoreTransport;
+    var play = transport && transport.play;
+    var preference =
+        typeof captureChannelPreference === "function"
+            ? captureChannelPreference("aAspects")
+            : null;
+    var generation = aspectGeneration;
+    function active(): boolean {
+        var element = document.getElementById("video");
+        return !!(
+            preference &&
+            preference.active() &&
+            media &&
+            media === video &&
+            element &&
+            (element === media || element.contains(media)) &&
+            transport &&
+            transport === (window as any).__ottCoreTransport &&
+            transport.play === play &&
+            play === window.stbPlay &&
+            backend === coreMediaBackend &&
+            owner &&
+            owner.active() &&
+            backend.current() === owner &&
+            generation === aspectGeneration
+        );
+    }
+    if (!active()) return null;
+    var initial = preference.get();
+    var saved = preference.saved();
+    function current(): boolean {
+        return active() && preference.get() === initial;
+    }
+    return {
+        current: current,
+        mode: aspectRatio === 1 ? "fill" : "fit",
+        savedMode: saved === 1 ? "fill" : saved === 0 ? "fit" : null,
+        set: function (mode: string): boolean {
+            if ((mode !== "fit" && mode !== "fill") || !current()) return false;
+            var value = mode === "fill" ? 1 : 0;
+            if (!preference.set(value) || !active()) return false;
+            setAspect(value);
+            return true;
+        },
+    };
 }
 
 /**
@@ -2681,6 +2748,10 @@ function openCoreEngineLease(
     cssOnly = false
 ): MediaEngineLease {
     var pip = request.lane === "pip";
+    if (!pip && typeof applyChannelPreference === "function") {
+        applyChannelPreference("aAspects", setAspect);
+        applyChannelPreference("aZooms", setZoom);
+    }
     if (pip && coreDeviceEffects.pip && !cssOnly) {
         stopCorePipEngine();
         return coreDeviceEffects.pip.open(

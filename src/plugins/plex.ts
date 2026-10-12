@@ -326,6 +326,11 @@ function createPlexClient(
         });
         return rows;
     }
+    function hasPlayablePart(item: any): boolean {
+        var media = plexRows(item && item.Media)[0];
+        var part = media && plexRows(media.Part)[0];
+        return !!(part && plexPath(part.key));
+    }
     function itemTitle(item: any): string {
         function text(value: any): string {
             return typeof value === "string" || typeof value === "number"
@@ -651,13 +656,23 @@ function createPlexClient(
             records: any[];
             error?: string;
         }) => void,
-        guard?: () => boolean
+        guard?: () => boolean,
+        limits?: {
+            kind: string;
+            limit: number;
+            deadline: number;
+            type?: string;
+        }
     ): () => void {
         if (cancelCollection) cancelCollection();
         var ended = false;
         var pendingPage: any = null;
         var timer: any = null;
         var started = Date.now();
+        var deadline = Math.min(
+            started + 120000,
+            limits ? limits.deadline : started + 120000
+        );
         var offset = 0;
         var pages = 0;
         var total: number | null = null;
@@ -692,11 +707,16 @@ function createPlexClient(
             if (!valid) cancelOwned();
             return valid;
         }
-        function finish(error = false): void {
+        function finish(error: boolean | string = false): void {
             if (!active()) return;
             var result = error
                 ? {
-                      error: translate("Unable to load playlist"),
+                      error:
+                          typeof error === "string"
+                              ? error
+                              : limits
+                                ? "incomplete_library"
+                                : translate("Unable to load playlist"),
                       items: [],
                       records: [],
                   }
@@ -716,7 +736,7 @@ function createPlexClient(
         }
         function accept(data: any): void {
             if (!active()) return;
-            if (Date.now() - started >= 120000) {
+            if (Date.now() >= deadline) {
                 finish(true);
                 return;
             }
@@ -724,12 +744,65 @@ function createPlexClient(
             var page: any[];
             try {
                 rows = items(data);
-                page = records(
-                    data,
-                    path,
-                    { "X-Plex-Container-Start": offset },
-                    false
-                );
+                if (limits && limits.kind === "libraries") {
+                    page = rows.map(function (row) {
+                        var id = row && String(row.key);
+                        if (
+                            !id ||
+                            !/^[1-9][0-9]{0,19}$/.test(id) ||
+                            /\s/.test(id) ||
+                            typeof row.title !== "string" ||
+                            !row.title.trim() ||
+                            typeof row.type !== "string"
+                        )
+                            throw new Error();
+                        var name = row.title
+                            .replace(/[\u0000-\u001f\u007f]/g, " ")
+                            .replace(/\s+/g, " ")
+                            .trim();
+                        if (!name) throw new Error();
+                        // Reject malformed Unicode before truncating public labels.
+                        encodeURIComponent(name);
+                        return { id: id, title: name, type: row.type };
+                    });
+                } else {
+                    if (
+                        limits &&
+                        rows.some(function (row) {
+                            return (
+                                !row ||
+                                row.type !==
+                                    (limits.type === "show"
+                                        ? "episode"
+                                        : "movie") ||
+                                !/^[1-9][0-9]{0,19}$/.test(
+                                    String(row.ratingKey)
+                                ) ||
+                                /\s/.test(String(row.ratingKey))
+                            );
+                        })
+                    )
+                        throw new Error();
+                    if (
+                        limits &&
+                        rows.some(function (row) {
+                            return !hasPlayablePart(row);
+                        })
+                    ) {
+                        finish(
+                            "One or more Plex items are unavailable or not playable."
+                        );
+                        return;
+                    }
+                    page = records(
+                        data,
+                        path,
+                        { "X-Plex-Container-Start": offset },
+                        false
+                    );
+                    if (limits && page.length !== rows.length)
+                        throw new Error();
+                }
             } catch (_) {
                 finish(true);
                 return;
@@ -755,6 +828,18 @@ function createPlexClient(
                 finish(true);
                 return;
             }
+            if (
+                limits &&
+                ((reported !== null && reported > limits.limit) ||
+                    offset + count > limits.limit)
+            ) {
+                finish(
+                    limits.kind === "libraries"
+                        ? "too_many_libraries"
+                        : "too_many_items"
+                );
+                return;
+            }
             if (reported !== null) total = reported;
             var signature = JSON.stringify(
                 rows.map(function (row) {
@@ -766,22 +851,32 @@ function createPlexClient(
                 return;
             }
             if (count) seenPages[signature] = true;
+            var duplicate = false;
             page.forEach(function (record) {
+                var library = limits && limits.kind === "libraries";
                 var playable =
-                    record.request && record.stream_url && !record.playlist_url;
-                var id = playable
-                    ? "item:" + record.request.path
-                    : record.playlist_url && record.playlist_url.path
-                      ? "folder:" + record.playlist_url.path
-                      : "";
+                    library ||
+                    (record.request &&
+                        record.stream_url &&
+                        !record.playlist_url);
+                var id = library
+                    ? "library:" + record.id
+                    : playable
+                      ? "item:" + record.request.path
+                      : record.playlist_url && record.playlist_url.path
+                        ? "folder:" + record.playlist_url.path
+                        : "";
                 if (!id) return;
-                if (seen[id]) return;
+                if (seen[id]) {
+                    duplicate = true;
+                    return;
+                }
                 seen[id] = true;
                 characters += JSON.stringify(record).length;
                 catalog.push(record);
                 if (playable) collected.push(record);
             });
-            if (characters > 8 * 1024 * 1024) {
+            if ((limits && duplicate) || characters > 8 * 1024 * 1024) {
                 finish(true);
                 return;
             }
@@ -804,7 +899,7 @@ function createPlexClient(
         }
         function next(): void {
             if (!active()) return;
-            if (Date.now() - started >= 120000) {
+            if (Date.now() >= deadline) {
                 finish(true);
                 return;
             }
@@ -844,7 +939,7 @@ function createPlexClient(
                     },
                     timeout: Math.min(
                         30000,
-                        Math.max(1, 120000 - (Date.now() - started))
+                        Math.max(1, deadline - Date.now())
                     ),
                     type: "GET",
                     url: url(path, params),
@@ -1196,6 +1291,30 @@ function createPlexClient(
         },
         cancel: cancel,
         collect: collect,
+        collectLibrary: function (
+            library: any,
+            done: (result: any) => void,
+            guard: () => boolean,
+            deadline: number
+        ) {
+            return collect(
+                target(
+                    "/library/sections/" +
+                        library.id +
+                        "/all?type=" +
+                        (library.type === "show" ? "4" : "1"),
+                    library.title
+                ),
+                done,
+                guard,
+                {
+                    deadline: deadline,
+                    kind: "items",
+                    limit: 500,
+                    type: library.type,
+                }
+            );
+        },
         connect: function (done: (error?: string) => void) {
             cancel();
             var token = revision;
@@ -1242,6 +1361,17 @@ function createPlexClient(
             sections = null;
             search = null;
         },
+        libraries: function (
+            done: (result: any) => void,
+            guard: () => boolean,
+            deadline: number
+        ) {
+            return collect(null, done, guard, {
+                deadline: deadline,
+                kind: "libraries",
+                limit: 1000,
+            });
+        },
         load: load,
         page: page,
         persist: persist,
@@ -1263,9 +1393,7 @@ function createPlexClient(
                     var playable: { [id: string]: boolean } =
                         Object.create(null);
                     items(data).forEach(function (item: any) {
-                        var media = plexRows(item && item.Media)[0];
-                        var part = media && plexRows(media.Part)[0];
-                        if (part && plexPath(part.key))
+                        if (hasPlayablePart(item))
                             playable[String(item.ratingKey)] = true;
                     });
                     records(data, "", {}, false).forEach(function (row: any) {

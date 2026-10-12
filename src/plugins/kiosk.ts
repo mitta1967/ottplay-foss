@@ -1,4 +1,5 @@
 import { caselessKey } from "../utils/caseless";
+import { createKioskVideoProgress } from "./kiosk-video-progress";
 import { createStrictKioskInput } from "./strict-kiosk-input";
 
 /** Device-local policy. Only the authenticated command-server dispatcher mutates it. */
@@ -9,10 +10,21 @@ export function createKiosk(w: any): any {
     var lastProgress = 0;
     var lastPosition: number | null = null;
     var retries = 0;
+    var recoveryAttempts = 0;
     var health = "idle";
     var lastSaved = 0;
     var lastMediaId = "";
     var mediaStarting = false;
+    var screenAwake = true;
+    var sleepingHandle: any = null;
+    var sleepingPolicy: any = null;
+    var deferredPolicy: any = null;
+    var sleepBackend: any = null;
+    var sleepUnsubscribe: any = null;
+    var applyingScreenPause = false;
+    var frameRecovery = false;
+    var frameHealthySince: number | null = null;
+    var videoProgress = createKioskVideoProgress(w);
     var strictInput = createStrictKioskInput(w, strict);
     function now(): number {
         return w.performance && typeof w.performance.now === "function"
@@ -35,6 +47,10 @@ export function createKiosk(w: any): any {
         return locked() && policy.strict === true;
     }
     function reset(): void {
+        videoProgress.reset();
+        frameRecovery = false;
+        frameHealthySince = null;
+        recoveryAttempts = 0;
         lastPosition = null;
         lastProgress = now();
         lastSaved = lastProgress;
@@ -55,6 +71,79 @@ export function createKiosk(w: any): any {
         reset();
         if (typeof w.setSleepTimeout === "function") w.setSleepTimeout();
         return true;
+    }
+    function currentSource(): boolean {
+        return (
+            !!policy &&
+            provider() === policy.provider &&
+            (policy.media
+                ? !!w.__ottMedia && w.__ottMedia.sourceId() === policy.source
+                : source() === policy.source)
+        );
+    }
+    function pauseForScreen(): void {
+        if (screenAwake || !locked() || applyingScreenPause) return;
+        applyingScreenPause = true;
+        try {
+            var backend = w.__ottCoreBackendPeek && w.__ottCoreBackendPeek();
+            if (backend !== sleepBackend) {
+                if (sleepUnsubscribe) sleepUnsubscribe();
+                sleepBackend = backend;
+                sleepUnsubscribe =
+                    backend && backend.subscribe
+                        ? backend.subscribe(pauseForScreen)
+                        : null;
+            }
+            var handle = backend && backend.current();
+            if (
+                handle &&
+                handle.active() &&
+                ["playing", "loading"].indexOf(handle.snapshot().phase) >= 0
+            ) {
+                sleepingHandle = handle;
+                sleepingPolicy = policy;
+                handle.pause();
+            }
+            health = "waiting";
+        } finally {
+            applyingScreenPause = false;
+        }
+    }
+    function setScreenAwake(awake: boolean): void {
+        if (screenAwake === awake) return;
+        screenAwake = awake;
+        if (!awake) {
+            var currentBackend =
+                w.__ottCoreBackendPeek && w.__ottCoreBackendPeek();
+            var currentHandle = currentBackend && currentBackend.current();
+            deferredPolicy =
+                !currentHandle || currentHandle.snapshot().phase === "stopped"
+                    ? policy
+                    : null;
+            // Checkpoint the current episode before pausing, even between polls.
+            lastSaved = -Infinity;
+            tick();
+            return;
+        }
+        var handle = sleepingHandle;
+        var selected = sleepingPolicy;
+        var deferred = deferredPolicy;
+        sleepingHandle = sleepingPolicy = deferredPolicy = null;
+        reset();
+        if (!locked() || !currentSource()) return;
+        var backend = w.__ottCoreBackendPeek && w.__ottCoreBackendPeek();
+        if (policy === deferred) {
+            play();
+        } else if (
+            handle &&
+            policy === selected &&
+            backend &&
+            backend.current() === handle &&
+            handle.active() &&
+            handle.snapshot().phase === "paused"
+        ) {
+            handle.resume();
+        }
     }
     function snapshot(): any {
         return {
@@ -77,8 +166,10 @@ export function createKiosk(w: any): any {
             provider: policy ? policy.provider : null,
             retries: retries,
             retry_seconds: 10,
+            screen_suspended: locked() && !screenAwake,
             state: locked() ? "locked" : policy ? "waiting" : "off",
             strict: !!(policy && policy.strict),
+            video_progress: videoProgress.snapshot(),
         };
     }
     function allowed(id: any): boolean {
@@ -94,6 +185,9 @@ export function createKiosk(w: any): any {
             return (
                 !!value &&
                 typeof value.source === "string" &&
+                (value.queueId === undefined ||
+                    (typeof value.queueId === "string" &&
+                        value.queueId.length <= 100)) &&
                 Array.isArray(value.records) &&
                 value.records.length > 0 &&
                 value.records.length <= 1000 &&
@@ -179,6 +273,13 @@ export function createKiosk(w: any): any {
     }
     function play(): void {
         if (!locked() || w.commandChannelsReady !== true) return;
+        if (!screenAwake) {
+            deferredPolicy = policy;
+            pauseForScreen();
+            return;
+        }
+        videoProgress.reset();
+        frameHealthySince = null;
         if (policy.media) {
             var selected = policy;
             if (!w.__ottMedia || w.__ottMedia.sourceId() !== selected.source) {
@@ -190,6 +291,7 @@ export function createKiosk(w: any): any {
             if (
                 !w.__ottMedia.restoreKiosk(selected.media, function () {
                     return (
+                        screenAwake &&
                         policy === selected &&
                         w.__ottMedia.sourceId() === selected.source
                     );
@@ -210,6 +312,35 @@ export function createKiosk(w: any): any {
         // Resolve the channel again, including expiring provider URLs. Never reuse
         // an old stream URL, list position, or a different provider's identical ID.
         w.playChannel(indices[0], indices[1]);
+    }
+    function restartPlayer(): boolean {
+        try {
+            if (
+                typeof w.restart !== "function" ||
+                typeof w.stbGetPersistedItem !== "function" ||
+                provider() !== policy.provider ||
+                (policy.media
+                    ? !w.__ottMedia || w.__ottMedia.sourceId() !== policy.source
+                    : source() !== policy.source)
+            )
+                return false;
+            // Reserve a durable cooldown before reloading so a broken source cannot
+            // create a boot loop. Keep soft stream recovery available throughout.
+            var reloadKey = "__ottKioskReloadV1";
+            var time = Date.now();
+            var previous = Number(w.stbGetPersistedItem(reloadKey) || 0);
+            if (previous > 0 && time - previous < 600000) return false;
+            var stored = JSON.stringify(policy);
+            w.stbSetItem(key, stored);
+            if (w.stbGetPersistedItem(key) !== stored) return false;
+            w.stbSetItem(reloadKey, String(time));
+            if (w.stbGetPersistedItem(reloadKey) !== String(time)) return false;
+            w.restart();
+            recoveryAttempts = 0;
+            return true;
+        } catch (_) {
+            return false;
+        }
     }
     function tick(): void {
         if (!locked()) return;
@@ -241,15 +372,29 @@ export function createKiosk(w: any): any {
                             lastPosition = null;
                         }
                         if (lastMediaId !== selectedRef.itemId) {
+                            frameRecovery = false;
+                            frameHealthySince = null;
                             lastMediaId = selectedRef.itemId;
                             lastPosition = null;
                             lastProgress = time;
                             mediaStarting = true;
                         }
+                        var sequence = selection.sequence;
+                        var cursor = sequence && sequence.index;
+                        var exactCursor =
+                            sequence &&
+                            sequence.queueId === policy.media.queueId &&
+                            typeof cursor === "number" &&
+                            Math.floor(cursor) === cursor &&
+                            cursor >= 0 &&
+                            cursor < policy.media.records.length &&
+                            policy.media.records[cursor].__ottMediaRef
+                                .itemId === selectedRef.itemId;
                         for (var i = 0; i < policy.media.records.length; i++) {
                             if (
                                 policy.media.records[i].__ottMediaRef.itemId ===
-                                selectedRef.itemId
+                                    selectedRef.itemId &&
+                                (!exactCursor || i === cursor)
                             ) {
                                 policy.media.index = i;
                                 policy.media.position =
@@ -280,7 +425,28 @@ export function createKiosk(w: any): any {
                 health = "error";
             }
         }
+        if (!screenAwake) {
+            pauseForScreen();
+            return;
+        }
         try {
+            var frames = videoProgress.sample(
+                time,
+                w.__ottClassicPlayback && w.__ottClassicPlayback.snapshot()
+            );
+            if (frames.state === "stalled") frameRecovery = true;
+            if (frameRecovery) {
+                if (
+                    frames.state === "progressing" &&
+                    frames.frame_age_ms <= 2000
+                ) {
+                    if (frameHealthySince === null) frameHealthySince = time;
+                    if (time - frameHealthySince >= 10000) {
+                        frameRecovery = false;
+                        frameHealthySince = null;
+                    }
+                } else frameHealthySince = null;
+            }
             var id = (w.curList || [])[w.primaryIndex];
             var position = w.stbGetPosTime();
             var valid =
@@ -290,6 +456,8 @@ export function createKiosk(w: any): any {
             if (
                 (policy.media ? mediaAdmitted : allowed(id)) &&
                 w.stbIsPlaying() &&
+                frames.state !== "stalled" &&
+                !(frameRecovery && frames.state === "warming") &&
                 valid &&
                 lastPosition !== null &&
                 position > lastPosition
@@ -297,17 +465,29 @@ export function createKiosk(w: any): any {
                 lastProgress = time;
                 health = "playing";
                 mediaStarting = false;
+                if (!frameRecovery && frames.state !== "warming")
+                    recoveryAttempts = 0;
             }
             lastPosition = valid ? position : null;
         } catch (_) {
             lastPosition = null;
             health = "error";
         }
-        if (time - lastProgress < (mediaStarting ? 60000 : 10000)) return;
+        if (
+            time - lastProgress <
+            (mediaStarting ||
+            (frameRecovery && frames && frames.state === "warming")
+                ? 60000
+                : 10000)
+        )
+            return;
         lastProgress = time;
         lastPosition = null;
         health = "retrying";
+        if (w.navigator && w.navigator.onLine === false) return;
+        if (recoveryAttempts >= 3 && restartPlayer()) return;
         retries++;
+        recoveryAttempts++;
         try {
             play();
         } catch (_) {
@@ -381,10 +561,10 @@ export function createKiosk(w: any): any {
                 done({ data: snapshot(), status: "ok" });
                 return;
             }
-            if (provider() === "vportal") {
+            if (provider() === "vportal" || provider() === "plex") {
                 if (params.query !== undefined) {
                     fail(
-                        "Start the required VPortal playback, then use kiosk on without a channel query."
+                        "Start the required media playback, then use kiosk on without a channel query."
                     );
                     return;
                 }
@@ -402,7 +582,7 @@ export function createKiosk(w: any): any {
                     !validMedia(selection) ||
                     selection.source !== w.__ottMedia.sourceId()
                 ) {
-                    fail("Start VPortal playback before enabling kiosk mode.");
+                    fail("Start media playback before enabling kiosk mode.");
                     return;
                 }
                 if (
@@ -414,7 +594,7 @@ export function createKiosk(w: any): any {
                     })
                 ) {
                     fail(
-                        "Unlock parental access before locking this VPortal queue."
+                        "Unlock parental access before locking this media queue."
                     );
                     return;
                 }
@@ -422,7 +602,7 @@ export function createKiosk(w: any): any {
                     !save({
                         channel: null,
                         media: selection,
-                        provider: "vportal",
+                        provider: provider(),
                         source: selection.source,
                         strict:
                             params.strict !== undefined
@@ -534,7 +714,8 @@ export function createKiosk(w: any): any {
                 (saved.strict === undefined ||
                     typeof saved.strict === "boolean") &&
                 (saved.media
-                    ? saved.provider === "vportal" &&
+                    ? (saved.provider === "vportal" ||
+                          saved.provider === "plex") &&
                       saved.channel === null &&
                       validMedia(saved.media) &&
                       saved.media.source === saved.source
@@ -571,6 +752,95 @@ export function createKiosk(w: any): any {
             return true;
         } catch (_) {
             return false;
+        }
+    }
+    // A local footer gesture may seek only the episode/decoder it started on.
+    function beginSeek(): any {
+        try {
+            var selected = policy;
+            var playback = w.__ottClassicPlayback;
+            var media = w.__ottMedia;
+            var backend = w.__ottCoreBackendPeek && w.__ottCoreBackendPeek();
+            var handle = backend && backend.current();
+            if (
+                !strict() ||
+                !selected.media ||
+                !playback ||
+                !media ||
+                !handle ||
+                typeof handle.seek !== "function" ||
+                typeof handle.active !== "function"
+            )
+                return null;
+            var initial = playback.snapshot();
+            var generation = initial.generation;
+            var itemId = initial.target && initial.target.channelId;
+            var duration = handle.snapshot().duration;
+            if (
+                typeof duration !== "number" ||
+                !isFinite(duration) ||
+                duration <= 1
+            )
+                return null;
+            var current = function (): boolean {
+                var state = playback.snapshot();
+                var item = media.current();
+                var phase = handle.snapshot().phase;
+                return (
+                    strict() &&
+                    policy === selected &&
+                    provider() === selected.provider &&
+                    w.__ottClassicPlayback === playback &&
+                    w.__ottMedia === media &&
+                    w.__ottCoreTransport &&
+                    w.stbPlay === w.__ottCoreTransport.play &&
+                    w.__ottCoreBackendPeek() === backend &&
+                    backend.current() === handle &&
+                    handle.active() &&
+                    (phase === "playing" || phase === "paused") &&
+                    media.sourceId() === selected.source &&
+                    item &&
+                    !item.ended &&
+                    state.generation === generation &&
+                    state.target &&
+                    initial.target &&
+                    state.target.kind === "vod" &&
+                    state.target.sourceId === selected.source &&
+                    state.target.channelId === itemId &&
+                    item.ref.sourceId === selected.source &&
+                    item.ref.itemId === state.target.channelId &&
+                    allowedMedia(item.ref) &&
+                    handle.snapshot().duration === duration
+                );
+            };
+            if (!current()) return null;
+            return function (fraction: number): boolean {
+                try {
+                    if (
+                        typeof fraction !== "number" ||
+                        !isFinite(fraction) ||
+                        !current()
+                    )
+                        return false;
+                    var position = Math.min(
+                        duration - 1,
+                        Math.max(0, fraction * duration)
+                    );
+                    handle.seek(position);
+                    // Do not let an intentional seek look like a playback stall.
+                    videoProgress.reset();
+                    frameHealthySince = null;
+                    lastPosition = null;
+                    lastProgress = now();
+                    mediaStarting = true;
+                    selected.media.position = position;
+                    return true;
+                } catch (_) {
+                    return false;
+                }
+            };
+        } catch (_) {
+            return null;
         }
     }
     function diagnosticsStopTarget(event: any): boolean {
@@ -613,6 +883,9 @@ export function createKiosk(w: any): any {
         stopDiagnostics();
     }
     if (w.document && w.document.addEventListener) {
+        // Catch delayed autoplay/decoder recovery while the screen is still off.
+        w.document.addEventListener("play", pauseForScreen, true);
+        w.document.addEventListener("playing", pauseForScreen, true);
         w.document.addEventListener("keydown", stopDiagnosticsKey, true);
         [
             "click",
@@ -632,6 +905,7 @@ export function createKiosk(w: any): any {
         admit: admit,
         allowed: allowed,
         allowedMedia: allowedMedia,
+        beginSeek: beginSeek,
         enabled: enabled,
         init: init,
         locked: locked,
@@ -642,6 +916,7 @@ export function createKiosk(w: any): any {
             play();
             return true;
         },
+        setScreenAwake: setScreenAwake,
         snapshot: snapshot,
         stopDiagnostics: stopDiagnostics,
         strict: strict,

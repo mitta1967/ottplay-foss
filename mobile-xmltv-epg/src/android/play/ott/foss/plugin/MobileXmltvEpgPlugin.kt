@@ -14,6 +14,8 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
+import java.io.FilterInputStream
 import java.util.concurrent.TimeUnit
 import play.ott.core.NativeGuideSources
 import play.ott.core.NativeSourceFormat
@@ -46,10 +48,18 @@ class MobileXmltvEpgPlugin : Plugin() {
     }
 
     private val cacheLock = Any()
+    private val parseLock = Any()
 
     private val sourceLock = Any()
     private val parsedCache = mutableMapOf<String, Pair<Long, Parsed>>()
     private val pendingSources = mutableMapOf<String, MutableList<(Result<Parsed>) -> Unit>>()
+    private var cacheGeneration = 0L
+
+    private var inputByteLimit = 64 * 1024 * 1024
+    private var expandedByteLimit = 512 * 1024 * 1024
+    private var metadataByteLimit = 8 * 1024
+    private var retainedByteLimit = 4 * 1024 * 1024
+    private var parsedCacheByteLimit = 16 * 1024 * 1024
 
     private fun sourceUrls(call: PluginCall): List<String> {
         val supplied = call.getArray("xmltv_urls")
@@ -58,28 +68,52 @@ class MobileXmltvEpgPlugin : Plugin() {
             call.getString("xmltv_url") ?: "", BuildConfig.BUNDLED_EPG_DEFAULTS, NativeSourceFormat.ANDROID)
     }
 
-    private fun loadSource(source: String, force: Boolean = false, completion: (Result<Parsed>) -> Unit) {
+    private fun loadSource(source: String, force: Boolean = false, channel: String? = null, completion: (Result<Parsed>) -> Unit) {
         if (!source.startsWith("http://") && !source.startsWith("https://")) {
             completion(Result.failure(IOException("invalid XMLTV URL"))); return
         }
+        val key = if (channel == null) source else "$source\u0000$channel"
+        var generation = 0L
         synchronized(sourceLock) {
-            val cached = parsedCache[source]
-            when (NativeGuideSources.lookupAndroid(System.currentTimeMillis() / 1000, cached?.first, force, pendingSources.containsKey(source))) {
+            val cached = parsedCache[key]
+            when (NativeGuideSources.lookupAndroid(System.currentTimeMillis() / 1000, cached?.first, force, pendingSources.containsKey(key))) {
                 NativeCacheLookup.CACHE -> { completion(Result.success(cached!!.second)); return }
-                NativeCacheLookup.JOIN -> { pendingSources[source]!!.add(completion); return }
+                NativeCacheLookup.JOIN -> {
+                    if (pendingSources[key]!!.size >= 64) completion(Result.failure(IOException("XMLTV request limit exceeded")))
+                    else pendingSources[key]!!.add(completion)
+                    return
+                }
                 NativeCacheLookup.LOAD -> Unit
             }
-            pendingSources[source] = mutableListOf(completion)
+            if (pendingSources.size >= 16) {
+                completion(Result.failure(IOException("XMLTV request limit exceeded"))); return
+            }
+            pendingSources[key] = mutableListOf(completion)
+            generation = cacheGeneration
         }
-        fun finish(result: Result<Parsed>) {
+        var networkFile: File? = null
+        fun finish(result: Result<Parsed>, replacedSource: Boolean = false) {
+            networkFile?.delete()
+            networkFile = null
             val callbacks = synchronized(sourceLock) {
-                result.getOrNull()?.let { parsedCache[source] = Pair(System.currentTimeMillis() / 1000, it) }
-                pendingSources.remove(source) ?: emptyList()
+                result.getOrNull()?.let {
+                    if (channel == null && replacedSource) {
+                        cacheGeneration++
+                        parsedCache.keys.removeAll { cachedKey -> cachedKey.startsWith("$source\u0000") }
+                    }
+                    if (channel == null || generation == cacheGeneration) {
+                        parsedCache.remove(key)
+                        parsedCache[key] = Pair(System.currentTimeMillis() / 1000, it)
+                    }
+                    while (parsedCache.size > 16 || parsedCache.values.sumOf { entry -> entry.second.retainedBytes.toLong() } > parsedCacheByteLimit) {
+                        parsedCache.remove(parsedCache.keys.first())
+                    }
+                }
+                pendingSources.remove(key) ?: emptyList()
             }
             callbacks.forEach { it(result) }
         }
         var parsed: Parsed? = null
-        var networkData: ByteArray? = null
         var failure: Throwable = IOException("invalid or empty XMLTV")
         fun transition(action: NativeSourceLoadAction, succeeded: Boolean = parsed != null) =
             NativeSourceLoad.next(action, succeeded, parsed?.channels?.size ?: 0, NativeSourceFormat.ANDROID)
@@ -87,17 +121,19 @@ class MobileXmltvEpgPlugin : Plugin() {
             when (action) {
                 NativeSourceLoadAction.READ_FRESH_DISK, NativeSourceLoadAction.READ_STALE_DISK -> {
                     parsed = runCatching {
-                        readCache(source, allowStale = action == NativeSourceLoadAction.READ_STALE_DISK)?.let { parseXmltv(it) }
+                        readCache(source, allowStale = action == NativeSourceLoadAction.READ_STALE_DISK, channel = channel)
                     }.getOrNull()
                     dispatch(transition(action))
                 }
                 NativeSourceLoadAction.READ_MEMORY -> {
-                    parsed = synchronized(sourceLock) { parsedCache[source]?.second }
+                    parsed = synchronized(sourceLock) { parsedCache[key]?.second }
                     dispatch(transition(action))
                 }
                 NativeSourceLoadAction.FETCH -> {
                     parsed = null
                     fun failed(error: Throwable) {
+                        networkFile?.delete()
+                        networkFile = null
                         failure = error
                         dispatch(transition(action, false))
                     }
@@ -107,10 +143,16 @@ class MobileXmltvEpgPlugin : Plugin() {
                             override fun onResponse(httpCall: Call, response: Response) {
                                 try {
                                     if (!response.isSuccessful) throw IOException("XMLTV HTTP ${response.code}")
-                                    val data = response.body?.bytes() ?: throw IOException("empty XMLTV body")
-                                    val xml = gunzip(data) ?: throw IOException("invalid XMLTV encoding")
-                                    parsed = parseXmltv(String(xml, Charsets.UTF_8))
-                                    networkData = data
+                                    val body = response.body ?: throw IOException("empty XMLTV body")
+                                    if (body.contentLength() > inputByteLimit) throw IOException("XMLTV delivered body exceeds size limit")
+                                    val file = File.createTempFile("ott-xmltv-", ".tmp", context.cacheDir)
+                                    networkFile = file
+                                    body.byteStream().use { input ->
+                                        file.outputStream().use { output ->
+                                            LimitedInput(input, inputByteLimit, "delivered body").copyTo(output, 32 * 1024)
+                                        }
+                                    }
+                                    parsed = file.inputStream().use { parseXmltv(it, channel, metadataOnly = channel == null) }
                                     dispatch(transition(action))
                                 } catch (error: Throwable) { failed(error) }
                                 finally { response.close() }
@@ -119,12 +161,12 @@ class MobileXmltvEpgPlugin : Plugin() {
                     } catch (error: Throwable) { failed(error) }
                 }
                 NativeSourceLoadAction.WRITE_DISK -> {
-                    val written = runCatching { writeCache(networkData!!, source) }.isSuccess
+                    val written = runCatching { writeCache(networkFile!!, source) }.isSuccess
                     dispatch(transition(action, written))
                 }
                 NativeSourceLoadAction.USE_FRESH_DISK, NativeSourceLoadAction.USE_NETWORK,
                 NativeSourceLoadAction.USE_MEMORY, NativeSourceLoadAction.USE_STALE_DISK ->
-                    finish(Result.success(parsed!!))
+                    finish(Result.success(parsed!!), action == NativeSourceLoadAction.USE_NETWORK)
                 NativeSourceLoadAction.FAIL -> finish(Result.failure(failure))
                 NativeSourceLoadAction.REPARSE_NETWORK -> error("Unexpected Android source action: $action")
             }
@@ -134,10 +176,15 @@ class MobileXmltvEpgPlugin : Plugin() {
 
     // The first feed defining an ID owns that channel and its programs.
     private fun loadSources(sources: List<String>, force: Boolean = false, completion: (Result<Parsed>) -> Unit) {
+        if (sources.size > 8) {
+            completion(Result.failure(IOException("XMLTV source limit exceeded"))); return
+        }
         val channels = mutableMapOf<String, String>()
         val programs = mutableMapOf<String, List<Program>>()
         val icons = mutableMapOf<String, String>()
         val names = mutableMapOf<String, List<String>>()
+        val owners = mutableMapOf<String, String>()
+        var retainedBytes = 0L
         val batch = NativeSourceBatch(sources.size)
         val errors = mutableMapOf<Int, Throwable>()
         fun next() {
@@ -145,10 +192,14 @@ class MobileXmltvEpgPlugin : Plugin() {
             if (index < 0) {
                 val failure = batch.failure()
                 completion(if (failure >= 0) Result.failure(errors.getValue(failure))
-                    else Result.success(Parsed(channels, programs, icons, names)))
+                    else Result.success(Parsed(channels, programs, icons, names, owners = owners)))
                 return
             }
             loadSource(sources[index], force) { result ->
+                retainedBytes += result.getOrNull()?.retainedBytes ?: 0
+                if (retainedBytes > parsedCacheByteLimit) {
+                    completion(Result.failure(IOException("XMLTV source set exceeds size limit"))); return@loadSource
+                }
                 result.onSuccess { parsed ->
                     NativeGuideSources.unowned(channels.keys, parsed.channels.keys.toList()).forEach { id ->
                         val name = parsed.channels.getValue(id)
@@ -156,6 +207,7 @@ class MobileXmltvEpgPlugin : Plugin() {
                         programs[id] = parsed.programs[id] ?: emptyList()
                         icons[id] = parsed.icons[id] ?: ""
                         names[id] = parsed.names[id] ?: listOf(name)
+                        owners[id] = sources[index]
                     }
                 }.onFailure { errors[index] = it }
                 batch.advance(result.isSuccess, result.getOrNull()?.channels?.size ?: 0)
@@ -169,9 +221,15 @@ class MobileXmltvEpgPlugin : Plugin() {
     fun getEpg(call: PluginCall) {
         loadSources(sourceUrls(call)) { result ->
             result.onSuccess { parsed ->
-                call.resolve(buildSlice(parsed, call.getString("channel_id") ?: "", call.getString("ch"),
-                    call.getString("hash") ?: "", call.getInt("time_shift_hours") ?: 0,
-                    call.getInt("archive_hours") ?: 0, call.getString("tvg_name")))
+                val id = resolveXmltvId(parsed.channels, call.getString("ch"), call.getString("hash") ?: "",
+                    call.getString("tvg_name"), parsed.names)
+                fun resolve(guide: Parsed) = call.resolve(buildSlice(guide, call.getString("channel_id") ?: "", call.getString("ch"),
+                    id, call.getInt("time_shift_hours") ?: 0, call.getInt("archive_hours") ?: 0, call.getString("tvg_name")))
+                val owner = parsed.owners[id]
+                if (owner == null) resolve(parsed)
+                else loadSource(owner, channel = id) { guide ->
+                    guide.onSuccess { resolve(it) }.onFailure { call.reject(it.localizedMessage ?: "XMLTV fetch failed") }
+                }
             }.onFailure { call.reject(it.localizedMessage ?: "XMLTV fetch failed") }
         }
     }
@@ -204,79 +262,132 @@ class MobileXmltvEpgPlugin : Plugin() {
     // MARK: - Cache
 
     @Throws(IOException::class)
-    private fun readCache(sourceUrl: String, allowStale: Boolean = false): String? = synchronized(cacheLock) {
+    private fun readCache(sourceUrl: String, allowStale: Boolean = false, channel: String? = null): Parsed? = synchronized(cacheLock) {
         if (!metaFile.exists() || !cacheFile.exists()) return@synchronized null
+        if (metaFile.length() > metadataByteLimit || cacheFile.length() > inputByteLimit) return@synchronized null
         val fields = metaFile.readText().split('\n', limit = 2)
         // Timestamp-only metadata predates source tracking and cannot be trusted.
         if (fields.size != 2) return@synchronized null
         val fetched = fields[0].toLongOrNull() ?: return@synchronized null
         if (!NativeGuideSources.diskAndroid(sourceUrl, fields[1], System.currentTimeMillis() / 1000, fetched, allowStale)) return@synchronized null
-        gunzip(cacheFile.readBytes())?.let { String(it, Charsets.UTF_8) }
+        cacheFile.inputStream().use { parseXmltv(it, channel, metadataOnly = channel == null) }
     }
 
     @Throws(IOException::class)
-    private fun writeCache(data: ByteArray, sourceUrl: String) = synchronized(cacheLock) {
+    private fun writeCache(data: File, sourceUrl: String) = synchronized(cacheLock) {
+        if (data.length() > inputByteLimit) throw IOException("XMLTV cache input exceeds size limit")
+        val metadata = "${System.currentTimeMillis() / 1000}\n$sourceUrl"
+        if (metadata.toByteArray(Charsets.UTF_8).size > metadataByteLimit) throw IOException("XMLTV cache metadata exceeds size limit")
         // Invalidate metadata first so an interrupted write cannot label another source's data.
         if (metaFile.exists() && !metaFile.delete()) throw IOException("cannot invalidate cache metadata")
-        cacheFile.writeBytes(data)
-        metaFile.writeText("${System.currentTimeMillis() / 1000}\n$sourceUrl")
+        data.copyTo(cacheFile, overwrite = true)
+        metaFile.writeText(metadata)
     }
 
-    // MARK: - Gzip
-
-    private fun gunzip(data: ByteArray): ByteArray? {
-        if (data.size < 2 || data[0] != 0x1f.toByte() || data[1] != 0x8b.toByte()) {
-            return if (String(data, Charsets.UTF_8).trimStart().startsWith("<")) data else null
+    // Bound both downloaded bytes and gzip expansion without materializing the
+    // document as a byte array and a second, UTF-16 copy on old Android heaps.
+    private class LimitedInput(input: InputStream, private val limit: Int, private val resource: String) : FilterInputStream(input) {
+        private var count = 0
+        private fun consumed(size: Int): Int {
+            if (size > limit - count) throw IOException("XMLTV $resource exceeds size limit")
+            if (size > 0) count += size
+            return size
         }
-        return try {
-            val gis = java.util.zip.GZIPInputStream(data.inputStream())
-            gis.use { it.readBytes() }
-        } catch (_: Throwable) { null }
+        override fun read(): Int {
+            val value = `in`.read()
+            if (value != -1) consumed(1)
+            return value
+        }
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+            consumed(`in`.read(buffer, offset, minOf(length, limit - count + 1)))
     }
 
     // MARK: - XMLTV Parser
 
-    private fun parseXmltv(xml: String): Parsed {
-        val reader = XmlReader()
-        reader.parse(xml)
-        return Parsed(reader.channels, reader.programs, reader.icons, reader.names)
+    private fun parseXmltv(input: InputStream, channel: String? = null, metadataOnly: Boolean = false): Parsed = synchronized(parseLock) {
+        val reader = XmlReader(channel, retainedByteLimit, metadataOnly)
+        val buffered = input.buffered()
+        buffered.mark(2)
+        val gzip = buffered.read() == 0x1f && buffered.read() == 0x8b
+        buffered.reset()
+        val expanded = if (gzip) java.util.zip.GZIPInputStream(buffered) else buffered
+        LimitedInput(expanded, expandedByteLimit, "expanded document").use { bounded ->
+            // SAX may close its input at the root's end before requesting gzip's
+            // trailer. Keep ownership here and require CRC/truncation validation.
+            val borrowed = object : FilterInputStream(bounded) { override fun close() {} }
+            reader.parse(org.xml.sax.InputSource(borrowed.reader(Charsets.UTF_8)))
+            val buffer = ByteArray(8192)
+            while (bounded.read(buffer) != -1) { /* validate the complete gzip stream */ }
+        }
+        Parsed(reader.channels, reader.programs, reader.icons, reader.names, reader.retainedBytes)
     }
 
     private data class Program(val start: Int, val stop: Int, val title: String, val desc: String)
     private data class Parsed(val channels: Map<String, String>, val programs: Map<String, List<Program>>,
-        val icons: Map<String, String> = emptyMap(), val names: Map<String, List<String>> = emptyMap())
+        val icons: Map<String, String> = emptyMap(), val names: Map<String, List<String>> = emptyMap(),
+        val retainedBytes: Int = 0, val owners: Map<String, String> = emptyMap())
 
-    private class XmlReader : org.xml.sax.helpers.DefaultHandler() {
+    // Channel discovery never retains schedules for the entire feed. Guide reads
+    // keep only the owning channel, including its full archive window.
+    private class XmlReader(private val channel: String?, private val byteLimit: Int, private val metadataOnly: Boolean) : org.xml.sax.helpers.DefaultHandler() {
         val channels = mutableMapOf<String, String>()
         val programs = mutableMapOf<String, MutableList<Program>>()
         val icons = mutableMapOf<String, String>()
         val names = mutableMapOf<String, MutableList<String>>()
         private val records = XmltvRecords(XmltvRecordFormat.ARCHIVED_ANDROID)
+        var retainedBytes = 0
+        private var skippedDepth = 0
+        private var recordChars = 0
+        private var recordDepth = 0
 
-        fun parse(xml: String) {
+        fun parse(xml: org.xml.sax.InputSource) {
             val factory = javax.xml.parsers.SAXParserFactory.newInstance()
             factory.setFeature("http://xml.org/sax/features/external-general-entities", false)
             factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            factory.newSAXParser().parse(org.xml.sax.InputSource(java.io.StringReader(xml)), this)
+            factory.newSAXParser().parse(xml, this)
         }
 
         override fun startElement(uri: String?, local: String?, name: String, attrs: org.xml.sax.Attributes) {
-            records.start(name, (0 until attrs.length).associate { attrs.getQName(it) to attrs.getValue(it) })
+            if (skippedDepth > 0) { skippedDepth++; return }
+            if ((name == "programme" && (metadataOnly || channel != null && attrs.getValue("channel") != channel)) ||
+                (name == "channel" && channel != null && attrs.getValue("id") != channel)) {
+                skippedDepth = 1; return
+            }
+            if (name == "channel" || name == "programme") { recordChars = 0; recordDepth = 1 }
+            else if (recordDepth > 0) recordDepth++
+            for (index in 0 until attrs.length) addChars(attrs.getValue(index).length)
+            records.startDecoded(name, attrs.getValue("id"), attrs.getValue("channel"), attrs.getValue("start"),
+                attrs.getValue("stop"), attrs.getValue("src"))
         }
 
         override fun endElement(uri: String?, local: String?, name: String) {
+            if (skippedDepth > 0) { skippedDepth--; return }
             records.end(name)
-            for (row in records.drain()) when (row[0]) {
+            if (recordDepth > 0) recordDepth--
+            for (row in records.drain()) {
+                val bytes = 256L + row.sumOf { 64L + 2L * it.length }
+                if (bytes > byteLimit - retainedBytes) throw IOException("XMLTV retained data exceeds size limit")
+                retainedBytes += bytes.toInt()
+                when (row[0]) {
                 "channel" -> channels[row[1]] = row[2]
                 "name" -> names.getOrPut(row[1]) { mutableListOf() }.add(row[2])
                 "icon" -> icons[row[1]] = row[2]
                 "programme" -> programs.getOrPut(row[1]) { mutableListOf() }
                     .add(Program(row[2].toInt(), row[3].toInt(), row[4], row[5]))
+                }
             }
         }
 
         override fun characters(chars: CharArray, start: Int, length: Int) {
+            if (skippedDepth > 0 || recordDepth == 0) return
+            // Bound accumulated text before the shared record reducer copies it.
+            addChars(length)
             records.text(String(chars, start, length))
+        }
+
+        private fun addChars(count: Int) {
+            if (count > 262144 - recordChars) throw IOException("XMLTV record exceeds size limit")
+            recordChars += count
         }
     }
 

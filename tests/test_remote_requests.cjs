@@ -105,17 +105,19 @@ const ctx = {
               }
             : name === "./remote-profiles"
               ? loadRemoteHelper("remote-profiles")
-              : name === "../plugins/vportal"
-                ? loadRemoteHelper("vportal", "src/plugins/vportal.ts")
-                : name === "./remote-archive"
-                  ? loadRemoteHelper("remote-archive")
-                  : name === "./remote-plex"
-                    ? loadRemoteHelper("remote-plex")
-                    : name === "./remote-restart"
-                      ? loadRemoteHelper("remote-restart")
-                      : name === "../utils/caseless"
-                        ? casingContext.exports
-                        : { handleCommand: () => "accepted" },
+              : name === "./remote-app-update"
+                ? loadRemoteHelper("remote-app-update")
+                : name === "../plugins/vportal"
+                  ? loadRemoteHelper("vportal", "src/plugins/vportal.ts")
+                  : name === "./remote-archive"
+                    ? loadRemoteHelper("remote-archive")
+                    : name === "./remote-plex"
+                      ? loadRemoteHelper("remote-plex")
+                      : name === "./remote-restart"
+                        ? loadRemoteHelper("remote-restart")
+                        : name === "../utils/caseless"
+                          ? casingContext.exports
+                          : { handleCommand: () => "accepted" },
     URL,
     window: host,
 };
@@ -1340,6 +1342,58 @@ function checkRemoteEpgCatalog() {
         lifecycleEffects,
         ["exit"],
         "modern legacy alias uses native ACK lane"
+    );
+    const aspectEffects = [];
+    host.captureAspectTarget = () => ({
+        current: () => true,
+        mode: "fit",
+        savedMode: null,
+        set: (mode) => {
+            aspectEffects.push(mode);
+            return true;
+        },
+    });
+    const aspectRuntime = (await call("capabilities")).data.player.runtime;
+    host.__ottKiosk = { enabled: () => true };
+    assert.equal(
+        (await call("aspect", { operation: "get", runtime: aspectRuntime }))
+            .status,
+        "ok",
+        "kiosk request routing admits read-only aspect"
+    );
+    assert.equal(
+        (
+            await call("aspect", {
+                mode: "fill",
+                operation: "set",
+                runtime: aspectRuntime,
+            })
+        ).status,
+        "rejected",
+        "aspect write still checks kiosk policy"
+    );
+    host.__ottKiosk.enabled = () => false;
+    let aspectReply, aspectEffect;
+    ctx.exports.executeRemoteRequest(
+        {
+            action: "aspect",
+            params: { mode: "fill", operation: "set", runtime: aspectRuntime },
+        },
+        (reply) => {
+            aspectReply = reply;
+        },
+        (effect) => {
+            aspectEffect = effect;
+        }
+    );
+    assert.equal(aspectReply.status, "ok");
+    assert.equal(aspectReply.data.effect, "aspect-after-ack");
+    assert.deepEqual(aspectEffects, []);
+    aspectEffect();
+    assert.deepEqual(
+        aspectEffects,
+        ["fill"],
+        "request routing retains aspect ACK fencing"
     );
     console.log(
         "PASS remote requests: ES5, stable channel numbering, Cyrillic search, ambiguity, EPG window, provider policy and credential privacy"
