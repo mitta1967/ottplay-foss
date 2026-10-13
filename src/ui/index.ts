@@ -2851,26 +2851,27 @@ function showColorDialog(
         : '<span id="step" style="font-size: 150%;background-color:' +
           (window as any).curColorB +
           '">&nbsp;1234567890&nbsp;</span>';
+    function arrow(key: number, label: string): string {
+        return (
+            '<div class="btn" role="button" tabindex="0" data-ott-key="' +
+            key +
+            '">' +
+            label +
+            "</div>"
+        );
+    }
     var controls = foreground
-        ? '<br/><br><div class="btn" role="button" tabindex="0" data-ott-key="' +
-          keys.LEFT +
-          '">' +
-          strLEFT +
-          '</div>&nbsp;<div class="btn" role="button" tabindex="0" data-ott-key="' +
-          keys.RIGHT +
-          '">' +
-          strRIGHT +
-          "</div>&nbsp;" +
+        ? "<br/><br>" +
+          arrow(keys.LEFT, strLEFT) +
+          "&nbsp;" +
+          arrow(keys.RIGHT, strRIGHT) +
+          "&nbsp;" +
           _("Color") +
-          '<br><div class="btn" role="button" tabindex="0" data-ott-key="' +
-          keys.UP +
-          '">' +
-          strUP +
-          '</div>&nbsp;<div class="btn" role="button" tabindex="0" data-ott-key="' +
-          keys.DOWN +
-          '">' +
-          strDOWN +
-          "</div>&nbsp;" +
+          "<br>" +
+          arrow(keys.UP, strUP) +
+          "&nbsp;" +
+          arrow(keys.DOWN, strDOWN) +
+          "&nbsp;" +
           _("Saturation") +
           "<br>" +
           renderButtonHint(keys.YELLOW, "", "Yellow") +
