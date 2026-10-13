@@ -29,6 +29,13 @@ During full-screen Plex playback, **Left/Right** seek backward/forward by
 to a remote Plex queue while another TV provider is selected. Dedicated volume
 buttons still control volume; open lists and dialogs retain their own navigation.
 
+If switching files needs a folder or metadata request, a loading wait appears.
+**Up/Down** can adjust the pending selection; **Back** cancels it and keeps the
+current file selected. Temporary connection
+failures are retried up to three attempts. A failed or incomplete folder never
+becomes a partial playback queue. If the server remains unavailable, retry the
+arrow after checking the connection.
+
 The playback buttons appear beside the description. **Repeat** cycles through
 **All**, **One**, and **Off**: repeat the queue, repeat the current video, or finish
 after its last video. Remote shortcuts are **5** (or **Play**) for shuffle and
@@ -41,8 +48,9 @@ changing the filter or choosing another item cancels a pending queue launch.
 
 On reopening the player, Plex continues the last unfinished video at its saved
 position, including seconds within the first minute. It resolves the Plex item
-again instead of retaining an expiring stream URL. **Enter/OK** reopens the saved
-folder with the playing file selected; **Back** returns through its saved
+again instead of retaining an expiring stream URL. Compatible HLS waits for its
+initial media buffer before applying the saved position. **Enter/OK** reopens
+the saved folder with the playing file selected; **Back** returns through its saved
 breadcrumbs. The folder queue is rebuilt from the current server catalog and
 continues from that file, respecting the saved repeat setting. Older checkpoints
 restore the saved folder directly even when they do not contain its full
