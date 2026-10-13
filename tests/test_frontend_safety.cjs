@@ -790,6 +790,8 @@ test("real password action selects a secret editor; normal input restores text a
         assert(control.getAttribute("aria-label").includes("Play"));
         let pressed;
         w._doKey = (key) => (pressed = key);
+        w.eval(func("src/ui/index.ts", "uiInit"));
+        w.uiInit();
         control.focus();
         control.dispatchEvent(
             new w.KeyboardEvent("keydown", {
@@ -851,6 +853,8 @@ test("button hints reject executable key values and sanitize every badge while p
         assert(control.getAttribute("aria-label").includes("Confirm"));
         let pressed;
         w._doKey = (key) => (pressed = key);
+        w.eval(func("src/ui/index.ts", "uiInit"));
+        w.uiInit();
         control.dispatchEvent(
             new w.KeyboardEvent("keydown", {
                 bubbles: true,

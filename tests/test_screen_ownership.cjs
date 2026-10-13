@@ -1969,10 +1969,12 @@ for (const scenario of colorCases.records) {
 }
 function clickColorControl(w, element) {
     assert(element, "rendered mouse control exists");
-    // JSDOM outside-only does not execute inline handlers automatically.
-    w.Function("event", element.getAttribute("onclick")).call(element, {
-        stopPropagation() {},
-    });
+    if (!w.uiInit) w.eval(functions("src/ui/index.ts", ["uiInit"]));
+    const listElement = w.listElement;
+    w.uiInit();
+    w.listElement = listElement;
+    assert.equal(element.getAttribute("onclick"), null);
+    element.click();
 }
 for (const name of ["colorDialog", "selColorDialog", "backColorDialog"]) {
     test("color remote/mouse save and parent focus " + name, ({ w, key }) => {
@@ -2064,7 +2066,7 @@ test("foreground mouse arrows and color presets dispatch the same owned input", 
         clickColorControl(
             w,
             w.document.querySelector(
-                '#listAbout [onclick="_doKey(keys.' + name + ');"]'
+                '#listAbout [data-ott-key="' + w.keys[name] + '"]'
             )
         );
     }

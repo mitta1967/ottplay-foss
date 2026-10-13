@@ -317,67 +317,76 @@ export function uiInit(): void {
                 top: (720 * getViewportHeightScale() - $(this).height()) / 2,
             });
     });
-    ["dialogbox", "listPopUp", "listDetail", "listEdit"].forEach(function (id) {
-        var root = document.getElementById(id);
-        if (!root || (root as any).__ottButtonsBound) return;
-        (root as any).__ottButtonsBound = true;
-        var listButtons = id !== "dialogbox" && id !== "listEdit";
-        var dispatchButton = function (event: Event): void {
-            var target = event.target as Node | null;
-            if (target && target.nodeType !== 1) target = target.parentNode;
-            var button = target && $(target).closest("span[data-ott-key]")[0];
-            if (
-                !button ||
-                !root!.contains(button) ||
-                (id === "listDetail" &&
-                    (button.parentNode !== root!.firstChild ||
-                        (button.parentNode as HTMLElement).id !==
-                            "mediaPlaybackControls"))
-            )
-                return;
-            // Consume before ownership checks so obsolete controls cannot
-            // activate inline fallbacks or the video surface underneath.
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation();
-            var w = window as any;
-            var port = w.__ottClassicScreenPort;
-            var owner = listButtons
-                ? port.listOwner()
-                : port.owner(id === "listEdit" ? "editor" : "dialog");
-            var key = Number(button.getAttribute("data-ott-key"));
-            if (
-                owner &&
-                owner.foreground() &&
-                ((!listButtons && id !== "listEdit") ||
-                    $(root!).is(":visible")) &&
-                key &&
-                isFinite(key)
-            ) {
+    ["dialogbox", "listPopUp", "listDetail", "listEdit", "listAbout"].forEach(
+        function (id) {
+            var root = document.getElementById(id);
+            if (!root || (root as any).__ottButtonsBound) return;
+            (root as any).__ottButtonsBound = true;
+            var overlay =
+                id === "dialogbox"
+                    ? "dialog"
+                    : id === "listEdit"
+                      ? "editor"
+                      : id === "listAbout"
+                        ? "about"
+                        : "";
+            var listButtons = !overlay;
+            var dispatchButton = function (event: Event): void {
+                var target = event.target as Node | null;
+                if (target && target.nodeType !== 1) target = target.parentNode;
+                var button = target && $(target).closest("[data-ott-key]")[0];
                 if (
-                    id === "listEdit" &&
-                    owner.model &&
-                    owner.model.nativeInputIme &&
-                    key === w.keys.ENTER
+                    !button ||
+                    !root!.contains(button) ||
+                    (id === "listDetail" &&
+                        (button.parentNode !== root!.firstChild ||
+                            (button.parentNode as HTMLElement).id !==
+                                "mediaPlaybackControls"))
+                )
+                    return;
+                // Consume before ownership checks so obsolete controls cannot
+                // activate inline fallbacks or the video surface underneath.
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                var w = window as any;
+                var port = w.__ottClassicScreenPort;
+                var owner = listButtons
+                    ? port.listOwner()
+                    : port.owner(overlay);
+                var key = Number(button.getAttribute("data-ott-key"));
+                if (
+                    owner &&
+                    owner.foreground() &&
+                    (id === "dialogbox" || $(root!).is(":visible")) &&
+                    key &&
+                    isFinite(key)
                 ) {
-                    // Synthetic/assistive clicks need not focus a role=button
-                    // span. Make this explicit action visible to the key router.
-                    button.focus();
-                    if (!owner.foreground()) return;
+                    if (
+                        id === "listEdit" &&
+                        owner.model &&
+                        owner.model.nativeInputIme &&
+                        key === w.keys.ENTER
+                    ) {
+                        // Synthetic/assistive clicks need not focus a role=button
+                        // span. Make this explicit action visible to the key router.
+                        button.focus();
+                        if (!owner.foreground()) return;
+                    }
+                    w._doKey(key, event);
                 }
-                w._doKey(key, event);
-            }
-        };
-        root.addEventListener("click", dispatchButton, true);
-        root.addEventListener(
-            "keydown",
-            function (event: KeyboardEvent): void {
-                if (event.keyCode === 13 || event.keyCode === 32)
-                    dispatchButton(event);
-            },
-            true
-        );
-    });
+            };
+            root.addEventListener("click", dispatchButton, true);
+            root.addEventListener(
+                "keydown",
+                function (event: KeyboardEvent): void {
+                    if (event.keyCode === 13 || event.keyCode === 32)
+                        dispatchButton(event);
+                },
+                true
+            );
+        }
+    );
 
     // Click on info bar toggles channel info display
     $infoBar.on("click.ottUi", function (e: any) {
@@ -416,8 +425,8 @@ export function uiInit(): void {
         }
         // Capture-phase row hit-test: map click to the .item under the
         // pointer (closest + Y fallback). Avoids float/paint desync where
-        // visual row N fired #it0 / void. stopImmediatePropagation so the
-        // inline onclick cannot double-fire setSelect→ENTER.
+        // visual row N fired #it0 / void. stopImmediatePropagation keeps
+        // other row listeners from double-firing setSelect→ENTER.
         if (!(listInEl as any).__ottListClickBound) {
             (listInEl as any).__ottListClickBound = true;
             var listInClickRoot: HTMLElement = listInEl;
@@ -493,6 +502,22 @@ export function uiInit(): void {
                 },
                 true
             );
+            listInClickRoot.addEventListener(
+                "keydown",
+                function (event: KeyboardEvent): void {
+                    if (event.keyCode !== 13 && event.keyCode !== 32) return;
+                    var target = event.target as Node | null;
+                    if (!target || target.nodeType !== 1) return;
+                    var item = $(target).closest(".item")[0] as
+                        | HTMLElement
+                        | undefined;
+                    if (!item || !listInClickRoot.contains(item)) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    item.click();
+                },
+                true
+            );
         }
     }
 
@@ -509,15 +534,12 @@ export function uiInit(): void {
             } catch (_s) {}
             var t = ev.target;
             if (!t || (t as Node).nodeType !== 1) return;
-            var span = $(t).closest("span[onclick]")[0] as
+            var span = $(t).closest("span[data-ott-key]")[0] as
                 | HTMLElement
                 | undefined;
             if (!span || !footerRoot.contains(span)) return;
-            var oc = span.getAttribute("onclick") || "";
-            var m = oc.match(/_doKey\((\d+)/);
-            if (!m) return;
-            var keyNum = parseInt(m[1], 10);
-            if (isNaN(keyNum)) return;
+            var keyNum = Number(span.getAttribute("data-ott-key"));
+            if (!keyNum || !isFinite(keyNum)) return;
             try {
                 ev.preventDefault();
                 ev.stopPropagation();
@@ -529,6 +551,14 @@ export function uiInit(): void {
             }
         };
         footerRoot.addEventListener("click", dispatchFooterAction, true);
+        footerRoot.addEventListener(
+            "keydown",
+            function (event: KeyboardEvent): void {
+                if (event.keyCode === 13 || event.keyCode === 32)
+                    dispatchFooterAction(event);
+            },
+            true
+        );
         // mousedown arm: clear suppress before click; do not _doKey here
         // (would double-fire with click).
         footerRoot.addEventListener(
@@ -936,9 +966,7 @@ export function showPage(): void {
             i +
             '" data-idx="' +
             i +
-            '" onclick="event.stopPropagation();setSelect(' +
-            i +
-            ')" role="button" tabindex="0" onkeydown="if(event.keyCode===13||event.keyCode===32){event.preventDefault();event.stopPropagation();this.click();}" class="item"';
+            '" role="button" tabindex="0" class="item"';
         html += ">";
         try {
             html += getListItemFn ? getListItemFn(dataArr[i], i) : "";
@@ -1898,7 +1926,7 @@ export function restoreListPanelState(): void {
  * Render an HTML snippet for a button hint (used in info bars and list footers).
  * The hint shows the key label, optional numeric/symbolic badge, color class, and translated description.
  *
- * @param keyLabel - The key code (used for color class and onclick dispatch).
+ * @param keyLabel - The key code (used for color class and delegated dispatch).
  * @param label - The display label (e.g. HTML entity for arrow icon). Empty for color keys.
  * @param description - The button's function description text (passed through translate).
  * @param num - Optional numeric badge (e.g. "2", "8"). Hidden if sNoNumbersKeys is set.
@@ -1906,7 +1934,7 @@ export function restoreListPanelState(): void {
  * @returns string — HTML string for the button hint span. Returns empty string if description or keyLabel is falsy.
  * @analysis Color keys (RED/GREEN/YELLOW/BLUE) get a CSS class `.red`/`.green`/`.yellow`/`.blue` respectively.
  *             If both label and badges are empty, the description itself is wrapped in a plain `.btn` div.
- *             The entire span has an onclick that calls `_doKey(keyLabel)`.
+ *             The data key is dispatched by the owning UI container.
  */
 export function renderButtonHint(
     keyLabel: number,
@@ -1957,9 +1985,7 @@ export function renderButtonHint(
         metadataText(description.replace(/<[^<>]*>/g, " ")) +
         '" data-ott-key="' +
         keyLabel +
-        '" onkeydown="if(event.keyCode===13||event.keyCode===32){event.preventDefault();event.stopPropagation();this.click();}" onclick="event.stopPropagation();_doKey(' +
-        keyLabel +
-        ');">' +
+        '">' +
         a +
         description +
         "</span>&nbsp;&nbsp;"
@@ -2826,15 +2852,23 @@ function showColorDialog(
           (window as any).curColorB +
           '">&nbsp;1234567890&nbsp;</span>';
     var controls = foreground
-        ? '<br/><br><div class="btn" onclick="_doKey(keys.LEFT);">' +
+        ? '<br/><br><div class="btn" role="button" tabindex="0" data-ott-key="' +
+          keys.LEFT +
+          '">' +
           strLEFT +
-          '</div>&nbsp;<div class="btn" onclick="_doKey(keys.RIGHT);">' +
+          '</div>&nbsp;<div class="btn" role="button" tabindex="0" data-ott-key="' +
+          keys.RIGHT +
+          '">' +
           strRIGHT +
           "</div>&nbsp;" +
           _("Color") +
-          '<br><div class="btn" onclick="_doKey(keys.UP);">' +
+          '<br><div class="btn" role="button" tabindex="0" data-ott-key="' +
+          keys.UP +
+          '">' +
           strUP +
-          '</div>&nbsp;<div class="btn" onclick="_doKey(keys.DOWN);">' +
+          '</div>&nbsp;<div class="btn" role="button" tabindex="0" data-ott-key="' +
+          keys.DOWN +
+          '">' +
           strDOWN +
           "</div>&nbsp;" +
           _("Saturation") +

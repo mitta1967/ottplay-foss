@@ -60,7 +60,7 @@ function initializeFixture(native, capacitor) {
     }
 }
 
-function renderFixture(initialSettings) {
+function renderFixture(initialSettings, channelDescription) {
     document.body.classList.remove("booting");
     document.getElementById("launch").remove();
     uiInit();
@@ -77,7 +77,10 @@ function renderFixture(initialSettings) {
     channels = {
         one: {
             channel_name: "News",
-            descr: '<b>Trusted description text</b><span style="color:red" onclick="window.__metadataExecuted=true">Metadata text</span><script>window.__metadataExecuted=true</script>',
+            descr:
+                channelDescription === undefined
+                    ? '<b>Trusted description text</b><span style="color:red" data-ott-key="13" onclick="window.__metadataExecuted=true">Metadata text</span><script>window.__metadataExecuted=true</script>'
+                    : channelDescription,
             icon: logo,
             name: "Current bulletin",
             nextpr: [{ name: "Next bulletin", time: now + 1800 }],
@@ -150,7 +153,13 @@ function renderFixture(initialSettings) {
     window.__fixtureReady = true;
 }
 
-async function fixturePage(browser, profile, initialSettings, language) {
+async function fixturePage(
+    browser,
+    profile,
+    initialSettings,
+    language,
+    channelDescription
+) {
     const capacitor = profile === "capacitor";
     const native = profile === "tauri" || capacitor;
     const stage = capacitor
@@ -197,6 +206,8 @@ async function fixturePage(browser, profile, initialSettings, language) {
                 renderFixture.toString() +
                 ")(" +
                 JSON.stringify(initialSettings) +
+                "," +
+                JSON.stringify(channelDescription) +
                 ");",
         ],
         ["/js/runtime-polyfills.js", read(stage + "js/runtime-polyfills.js")],
@@ -857,7 +868,16 @@ for (const profile of ["server", "tauri", "capacitor"]) {
     test(
         profile + " remote channel selection closes the list after admission",
         async ({ browser }) => {
-            const fixture = await fixturePage(browser, profile);
+            // Hostile metadata is tested by the rich-channel security case.
+            // New Chromium reports CSP even during inert parsing; this case
+            // requires no application-generated inline event handlers.
+            const fixture = await fixturePage(
+                browser,
+                profile,
+                undefined,
+                undefined,
+                "<b>Trusted description text</b><span>Metadata text</span>"
+            );
             const page = fixture.page;
             try {
                 await page.evaluate(() => {
@@ -2403,6 +2423,9 @@ test("server and Tauri retain rich channel formatting under the native CSP", asy
             ).toBeNull();
             expect(
                 await page.locator("#_prd span").getAttribute("onclick")
+            ).toBeNull();
+            expect(
+                await page.locator("#_prd span").getAttribute("data-ott-key")
             ).toBeNull();
             expect(await page.locator("#_prd script").count()).toBe(0);
             expect(

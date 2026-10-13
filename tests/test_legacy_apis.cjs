@@ -664,10 +664,10 @@ const row = {
 };
 const button = {
     getAttribute() {
-        return "_doKey(13)";
+        return "13";
     },
     nodeType: 1,
-    selector: "span[onclick]",
+    selector: "span[data-ott-key]",
 };
 function click(target) {
     return {
