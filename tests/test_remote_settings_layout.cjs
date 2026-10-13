@@ -199,7 +199,7 @@ assert.equal(w.aboutKeyHandler(w.keys.DOWN), true);
 assert.equal(content.scrollTop, 100);
 w.aboutKeyHandler(w.keys.UP);
 assert.equal(content.scrollTop, 0);
-let controls = w.listFooterElement.querySelectorAll("span[onclick]");
+let controls = w.listFooterElement.querySelectorAll("span[data-ott-key]");
 assert.equal(
     controls.length,
     4,
@@ -234,13 +234,13 @@ assert.equal(w.settings.localCmdUrl, w.sLocalCmdUrl);
 assert.equal(w.document.getElementById("listEdit").style.display, "none");
 assert.equal(w.listCaptionElement.textContent, "Remote control");
 assert.ok(w.listFooterElement.textContent.includes("↑↓ Scroll"));
-controls = w.listFooterElement.querySelectorAll("span[onclick]");
+controls = w.listFooterElement.querySelectorAll("span[data-ott-key]");
 controls[2].click();
 submit(" https://example.invalid/new-swop/// ");
 assert.equal(w.sSwopBaseUrl, "https://example.invalid/new-swop");
 assert.equal(stored.get("sLocalCmdUrl"), w.sLocalCmdUrl);
 assert.equal(stored.get("sSwopBaseUrl"), w.sSwopBaseUrl);
-w.listFooterElement.querySelectorAll("span[onclick]")[1].click();
+w.listFooterElement.querySelectorAll("span[data-ott-key]")[1].click();
 assert.equal(
     editor().value,
     w.sLocalCmdUrl,
@@ -271,7 +271,7 @@ assert.equal(
     0,
     "shared editor does not rely on native prompt support"
 );
-w.listFooterElement.querySelector("span[onclick]").click();
+w.listFooterElement.querySelector("span[data-ott-key]").click();
 assert.deepEqual(restored, ["Settings", "Parent detail", "Parent footer"]);
 assert.equal(w.document.getElementById("listAbout").style.display, "none");
 assert.equal(w.document.getElementById("remoteSettingsContent"), null);
@@ -683,7 +683,12 @@ w.document.body.appendChild(dialog);
 w.strENTER = "Enter";
 w.strRETURN = "Back";
 w.eval(require("./helpers/localization-runtime.cjs").localizationRuntime());
-w.eval(extract("src/ui/index.ts", ["confirmBox", "localizedTextHtml"]));
+w.eval(
+    extract("src/ui/index.ts", ["confirmBox", "localizedTextHtml", "uiInit"])
+);
+w.getViewportWidthScale = () => 1;
+w.getViewportHeightScale = () => 1;
+w.uiInit();
 let accepted = 0,
     cancelled = 0,
     resumed = 0;
@@ -708,7 +713,7 @@ function openConfirmation() {
             cancelled++;
         }
     );
-    const buttons = [...dialog.querySelectorAll("span[onclick]")];
+    const buttons = [...dialog.querySelectorAll("span[data-ott-key]")];
     assert.equal(
         buttons.length,
         2,
@@ -868,7 +873,8 @@ async function testHttpRemoteSettings() {
         w.document.getElementById("remoteSettingsContent").textContent,
         /HTTP remote control: off/
     );
-    const httpToggle = w.listFooterElement.querySelectorAll("span[onclick]")[3];
+    const httpToggle =
+        w.listFooterElement.querySelectorAll("span[data-ott-key]")[3];
     assert.match(httpToggle.textContent, /Enable HTTP remote/);
     httpToggle.click();
     w.aboutKeyHandler(49);

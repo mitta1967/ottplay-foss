@@ -335,10 +335,14 @@ try {
             w._doKey = (key) => {
                 pressed = key;
             };
-            w.Function(
-                "event",
-                controls.firstElementChild.getAttribute("onclick")
-            )({ stopPropagation() {} });
+            w.document.getElementById("listPodval").appendChild(controls);
+            w.eval(declarations(ui, ["uiInit"]));
+            w.uiInit();
+            assert.equal(
+                controls.firstElementChild.getAttribute("onclick"),
+                null
+            );
+            controls.firstElementChild.click();
             assert.equal(
                 pressed,
                 w.keys.PLAY,

@@ -6944,7 +6944,7 @@ window.settingsCommands = function (): void {
         refreshScreenshots();
         if (screenshots) screenshots.subscribe(refreshScreenshots);
         var footerControls = footer
-            ? footer.querySelectorAll("span[onclick]")
+            ? footer.querySelectorAll("span[data-ott-key]")
             : [];
         // Keep the existing footer shortcuts while making every action reachable
         // by a remote with only directional keys, OK and Back.

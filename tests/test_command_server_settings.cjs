@@ -759,7 +759,7 @@ console.log(
         );
         editing.w.document
             .getElementById("listPodval")
-            .querySelectorAll("span[onclick]")[1]
+            .querySelectorAll("span[data-ott-key]")[1]
             .click();
         const input = editing.w.document.getElementById("editvar");
         const draft = "https://draft.example/local?unsaved=yes";
