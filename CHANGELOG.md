@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.55] - Development line
+
+### Changes
+
+- Strengthen release-candidate fuzz evidence with required seed corpora, bounded
+  replay and validation of the pinned shared workflow.
+
+### Upgrade
+
+- Update using the package for the same platform as your existing installation.
+  This patch preserves saved profiles and settings and introduces no data or
+  credential migration.
+- Beta and release-candidate packages remain prereleases for validation before
+  stable publication.
+
+### Security
+
+- Update rustls to 0.23.46 and quinn-proto to 0.11.18 in application and fuzz
+  lockfiles for RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348,
+  RUSTSEC-2026-0349, RUSTSEC-2026-0338, RUSTSEC-2026-0340 and
+  RUSTSEC-2026-0343. Existing TLS verification and remote-control authorization
+  remain enabled.
+
 ## [1.1.54] - Development line
 
 ### Changes
