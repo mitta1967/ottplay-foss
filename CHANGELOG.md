@@ -42,6 +42,10 @@ CLI. Existing profile-local favorites retain their storage format and scope.
 
 ### Security
 
+- Update rustls to 0.23.46 and quinn-proto to 0.11.18 in application and fuzz
+  lockfiles to address the upstream TLS and QUIC advisories (RUSTSEC-2026-0346
+  through 0349, plus 0338, 0340 and 0343).
+
 Existing remote-control authorization, parental restrictions, runtime binding
 and request-cancellation checks remain in force. This release introduces no new
 credential format.
