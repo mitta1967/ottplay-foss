@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.55] - Development line
+
+### Changes
+
+- Strengthen release-candidate fuzz evidence with required seed corpora, bounded
+  replay and validation of the pinned shared workflow.
+
+### Upgrade
+
+- Update using the package for the same platform as your existing installation.
+  This patch preserves saved profiles and settings and introduces no data or
+  credential migration.
+- Beta and release-candidate packages remain prereleases for validation before
+  stable publication.
+
+### Security
+
+- Update rustls to 0.23.46 and quinn-proto to 0.11.18 in application and fuzz
+  lockfiles for RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348,
+  RUSTSEC-2026-0349, RUSTSEC-2026-0338, RUSTSEC-2026-0340 and
+  RUSTSEC-2026-0343. Existing TLS verification and remote-control authorization
+  remain enabled.
+
 ## [1.1.54] - Development line
 
 ### Changes
@@ -41,10 +64,6 @@ Remote favorites require `favorites` support in the player, control server and
 CLI. Existing profile-local favorites retain their storage format and scope.
 
 ### Security
-
-- Update rustls to 0.23.46 and quinn-proto to 0.11.18 in application and fuzz
-  lockfiles to address the upstream TLS and QUIC advisories (RUSTSEC-2026-0346
-  through 0349, plus 0338, 0340 and 0343).
 
 Existing remote-control authorization, parental restrictions, runtime binding
 and request-cancellation checks remain in force. This release introduces no new
