@@ -233,12 +233,20 @@ var cloudSettingsTransfer = (function () {
                             : null,
                         before: previous,
                         storage: {
+                            key: key,
                             read: function () {
                                 return read.call(w, key);
                             },
                             remove: function () {
                                 remove.call(w, key);
                             },
+                            transaction:
+                                w.ottpStorage &&
+                                read === w.ottpStorage.get &&
+                                write === w.ottpStorage.set &&
+                                remove === w.ottpStorage.del
+                                    ? w.ottpStorage.transaction
+                                    : undefined,
                             write: function (value: string) {
                                 write.call(w, key, value);
                             },

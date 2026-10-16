@@ -50,6 +50,7 @@ try {
         "locales",
         "hosted",
         "swop-input",
+        "diagnostics",
     ])
         fs.mkdirSync(path.join(root, "dist", directory), { recursive: true });
     const bundle = "var fixture = true;\n";
@@ -59,6 +60,7 @@ try {
         "hosted/sax.js",
         "swop-input/index.html",
         "swop-input/app.js",
+        "diagnostics/av-v1.mp4",
     ];
     for (const file of hostedFiles)
         fs.writeFileSync(path.join(root, "dist", file), "fixture:" + file);

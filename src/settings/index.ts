@@ -720,12 +720,14 @@ export const settingsStore = createSettingsStore(settingsSchema, {
             };
         }
         return {
+            key: key,
             read: function () {
                 return storage.get(key);
             },
             remove: function () {
                 storage.del(key);
             },
+            transaction: storage.transaction,
             write: function (v) {
                 storage.set(key, v);
             },
@@ -852,7 +854,20 @@ function settingsBackupContext(): any {
         );
     }
     function port(key: string): any {
+        var driver = w.__ottActiveProviderDriver;
+        var durable =
+            !get ||
+            (driver &&
+                w.stbGetItem === storage.get &&
+                w.stbSetItem === storage.set);
         return {
+            key: durable
+                ? get
+                    ? driver.storageKey
+                        ? driver.storageKey(key)
+                        : String(w.p_pref || "") + key
+                    : key
+                : undefined,
             read: function () {
                 return get ? get.call(w, key) : storage.get(key);
             },
@@ -861,6 +876,7 @@ function settingsBackupContext(): any {
                 else if (del) del.call(w, key);
                 else set.call(w, key, "");
             },
+            transaction: durable ? storage.transaction : undefined,
             write: function (value: string) {
                 if (set) set.call(w, key, value);
                 else storage.set(key, value);

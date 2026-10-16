@@ -71,6 +71,7 @@ try {
         "providers",
         "hosted",
         "swop-input",
+        "diagnostics",
     ];
     const sources = assets.map((name) =>
         requirePath("dist/" + name, name !== "favicon.ico")
@@ -81,6 +82,7 @@ try {
         "hosted/sax.js",
         "swop-input/index.html",
         "swop-input/app.js",
+        "diagnostics/av-v1.mp4",
     ])
         requirePath("dist/" + file, false);
     // Require built installation assets; a stale dist must not silently package

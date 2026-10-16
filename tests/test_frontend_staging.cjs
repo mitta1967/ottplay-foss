@@ -116,6 +116,8 @@ try {
         "dist/swop-input/index.html",
         "dist/swop-input/app.js",
         "dist/swop-input/locales/rus-fixture.json",
+        "dist/diagnostics/av-v1.mp4",
+        "dist/diagnostics/private-recording.mp4",
         "stage/devices/logs/previous-build.json",
     ])
         write(name);
@@ -159,6 +161,7 @@ try {
         "swop-input/index.html",
         "swop-input/app.js",
         "swop-input/locales/rus-fixture.json",
+        "diagnostics/av-v1.mp4",
     ]) {
         assert.equal(
             fs.readFileSync(path.join(fixture, "stage", name), "utf8"),
@@ -188,6 +191,7 @@ try {
     );
     for (const name of [
         "devices/legacy-core.js",
+        "diagnostics/private-recording.mp4",
         "devices/logs",
         "devices/lg/.private",
         "devices/lg/node_modules",

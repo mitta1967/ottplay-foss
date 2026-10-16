@@ -453,6 +453,7 @@ fn player_asset_routes(directory: &std::path::Path) -> Router {
         "fonts",
         "js",
         "providers",
+        "diagnostics",
     ] {
         routes = routes.nest_service(&format!("/{name}"), ServeDir::new(directory.join(name)));
     }
@@ -1614,6 +1615,7 @@ mod device_entry_tests {
             ("images/player-logo.png", "fixture logo", "image/png"),
             ("locales/russian.js", "var keyStrings = {};", "javascript"),
             ("devices/pc/device.js", "var keys = {};", "javascript"),
+            ("diagnostics/av-v1.mp4", "fixture video", "video/mp4"),
             (
                 "providers/m3u/about.html",
                 "<p>Playlist provider</p>",

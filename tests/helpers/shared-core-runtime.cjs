@@ -73,6 +73,7 @@ module.exports = function sharedCoreRuntime(context, options = {}) {
         "src/provider/m3u-settings.ts",
         "src/provider/m3u-driver.ts",
         "src/provider/drivers.ts",
+        "src/provider/xtream-media.ts",
     ])
         privateRuntime(context, file);
     return core;

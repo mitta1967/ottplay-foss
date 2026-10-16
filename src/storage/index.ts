@@ -48,6 +48,7 @@ export interface StorageAdapter {
     reset(): void;
     set(key: string, value: string): void;
     setI(key: string, value: number): void;
+    transaction?(writes: JournalWrite[], current: () => boolean): boolean;
 }
 
 function createStorageAdapter(
@@ -98,9 +99,112 @@ const STORAGE_COOKIE_ATTRIBUTES =
 /** Internal cookie bookkeeping must never be imported as a user setting. */
 export function isStorageMetadataKey(key: string): boolean {
     return (
+        key === "ottplaySettingsJournalV1" ||
         key === STORAGE_FALLBACK_KEYS ||
         key.indexOf(STORAGE_FALLBACK_KEYS + ".") === 0
     );
+}
+
+interface JournalWrite {
+    after: string | null;
+    before: string | null;
+    key: string;
+}
+
+/** Undo a prepared batch before settings/provider hydration. Never overwrite a foreign edit. */
+export function recoverSettingsJournal(backing: Storage): void {
+    var key = "ottplaySettingsJournalV1";
+    var raw = backing.getItem(key);
+    if (raw === null) return;
+    if (raw.length > 2 * 1024 * 1024)
+        throw new Error("Invalid settings journal");
+    var record = JSON.parse(raw);
+    var seen: Record<string, boolean> = Object.create(null);
+    if (
+        !record ||
+        record.version !== 1 ||
+        !Array.isArray(record.writes) ||
+        record.writes.length > 16000 ||
+        Object.keys(record).sort().join(",") !== "version,writes"
+    )
+        throw new Error("Invalid settings journal");
+    record.writes.forEach(function (entry: JournalWrite) {
+        if (
+            !entry ||
+            Object.keys(entry).sort().join(",") !== "after,before,key" ||
+            typeof entry.key !== "string" ||
+            !entry.key ||
+            isStorageMetadataKey(entry.key) ||
+            seen[entry.key] ||
+            (entry.before !== null && typeof entry.before !== "string") ||
+            (entry.after !== null && typeof entry.after !== "string")
+        )
+            throw new Error("Invalid settings journal");
+        seen[entry.key] = true;
+    });
+    for (var i = record.writes.length - 1; i >= 0; i--) {
+        var entry = record.writes[i];
+        if (backing.getItem(key) !== raw)
+            throw new Error("Settings journal changed");
+        if (backing.getItem(entry.key) !== entry.after) continue;
+        if (entry.before === null) backing.removeItem(entry.key);
+        else backing.setItem(entry.key, entry.before);
+        if (backing.getItem(entry.key) !== entry.before)
+            throw new Error("Settings recovery failed");
+    }
+    if (backing.getItem(key) !== raw)
+        throw new Error("Settings journal changed");
+    backing.removeItem(key);
+    if (backing.getItem(key) !== null)
+        throw new Error("Settings recovery failed");
+}
+
+/** Single-writer undo journal. Committed state is published by removing the journal. */
+export function writeSettingsJournal(
+    backing: Storage,
+    writes: JournalWrite[],
+    current: () => boolean
+): void {
+    var key = "ottplaySettingsJournalV1";
+    if (backing.getItem(key) !== null)
+        throw new Error("Settings recovery required");
+    var seen: Record<string, boolean> = Object.create(null);
+    writes.forEach(function (entry) {
+        if (!entry.key || isStorageMetadataKey(entry.key) || seen[entry.key])
+            throw new Error("Invalid settings batch");
+        seen[entry.key] = true;
+        if (!current() || backing.getItem(entry.key) !== entry.before)
+            throw new Error("Settings changed");
+    });
+    var raw = JSON.stringify({ version: 1, writes: writes });
+    if (writes.length > 16000 || raw.length > 2 * 1024 * 1024)
+        throw new Error("Settings batch too large");
+    backing.setItem(key, raw);
+    if (backing.getItem(key) !== raw)
+        throw new Error("Settings journal rejected");
+    try {
+        writes.forEach(function (entry) {
+            if (
+                !current() ||
+                backing.getItem(key) !== raw ||
+                backing.getItem(entry.key) !== entry.before
+            )
+                throw new Error("Settings changed");
+            if (entry.after === null) backing.removeItem(entry.key);
+            else backing.setItem(entry.key, entry.after);
+            if (backing.getItem(entry.key) !== entry.after)
+                throw new Error("Settings write rejected");
+        });
+        if (!current() || backing.getItem(key) !== raw)
+            throw new Error("Settings changed");
+        backing.removeItem(key);
+        if (backing.getItem(key) !== null)
+            throw new Error("Settings journal rejected");
+    } catch (error) {
+        // If recovery is interrupted again, the retained journal is retried at boot.
+        if (backing.getItem(key) === raw) recoverSettingsJournal(backing);
+        throw error;
+    }
 }
 
 function readStorageCookies(): Record<string, string> {
@@ -175,6 +279,8 @@ function createLocalStorageAdapter(): StorageAdapter {
     } catch (_error) {
         nativeStorage = null;
     }
+    // A failed or corrupt journal must not silently hydrate a half-imported account.
+    if (nativeStorage) recoverSettingsJournal(nativeStorage);
     let cookieWrites = true;
     const fallback = createCookieAdapter(function () {
         return cookieWrites;
@@ -385,7 +491,18 @@ function createLocalStorageAdapter(): StorageAdapter {
         }
         return fallback.dump();
     };
-    return createStorageAdapter(get, set, del, clear, dump);
+    var adapter = createStorageAdapter(get, set, del, clear, dump);
+    adapter.transaction = function (writes, current) {
+        // Cookie/session fallbacks have no durable transaction contract.
+        if (!nativeStorage || incomplete || Object.keys(overrides).length)
+            return false;
+        writeSettingsJournal(nativeStorage, writes, current);
+        writes.forEach(function (entry) {
+            fallback.del(entry.key);
+        });
+        return true;
+    };
+    return adapter;
 }
 
 // -- Cookie implementation ------------------------------------------------------
@@ -784,27 +901,69 @@ export function restoreLocalSettingsSnapshot(items: Record<string, any>): void {
     var token = retained.commandServerToken;
     var localEnabled = retained.sLocalHttpEnabled;
     var localCode = retained.sLocalHttpDeviceCode;
-    // Cancel delivery before clearing storage. Keep this installation's own
-    // credentials, but require an explicit reconnect after restoring settings.
+    imported.commandServerAddress = address;
+    imported.commandServerToken = token;
+    imported.commandServerEnabled = "0";
+    imported.sLocalHttpEnabled = localEnabled;
+    imported.sLocalHttpDeviceCode = localCode;
+    var read = w.stbGetItem,
+        write = w.stbSetItem,
+        remove = w.stbDelItem;
+    var keys = Object.keys(current);
+    Object.keys(imported).forEach(function (key) {
+        if (keys.indexOf(key) < 0) keys.push(key);
+    });
+    var writes = keys
+        .filter(function (key) {
+            return !isStorageMetadataKey(key);
+        })
+        .map(function (key) {
+            return {
+                after: Object.prototype.hasOwnProperty.call(imported, key)
+                    ? imported[key]
+                    : null,
+                before: read.call(w, key),
+                storage: {
+                    key: key,
+                    read: function () {
+                        return read.call(w, key);
+                    },
+                    remove: function () {
+                        remove.call(w, key);
+                    },
+                    transaction:
+                        w.ottpStorage &&
+                        read === w.ottpStorage.get &&
+                        write === w.ottpStorage.set &&
+                        remove === w.ottpStorage.del
+                            ? w.ottpStorage.transaction
+                            : undefined,
+                    write: function (value: string) {
+                        write.call(w, key, value);
+                    },
+                },
+            };
+        })
+        .filter(function (entry) {
+            return entry.before !== entry.after;
+        });
+    function admitted(): boolean {
+        return (
+            read === w.stbGetItem &&
+            write === w.stbSetItem &&
+            remove === w.stbDelItem
+        );
+    }
+    w.commitSettingsWrites(writes, admitted, admitted);
+    // Publish runtime effects only after storage committed. Retain installation authority.
     if (w.__ottCommandServer)
         w.__ottCommandServer.configure({
             address: address,
             enabled: false,
             token: token,
         });
-    w.stbSetItem("commandServerEnabled", "0");
     if (w.__ottClassicPlayback) w.__ottClassicPlayback.suspendPersistence();
     if (w.__ottClassicGuide) w.__ottClassicGuide.invalidate(false);
-    w.stbClearAllItems();
-    for (var key in imported) {
-        if (Object.prototype.hasOwnProperty.call(imported, key))
-            w.stbSetItem(key, imported[key]);
-    }
-    w.stbSetItem("commandServerAddress", address);
-    w.stbSetItem("commandServerToken", token);
-    w.stbSetItem("commandServerEnabled", "0");
     // The existing native listener is independent. Preserve current local
     // consent and its code; imported values can neither enable nor replace it.
-    w.stbSetItem("sLocalHttpEnabled", localEnabled);
-    w.stbSetItem("sLocalHttpDeviceCode", localCode);
 }

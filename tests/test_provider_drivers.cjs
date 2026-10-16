@@ -112,9 +112,9 @@ for (const [index, row] of captured.cases.entries())
             assert(channel.groupId.startsWith("xtream:category:"));
         }
         assert.equal(
-            f.host.getMediaArray,
-            null,
-            "standalone Xtream retains its existing live-only media capability"
+            typeof f.host.getMediaArray,
+            "function",
+            "standalone Xtream exposes the lazy media library without delaying live startup"
         );
     });
 

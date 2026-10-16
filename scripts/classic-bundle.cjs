@@ -79,11 +79,13 @@ const CLASSIC_MODULES = [
     "build/plugins/plex-queue.js",
     "build/provider/plex-driver.js",
     "build/provider/vportal-driver.js",
+    "build/provider/xtream-media.js",
     "build/provider/drivers.js",
     "build/provider/assets.js",
     "build/provider/index.js",
     "build/commands/index.js",
     "build/commands/remote-profiles.js",
+    "build/commands/remote-handoff.js",
     "build/commands/remote-plex.js",
     "build/commands/remote-favorites-contract.js",
     "build/commands/remote-favorites.js",
@@ -138,6 +140,7 @@ const CLASSIC_PROVIDER_BUNDLES = Object.freeze({
     ],
     stalker: ["build/provider/stalker-driver.js"],
     vportal: ["build/provider/vportal-driver.js"],
+    xtream: ["build/provider/xtream-media.js"],
 });
 const providerModules = new Set(Object.values(CLASSIC_PROVIDER_BUNDLES).flat());
 const CLASSIC_MAIN_MODULES = CLASSIC_MODULES.filter(
@@ -235,6 +238,9 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
     ]),
     "build/provider/vportal-driver.js": Object.freeze([
         "window.__ottVPortalDriver",
+    ]),
+    "build/provider/xtream-media.js": Object.freeze([
+        "window.__ottXtreamMedia",
     ]),
     "build/settings/cloud-codec.js": Object.freeze([
         "window.__ottCloudSettingsCodec",

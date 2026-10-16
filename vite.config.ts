@@ -102,7 +102,9 @@ function copyRuntimeAssets(
                     (/\.(html|js|css|json|webmanifest|txt|png|gif|ico|jpe?g|svg|ttf|otf|eot|woff2?)$/i.test(
                         name
                     ) ||
-                        /^(?:pako|sax)-LICENSE$/.test(name)))
+                        /^(?:pako|sax)-LICENSE$/.test(name) ||
+                        (name === "av-v1.mp4" &&
+                            basename(dirname(path)) === "diagnostics")))
             );
         },
         recursive: true,
@@ -219,7 +221,7 @@ function stageTauriFrontend(
     }
 
     stagePlayerAssets(srcRoot, stageDir);
-    for (const directory of ["hosted", "swop-input"]) {
+    for (const directory of ["hosted", "swop-input", "diagnostics"]) {
         copyRuntimeAssets(join(distDir, directory), join(stageDir, directory));
     }
 
@@ -499,6 +501,7 @@ export default defineConfig(({ mode }) => ({
                     "providers",
                     "devices",
                     "js",
+                    "diagnostics",
                 ] as const) {
                     if (dir === "devices" && androidFlavor === "play") {
                         // Android uses its device shim and the HTML5 PC fallback.
