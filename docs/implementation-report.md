@@ -103,6 +103,35 @@ own measurements on target devices. No new physical-device result or beta
 release is asserted by this report. The [physical acceptance list](roadmap-delivery.md#physical-acceptance-before-promotion)
 and [release strategy](../RELEASING.md) remain the promotion criteria.
 
+## Post-beta integration and review
+
+After the publication of beta.4, source `39287792` was integrated into this
+branch. Runtime revision `9663b681` also fixes live-edge restoration under HLS
+quality limits and makes a damaged settings journal recoverable before normal
+startup. The recovery screen blocks partial account hydration, supports retry
+and a confirmed reset, preserves unrelated cookies, and prevents old cookie
+settings from returning after reset. See the
+[recovery process](settings-recovery.md) and its SVG diagram.
+
+![Post-beta complete JavaScript comparison](diagrams/post-beta-size.svg)
+
+Reproducing both sources with Node 26.8.2, Rollup 4.64.5 and Terser 5.51.2 gives
+**964,876 / 305,452** raw/gzip bytes for the beta.4 source and
+**1,000,388 / 316,600** for the integration: **+35,512 / +11,148 bytes**
+(3.68% / 3.65%). These totals include all optional providers: seven in the
+baseline and eight in the integration. The new entry is 879,533 / 271,761.
+This is a separate comparison from the earlier frozen graphs above.
+
+Both local production builds regenerate five tracked runtime files and omit
+their clean-source revision claim. The reports record this limitation rather
+than identifying these local files as published release artifacts:
+[baseline](evidence/post-beta-baseline-size-20261015.json) and
+[integration](evidence/post-beta-candidate-size-20261015.json).
+The integration build and ES5/native checks pass. Six targeted browser checks
+also pass: journal recovery/reset, dialog keyboard behavior, LG webOS and
+NetCast pointer input, PC two-click selection, and the Plex owned wait. The
+next integration with PR 779 and its strengthened CI remain delivery gates.
+
 ## Delivery
 
 - [Player, documentation and i18n — PR 781](https://github.com/open-ott-play/ottplay-foss/pull/781).

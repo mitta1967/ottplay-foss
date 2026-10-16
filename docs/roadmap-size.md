@@ -31,8 +31,32 @@ The subsequent clean build `652726f8`, including pointer/dialog focus fixes,
 measures **995,858 raw / 315,207 gzip bytes** for the complete web player
 ([final artifact evidence](evidence/roadmap-final-size-20261015.json)). Its entry
 is 875,197 / 270,425; native totals are 995,816 / 315,259.
-The reviewed caps retain the previous native/Node/release-suffix allowance:
+The caps for that snapshot retained the previous native/Node/release-suffix allowance:
 875,300 raw / 271,600 gzip for the entry; 996,100 / 316,400 for entry + providers.
+
+## Post-beta integration
+
+![Complete JavaScript after beta.4 integration](diagrams/post-beta-size.svg)
+
+The later comparison reproduces beta.4 source `39287792` against runtime
+`9663b681`, including Plex integration and damaged-settings recovery, using the
+same Node 26.8.2, Rollup 4.64.5 and Terser 5.51.2:
+
+- Web entry: 848,315 / 262,443 → 879,533 / 271,761 raw/gzip bytes.
+- Web entry + all providers: 964,876 / 305,452 → 1,000,388 / 316,600.
+- Native entry + all providers: 964,834 / 305,520 → 1,000,346 / 316,654.
+- Complete web payload increase: **35,512 / 11,148 bytes (3.68% / 3.65%)**.
+
+The baseline counts seven provider families; the integration counts eight,
+including lazy Xtream. Current entry caps are 879,900 / 273,000; total caps are
+1,000,800 / 317,800, preserving room for native, Node and release identity.
+Both local production builds regenerate five tracked runtime files and omit
+the clean-source revision claim. These are reproduced local artifacts, not
+the published beta binaries. Tool versions, hashes and that limitation are
+recorded in the [baseline evidence](evidence/post-beta-baseline-size-20261015.json)
+and [integration evidence](evidence/post-beta-candidate-size-20261015.json).
+The [implementation report](implementation-report.md#post-beta-integration-and-review)
+explains the fixes and validation.
 
 **Scope:** these totals exclude external media engines, language dictionaries,
 CSS, images and video. The new optional A/V clip adds **464,652 bytes to packaged

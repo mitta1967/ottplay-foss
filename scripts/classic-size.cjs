@@ -201,7 +201,10 @@ const { gzipSync } = require("node:zlib");
 // raw/gzip; native 874884/270372. Retain the prior Node 22/native/version
 // reserve, plus the one-byte rooted diagnostic URL fix. Full evidence and
 // scope (JavaScript only, separate A/V asset) are in docs/roadmap-size.md.
-const BUDGET = Object.freeze({ bytes: 875300, gzipBytes: 271600 });
+// Post-beta Plex integration and explicit damaged-journal recovery (including
+// scoped cookie reset) measure 879533 / 271761 on Node 26.8.2, Rollup 4.64.5.
+// Allocate their measured cost while preserving native/Node 22/version room.
+const BUDGET = Object.freeze({ bytes: 879900, gzipBytes: 273000 });
 // Count every optional family as well, so moving code out of the entry bundle
 // cannot disguise growth of the complete player payload.
 // Classic MAG support adds ~5 KB to the optional Stalker family and a small
@@ -309,7 +312,9 @@ const BUDGET = Object.freeze({ bytes: 875300, gzipBytes: 271600 });
 // providers on Node 26.8.2. Allocate +1700 / +500 to preserve the prior reserve.
 // All eight provider families remain counted, including lazy Xtream:
 // 964459/305344 -> 995587/315103 web; 995545/315154 native.
-const TOTAL_BUDGET = Object.freeze({ bytes: 996100, gzipBytes: 316400 });
+// The same build, counting all eight optional providers, is 1000388 / 316600.
+// Keep every provider inside the bound; no runtime code is excluded or deferred.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1000800, gzipBytes: 317800 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

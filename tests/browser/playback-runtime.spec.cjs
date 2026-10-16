@@ -50,6 +50,9 @@ test("corrupt settings journal offers explicit recovery before provider hydratio
         dialog.getByRole("button", { exact: true, name: "Retry" })
     ).toBeFocused();
     await expect(dialog).not.toContainText("private");
+    await page.screenshot({
+        path: test.info().outputPath("settings-recovery.png"),
+    });
     const original = await page.evaluate(() => ({
         cookie: document.cookie,
         journal: localStorage.getItem("ottplaySettingsJournalV1"),
