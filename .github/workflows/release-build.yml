@@ -50,6 +50,8 @@ defaults:
 jobs:
   build:
     name: Build player bundle
+    outputs:
+      browser-artifact-id: ${{ steps.browser-artifact.outputs.artifact-id }}
     runs-on: ubuntu-latest
     steps:
     - name: Harden the runner (Audit all outbound calls)
@@ -109,6 +111,7 @@ jobs:
         RELEASE_ASSET_PATTERN_3: ottplay-foss-modea.sha256
       run: python3 scripts/stage_release_assets.py --target "$RELEASE_ASSET_TARGET" --pattern "$RELEASE_ASSET_PATTERN_0" --pattern "$RELEASE_ASSET_PATTERN_1" --pattern "$RELEASE_ASSET_PATTERN_2" --pattern "$RELEASE_ASSET_PATTERN_3"
     - name: Store release assets
+      id: browser-artifact
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: release-assets-web
@@ -291,7 +294,7 @@ jobs:
       with:
         node-version: '22'
         cache: npm
-    - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+    - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
       with:
         distribution: temurin
         java-version: '21'
@@ -528,3 +531,25 @@ jobs:
         path: release-assets/container/*
         if-no-files-found: error
         retention-days: 14
+
+  browser-release:
+    needs: build
+    uses: victron-venus/venus-os-ci-toolkit/.github/workflows/typescript-ci.yml@bad9ff35f3961ac7d1473aaec937133d6d212899
+    permissions:
+      contents: read
+      actions: read
+    with:
+      node-version: '22'
+      run-node-ci: false
+      browser-matrix-file: .github/browser-compatibility.json
+      browser-test-command: node scripts/browser-acceptance.cjs
+      browser-artifact-id: ${{ needs.build.outputs.browser-artifact-id }}
+      browser-artifact-path: browser-candidate
+      browser-release-channel: ${{ inputs.channel }}
+      browser-extended: ${{ inputs.channel == 'rc' || inputs.channel == 'stable' }}
+      browser-evidence-prefix: browser-release
+      browser-prepare-command: |
+        npm ci --omit=dev --ignore-scripts
+        PYTHON=python3
+        if ! "$PYTHON" -c 'import sys; assert sys.version_info >= (3, 8)' 2>/dev/null; then PYTHON=python; fi
+        "$PYTHON" scripts/prepare_browser_candidate.py browser-candidate browser-candidate-web --release

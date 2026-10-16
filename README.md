@@ -1098,6 +1098,8 @@ EPG_URLS="http://example.com/epg.xml.gz" ./target/release/ottplay-server --port 
 - [Xtream media library](./docs/xtream-media.md) / [По-русски](./docs/xtream-media.ru.md).
 - [Same-source device handoff](./docs/remote-handoff.md) / [По-русски](./docs/remote-handoff.ru.md).
 - [Recoverable local settings](./docs/settings-recovery.md) / [По-русски](./docs/settings-recovery.ru.md).
+- [Browser generations, operating systems and exact release-candidate checks](docs/browser-compatibility.md)
+
 - [Player architecture](./docs/architecture.md) — runtime ownership, provider integration, playback, guide, device adapters and build contracts.
 - [Classic ES5 build pipeline](./docs/build-pipeline.md) — compilation, compatibility checks and artifact size limits.
 - [Runtime asset names and deployment migration](./docs/asset-layout.md) — descriptive paths shared by web and native packages.
