@@ -129,8 +129,33 @@ than identifying these local files as published release artifacts:
 [integration](evidence/post-beta-candidate-size-20261015.json).
 The integration build and ES5/native checks pass. Six targeted browser checks
 also pass: journal recovery/reset, dialog keyboard behavior, LG webOS and
-NetCast pointer input, PC two-click selection, and the Plex owned wait. The
-next integration with PR 779 and its strengthened CI remain delivery gates.
+NetCast pointer input, PC two-click selection, and the Plex owned wait.
+
+## Browser-gate integration
+
+Source `c52f4d07` incorporates PR 779 from main `1ecbc0e7`. Both branches'
+test commands, recovery checks and Plex dialog assertions are preserved.
+TypeScript, lint, documentation, packaging/linker contracts, the production
+build and full compiled-bundle checks pass. All 27 emitted player/provider
+JavaScript files remain byte-identical to the measured artifacts above.
+The full device-browser suite on that build finishes with **196 passed and
+one expected Chromium skip** for the native-HLS case requiring WebKit.
+
+The exact packaged Mode A archive was unpacked only after checking its source,
+checksum and bundle/provider inventory. Chromium 156.0.8078.4, Firefox 157.0
+and WebKit 27.2 each passed all five profile scenarios without skips or retries:
+**15 local passes** with Playwright 1.64.0. The actual host was macOS 26.7.1,
+not the `macos-15` runner named in the selected profiles. Receipts explicitly
+record that distinction and are **not hosted-matrix or release qualification**.
+See the [local summary](evidence/post779-local-acceptance/summary.json) and
+[reproduction recipe](evidence/post779-local-acceptance/reproduce.sh), which
+expects an existing production build and refuses to replace an extracted
+candidate directory.
+
+The [browser policy](browser-compatibility.md) requires five hosted targets
+and 25 scenario executions for PR/beta checks; the complete RC has 35 targets
+and 166 executions. Fresh CI for this integration and completion of the
+already-running beta publication remain gates before this PR can merge.
 
 ## Delivery
 
