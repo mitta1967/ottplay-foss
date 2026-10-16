@@ -82,8 +82,13 @@ function fixture(config = {}, capabilities = {}) {
                 return request;
             },
         },
-        addEventListener(event, listener) {
+        addEventListener(event, listener, capture) {
             events.set(event, listener);
+            capabilities.eventTarget?.addEventListener(
+                event,
+                listener,
+                capture
+            );
         },
         clearInterval(id) {
             intervals.delete(id);
@@ -112,8 +117,13 @@ function fixture(config = {}, capabilities = {}) {
         MediaSource: { isTypeSupported: capabilities.mse || (() => false) },
         mediaName: "untouched",
         mediaRecords: ["untouched"],
-        removeEventListener(event, listener) {
+        removeEventListener(event, listener, capture) {
             if (events.get(event) === listener) events.delete(event);
+            capabilities.eventTarget?.removeEventListener(
+                event,
+                listener,
+                capture
+            );
         },
         setInterval(run, delay) {
             intervals.set(++next, { delay, run });
@@ -1547,6 +1557,47 @@ test("pagehide releases only its owned session with a credential-free keepalive 
     f.client.dispose();
     assert.equal(f.events.has("pagehide"), false);
 });
+test("pagehide releases Plex before an earlier queue stop listener and removes the same capture listener", () => {
+    const dom = new JSDOM();
+    const target = dom.window;
+    let f;
+    target.addEventListener("pagehide", () => f.client.stop());
+    let handler;
+    let calls = 0;
+    const eventTarget = {
+        addEventListener(event, listener, capture) {
+            handler = () => {
+                calls++;
+                listener();
+            };
+            target.addEventListener(event, handler, capture);
+        },
+        removeEventListener(event, _listener, capture) {
+            target.removeEventListener(event, handler, capture);
+        },
+    };
+    f = fixture({}, { eventTarget });
+    f.client.resolve(film, () => {});
+    last(f).reply(metadata());
+    last(f).reply({ MediaContainer: { transcodeDecisionCode: 1001 } });
+    const before = f.requests.length;
+    target.dispatchEvent(new target.Event("pagehide"));
+    assert.equal(f.keepalive.length, 1);
+    assert.equal(f.requests.length, before, "No unload stop XHR is issued");
+    assert.equal(f.intervals.size, 0);
+    target.dispatchEvent(new target.Event("pagehide"));
+    assert.equal(
+        f.keepalive.length,
+        1,
+        "The released session cannot stop twice"
+    );
+    assert.equal(calls, 2);
+    f.client.dispose();
+    target.dispatchEvent(new target.Event("pagehide"));
+    assert.equal(calls, 2, "Dispose removes the capture listener");
+    dom.window.close();
+});
+
 test("cursor rows are explicit and selected folder titles override generic server labels", () => {
     const f = fixture();
     f.client.load(

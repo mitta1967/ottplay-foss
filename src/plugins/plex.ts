@@ -1340,8 +1340,9 @@ function createPlexClient(
         release();
         unloading = false;
     }
+    // Release before queue/player pagehide handlers attempt a regular stop.
     if (typeof w.addEventListener === "function")
-        w.addEventListener("pagehide", pagehide);
+        w.addEventListener("pagehide", pagehide, true);
     return {
         canCollect: function (value: any): boolean {
             return !!collectionPath(value);
@@ -1409,7 +1410,7 @@ function createPlexClient(
         },
         dispose: function () {
             if (typeof w.removeEventListener === "function")
-                w.removeEventListener("pagehide", pagehide);
+                w.removeEventListener("pagehide", pagehide, true);
             disposed = true;
             if (cancelPage) cancelPage();
             if (cancelCollection) cancelCollection();
