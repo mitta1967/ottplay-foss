@@ -196,6 +196,14 @@ function remote(f) {
                     );
                 },
             };
+        if (name === "./remote-handoff")
+            return {
+                executeRemoteHandoff() {
+                    throw new Error(
+                        "Plex provider settings must not hand off playback"
+                    );
+                },
+            };
         if (name === "../provider")
             return {
                 checkProviderUrl: (url) => f.host.checkProviderUrl(url),

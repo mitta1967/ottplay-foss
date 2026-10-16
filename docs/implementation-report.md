@@ -73,12 +73,19 @@ The complete browser run against this build finished with **194 passed and
 one skipped**: native HLS requires WebKit, while this run used Chromium.
 Hosted CI and the agreed merge sequence remain separate gates.
 
+The remaining `test:port` and `test:unified` chain was completed in resumed
+segments after correcting isolated test fixtures. Each failed target was rerun
+successfully, and the remaining commands finished successfully; this is not a
+claim of one uninterrupted `npm test` run. The exact nine-command Android bridge
+CI step also passed locally.
+
 For Android `be0d800`, **101 app tests and 62 shared-core tests** passed locally,
 as did debug/release lint, Debug/Release/Full APK assembly, the release bundle and
 androidTest APK compilation. Compilation of the instrumented-test APK is not
 execution on a device. The three confirmed review findings were answered and
-resolved in [Android PR 68](https://github.com/open-ott-play/ottplay-android/pull/68);
-the diagram deliberately leaves the CI/release gate pending.
+resolved in [Android PR 68](https://github.com/open-ott-play/ottplay-android/pull/68).
+That PR passed its checks and merged as `5b644b94`; post-merge CI is tracked
+separately. The diagram leaves the overall player CI/release gate pending.
 
 The complete web JavaScript total changed from **964,459 / 305,344** raw/gzip
 bytes to **995,858 / 315,207**: **+31,399 / +9,863 bytes** (about 3.26% / 3.23%).
