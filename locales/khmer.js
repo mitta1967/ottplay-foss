@@ -1042,7 +1042,7 @@ var keyStrings = {
         "ការវិនិច្ឆ័យដែលអាចទុកចិត្តបានគឺមិនអាចប្រើបានទេ ដោយសារទំហំផ្ទុកឧបករណ៍មិនអាចធ្វើបច្ចុប្បន្នភាពបានទេ។",
     "Trusted diagnostics is waiting for this player to reconnect.":
         "ការធ្វើរោគវិនិច្ឆ័យដែលគួរឱ្យទុកចិត្តកំពុងរង់ចាំកម្មវិធីចាក់នេះដើម្បីភ្ជាប់ឡើងវិញ។",
-    "Try demo": "សាកល្បងសាកល្បង",
+    "Try demo": "សាកល្បងការបង្ហាញ",
     "TV DOSUG": "TV DOSUG",
     "TV DOSUG settings": "ការកំណត់ TV DOSUG",
     TVClub: "TVClub",

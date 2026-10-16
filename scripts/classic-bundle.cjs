@@ -9,6 +9,7 @@ const CLASSIC_MODULES = [
     "build/localization/unicode.js",
     "build/localization/index.js",
     "build/localization/assets.js",
+    "build/storage/recovery-ui.js",
     "build/localization/media.js",
     "build/settings/cloud-codec.js",
     "build/settings/cloud.js",

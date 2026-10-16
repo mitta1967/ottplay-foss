@@ -39,8 +39,8 @@ See the [publishing instructions](../wiki-publishing.md).
 - [Xtream movie/series library](../xtream-media.md) ([Русский](../xtream-media.ru.md)).
 - [Same-source player handoff](../remote-handoff.md) ([Русский](../remote-handoff.ru.md)).
 - [Local settings journal and recovery](../settings-recovery.md) ([Русский](../settings-recovery.ru.md)).
-- [Reliable control, resumable profiles and handoff](https://github.com/open-ott-play/ottplay-control-server/blob/ee48d7246467ff259494ef2009c255fdc2c8de48/docs/reliable-control.md)
-  ([Русский](https://github.com/open-ott-play/ottplay-control-server/blob/ee48d7246467ff259494ef2009c255fdc2c8de48/docs/reliable-control.ru.md)).
+- [Reliable control, resumable profiles and handoff](https://github.com/open-ott-play/ottplay-control-server/blob/9b28c08eefca3948c78336e7e16a45e6fc492e31/docs/reliable-control.md)
+  ([Русский](https://github.com/open-ott-play/ottplay-control-server/blob/9b28c08eefca3948c78336e7e16a45e6fc492e31/docs/reliable-control.ru.md)).
   Requires a matching controller/CLI revision and configured permissions.
 - [Semantic audio/subtitle preferences in native Android](https://github.com/open-ott-play/ottplay-android/blob/be0d8008c75b0badede7022dbb9096e11914227f/docs/TRACK-PREFERENCES.md)
   ([Русский](https://github.com/open-ott-play/ottplay-android/blob/be0d8008c75b0badede7022dbb9096e11914227f/docs/TRACK-PREFERENCES.ru.md)).

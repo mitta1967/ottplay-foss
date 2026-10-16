@@ -19,7 +19,7 @@ speed and device playback are separate acceptance checks.
    not write viewing history. [Fixture specification](../diagnostics/README.md).
 2. **Resumable Local/Home setup.** The control CLI can plan, apply, resume and
    verify a preset. It compares saved settings before retrying an uncertain write.
-   [Control workflow](https://github.com/open-ott-play/ottplay-control-server/blob/ee48d7246467ff259494ef2009c255fdc2c8de48/docs/reliable-control.md).
+   [Control workflow](https://github.com/open-ott-play/ottplay-control-server/blob/9b28c08eefca3948c78336e7e16a45e6fc492e31/docs/reliable-control.md).
 3. **Bounded playback recovery.** HLS/Shaka transient failures share a finite
    recovery policy. Authentication and unsupported DRM are terminal. Stop,
    channel change and source replacement cancel stale work.

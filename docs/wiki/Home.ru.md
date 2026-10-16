@@ -39,8 +39,8 @@ review. Отдельная [GitHub Wiki](https://github.com/open-ott-play/ottpla
 - [Каталог фильмов и сериалов Xtream](../xtream-media.ru.md) ([English](../xtream-media.md)).
 - [Handoff между плеерами одного источника](../remote-handoff.ru.md) ([English](../remote-handoff.md)).
 - [Журнал настроек и восстановление](../settings-recovery.ru.md) ([English](../settings-recovery.md)).
-- [Надёжное управление, возобновление профилей и handoff](https://github.com/open-ott-play/ottplay-control-server/blob/ee48d7246467ff259494ef2009c255fdc2c8de48/docs/reliable-control.ru.md)
-  ([English](https://github.com/open-ott-play/ottplay-control-server/blob/ee48d7246467ff259494ef2009c255fdc2c8de48/docs/reliable-control.md)).
+- [Надёжное управление, возобновление профилей и handoff](https://github.com/open-ott-play/ottplay-control-server/blob/9b28c08eefca3948c78336e7e16a45e6fc492e31/docs/reliable-control.ru.md)
+  ([English](https://github.com/open-ott-play/ottplay-control-server/blob/9b28c08eefca3948c78336e7e16a45e6fc492e31/docs/reliable-control.md)).
   Нужны согласованная версия контроллера/CLI и настроенные разрешения.
 - [Сохранение языка и роли аудио/субтитров в нативном Android](https://github.com/open-ott-play/ottplay-android/blob/be0d8008c75b0badede7022dbb9096e11914227f/docs/TRACK-PREFERENCES.ru.md)
   ([English](https://github.com/open-ott-play/ottplay-android/blob/be0d8008c75b0badede7022dbb9096e11914227f/docs/TRACK-PREFERENCES.md)).

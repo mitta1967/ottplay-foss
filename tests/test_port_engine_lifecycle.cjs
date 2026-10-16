@@ -1447,6 +1447,44 @@ test("HLS quality restriction is applied before fragment loading", () => {
     assert.equal(player.autoLevelCapping, 1);
     w.stbStop();
 });
+test("HLS quality-limited startup preserves finite positive resume positions and otherwise uses live edge", () => {
+    for (const limits of [
+        { sStreamMaxHeight: 720 },
+        { sStreamMaxBitrate: 4000000 },
+        { sStreamMaxBitrate: 4000000, sStreamMaxHeight: 720 },
+    ]) {
+        for (const position of [
+            undefined,
+            0,
+            -1,
+            -20,
+            NaN,
+            Infinity,
+            -Infinity,
+            0.25,
+            37,
+        ]) {
+            const { w, players } = fixture();
+            Object.assign(w, limits);
+            w.playerMode = 1;
+            w.stbPlay("https://source.invalid/stream.m3u8", position);
+            const player = players[0];
+            const expected =
+                Number.isFinite(position) && position > 0 ? position : -1;
+            assert.equal(player.config.autoStartLoad, false);
+            assert.equal(player.config.startPosition ?? -1, expected);
+            assert.deepEqual(player.startLoads, []);
+            player.levels = [{ bitrate: 2000000, height: 720 }];
+            player.events.manifest();
+            assert.deepEqual(
+                player.startLoads,
+                [expected],
+                `quality-limited start position ${String(position)}`
+            );
+            w.stbStop();
+        }
+    }
+});
 test("HLS outer recovery samples the VOD position before destroy resets the media", () => {
     const { w, players } = fixture();
     let retry;

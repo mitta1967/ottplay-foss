@@ -12,6 +12,7 @@ import {
     exportSettingsUI,
     importSettingsUI,
 } from "./settings/transfer-ui";
+import { showSettingsRecovery } from "./storage/recovery-ui";
 import {
     hasTmdbService,
     listPreviewRect,
@@ -1878,6 +1879,7 @@ function startupError(
  * Edge case: Wrapped in try/catch — exceptions are displayed in #launch.
  */
 export function startPlayer(): void {
+    if (showSettingsRecovery()) return;
     // Cap/Tauri boot leaves hostUrl ""; language packs + icons resolve via
     // absolute "/locales/…". Prefer location.origin when present so nested
     // Cap paths and capacitor://localhost match CSS/bundle host.

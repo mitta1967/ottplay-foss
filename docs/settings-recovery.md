@@ -16,16 +16,33 @@ flowchart LR
   C --> D[Remove journal: commit]
   B -. interrupted .-> R[Next bootstrap: guarded undo]
   C -. interrupted .-> R
-  R --> H[Hydrate settings]
+  R -->|success| H[Hydrate settings]
+  R -->|failure| Q[Recovery screen: settings blocked]
+  Q -->|Retry| R
+  Q -->|Confirmed clear| X[Clear player settings and reload]
   D --> P[Publish current runtime values]
 ```
 
 Bootstrap recovers before hydrating settings. It restores an old value only
 while the stored value still equals this batch's new value, preserving a later
 foreign edit. It validates the journal and ownership throughout recovery.
-A failed or corrupt journal does not silently permit hydration of a partial
-account configuration; preserve/export the raw storage for diagnosis before
-manual repair. Journal limits: 16,000 entries and 2 MiB serialized text.
+A failed or corrupt journal opens a recovery screen before the player starts.
+No partial account settings or stale cookie fallback values are loaded, and
+ordinary setting writes remain blocked. **Retry** repeats the guarded recovery
+and reloads only after success. **Clear settings** requires a second explicit
+confirmation; Cancel/Back leaves data intact. It clears origin localStorage and
+the recorded player cookies at their root path. Foreign cookies are left alone.
+A persistent reset marker and empty fallback allowlist prevent unrecorded legacy
+cookies from reviving settings, including when localStorage becomes unavailable;
+new fallback writes enter the allowlist. The journal barrier is removed only
+after the reset policy and deletion are verified. Failure keeps the recovery
+screen and barrier. Keyboard Tab/arrows/Enter and
+device remote keys work before normal UI initialization. Nothing is reset
+automatically, and the screen never prints journal contents. If needed, preserve
+the original storage privately for diagnosis before choosing Clear settings.
+Journal limits: 16,000 entries and 2 MiB serialized text.
+
+![Guarded startup recovery and explicit reset flow](diagrams/settings-recovery.svg)
 
 **Guarantee boundary:** one writer, one supported native localStorage backing
 store. Browsers provide no atomic compare-and-swap across tabs. Do not run
@@ -45,4 +62,9 @@ Run `node tests/test_settings_journal.cjs`, `node tests/test_settings_store.cjs`
 `node tests/test_local_settings_backup.cjs` and
 `node tests/test_cloud_settings_session.cjs`. Tests restart from snapshots of
 interrupted writes, interrupt recovery itself, preserve foreign values and
-exercise quota/corruption/reentrancy failures.
+exercise quota/corruption/reentrancy failures. Recovery tests also cover
+quarantined reads/writes, the actual early startup guard, retry after a temporary
+storage failure, explicit reset confirmation, keyboard/remote input, interrupted
+resets, rejected cookie deletion, foreign path-scoped cookies, and native/cookie
+fallbacks after a reset. The early HTML language loader follows the same reset
+allowlist.

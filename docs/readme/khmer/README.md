@@ -5,9 +5,9 @@
 
 [README · English](../../../README.md) · [README · Русский](../../../README.ru.md) · [ជ្រើសរើសភាសា](../README.md)
 
-## 1. សាកល្បងសាកល្បង
+## 1. សាកល្បងការបង្ហាញ
 
-[សាកល្បងសាកល្បង — player.ottplay.here.now](https://player.ottplay.here.now/)
+[សាកល្បងការបង្ហាញ — player.ottplay.here.now](https://player.ottplay.here.now/)
 
 **ការកំណត់ → ផ្លាស់ប្តូរភាសាចំណុចប្រទាក់ → ខ្មែរ**
 

@@ -93,6 +93,7 @@ function createStorageAdapter(
  * operations switch to cookies/memory for this session and preserve readable keys.
  */
 const STORAGE_FALLBACK_KEYS = "ottplayStorageFallback";
+const STORAGE_RESET_EPOCH = STORAGE_FALLBACK_KEYS + ".reset";
 const STORAGE_COOKIE_ATTRIBUTES =
     "; expires=Tue, 19 Jan 2038 03:14:07 GMT; path=/";
 
@@ -109,6 +110,86 @@ interface JournalWrite {
     after: string | null;
     before: string | null;
     key: string;
+}
+
+let recoveryStorage: Storage | null = null;
+
+/** A failed boot recovery quarantines every adapter until a fresh page loads. */
+export function settingsRecoveryRequired(): boolean {
+    return recoveryStorage !== null;
+}
+
+/** Called only by the recovery screen after an explicit user action. */
+export function recoverStoredSettings(clear: boolean): void {
+    var backing = recoveryStorage;
+    if (!backing) return;
+    if (!clear) {
+        recoverSettingsJournal(backing);
+        return;
+    }
+    var cookies = readStorageCookies(true);
+    var cookieKeys = readStorageFallback(cookies) || [];
+    var key = "ottplaySettingsJournalV1";
+    // A reset must never become an undo on the next boot. Keep this invalid
+    // journal as a durable barrier until native data and cookie policy reset.
+    var barrier = '{"version":0}';
+    backing.setItem(key, barrier);
+    function ownsReset(): void {
+        if (backing!.getItem(key) !== barrier)
+            throw new Error("Settings journal changed");
+    }
+    ownsReset();
+    var names: string[] = [];
+    for (var i = 0; i < backing.length; i++) {
+        var name = backing.key(i);
+        if (name !== null && name !== key) names.push(name);
+    }
+    names.forEach(function (name) {
+        if (cookieKeys.indexOf(name) < 0) cookieKeys.push(name);
+    });
+    Object.keys(cookies).forEach(function (name) {
+        if (isStorageMetadataKey(name) && name !== STORAGE_RESET_EPOCH)
+            cookieKeys.push(name);
+    });
+    names.forEach(function (name) {
+        ownsReset();
+        backing!.removeItem(name);
+        if (backing!.getItem(name) !== null)
+            throw new Error("Settings recovery failed");
+    });
+    // Delete only recorded player keys at the root path used by our adapter.
+    // Foreign path/domain cookies are not ours to remove. A durable epoch and
+    // empty allowlist keep unrecorded legacy cookies out of future fallbacks.
+    cookieKeys.forEach(function (name) {
+        ownsReset();
+        document.cookie =
+            encodeURIComponent(name) +
+            "=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/";
+    });
+    ownsReset();
+    cookies = readStorageCookies(true);
+    if (
+        cookieKeys.some(function (name) {
+            return Object.prototype.hasOwnProperty.call(cookies, name);
+        })
+    )
+        throw new Error("Settings recovery failed");
+    document.cookie = STORAGE_RESET_EPOCH + "=1" + STORAGE_COOKIE_ATTRIBUTES;
+    document.cookie =
+        STORAGE_FALLBACK_KEYS + "=%5B%5D" + STORAGE_COOKIE_ATTRIBUTES;
+    cookies = readStorageCookies(true);
+    if (
+        backing.length !== 1 ||
+        cookies[STORAGE_RESET_EPOCH] !== "1" ||
+        cookies[STORAGE_FALLBACK_KEYS] !== "[]"
+    )
+        throw new Error("Settings recovery failed");
+    ownsReset();
+    backing.removeItem(key);
+    if (backing.getItem(key) !== null)
+        throw new Error("Settings recovery failed");
+    // Keep this page quarantined: modules may already have captured defaults.
+    // The screen reloads only after this entire operation succeeds.
 }
 
 /** Undo a prepared batch before settings/provider hydration. Never overwrite a foreign edit. */
@@ -207,7 +288,7 @@ export function writeSettingsJournal(
     }
 }
 
-function readStorageCookies(): Record<string, string> {
+function readStorageCookies(includeUnowned = false): Record<string, string> {
     const result: Record<string, string> = Object.create(null);
     try {
         const entries = (document.cookie || "").split(";");
@@ -225,6 +306,19 @@ function readStorageCookies(): Record<string, string> {
             }
         }
     } catch (_cookieAccess) {}
+    if (
+        !includeUnowned &&
+        Object.prototype.hasOwnProperty.call(result, STORAGE_RESET_EPOCH)
+    ) {
+        const allowed = readStorageFallback(result);
+        Object.keys(result).forEach(function (key) {
+            if (
+                !isStorageMetadataKey(key) &&
+                (!allowed || allowed.indexOf(key) < 0)
+            )
+                delete result[key];
+        });
+    }
     return result;
 }
 
@@ -238,7 +332,10 @@ function storageFallbackHash(value: string): string {
 /** null means incomplete: never replace cookie values with stale native data. */
 function readStorageFallback(cookies: Record<string, string>): string[] | null {
     const parts = Object.keys(cookies).filter(function (key) {
-        return key.indexOf(STORAGE_FALLBACK_KEYS + ".") === 0;
+        return (
+            key !== STORAGE_RESET_EPOCH &&
+            key.indexOf(STORAGE_FALLBACK_KEYS + ".") === 0
+        );
     });
     const marker = cookies[STORAGE_FALLBACK_KEYS];
     if (marker === undefined) return parts.length ? null : [];
@@ -280,7 +377,26 @@ function createLocalStorageAdapter(): StorageAdapter {
         nativeStorage = null;
     }
     // A failed or corrupt journal must not silently hydrate a half-imported account.
-    if (nativeStorage) recoverSettingsJournal(nativeStorage);
+    if (nativeStorage) {
+        try {
+            recoverSettingsJournal(nativeStorage);
+        } catch (_recoveryError) {
+            recoveryStorage = nativeStorage;
+            // Module evaluation must finish so the recovery UI can be reached.
+            // Neither cookies nor native partial settings may escape quarantine.
+            return createStorageAdapter(
+                function () {
+                    return null;
+                },
+                function () {},
+                function () {},
+                function () {},
+                function () {
+                    return {};
+                }
+            );
+        }
+    }
     let cookieWrites = true;
     const fallback = createCookieAdapter(function () {
         return cookieWrites;
@@ -346,6 +462,7 @@ function createLocalStorageAdapter(): StorageAdapter {
         for (let i = 0; i < parts.length; i++)
             if (cookies[STORAGE_FALLBACK_KEYS + "." + i] !== parts[i]) return;
         Object.keys(cookies).forEach(function (key) {
+            if (key === STORAGE_RESET_EPOCH) return;
             if (key.indexOf(STORAGE_FALLBACK_KEYS + ".") !== 0) return;
             const index = key.slice(STORAGE_FALLBACK_KEYS.length + 1);
             if (
@@ -363,6 +480,8 @@ function createLocalStorageAdapter(): StorageAdapter {
                     v: 2,
                 })
             );
+        else if (cookies[STORAGE_RESET_EPOCH] !== undefined)
+            fallback.set(STORAGE_FALLBACK_KEYS, "[]");
         else fallback.del(STORAGE_FALLBACK_KEYS);
     };
     const mark = function (
@@ -381,15 +500,20 @@ function createLocalStorageAdapter(): StorageAdapter {
         const previous = nativeStorage;
         nativeStorage = null;
         if (!previous || incomplete) return;
+        const scopedCookies =
+            readStorageCookies()[STORAGE_RESET_EPOCH] !== undefined;
         try {
             for (let i = 0; i < previous.length; i++) {
                 const key = previous.key(i);
                 if (key != null && !isStorageMetadataKey(key)) {
                     const value = previous.getItem(key);
-                    if (value != null && !overrides[key])
+                    if (value != null && !overrides[key]) {
                         fallback.set(key, value);
+                        if (scopedCookies) overrides[key] = true;
+                    }
                 }
             }
+            if (scopedCookies) persistOverrides();
         } catch (_error) {}
     };
     const get = function (key: string): string | null {
@@ -820,7 +944,7 @@ export const stbGetItem = storage.get;
 
 /** Read the value a fresh page can recover, excluding session-memory fallbacks. */
 export function stbGetPersistedItem(key: string): string | null {
-    if (isStorageMetadataKey(key)) return null;
+    if (settingsRecoveryRequired() || isStorageMetadataKey(key)) return null;
     const cookies = readStorageCookies();
     const overrides = readStorageFallback(cookies);
     if (overrides !== null && overrides.indexOf(key) < 0) {

@@ -1583,7 +1583,11 @@ function startCorePlayback(
                 return;
             }
             if (limits.maxHeight || limits.maxBitrate)
-                playbackHls.startLoad(position !== undefined ? position : -1);
+                playbackHls.startLoad(
+                    position && isFinite(position) && position > 0
+                        ? position
+                        : -1
+                );
             if ((window as any).forcePlay !== false) {
                 playCoreMedia(video!);
             }

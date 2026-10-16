@@ -6,6 +6,114 @@ const { test, expect } = require("@playwright/test");
 
 const mediaRoot = path.resolve(__dirname, "../fixtures/media-runtime");
 
+test("corrupt settings journal offers explicit recovery before provider hydration", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const origin = new URL(baseURL).origin;
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await context.route("**/*", (route) =>
+        new URL(route.request().url()).origin === origin
+            ? route.continue()
+            : route.abort("blockedbyclient")
+    );
+    await context.routeWebSocket("**/*", (socket) => socket.close());
+    await context.addInitScript(() => {
+        if (sessionStorage.getItem("recoveryFixture")) {
+            // Observe the reload before ordinary first-run defaults are saved.
+            window.__recoveryAfterReset = {
+                cookie: document.cookie,
+                journal: localStorage.getItem("ottplaySettingsJournalV1"),
+                setting: localStorage.getItem("recoveryFixtureSetting"),
+            };
+            return;
+        }
+        sessionStorage.setItem("recoveryFixture", "1");
+        localStorage.setItem("ottplaylang", "_eng");
+        localStorage.setItem("ottplayprov", "demo");
+        localStorage.setItem("recoveryFixtureSetting", "partial-private-value");
+        localStorage.setItem("recoveryFixtureCookie", "recorded-cookie-key");
+        localStorage.setItem(
+            "ottplaySettingsJournalV1",
+            "{malformed-private-journal"
+        );
+        document.cookie = "recoveryFixtureCookie=stale; path=/";
+    });
+    await page.goto("/f/pc/");
+    const dialog = page.getByRole("alertdialog", {
+        name: "Player could not start",
+    });
+    await expect(dialog).toBeVisible();
+    await expect(
+        dialog.getByRole("button", { exact: true, name: "Retry" })
+    ).toBeFocused();
+    await expect(dialog).not.toContainText("private");
+    const original = await page.evaluate(() => ({
+        cookie: document.cookie,
+        journal: localStorage.getItem("ottplaySettingsJournalV1"),
+        setting: localStorage.getItem("recoveryFixtureSetting"),
+    }));
+    expect(original).toEqual({
+        cookie: "recoveryFixtureCookie=stale",
+        journal: "{malformed-private-journal",
+        setting: "partial-private-value",
+    });
+    expect(
+        await page.evaluate(() => ({
+            channelsReady: window.commandChannelsReady === true,
+            deviceStarted: !!window.__ottDevice,
+            provider: window.stbGetItem("ottplayprov"),
+            setting: window.stbGetItem("recoveryFixtureSetting"),
+        }))
+    ).toEqual({
+        channelsReady: false,
+        deviceStarted: false,
+        provider: null,
+        setting: null,
+    });
+    await dialog.getByRole("button", { exact: true, name: "Retry" }).click();
+    await expect(dialog).toBeVisible();
+    await dialog
+        .getByRole("button", { exact: true, name: "Clear settings" })
+        .click();
+    await expect(
+        dialog.getByText("Clear all settings?", { exact: true })
+    ).toBeVisible();
+    await expect(
+        dialog.getByRole("button", { exact: true, name: "Cancel" })
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(
+        dialog.getByRole("button", { exact: true, name: "Retry" })
+    ).toBeFocused();
+    expect(
+        await page.evaluate(() => ({
+            cookie: document.cookie,
+            journal: localStorage.getItem("ottplaySettingsJournalV1"),
+            setting: localStorage.getItem("recoveryFixtureSetting"),
+        }))
+    ).toEqual(original);
+    await dialog
+        .getByRole("button", { exact: true, name: "Clear settings" })
+        .click();
+    await Promise.all([
+        page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+        dialog
+            .getByRole("button", { exact: true, name: "Clear settings" })
+            .click(),
+    ]);
+    expect(await page.evaluate(() => window.__recoveryAfterReset)).toEqual({
+        cookie: "ottplayStorageFallback.reset=1; ottplayStorageFallback=%5B%5D",
+        journal: null,
+        setting: null,
+    });
+    await page.waitForFunction(() => !!window.__ottDevice);
+    await expect(dialog).toHaveCount(0);
+    expect(errors).toEqual([]);
+});
+
 test("remote archive receipt resolves without playback and starts the selected past programme", async ({
     page,
     context,

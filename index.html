@@ -749,10 +749,16 @@
                             }
                         }
                     } catch (ignore) {}
+                    if (Object.prototype.hasOwnProperty.call(result, "ottplayStorageFallback.reset")) {
+                        var allowed = fallbackKeys(result);
+                        Object.keys(result).forEach(function (key) {
+                            if (!storageMarkerKey(key) && (!allowed || allowed.indexOf(key) < 0)) delete result[key];
+                        });
+                    }
                     return result;
                 }
                 function fallbackKeys(cookies) {
-                    var parts = Object.keys(cookies).filter(function (key) { return key.indexOf("ottplayStorageFallback.") === 0; });
+                    var parts = Object.keys(cookies).filter(function (key) { return key !== "ottplayStorageFallback.reset" && key.indexOf("ottplayStorageFallback.") === 0; });
                     var marker = cookies.ottplayStorageFallback;
                     if (marker === undefined) return parts.length ? null : [];
                     try {
