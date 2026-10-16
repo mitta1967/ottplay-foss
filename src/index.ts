@@ -4411,6 +4411,34 @@ window.settingsInterface = function (): void {
                 "players",
                 w.playerModeNames
             ),
+            {
+                name: label("Maximum video height") + " (HLS/Shaka)",
+                settingId: "streamMaxHeight",
+                settingValues: [0, 360, 480, 720, 1080, 2160],
+                values: [
+                    label("Automatic"),
+                    "360p",
+                    "480p",
+                    "720p",
+                    "1080p",
+                    "2160p",
+                ],
+            },
+            {
+                name: label("Maximum stream bitrate") + " (HLS/Shaka)",
+                settingId: "streamMaxBitrate",
+                settingValues: [
+                    0, 1000000, 2000000, 4000000, 8000000, 16000000,
+                ],
+                values: [
+                    label("Automatic"),
+                    "1 Mbps",
+                    "2 Mbps",
+                    "4 Mbps",
+                    "8 Mbps",
+                    "16 Mbps",
+                ],
+            },
             choice(label("Buffer Size, s"), "bufSize", w.bufferSizes),
         ])
     );
@@ -5970,7 +5998,12 @@ function toggleDebugHudInfo(): void {
     }
 }
 
+function editBackupStreams(): void {
+    if ((window as any).__ottStreamPolicy)
+        (window as any).__ottStreamPolicy.edit(editSettingsText);
+}
 var infoArr: any[] = [
+    { action: editBackupStreams, name: "Backup streams" },
     { action: buttonsInfo, name: "Description of remote control buttons" },
     { action: noop },
     { action: pluginInfo, desc: "Player and device info", name: "About" },

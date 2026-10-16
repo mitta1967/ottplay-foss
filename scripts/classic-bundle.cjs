@@ -46,6 +46,7 @@ const CLASSIC_MODULES = [
     "build/channels/index.js",
     "build/channels/classic-search.js",
     "build/debug/playback-debug.js",
+    "build/playback/stream-policy.js",
     "build/core/auto-playback.js",
     "build/core/native-hls.js",
     "build/device/adapter.js",
@@ -196,6 +197,9 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
     ]),
     "build/playback/journal.js": Object.freeze(["window.__ottPlaybackJournal"]),
     "build/playback/session.js": Object.freeze(["window.__ottPlaybackSession"]),
+    "build/playback/stream-policy.js": Object.freeze([
+        "window.__ottStreamPolicy",
+    ]),
     "build/plugins/native-http.js": Object.freeze([
         "window.installTauriHttpTransport",
         "window.installCapacitorHttpTransport",

@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, "..");
 const source = [
     "src/plugins/access-media.ts",
     "src/core/native-hls.ts",
+    "src/playback/stream-policy.ts",
     "src/core/index.ts",
 ]
     .map((file) => fs.readFileSync(path.join(root, file), "utf8"))
@@ -146,6 +147,13 @@ function fixture() {
         shakas.push(this);
     }
     Shaka.isBrowserSupported = () => true;
+    Shaka.prototype.configure = function (config) {
+        this.config = config;
+    };
+    Shaka.prototype.addEventListener = function (type, callback) {
+        this.events ||= {};
+        this.events[type] = callback;
+    };
     Shaka.prototype.attach = function (media) {
         this.media = media;
         return this.attached.promise;
@@ -1270,6 +1278,148 @@ test("HLS level zero is never confused with current higher level", () => {
         type: "media",
     });
     assert.equal(players[0].removed, undefined);
+});
+test("Shaka retries are bounded across player recreation and retain VOD position", async () => {
+    const { w, shakas } = fixture();
+    const timers = new Map(),
+        messages = [];
+    let serial = 0;
+    w.setTimeout = (callback) => {
+        timers.set(++serial, callback);
+        return serial;
+    };
+    w.clearTimeout = (id) => timers.delete(id);
+    w.showShift = (message) => messages.push(message);
+    w.playerMode = 2;
+    w.stbPlay("https://source.invalid/movie.mpd", 20);
+    for (let i = 0; i < 3; i++) {
+        const player = shakas[i];
+        player.attached.resolve();
+        await tick();
+        if (i) assert.equal(player.position, 37);
+        w.video.currentTime = 37;
+        w.video.readyState = 3;
+        player.loaded.reject({
+            category: 1,
+            code: 1001,
+            data: ["secret URL", 503],
+        });
+        await tick();
+        if (i < 2) {
+            assert.equal(timers.size, 1);
+            const [id, run] = timers.entries().next().value;
+            timers.delete(id);
+            run();
+            assert.equal(player.destroyCalls, 1);
+            assert.equal(
+                shakas.length,
+                i + 1,
+                "must await destroy before attaching retry"
+            );
+            player.destroyed.resolve();
+            await tick();
+        }
+    }
+    assert.equal(timers.size, 0);
+    assert.equal(messages.pop(), "Stream could not be played");
+    assert.equal(w.__ottStreamPolicy.snapshot().attempts, 2);
+    w.stbStop();
+    shakas[2].destroyed.resolve();
+    await tick();
+});
+test("Shaka error event deduplicates load rejection and Stop cancels its retry", async () => {
+    const { w, shakas } = fixture();
+    const timers = new Map();
+    let serial = 0;
+    w.setTimeout = (callback) => {
+        timers.set(++serial, callback);
+        return serial;
+    };
+    w.clearTimeout = (id) => timers.delete(id);
+    w.playerMode = 2;
+    w.stbPlay("https://source.invalid/live.mpd");
+    shakas[0].attached.resolve();
+    await tick();
+    const error = { category: 1, code: 1003, severity: 2 };
+    shakas[0].events.error({ detail: error });
+    shakas[0].loaded.reject(error);
+    await tick();
+    assert.equal(timers.size, 1);
+    const stale = [...timers.values()][0];
+    w.stbStop();
+    shakas[0].destroyed.resolve();
+    await tick();
+    stale();
+    await tick();
+    assert.equal(timers.size, 0);
+    assert.equal(shakas.length, 1);
+});
+test("Shaka enforces user restrictions and reports an impossible ceiling without retries", async () => {
+    const { w, shakas } = fixture();
+    const messages = [];
+    w.showShift = (message) => messages.push(message);
+    w.sStreamMaxHeight = 720;
+    w.sStreamMaxBitrate = 4000000;
+    w.playerMode = 2;
+    w.stbPlay("https://source.invalid/live.mpd");
+    assert.equal(shakas[0].config.restrictions.maxHeight, 720);
+    assert.equal(shakas[0].config.restrictions.maxBandwidth, 4000000);
+    shakas[0].attached.resolve();
+    await tick();
+    shakas[0].loaded.reject({ category: 4, code: 4012 });
+    await tick();
+    assert.equal(messages.pop(), "No stream meets the quality limits");
+    assert.equal(w.__ottStreamPolicy.snapshot().attempts, 0);
+    w.stbStop();
+    shakas[0].destroyed.resolve();
+    await tick();
+});
+test("HLS quality restriction is applied before fragment loading", () => {
+    const { w, players } = fixture();
+    w.sStreamMaxHeight = 720;
+    w.playerMode = 1;
+    w.stbPlay("https://source.invalid/live.m3u8");
+    const player = players[0];
+    assert.equal(player.config.autoStartLoad, false);
+    player.levels = [{ height: 480 }, { height: 720 }, { height: 1080 }];
+    player.removeLevel = function (index) {
+        this.levels.splice(index, 1);
+    };
+    player.events.manifest();
+    assert.deepEqual(
+        player.levels.map((level) => level.height),
+        [480, 720]
+    );
+    assert.equal(player.startLoads.length, 1);
+    assert.equal(player.autoLevelCapping, 1);
+    w.stbStop();
+});
+test("HLS outer recovery samples the VOD position before destroy resets the media", () => {
+    const { w, players } = fixture();
+    let retry;
+    w.setTimeout = (callback) => {
+        retry = callback;
+        return 1;
+    };
+    w.clearTimeout = () => {};
+    w.playerMode = 1;
+    w.stbPlay("https://source.invalid/movie.m3u8", 20);
+    w.video.currentTime = 37;
+    w.video.readyState = 3;
+    players[0].hasEnoughToStart = true;
+    players[0].events.error(null, {
+        details: "manifestParsingError",
+        fatal: true,
+        type: "network",
+    });
+    assert.equal(
+        w.video.currentTime,
+        0,
+        "fixture models destroy resetting the media"
+    );
+    retry();
+    assert.equal(players[1].config.startPosition, 37);
+    w.stbStop();
 });
 (async () => {
     let failures = 0;

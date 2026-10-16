@@ -11,6 +11,7 @@ interface MediaBackendRequest {
     lane?: string;
     paused?: boolean;
     position?: number;
+    sourceUrl?: string;
     timelineOffset?: number;
     url: string;
 }
@@ -417,6 +418,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                         lane: request.lane,
                         paused: request.paused,
                         position: request.position,
+                        sourceUrl: request.url,
                         url: url,
                     },
                     observe

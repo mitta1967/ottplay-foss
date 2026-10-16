@@ -189,6 +189,8 @@ export interface PlayerSettings {
     showScroll: number;
     sleepTimeout: number;
     stopPlay: number;
+    streamMaxBitrate: number;
+    streamMaxHeight: number;
     swopBaseUrl: string;
     thumbnail: number;
     timezone: number;
@@ -286,6 +288,8 @@ export function defaultSettings(): PlayerSettings {
         showScroll: 1,
         sleepTimeout: 0,
         stopPlay: 0,
+        streamMaxBitrate: 0,
+        streamMaxHeight: 0,
         swopBaseUrl: "",
         thumbnail: 1,
         timezone: 0,
@@ -377,6 +381,7 @@ function defineSetting(
                 Math.floor(value) !== value
             )
                 return false;
+            if (rules.values) return rules.values.indexOf(value) >= 0;
             if (rules.durations)
                 return normalizeSeekDuration(value, NaN) === value;
             return rules.range
@@ -386,6 +391,12 @@ function defineSetting(
     };
 }
 export const settingsSchema: SettingDefinition[] = [
+    defineSetting("streamMaxHeight", "sStreamMaxHeight", {
+        values: [0, 360, 480, 720, 1080, 2160],
+    }),
+    defineSetting("streamMaxBitrate", "sStreamMaxBitrate", {
+        values: [0, 1000000, 2000000, 4000000, 8000000, 16000000],
+    }),
     defineSetting("preferredAudioLanguage", "sPreferredAudioLanguage", {
         language: "audio",
     }),
