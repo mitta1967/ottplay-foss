@@ -6,7 +6,7 @@ export OTTP_DEVICE_TEST_PORT=4189
 export CI_PLAYWRIGHT_MODULE="$(node -p 'require("node:path").dirname(require.resolve("playwright/package.json"))')"
 export OTT_LOCAL_ACCEPTANCE_ROOT="$PWD/.compatibility/local-${GITHUB_SHA:0:8}-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$OTT_LOCAL_ACCEPTANCE_ROOT"
-printf '%s\n' "$OTT_LOCAL_ACCEPTANCE_ROOT" > /tmp/ott-781-local-acceptance-output.txt
+printf 'Local acceptance evidence: %s\n' "$OTT_LOCAL_ACCEPTANCE_ROOT"
 test ! -e browser-candidate-web
 node -e 'if(require(process.env.CI_PLAYWRIGHT_MODULE+"/package.json").version!=="1.64.0")throw Error("Expected Playwright 1.64.0")'
 npm run package:modea > "$OTT_LOCAL_ACCEPTANCE_ROOT/package.log" 2>&1

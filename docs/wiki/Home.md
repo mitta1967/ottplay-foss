@@ -22,6 +22,10 @@ See the [publishing instructions](../wiki-publishing.md).
 
 ## Process and results
 
+- [Browser qualification and candidate verification](../browser-compatibility.md)
+  ([Русский](../browser-compatibility.ru.md)): configured targets, colorful diagrams,
+  exact-package checks and the separate local results.
+
 - [Implementation report and colored diagrams](../implementation-report.md)
   ([Русский](../implementation-report.ru.md)): reviewed changes, fixed regressions,
   measured output and remaining release gates.

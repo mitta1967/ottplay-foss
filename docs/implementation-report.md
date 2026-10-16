@@ -133,6 +133,8 @@ NetCast pointer input, PC two-click selection, and the Plex owned wait.
 
 ## Browser-gate integration
 
+![Confirmed local browser verification results](diagrams/browser-verification-results.svg)
+
 Source `c52f4d07` incorporates PR 779 from main `1ecbc0e7`. Both branches'
 test commands, recovery checks and Plex dialog assertions are preserved.
 TypeScript, lint, documentation, packaging/linker contracts, the production
@@ -154,8 +156,15 @@ candidate directory.
 
 The [browser policy](browser-compatibility.md) requires five hosted targets
 and 25 scenario executions for PR/beta checks; the complete RC has 35 targets
-and 166 executions. Fresh CI for this integration and completion of the
-already-running beta publication remain gates before this PR can merge.
+and 166 executions. These are configured requirements, not measured coverage.
+
+![How candidate verification produces evidence](diagrams/candidate-verification-flow.svg)
+
+The separate [beta pipeline](https://github.com/open-ott-play/ottplay-foss/actions/runs/38856793467)
+for main `1ecbc0e7` completed successfully. It does
+not include this PR. The integration still requires its own successful hosted
+CI and review, followed by release coordination; the local results above do
+not claim that these delivery gates have passed.
 
 ## Delivery
 

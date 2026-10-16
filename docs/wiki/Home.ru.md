@@ -22,6 +22,10 @@ review. Отдельная [GitHub Wiki](https://github.com/open-ott-play/ottpla
 
 ## Процесс и результат
 
+- [Браузерная приёмка и проверка кандидата](../browser-compatibility.ru.md)
+  ([English](../browser-compatibility.md)): цели проверок, цветные схемы,
+  проверка точного пакета и отдельные локальные результаты.
+
 - [Отчёт с цветными диаграммами](../implementation-report.ru.md)
   ([English](../implementation-report.md)): ход работы, исправленные ошибки,
   измерения и оставшиеся условия выпуска.

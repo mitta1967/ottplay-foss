@@ -36,6 +36,7 @@ const pages = {
 for (const name of [
     "roadmap-delivery",
     "implementation-report",
+    "browser-compatibility",
     "roadmap-size",
     "playback-stream-policy",
     "guide-binding-accessibility",

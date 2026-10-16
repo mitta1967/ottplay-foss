@@ -5,6 +5,7 @@
 - [README EN](../../README.md) · [README RU](../../README.ru.md)
 - [88 languages · 88 языков](../readme/README.md)
 - [Process and results](../implementation-report.md) · [Процесс и результат](../implementation-report.ru.md)
+- [Browser qualification](../browser-compatibility.md) · [Браузерная приёмка](../browser-compatibility.ru.md)
 - [Feature delivery](../roadmap-delivery.md) · [Возможности](../roadmap-delivery.ru.md)
 - [Quality and recovery](../playback-stream-policy.md) · [Качество и повторы](../playback-stream-policy.ru.md)
 - [EPG and accessibility](../guide-binding-accessibility.md) · [EPG и доступность](../guide-binding-accessibility.ru.md)

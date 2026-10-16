@@ -52,7 +52,9 @@ function checkDocumentation(repository = root) {
         "docs/wiki/_Sidebar.md",
         ...[
             "audio-video-check",
+            "browser-compatibility",
             "guide-binding-accessibility",
+            "implementation-report",
             "playback-stream-policy",
             "remote-handoff",
             "roadmap-delivery",
