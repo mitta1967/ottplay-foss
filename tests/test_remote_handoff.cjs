@@ -127,3 +127,166 @@ assert.equal(call("import", { handoff }).data.error, "policy_denied");
 console.log(
     "PASS handoff: exact source and unique stable ID, fresh target dispatch, archive position/window, kiosk/PIN, redaction"
 );
+
+// Real driver records differ: the classic M3U codec has no itemId, and a
+// legacy Stalker identity may contain its credential-bearing stream URL.
+const coreContext = vm.createContext({ encodeURIComponent, URL });
+coreContext.window = coreContext;
+const core = require("./helpers/shared-core-runtime.cjs")(coreContext, {
+    vendorOnly: true,
+});
+vm.runInContext(
+    ts.transpileModule(
+        fs.readFileSync("src/provider/source-identity.ts", "utf8"),
+        {
+            compilerOptions: { target: ts.ScriptTarget.ES5 },
+        }
+    ).outputText,
+    coreContext
+);
+function realHost(
+    provider,
+    channels,
+    selected,
+    sourceUrl = "https://list.invalid/get?password=PRIVATE_FIXTURE"
+) {
+    const calls = [];
+    const host = {
+        __ottActiveProviderDriver: { id: provider },
+        __ottParental: { needs: () => false },
+        __ottSourceIdentity: coreContext.__ottSourceIdentity,
+        cats: { all: Object.keys(channels) },
+        catsArray: ["all"],
+        channels,
+        m3uArr: { active: 0, M3Us: [{ www: sourceUrl }] },
+        p_pref: provider,
+        parentalArray: [],
+        playChannel(category, index) {
+            const id = this.cats[this.catsArray[category]][index];
+            calls.push({ id, url: this.channels[id].url });
+        },
+    };
+    host.__ottClassicPlayback = {
+        snapshot: () => ({
+            phase: "playing",
+            position: 0,
+            target: {
+                channelId: String(selected),
+                kind: "live",
+                sourceId: host.__ottSourceIdentity.current(host),
+            },
+        }),
+    };
+    function invoke(action, params = {}) {
+        let response;
+        ctx.exports.executeRemoteHandoff(
+            host,
+            { action: "playback_handoff_" + action, params },
+            (value) => {
+                response = value;
+            }
+        );
+        return JSON.parse(JSON.stringify(response));
+    }
+    return { calls, host, invoke };
+}
+function playlist(
+    id,
+    name,
+    url = "https://video.invalid/live?token=PRIVATE_FIXTURE"
+) {
+    return core.parseProviderPlaylist(
+        '#EXTM3U\n#EXTINF:-1 tvg-id="fixture" group-title="Demo",' +
+            name +
+            "\n" +
+            url +
+            "\n",
+        "m3u",
+        () => id,
+        0
+    ).channels;
+}
+{
+    const original = realHost("m3u", playlist(101, "Original title"), 101);
+    const receiver = realHost("m3u", playlist(909, "Translated title"), 909);
+    assert.equal(
+        original.host.channels[101].itemId,
+        undefined,
+        "Use the actual classic M3U shape"
+    );
+    const result = original.invoke("export");
+    assert.equal(result.status, "ok");
+    const handoff = result.data.handoff;
+    assert.match(handoff.item_id, /^channel-v1:[0-9a-f]{8}\.[0-9a-f]{8}$/);
+    assert(!JSON.stringify(result).includes("PRIVATE_FIXTURE"));
+    assert(!JSON.stringify(result).includes("https:"));
+    assert.equal(receiver.invoke("import", { handoff }).status, "ok");
+    assert.equal(
+        receiver.calls[0].id,
+        "909",
+        "Receiver resolves its own numeric channel mapping"
+    );
+    receiver.host.parentalArray = [909];
+    receiver.host.__ottParental.needs = () => true;
+    assert.equal(
+        receiver.invoke("import", { handoff }).data.error,
+        "policy_denied"
+    );
+    receiver.host.parentalArray = [];
+    receiver.host.channels[910] = { ...receiver.host.channels[909] };
+    assert.equal(
+        receiver.invoke("import", { handoff }).data.error,
+        "ambiguous_item"
+    );
+    assert.equal(receiver.invoke("export").data.error, "ambiguous_item");
+    delete receiver.host.channels[910];
+    receiver.host.channels[909].url =
+        "https://video.invalid/changed?token=OTHER";
+    assert.equal(
+        receiver.invoke("import", { handoff }).data.error,
+        "item_unavailable",
+        "A changed signed URL cannot guess another matching channel"
+    );
+    receiver.host.m3uArr.M3Us[0].www += "&other-account=1";
+    assert.equal(
+        receiver.invoke("import", { handoff }).data.error,
+        "source_mismatch"
+    );
+}
+{
+    const protocol = new core.LegacyStalkerClient(
+        "https://portal.invalid",
+        "02:00:00:00:00:01"
+    );
+    assert.equal(protocol.accept({ result: {} }), null);
+    assert.equal(
+        protocol.accept({
+            result: [
+                {
+                    name: "No provider ID",
+                    url: "https://video.invalid/live?token=PRIVATE_FIXTURE",
+                },
+            ],
+        }),
+        null
+    );
+    const channel = protocol.channelCatalog()[0];
+    assert(
+        channel.itemId.includes("PRIVATE_FIXTURE"),
+        "Exercise the real raw-URL Stalker identity fallback"
+    );
+    const original = realHost("stalker", { 5: channel }, 5);
+    const receiver = realHost("stalker", { 6: { ...channel } }, 6);
+    const result = original.invoke("export");
+    assert.equal(result.status, "ok");
+    assert(!JSON.stringify(result).includes("PRIVATE_FIXTURE"));
+    assert(!JSON.stringify(result).includes("https:"));
+    assert.equal(
+        receiver.invoke("import", { handoff: result.data.handoff }).status,
+        "ok"
+    );
+    assert.equal(receiver.calls[0].id, "6");
+}
+console.log(
+    "PASS handoff real driver codecs: M3U source/row identity, renamed/reindexed channels, URL secrecy, duplicate rejection and Stalker fallback"
+);

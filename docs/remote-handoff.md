@@ -4,14 +4,16 @@
 
 With updated player and control CLI, run `ott handoff SOURCE TARGET`.
 The source continues playing. The target needs the same configured source/account
-and a unique stable channel ID. No fuzzy name matching, credentials or playable
-URL are transferred. Version 1 supports live/archive for M3U, Xtream and Stalker;
+and a unique stable channel ID. Channel references are versioned local fingerprints, never raw provider item IDs.
+Classic M3U rows use the exact stream URL only as local hash input. Independently
+signed or rewritten URLs therefore fail to match safely. No fuzzy name matching,
+credentials or playable URL are transferred. Version 1 supports live/archive for M3U, Xtream and Stalker;
 VOD/series and continuous watch-history synchronization are not supported.
 
 `playback_handoff_export` accepts empty parameters and returns `data.handoff`:
 
 ```json
-{"version":1,"provider":"m3u","source_id":"opaque-source-id","item_id":"stable-item-id","kind":"live"}
+{"version":1,"provider":"m3u","source_id":"opaque-source-id","item_id":"channel-v1:01234567.89abcdef","kind":"live"}
 ```
 
 Archive references use `kind: "archive"` and integer `archive_start` (current

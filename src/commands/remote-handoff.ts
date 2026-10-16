@@ -38,6 +38,42 @@ export function executeRemoteHandoff(
         return reject("unsupported");
     var source = w.__ottSourceIdentity.current(w),
         channels = w.channels;
+    // A provider ID may itself contain a credential-bearing URL (Stalker),
+    // while classic M3U rows have no itemId. Keep both raw forms local.
+    function identity(row: any): string {
+        if (!row) return "";
+        var explicit = typeof row.itemId === "string" && row.itemId;
+        var value =
+            explicit ||
+            (driver.id === "m3u" && typeof row.url === "string" && row.url);
+        if (!value || value.length > 65536) return "";
+        var input = driver.id + (explicit ? ":id:" : ":url:") + value;
+        var first = 2166136261,
+            second = 5381;
+        for (var at = 0; at < input.length; at++) {
+            first ^= input.charCodeAt(at);
+            first +=
+                (first << 1) +
+                (first << 4) +
+                (first << 7) +
+                (first << 8) +
+                (first << 24);
+            second = ((second << 5) + second) ^ input.charCodeAt(at);
+        }
+        // This fingerprint identifies a row; it grants no authority. Reject
+        // collisions/duplicate identities on both sides instead of guessing.
+        return (
+            "channel-v1:" +
+            ("00000000" + (first >>> 0).toString(16)).slice(-8) +
+            "." +
+            ("00000000" + (second >>> 0).toString(16)).slice(-8)
+        );
+    }
+    function matching(key: string): string[] {
+        return Object.keys(channels || {}).filter(function (id) {
+            return identity(channels[id]) === key;
+        });
+    }
     var params = request.params || {};
     if (!object(params)) return reject("invalid_request");
     if (request.action === "playback_handoff_export") {
@@ -52,10 +88,11 @@ export function executeRemoteHandoff(
         )
             return reject("no_current_item");
         var row = channels && channels[target.channelId];
-        if (!row || !text(row.itemId, 512) || !text(source, 256))
-            return reject("item_unavailable");
+        var key = identity(row);
+        if (!key || !text(source, 256)) return reject("item_unavailable");
+        if (matching(key).length !== 1) return reject("ambiguous_item");
         var handoff: any = {
-            item_id: row.itemId,
+            item_id: key,
             kind: target.kind,
             provider: driver.id,
             source_id: source,
@@ -79,6 +116,7 @@ export function executeRemoteHandoff(
         item.version !== 1 ||
         !text(item.source_id, 256) ||
         !text(item.item_id, 512) ||
+        !/^channel-v1:[0-9a-f]{8}\.[0-9a-f]{8}$/.test(item.item_id) ||
         ["live", "archive"].indexOf(item.kind) < 0 ||
         Object.keys(item).sort().join(",") !==
             (item.kind === "live"
@@ -94,9 +132,7 @@ export function executeRemoteHandoff(
         !Array.isArray(w.parentalArray)
     )
         return reject("policy_denied");
-    var matches = Object.keys(channels || {}).filter(function (id) {
-        return channels[id] && channels[id].itemId === item.item_id;
-    });
+    var matches = matching(item.item_id);
     if (matches.length !== 1)
         return reject(matches.length ? "ambiguous_item" : "item_unavailable");
     var id = matches[0];
