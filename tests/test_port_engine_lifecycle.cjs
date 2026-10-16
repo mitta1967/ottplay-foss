@@ -1477,6 +1477,40 @@ test("A/V diagnostic does not persist the demo's temporary mute as the user's ch
     w.__ottAvTest.stop();
     assert.equal(w.video.muted, false);
 });
+test("A/V diagnostic keeps normal mute and resume controls while Demo is selected", () => {
+    const { w } = fixture();
+    w.ottplayDemoActive = true;
+    w.video.muted = true;
+    w._coreDemoMute = { media: w.video, muted: false };
+    assert.equal(w.__ottAvTest.start(), true);
+    assert.equal(w.video.muted, false);
+    assert.equal(
+        w._coreDemoMute,
+        null,
+        "the transient decoder is not a silent demo"
+    );
+    w.stbPause();
+    w.stbResume();
+    assert.equal(
+        w.video.muted,
+        false,
+        "resuming the diagnostic retains audible output"
+    );
+    w.stbToggleMute();
+    assert.equal(w.video.muted, true);
+    w.stbToggleMute();
+    assert.equal(w.video.muted, false, "the user can unmute the diagnostic");
+    w.__ottAvTest.stop();
+    assert.equal(
+        w.video.muted,
+        false,
+        "idle retains the original user mute choice"
+    );
+    w.stbPlay("https://demo.invalid/demo/pattern.mp4");
+    assert.equal(w.video.muted, true, "ordinary demo playback is still silent");
+    w.stbStop();
+    assert.equal(w.video.muted, false);
+});
 test("Shaka DRM capability failure is terminal without claiming provider login is required", async () => {
     const { w, shakas } = fixture();
     const messages = [];

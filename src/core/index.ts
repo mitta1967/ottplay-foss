@@ -172,6 +172,8 @@ var _corePendingSeekPosition: number | null = null;
 var _coreAutoCancel: ((restoreNative?: boolean) => void) | null = null;
 var _coreAutoHlsUsed = false;
 var _corePlaybackMode = 0;
+/** A temporary diagnostic owns the main decoder, independently of the Demo provider. */
+var _coreTransientPlayback = false;
 var _coreNativeHls: ReturnType<typeof createNativeHlsTransport> = null;
 var _coreNativeAttempt = 0;
 var _coreNativeHlsCleanup: (() => void) | null = null;
@@ -226,6 +228,7 @@ function corePlexPlaybackHint(url: string): "file" | "mse" | null {
 }
 
 function setCoreDemoMute(enabled: boolean): void {
+    enabled = enabled && !_coreTransientPlayback;
     if (_coreDemoMute && (!enabled || _coreDemoMute.media !== video)) {
         _coreDemoMute.media.muted = _coreDemoMute.muted;
         _coreDemoMute = null;
@@ -1118,6 +1121,7 @@ function startCoreEngine(
     transient = false
 ): void {
     cancelCoreStreamAttempt();
+    _coreTransientPlayback = transient;
     setCoreDemoMute(!transient && (window as any).ottplayDemoActive === true);
     if (video)
         video.loop = !transient && (window as any).ottplayDemoActive === true;
@@ -1789,6 +1793,7 @@ function startCorePlayback(
  */
 function stopCoreEngine(): void {
     if (video) video.loop = false;
+    _coreTransientPlayback = false;
     cancelCoreStreamAttempt();
     var policy = (window as any).__ottStreamPolicy;
     if (policy) policy.report({ state: "stopped" });
