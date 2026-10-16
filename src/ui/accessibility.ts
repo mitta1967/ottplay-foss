@@ -40,7 +40,9 @@
     }
     function focus(root: HTMLElement): void {
         var candidates = controls(root);
-        (candidates[0] || root).focus();
+        // Remote Enter belongs to the dialog until Tab explicitly chooses a
+        // control; a wait dialog's first button may be Cancel.
+        (root.id === "dialogbox" ? root : candidates[0] || root).focus();
     }
     function install(): void {
         opened = opened.filter(function (entry) {
@@ -128,7 +130,21 @@
         var list = host.document.getElementById("listIn");
         if (list && !list.__ottAccessibilityBound) {
             list.__ottAccessibilityBound = true;
+            var pointerFocus = false;
+            list.addEventListener(
+                "mousedown",
+                function () {
+                    // Native mouse focus precedes click. Selection still belongs
+                    // to the PC two-click or TV one-click pointer handler.
+                    pointerFocus = true;
+                    host.setTimeout(function () {
+                        pointerFocus = false;
+                    }, 0);
+                },
+                true
+            );
             list.addEventListener("focusin", function (event: FocusEvent) {
+                if (pointerFocus) return;
                 var row = event.target as HTMLElement;
                 if (row.parentNode !== list || !row.hasAttribute("data-idx"))
                     return;

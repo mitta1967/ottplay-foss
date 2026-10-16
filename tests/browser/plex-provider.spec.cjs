@@ -568,6 +568,9 @@ test("Plex file selection shows an owned wait through collection and resolution,
     await expect(dialog).toContainText("Загрузка. Подождите…");
     await expect(dialog).toContainText(title);
     await expect(dialog.locator(".ott-spinner")).toBeVisible();
+    // The modal owns remote keys until a user explicitly tabs to a control.
+    // Auto-focusing Cancel would turn this Enter into an unintended dismissal.
+    await expect(dialog).toBeFocused();
     expect(
         await page.evaluate(
             () => window.__ottScreens.current().model.parent.kind
@@ -575,6 +578,8 @@ test("Plex file selection shows an owned wait through collection and resolution,
     ).toBe("list");
     for (const key of ["ArrowDown", "ArrowUp", "Enter"])
         await page.keyboard.press(key);
+    await expect(dialog).toBeVisible();
+    expect(collections).toHaveLength(1);
     await page.evaluate(() => window.__ottMedia.select(1));
     await page.locator("#it1").click();
     expect(await page.evaluate(() => window.selIndex)).toBe(0);

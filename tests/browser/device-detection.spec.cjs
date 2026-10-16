@@ -1625,6 +1625,62 @@ test.describe("LG Magic Remote pointer and button transitions", () => {
         );
     }
 
+    test("dialog focus preserves remote Enter and explicit keyboard buttons", async ({
+        page,
+        context,
+        baseURL,
+    }) => {
+        const errors = await bootForMagicRemote(
+            page,
+            context,
+            baseURL,
+            "pc",
+            true
+        );
+        const dialog = page.getByRole("dialog", {
+            exact: true,
+            name: "Information",
+        });
+        await page.evaluate(() => window.infoBox("Information test"));
+        await expect(dialog).toBeFocused();
+        await page.keyboard.press("Enter");
+        await expect(dialog).toBeHidden();
+        const confirm = async () => {
+            await page.evaluate(() => {
+                window.__dialogAnswers = [];
+                window.confirmBox(
+                    "Confirm test",
+                    () => window.__dialogAnswers.push("yes"),
+                    () => window.__dialogAnswers.push("no")
+                );
+            });
+            await expect(dialog).toBeFocused();
+        };
+        for (const key of ["Enter", "Escape", "Backspace"]) {
+            await confirm();
+            await page.keyboard.press(key);
+            await expect(dialog).toBeHidden();
+            expect(await page.evaluate(() => window.__dialogAnswers)).toEqual([
+                key === "Enter" ? "yes" : "no",
+            ]);
+        }
+        await confirm();
+        await page.keyboard.press("Tab");
+        await expect(
+            dialog.getByRole("button", { exact: true, name: "Yes" })
+        ).toBeFocused();
+        await page.keyboard.press("Tab");
+        await expect(
+            dialog.getByRole("button", { exact: true, name: "No" })
+        ).toBeFocused();
+        await page.keyboard.press("Enter");
+        await expect(dialog).toBeHidden();
+        expect(await page.evaluate(() => window.__dialogAnswers)).toEqual([
+            "no",
+        ]);
+        expect(errors).toEqual([]);
+    });
+
     test("PC keeps click-to-select then click-to-activate behavior", async ({
         page,
         context,

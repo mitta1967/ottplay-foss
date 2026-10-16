@@ -68,6 +68,8 @@ assert.equal(d.activeElement.id, "back");
 assert.equal(tab(true).defaultPrevented, true);
 assert.equal(d.activeElement.id, "next");
 show("dialogbox");
+assert.equal(d.activeElement.id, "dialogbox");
+assert.equal(tab().defaultPrevented, true);
 assert.equal(d.activeElement.id, "yes");
 hide("dialogbox");
 assert.equal(d.activeElement.id, "next");
@@ -86,6 +88,30 @@ assert.deepEqual(
         [0, "true"],
     ]
 );
+// Mouse focus must not pre-select a row and turn the first PC click into Enter.
+h.selIndex = 9;
+const moves = [];
+h.changeSelect = (delta) => {
+    moves.push(delta);
+    h.selIndex += delta;
+};
+list.children[0].dispatchEvent(
+    new h.MouseEvent("mousedown", { bubbles: true })
+);
+list.children[0].focus();
+assert.deepEqual(moves, []);
+flush();
+list.children[1].focus();
+list.children[0].focus();
+assert.deepEqual(moves, [-1], "non-pointer focus still synchronizes selection");
+show("listEdit");
+assert.equal(
+    d.activeElement.tagName,
+    "INPUT",
+    "native editor keeps input focus"
+);
+hide("listEdit");
+list.children[1].focus();
 // An obsolete zero-delay open must not steal focus after dismissal.
 listeners.get(d.getElementById("listAbout")).show();
 listeners.get(d.getElementById("listAbout")).hide();
