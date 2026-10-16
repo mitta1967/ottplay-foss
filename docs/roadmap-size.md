@@ -21,8 +21,10 @@ source identity. Gzip level 9 is applied separately to each emitted asset.
 - Optional M3U grows 184 raw / 82 gzip bytes; new Xtream is 4,110 / 1,748.
   The other six optional families are byte-identical.
 
-A later rooted A/V asset URL adds one raw byte; build identity and gzip bytes
-can change in the final commit. Final `build/reports/classic-bundle.json` and
+A later rooted A/V asset URL adds one raw byte. The bounded HLS parse-retry
+fix adds 37 raw / 36 gzip bytes in an isolated same-snapshot comparison
+([evidence](evidence/parse-recovery-size-20261015.json)). The resulting full raw
+total is 995,625 bytes; build identity and gzip bytes can change in the final commit. Final `build/reports/classic-bundle.json` and
 `npm run check:size` remain the authority for the exact delivered revision.
 The reviewed caps retain the previous native/Node/release-suffix allowance:
 875,300 raw / 271,600 gzip for the entry; 996,100 / 316,400 for entry + providers.

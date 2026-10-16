@@ -101,6 +101,7 @@ const optionalProviderApis = {
     plex: ["__ottPlex", "__ottPlexAuth", "__ottPlexDriver"],
     stalker: ["__ottStalkerDriver"],
     vportal: ["__ottVPortalDriver"],
+    xtream: ["__ottXtreamMedia"],
 };
 assert.deepEqual(
     Object.keys(CLASSIC_PROVIDER_BUNDLES).sort(),

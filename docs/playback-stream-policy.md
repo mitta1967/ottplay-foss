@@ -70,6 +70,9 @@ remain unchanged when its transport endpoint changes.
   recreations after the initial start. This budget is not reset by a new decoder
   instance or a successful manifest. Existing bounded in-engine HLS network and
   decode recovery runs before this outer recovery policy.
+- HLS manifest/level parsing failures allow at most one same-URL reconnect
+  per request, counted within the same two-retry total. A new decoder or backup
+  endpoint does not reset this limit.
 - Network failures without a status, HTTP 408/429 and 5xx can use the transient
   budget. Other HTTP 4xx can move to a configured alternative but do not retry
   the same URL. HTTP **401/403 and source sign-in errors terminate**, without

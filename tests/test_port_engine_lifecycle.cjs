@@ -1474,6 +1474,61 @@ test("HLS outer recovery samples the VOD position before destroy resets the medi
     assert.equal(players[1].config.startPosition, 37);
     w.stbStop();
 });
+for (const details of [
+    ["manifestParsingError", "manifestParsingError"],
+    ["levelParsingError", "levelParsingError"],
+    ["manifestLoadError", "manifestLoadError", "manifestLoadError"],
+    ["manifestParsingError", "manifestLoadError", "manifestParsingError"],
+    ["manifestLoadError", "levelParsingError", "levelParsingError"],
+    ["manifestLoadError", "manifestLoadError", "levelParsingError"],
+]) {
+    test(
+        "HLS shares its outer retry budget without repeating parse recovery: " +
+            details.join(", "),
+        () => {
+            const { w, players } = fixture();
+            const timers = new Map();
+            let sequence = 0;
+            w.setTimeout = (callback) => {
+                timers.set(++sequence, callback);
+                return sequence;
+            };
+            w.clearTimeout = (id) => timers.delete(id);
+            w.playerMode = 1;
+            w.stbPlay("https://source.invalid/live.m3u8");
+            for (let attempt = 0; attempt < details.length; attempt++) {
+                const player = players.at(-1);
+                // A successful manifest must not replenish the request's budget.
+                player.events.manifest();
+                const detail = details[attempt];
+                const inEngineAttempts = detail.includes("Parsing") ? 1 : 3;
+                for (let failure = 0; failure < inEngineAttempts; failure++) {
+                    player.events.error(null, {
+                        details: detail,
+                        fatal: true,
+                        type: "network",
+                    });
+                }
+                assert.equal(player.destroyCalls, 1);
+                if (attempt === details.length - 1) {
+                    assert.equal(
+                        timers.size,
+                        0,
+                        "exhausted request cannot reconnect"
+                    );
+                } else {
+                    assert.equal(timers.size, 1);
+                    const [id, callback] = timers.entries().next().value;
+                    timers.delete(id);
+                    callback();
+                    assert.equal(players.length, attempt + 2);
+                }
+            }
+            assert.equal(players.length, details.length);
+            w.stbStop();
+        }
+    );
+}
 test("explicit A/V diagnostic forces the MP4 decoder and restores mute after end", () => {
     const { w, players, shakas } = fixture();
     w.playerMode = 2;

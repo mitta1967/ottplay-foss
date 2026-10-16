@@ -995,7 +995,8 @@ function createCoreStreamAttempt(
     var resumePosition: number | undefined;
     var endpoint = 0,
         attempts = 0,
-        retries = 0;
+        retries = 0,
+        parseRetried = false;
     var timer: any = null,
         pending = false,
         disposed = false,
@@ -1046,10 +1047,12 @@ function createCoreStreamAttempt(
         fail: function (kind: string, status?: number, position?: number) {
             if (!active() || ended) return;
             var denied = status === 401 || status === 403 || kind === "auth";
+            var parsing = kind === "parse";
+            var recoverable =
+                kind === "network" || kind === "decode" || parsing;
             // Parallel requests may report denial/DRM after a transient failure.
             // Terminal errors cancel that scheduled retry and any future attempts.
-            if (pending && !denied && (kind === "network" || kind === "decode"))
-                return;
+            if (pending && !denied && recoverable) return;
             resumePosition =
                 position !== undefined
                     ? position
@@ -1060,11 +1063,17 @@ function createCoreStreamAttempt(
                       : undefined;
             var transient =
                 !status || status === 408 || status === 429 || status >= 500;
-            if (!denied && kind === "network" && transient && retries < 2)
-                retries++;
-            else if (
+            if (
                 !denied &&
-                (kind === "network" || kind === "decode") &&
+                transient &&
+                retries < 2 &&
+                (kind === "network" || (parsing && !parseRetried))
+            ) {
+                retries++;
+                parseRetried = parseRetried || parsing;
+            } else if (
+                !denied &&
+                recoverable &&
                 endpoint + 1 < endpoints.length
             )
                 endpoint++;
@@ -1542,8 +1551,10 @@ function startCorePlayback(
                             "[HLS] unrecoverable network/parse, destroying"
                         );
                         coreStreamFailure(
-                            "network",
-                            data.response && Number(data.response.code)
+                            window.OttPlayCore.playbackParsingFailure(det)
+                                ? "parse"
+                                : "network",
+                            httpStatus
                         );
                         hlsInstance.destroy();
                         hlsInstance = null;

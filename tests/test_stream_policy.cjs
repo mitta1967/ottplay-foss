@@ -272,6 +272,53 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
         "terminal failure cannot autoplay a retired decoder"
     );
 }
+{
+    const f = fixture(),
+        attempts = [];
+    f.setBackups([
+        "https://b.invalid/live",
+        "https://c.invalid/live",
+        "https://d.invalid/live",
+    ]);
+    const run = f.w.createCoreStreamAttempt(1, "primary", (url) =>
+        attempts.push(url)
+    );
+    // One parse retry and one network retry share the total of two, even
+    // across backup endpoints. Duplicate errors cannot consume that budget.
+    for (const kind of ["parse", "parse", "network", "parse", "parse"]) {
+        run.fail(kind);
+        run.fail(kind);
+        assert.equal(f.timers.size, 1);
+        f.tick();
+    }
+    assert.deepEqual(attempts, [
+        "primary",
+        "https://b.invalid/live",
+        "https://b.invalid/live",
+        "https://c.invalid/live",
+        "https://d.invalid/live",
+    ]);
+    for (const kind of ["parse", "network"]) run.fail(kind);
+    assert.equal(f.timers.size, 0);
+    assert.equal(f.policy.snapshot().attempts, 5);
+    assert.equal(f.policy.snapshot().state, "failed");
+}
+for (const status of [401, 403]) {
+    const f = fixture();
+    f.setBackups(["https://b.invalid/live"]);
+    const run = f.w.createCoreStreamAttempt(1, "primary", () =>
+        assert.fail("denial must cancel a queued parse reconnect")
+    );
+    run.fail("parse");
+    assert.equal(f.timers.size, 1);
+    const stale = f.timers.values().next().value;
+    run.fail("parse", status);
+    assert.equal(f.timers.size, 0);
+    stale();
+    run.resume();
+    assert.equal(f.timers.size, 0);
+    assert.equal(f.messages.pop(), "Source sign-in required");
+}
 for (const status of [401, 403]) {
     const f = fixture();
     f.setBackups(["https://b.invalid/live"]);
