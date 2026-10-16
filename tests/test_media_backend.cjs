@@ -1019,6 +1019,117 @@ test("restart waits for asynchronous pause confirmation before releasing restora
     assert.equal(f.backend.current().snapshot().phase, "playing");
 });
 
+test("diagnostic preview owns one decoder without emitting old channel position or completion", (f) => {
+    f.domain({ generation: 1, kind: "live", position: 0 });
+    f.backend.open({ url: "live-source" });
+    f.playing(0, 100);
+    let closed = 0;
+    const observed = [];
+    f.backend.subscribe((event) => observed.push(event.type));
+    const preview = f.backend.preview("diagnostic.mp4", () => closed++);
+    assert.ok(preview.active());
+    assert.equal(f.leases[0].disposed, 1);
+    assert.equal(f.leases[1].request.transient, true);
+    const count = f.commands.length;
+    observed.length = 0;
+    f.playing(1, 2);
+    f.leases[1].event("timeupdate");
+    f.backend.seek(4);
+    f.backend.current().pause();
+    f.backend.current().resume();
+    assert.equal(f.commands.length, count);
+    assert.deepEqual(
+        observed,
+        [],
+        "temporary playback does not publish OS metadata for the old channel"
+    );
+    f.leases[1].event("ended");
+    assert.equal(closed, 1);
+    assert.equal(preview.active(), false);
+    assert.equal(f.leases[1].disposed, 1);
+    assert.equal(f.leases[2].request.url, "live-source");
+    assert.equal(f.leases[2].request.position, 0);
+    assert.equal(
+        f.commands.some((command) => command.type === "ended"),
+        false
+    );
+});
+test("diagnostic preview restores a paused live channel after explicit finish", (f) => {
+    f.domain({ generation: 1, kind: "live", position: 0 });
+    const old = f.backend.open({ url: "live-source" });
+    f.playing();
+    old.pause();
+    const preview = f.backend.preview("diagnostic.mp4");
+    preview.finish();
+    preview.finish();
+    assert.equal(f.leases.length, 3);
+    assert.equal(f.leases[2].request.paused, true);
+});
+for (const reason of ["stop", "replacement", "source"])
+    test("diagnostic preview never restores after " + reason, (f) => {
+        f.domain({ generation: 1, kind: "live", position: 0 });
+        f.backend.open({ url: "live-source" });
+        f.playing();
+        const preview = f.backend.preview("diagnostic.mp4");
+        if (reason === "stop") f.backend.stop();
+        if (reason === "replacement") f.backend.open({ url: "new-source" });
+        if (reason === "source")
+            f.domain({ generation: 2, kind: "live", position: 0 });
+        f.leases[1].event("ended");
+        preview.finish();
+        assert.equal(
+            f.leases.filter((lease) => lease.request.url === "live-source")
+                .length,
+            1
+        );
+        if (reason === "replacement") assert.equal(f.leases[2].disposed, 0);
+    });
+for (const kind of ["vod", "archive"])
+    test(
+        "diagnostic preview leaves " + kind + " history and decoder untouched",
+        (f) => {
+            f.domain({ generation: 1, kind, position: 50 });
+            const old = f.backend.open({ position: 50, url: "recording" });
+            f.playing(0, 50);
+            assert.equal(f.backend.preview("diagnostic.mp4"), null);
+            assert.equal(f.backend.current(), old);
+            assert.equal(f.leases[0].disposed, 0);
+        }
+    );
+test("idle diagnostic error cleans up without starting an old channel", (f) => {
+    f.domain(null);
+    const preview = f.backend.preview("diagnostic.mp4");
+    f.leases[0].event("error");
+    assert.equal(preview.active(), false);
+    assert.equal(f.backend.current(), null);
+    assert.equal(f.commands.length, 0);
+});
+test("diagnostic completion callback cannot overwrite a synchronously selected channel", (f) => {
+    f.domain({ generation: 1, kind: "live", position: 0 });
+    f.backend.open({ url: "live-source" });
+    f.playing();
+    const preview = f.backend.preview("diagnostic.mp4", () =>
+        f.backend.open({ url: "chosen-in-callback" })
+    );
+    preview.finish();
+    assert.equal(f.leases.length, 3);
+    assert.equal(f.leases[2].request.url, "chosen-in-callback");
+});
+
+test("diagnostic startup exception restores the previous live decoder", (f) => {
+    f.domain({ generation: 1, kind: "live", position: 0 });
+    f.backend.open({ url: "live-source" });
+    f.playing();
+    const originalOpen = f.ports.open;
+    f.ports.open = (request, event) => {
+        if (request.transient) throw new Error("failed test decoder");
+        return originalOpen(request, event);
+    };
+    assert.equal(f.backend.preview("diagnostic.mp4"), null);
+    assert.equal(f.leases.length, 2);
+    assert.equal(f.leases[1].request.url, "live-source");
+});
+
 console.log(
     "PASS media backend: " + passed + " ES5 lease/observer/device scenarios"
 );

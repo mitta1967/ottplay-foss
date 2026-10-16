@@ -1114,11 +1114,13 @@ function startCoreEngine(
     position?: number,
     observe?: () => void,
     paused = false,
-    sourceUrl = url
+    sourceUrl = url,
+    transient = false
 ): void {
     cancelCoreStreamAttempt();
-    setCoreDemoMute((window as any).ottplayDemoActive === true);
-    if (video) video.loop = (window as any).ottplayDemoActive === true;
+    setCoreDemoMute(!transient && (window as any).ottplayDemoActive === true);
+    if (video)
+        video.loop = !transient && (window as any).ottplayDemoActive === true;
     _playSession++;
     _coreAutoHlsUsed = false;
     cancelCoreSourcePreparation();
@@ -1168,8 +1170,8 @@ function startCoreEngine(
                 position,
                 session,
                 url,
-                plexHint === "file",
-                plexHint === "mse"
+                transient || plexHint === "file",
+                !transient && plexHint === "mse"
             );
         };
         function prepare(resolved: string): void {
@@ -1224,43 +1226,45 @@ function startCoreEngine(
             if (resolving) coreSourcePreparationCancel = cancelResolve;
         } else prepare(url);
     };
-    var streamPolicy = (window as any).__ottStreamPolicy;
+    var streamPolicy = transient ? null : (window as any).__ottStreamPolicy;
     var streamOwner = streamPolicy && streamPolicy.capture();
-    coreStreamAttempt = createCoreStreamAttempt(
-        session,
-        sourceUrl,
-        function (next: string, savedPosition?: number) {
-            var resumePosition =
-                _corePendingSeekPosition !== null
-                    ? _corePendingSeekPosition
-                    : savedPosition;
-            revision++;
-            cancelCoreSourcePreparation();
-            cancelCoreAutoPlayback();
-            cancelCoreNativeHls();
-            cancelCoreSeek();
-            if (hlsInstance) {
-                hlsInstance.destroy();
-                hlsInstance = null;
-            }
-            destroyCoreShaka();
-            if (video) {
-                // Read before destroy(): decoder teardown may reset currentTime.
-                // Live endpoints always start at their own live edge.
-                if (!streamOwner || !streamOwner.live)
-                    position =
-                        resumePosition !== undefined
-                            ? resumePosition
-                            : position;
-                video.pause();
-                video.removeAttribute("src");
-            }
-            url = next;
-            _coreAutoHlsUsed = false;
-            if (_coreShakaTeardown) _coreShakaTeardown.then(start, start);
-            else start();
-        }
-    );
+    coreStreamAttempt = transient
+        ? null
+        : createCoreStreamAttempt(
+              session,
+              sourceUrl,
+              function (next: string, savedPosition?: number) {
+                  var resumePosition =
+                      _corePendingSeekPosition !== null
+                          ? _corePendingSeekPosition
+                          : savedPosition;
+                  revision++;
+                  cancelCoreSourcePreparation();
+                  cancelCoreAutoPlayback();
+                  cancelCoreNativeHls();
+                  cancelCoreSeek();
+                  if (hlsInstance) {
+                      hlsInstance.destroy();
+                      hlsInstance = null;
+                  }
+                  destroyCoreShaka();
+                  if (video) {
+                      // Read before destroy(): decoder teardown may reset currentTime.
+                      // Live endpoints always start at their own live edge.
+                      if (!streamOwner || !streamOwner.live)
+                          position =
+                              resumePosition !== undefined
+                                  ? resumePosition
+                                  : position;
+                      video.pause();
+                      video.removeAttribute("src");
+                  }
+                  url = next;
+                  _coreAutoHlsUsed = false;
+                  if (_coreShakaTeardown) _coreShakaTeardown.then(start, start);
+                  else start();
+              }
+          );
     if (_coreShakaTeardown) _coreShakaTeardown.then(start, start);
     else start();
     window.playType = window.playType ?? 0;
@@ -1846,6 +1850,8 @@ export function stbContinue(): void {
     else handle.pause();
 }
 export function stbIsPlaying(): boolean {
+    // A diagnostic clip is not the live channel: do not enter its catch-up path.
+    if (coreAvTest && coreAvTest.active()) return false;
     var handle = getCoreMediaBackend().current();
     return (
         !!handle &&
@@ -3258,7 +3264,8 @@ function openCoreEngineLease(
                 request.position,
                 observe,
                 request.paused === true,
-                request.sourceUrl || request.url
+                request.sourceUrl || request.url,
+                request.transient === true
             );
     } catch (error) {
         lease.dispose();
@@ -3266,6 +3273,42 @@ function openCoreEngineLease(
     }
     return lease;
 }
+
+var coreAvTest: any = null;
+var coreAvTestTimer: any = null;
+function finishCoreAvTest(): void {
+    if (coreAvTest) coreAvTest.finish();
+}
+function startCoreAvTest(): boolean {
+    if (!video || coreDeviceEffects.engine || stbIsStandby()) return false;
+    if (coreAvTest && coreAvTest.active()) return true;
+    var media = video,
+        muted = _coreDemoMute ? _coreDemoMute.muted : media.muted;
+    var test = getCoreMediaBackend().preview(
+        "diagnostics/av-v1.mp4",
+        function (reason: string) {
+            if (reason === "error") showShift(_("Stream could not be played"));
+            if (coreAvTestTimer !== null) clearTimeout(coreAvTestTimer);
+            coreAvTestTimer = null;
+            coreAvTest = null;
+            if (video === media && !media.muted) media.muted = muted;
+        }
+    );
+    if (!test) return false;
+    if (test.active()) {
+        coreAvTest = test;
+        media.muted = false;
+        // A failed/missing end event must not leave the diagnostic decoder forever.
+        coreAvTestTimer = setTimeout(function () {
+            test.finish();
+        }, 15000);
+    }
+    return true;
+}
+(window as any).__ottAvTest = {
+    start: startCoreAvTest,
+    stop: finishCoreAvTest,
+};
 
 export function stbPlayPip(url: string): void {
     if ((window as any).__ottKiosk && (window as any).__ottKiosk.enabled())

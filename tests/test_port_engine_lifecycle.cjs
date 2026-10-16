@@ -1421,6 +1421,62 @@ test("HLS outer recovery samples the VOD position before destroy resets the medi
     assert.equal(players[1].config.startPosition, 37);
     w.stbStop();
 });
+test("explicit A/V diagnostic forces the MP4 decoder and restores mute after end", () => {
+    const { w, players, shakas } = fixture();
+    w.playerMode = 2;
+    w.sStreamMaxHeight = 360;
+    w.video.muted = true;
+    assert.equal(w.__ottAvTest.start(), true);
+    assert.equal(w.video.src, "diagnostics/av-v1.mp4");
+    assert.equal(w.video.muted, false);
+    assert.equal(
+        w.stbIsPlaying(),
+        false,
+        "diagnostic playback must not enter live catch-up on Pause"
+    );
+    assert.equal(w.playerMode, 2);
+    assert.equal(players.length, 0);
+    assert.equal(shakas.length, 0);
+    for (const callback of [...w.video.listeners.ended]) callback();
+    assert.equal(w.video.muted, true);
+    assert.equal(w.__ottCoreBackend().current(), null);
+});
+test("A/V diagnostic Stop cannot restart and its deadline cannot replace a new channel", () => {
+    const { w } = fixture();
+    let deadline;
+    w.setTimeout = (callback) => {
+        deadline = callback;
+        return 1;
+    };
+    w.clearTimeout = () => {};
+    assert.equal(w.__ottAvTest.start(), true);
+    const stale = deadline;
+    w.stbStop();
+    stale();
+    assert.equal(w.__ottCoreBackend().current(), null);
+    assert.equal(w.__ottAvTest.start(), true);
+    const replaced = deadline;
+    w.stbPlay("new-channel.mp4");
+    replaced();
+    assert.equal(w.video.src, "new-channel.mp4");
+    w.stbStop();
+});
+test("A/V diagnostic is unavailable on an optional native engine without taking its decoder", () => {
+    const { w } = fixture();
+    w.__ottCoreTransport.configure({
+        engine: () => assert.fail("should not open a test engine"),
+    });
+    assert.equal(w.__ottAvTest.start(), false);
+});
+test("A/V diagnostic does not persist the demo's temporary mute as the user's choice", () => {
+    const { w } = fixture();
+    w.ottplayDemoActive = true;
+    w.video.muted = true;
+    w._coreDemoMute = { media: w.video, muted: false };
+    assert.equal(w.__ottAvTest.start(), true);
+    w.__ottAvTest.stop();
+    assert.equal(w.video.muted, false);
+});
 (async () => {
     let failures = 0;
     for (const [name, fn] of cases) {

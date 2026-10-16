@@ -55,8 +55,8 @@ function fixture() {
             timers.set(++sequence, callback);
             return sequence;
         },
-        showSelectBox: (selected, items, done) =>
-            menus.push({ done, items, selected }),
+        showSelectBox: (selected, items, done, timeout) =>
+            menus.push({ done, items, selected, timeout }),
         showShift: (text) => messages.push(text),
         video: null,
     };
@@ -190,6 +190,11 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
     f.policy.edit((_caption, _value, done) => {
         save = done;
     });
+    assert.equal(
+        f.menus[0].timeout,
+        -1,
+        "opening or focusing a slot must not auto-commit its action"
+    );
     f.menus.shift().done(2);
     save("https://backup.invalid/live");
     let data = JSON.parse(f.storage.get("streamBackupsV1"));

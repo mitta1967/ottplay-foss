@@ -193,10 +193,12 @@
                         function (action: number) {
                             if (action === 0) change();
                             else if (action === 1) save("");
-                        }
+                        },
+                        -1
                     );
                 else change();
-            }
+            },
+            -1
         );
     }
     function begin(engine: string, supported: boolean): any {

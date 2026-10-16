@@ -6002,7 +6002,22 @@ function editBackupStreams(): void {
     if ((window as any).__ottStreamPolicy)
         (window as any).__ottStreamPolicy.edit(editSettingsText);
 }
+function audioVideoTest(): void {
+    var test = (window as any).__ottAvTest;
+    if (!test) return;
+    showSelectBox(
+        0,
+        [_("Play"), _("Stop")],
+        function (selected: number) {
+            if (selected === 0 && !test.start())
+                showShift(_("Stream could not be played"));
+            else if (selected === 1) test.stop();
+        },
+        -1
+    );
+}
 var infoArr: any[] = [
+    { action: audioVideoTest, name: "Audio" },
     { action: editBackupStreams, name: "Backup streams" },
     { action: buttonsInfo, name: "Description of remote control buttons" },
     { action: noop },
