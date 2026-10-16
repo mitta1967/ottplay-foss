@@ -4,6 +4,14 @@
 
 ### Changes
 
+- Report the actual attached playback engine in runtime diagnostics, including
+  HLS-to-native fallback; stopped or unavailable engines remain explicitly null.
+  Explicit debug version 2 requests add this evidence while version 1 remains
+  compatible with existing controllers and CLIs.
+
+- Preserve the exact source revision in release frontend diagnostics. Verify
+  committed media assets before CI builds and reject release builds whose
+  source identity cannot be validated against the frozen version plan.
 - Declare the Linux HLS, H.264 and AAC package dependencies, bundle the
   AppImage media framework, and require decoded audio/video buffers and clean
   end-of-stream in the Linux build's codec preflight.
