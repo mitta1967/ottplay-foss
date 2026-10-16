@@ -25,8 +25,12 @@ A later rooted A/V asset URL adds one raw byte. The bounded HLS parse-retry
 fix adds 37 raw / 36 gzip bytes in an isolated same-snapshot comparison
 ([evidence](evidence/parse-recovery-size-20261015.json)). The native Auto handoff ownership fix adds another 101 raw / 39 gzip bytes
 ([evidence](evidence/auto-recovery-size-20261015.json)). The resulting full raw
-total is 995,726 bytes; build identity and gzip bytes can change in the final commit. Final `build/reports/classic-bundle.json` and
+total before the accessibility regression fixes is 995,726 bytes; build identity and gzip bytes can change in the final commit. Final `build/reports/classic-bundle.json` and
 `npm run check:size` remain the authority for the exact delivered revision.
+The subsequent clean build `652726f8`, including pointer/dialog focus fixes,
+measures **995,858 raw / 315,207 gzip bytes** for the complete web player
+([final artifact evidence](evidence/roadmap-final-size-20261015.json)). Its entry
+is 875,197 / 270,425; native totals are 995,816 / 315,259.
 The reviewed caps retain the previous native/Node/release-suffix allowance:
 875,300 raw / 271,600 gzip for the entry; 996,100 / 316,400 for entry + providers.
 
