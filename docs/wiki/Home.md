@@ -20,6 +20,12 @@ See the [publishing instructions](../wiki-publishing.md).
   [Tauri signing/updater](../tauri-updater-notarize.md) and
   [local HTTP instances](../local-http-deployment.md).
 
+## Process and results
+
+- [Implementation report and colored diagrams](../implementation-report.md)
+  ([Русский](../implementation-report.ru.md)): reviewed changes, fixed regressions,
+  measured output and remaining release gates.
+
 ## Use the new capabilities
 
 - [Feature delivery and platform boundaries](../roadmap-delivery.md)

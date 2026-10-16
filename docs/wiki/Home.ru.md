@@ -20,6 +20,12 @@ review. Отдельная [GitHub Wiki](https://github.com/open-ott-play/ottpla
   [подпись и обновление Tauri](../tauri-updater-notarize.md),
   [локальные HTTP-инстансы](../local-http-deployment.md).
 
+## Процесс и результат
+
+- [Отчёт с цветными диаграммами](../implementation-report.ru.md)
+  ([English](../implementation-report.md)): ход работы, исправленные ошибки,
+  измерения и оставшиеся условия выпуска.
+
 ## Новые возможности
 
 - [Реализованные функции и границы платформ](../roadmap-delivery.ru.md)

@@ -1089,6 +1089,7 @@ EPG_URLS="http://example.com/epg.xml.gz" ./target/release/ottplay-server --port 
 ## Documentation
 
 - [Documentation wiki](./docs/wiki/Home.md) / [Вики по-русски](./docs/wiki/Home.ru.md) — task-oriented navigation and maintenance rules.
+- [Implementation report](./docs/implementation-report.md) / [Процесс и результат](./docs/implementation-report.ru.md) — colored diagrams, verified behavior, measured cost and release gates.
 - [Delivery guide](./docs/roadmap-delivery.md) / [Руководство по новым возможностям](./docs/roadmap-delivery.ru.md) — features, limitations and verification.
 - [Quick starts in 88 interface languages](./docs/readme/README.md) — generated from the shipped UI translations; full engineering manuals are EN/RU.
 - [Quality limits and live recovery](./docs/playback-stream-policy.md) / [По-русски](./docs/playback-stream-policy.ru.md).

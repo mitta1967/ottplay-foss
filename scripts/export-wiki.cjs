@@ -35,6 +35,7 @@ const pages = {
 };
 for (const name of [
     "roadmap-delivery",
+    "implementation-report",
     "roadmap-size",
     "playback-stream-policy",
     "guide-binding-accessibility",
