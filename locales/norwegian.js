@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "Bakgrunnsfarge",
     "Background color of selected item": "Bakgrunnsfarge for valgt element",
     "Backup state changed": "Sikkerhetskopieringstilstand endret",
+    "Backup streams": "Reservestrømmer",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -614,6 +615,8 @@ var keyStrings = {
     "Manage lists": "Administrer lister",
     "Manage settings": "Administrer innstillinger",
     "Manual setup": "Manuelt oppsett",
+    "Maximum stream bitrate": "Maksimal bithastighet for strømmen",
+    "Maximum video height": "Maksimal videohøyde",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV innstillinger",
     Media: "Media",
@@ -627,6 +630,7 @@ var keyStrings = {
     "Move category up": "Flytt kategori opp",
     "Move channel down": "Flytt kanalen ned",
     "Move channel up": "Flytt kanal opp",
+    Movies: "Filmer",
     "m3u-m3u8 playlists": "M3U / M3U8 spillelister",
     medium: "Middels",
     min: "min",
@@ -646,6 +650,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Ingen programmer samsvarte med spillelistekanalene og datoene. Sjekk kilden og enhetens klokke.",
     "No saved settings found": "Finner ingen lagrede innstillinger",
+    "No stream meets the quality limits":
+        "Ingen strøm oppfyller kvalitetsgrensene",
     "No supported system language. Choose a language.":
         "Ikke støttet systemspråk. Velg et språk.",
     "Not configured": "Ikke konfigurert",
@@ -869,6 +875,7 @@ var keyStrings = {
         "Sikker ekstern inngang kunne ikke starte. Bruk skjermtastaturet.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Sikker ekstern inngang er utilgjengelig på denne enheten. Bruk skjermtastaturet.",
+    "Select a live channel first": "Velg først en direktesendt kanal",
     "Select a stream type:<br>%1": "Velg en strømtype:<br>%1",
     "Select category to add channel":
         "Velg en kategori for å legge til kanalen",
@@ -888,6 +895,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Send denne koden fra proxyen din i headeren Authorization: Bearer.",
     "Send to TV": "Send til TV",
+    Series: "TV-serier",
     Server: "Server",
     "Server address": "Serveradresse",
     "Server address (for example 192.168.1.20:8081)":

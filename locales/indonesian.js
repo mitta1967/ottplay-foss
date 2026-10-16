@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "Warna latar",
     "Background color of selected item": "Warna latar item terpilih",
     "Backup state changed": "Status cadangan diubah",
+    "Backup streams": "Streaming cadangan",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -615,6 +616,8 @@ var keyStrings = {
     "Manage lists": "Kelola daftar",
     "Manage settings": "Kelola pengaturan",
     "Manual setup": "Pengaturan manual",
+    "Maximum stream bitrate": "Laju bit streaming maksimum",
+    "Maximum video height": "Tinggi video maksimum",
     MaxTV: "MaxTV",
     "MaxTV settings": "Pengaturan MaxTV",
     Media: "Media",
@@ -627,6 +630,7 @@ var keyStrings = {
     "Move category up": "Pindahkan kategori ke atas",
     "Move channel down": "Pindahkan saluran ke bawah",
     "Move channel up": "Pindahkan saluran ke atas",
+    Movies: "Film",
     "m3u-m3u8 playlists": "Daftar putar M3U / M3U8",
     medium: "sedang",
     min: "mnt",
@@ -646,6 +650,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Tidak ada program yang cocok dengan saluran dan tanggal playlist. Periksa sumber dan jam perangkat.",
     "No saved settings found": "Tidak ditemukan pengaturan tersimpan",
+    "No stream meets the quality limits":
+        "Tidak ada streaming yang memenuhi batas kualitas",
     "No supported system language. Choose a language.":
         "Tidak ada bahasa sistem yang didukung. Pilih bahasa.",
     "Not configured": "Belum dikonfigurasi",
@@ -869,6 +875,7 @@ var keyStrings = {
         "Input jarak jauh yang aman tidak dapat dimulai. Silakan gunakan keyboard di layar.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Input jarak jauh yang aman tidak tersedia pada perangkat ini. Gunakan keyboard di layar.",
+    "Select a live channel first": "Pilih saluran langsung terlebih dahulu",
     "Select a stream type:<br>%1": "Pilih jenis aliran:<br>%1",
     "Select category to add channel":
         "Pilih kategori untuk menambahkan saluran",
@@ -888,6 +895,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Kirim kode ini dari proksi Anda di header Authorization: Bearer.",
     "Send to TV": "Kirim ke TV",
+    Series: "Serial",
     Server: "Server",
     "Server address": "Alamat server",
     "Server address (for example 192.168.1.20:8081)":

@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "பின்னணி நிறம்",
     "Background color of selected item": "தேர்ந்தெடுக்கப்பட்ட பொருளின் பின்னணி நிறம்",
     "Backup state changed": "காப்புப் பிரதி நிலை மாற்றப்பட்டது",
+    "Backup streams": "மாற்று ஸ்ட்ரீம்கள்",
     "Balance, $": "இருப்பு, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -609,6 +610,8 @@ var keyStrings = {
     "Manage lists": "பட்டியல்களை நிர்வகிக்கவும்",
     "Manage settings": "அமைப்புகளை நிர்வகிக்கவும்",
     "Manual setup": "கைமுறை அமைப்பு",
+    "Maximum stream bitrate": "ஸ்ட்ரீமின் அதிகபட்ச பிட் வீதம்",
+    "Maximum video height": "காணொளியின் அதிகபட்ச உயரம்",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV அமைப்புகள்",
     Media: "ஊடகம்",
@@ -621,6 +624,7 @@ var keyStrings = {
     "Move category up": "வகையை மேலே நகர்த்தவும்",
     "Move channel down": "சேனலை கீழே நகர்த்தவும்",
     "Move channel up": "சேனலை மேலே நகர்த்தவும்",
+    Movies: "திரைப்படங்கள்",
     "m3u-m3u8 playlists": "M3U / M3U8 பிளேலிஸ்ட்கள்",
     medium: "நடுத்தர",
     min: "நிமிடம்",
@@ -640,6 +644,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "பிளேலிஸ்ட் சேனல்கள் மற்றும் தேதிகளுடன் எந்த நிகழ்ச்சிகளும் பொருந்தவில்லை. மூலத்தையும் சாதன கடிகாரத்தையும் சரிபார்க்கவும்.",
     "No saved settings found": "சேமிக்கப்பட்ட அமைப்புகள் எதுவும் இல்லை",
+    "No stream meets the quality limits":
+        "எந்த ஸ்ட்ரீமும் தர வரம்புகளைப் பூர்த்தி செய்யவில்லை",
     "No supported system language. Choose a language.":
         "ஆதரிக்கப்படும் கணினி மொழி இல்லை. ஒரு மொழியை தேர்வு செய்யவும்.",
     "Not configured": "அமைக்கப்படவில்லை",
@@ -862,6 +868,7 @@ var keyStrings = {
         "பாதுகாப்பான ரிமோட் உள்ளீட்டைத் தொடங்க முடியவில்லை. திரையில் உள்ள விசைப்பலகையைப் பயன்படுத்தவும்.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "இந்தச் சாதனத்தில் பாதுகாப்பான ரிமோட் உள்ளீடு இல்லை. திரையில் உள்ள விசைப்பலகையைப் பயன்படுத்தவும்.",
+    "Select a live channel first": "முதலில் நேரலை சேனலைத் தேர்ந்தெடுக்கவும்",
     "Select a stream type:<br>%1": "ஸ்ட்ரீம் வகையைத் தேர்ந்தெடுக்கவும்:<br>%1",
     "Select category to add channel": "சேனலைச் சேர்க்க வகையைத் தேர்ந்தெடுக்கவும்",
     "Select color": "நிறத்தைத் தேர்ந்தெடுக்கவும்",
@@ -880,6 +887,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "உங்கள் ப்ராக்ஸியிலிருந்து இந்தக் குறியீட்டை Authorization: Bearer தலைப்பில் அனுப்பவும்.",
     "Send to TV": "டிவிக்கு அனுப்பவும்",
+    Series: "தொடர்கள்",
     Server: "சேவையகம்",
     "Server address": "சேவையக முகவரி",
     "Server address (for example 192.168.1.20:8081)":

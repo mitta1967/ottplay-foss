@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "ფონის ფერი",
     "Background color of selected item": "შერჩეული ელემენტის ფონის ფერი",
     "Backup state changed": "სარეზერვო მდგომარეობა შეიცვალა",
+    "Backup streams": "სარეზერვო ნაკადები",
     "Balance, $": "ნაშთი, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -617,6 +618,8 @@ var keyStrings = {
     "Manage lists": "სიების მართვა",
     "Manage settings": "პარამეტრების მართვა",
     "Manual setup": "ხელით დაყენება",
+    "Maximum stream bitrate": "ნაკადის მაქსიმალური ბიტრეიტი",
+    "Maximum video height": "ვიდეოს მაქსიმალური სიმაღლე",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV პარამეტრები",
     Media: "მედია",
@@ -630,6 +633,7 @@ var keyStrings = {
     "Move category up": "კატეგორიის გადატანა ზემოთ",
     "Move channel down": "გადაიტანეთ არხი ქვემოთ",
     "Move channel up": "არხის გადატანა ზემოთ",
+    Movies: "ფილმები",
     "m3u-m3u8 playlists": "M3U / M3U8 დასაკრავი სიები",
     medium: "საშუალო",
     min: "წთ",
@@ -649,6 +653,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "არცერთი პროგრამა არ შეესაბამება დასაკრავი სიის არხებს და თარიღებს. შეამოწმეთ წყარო და მოწყობილობის საათი.",
     "No saved settings found": "შენახული პარამეტრები ვერ მოიძებნა",
+    "No stream meets the quality limits":
+        "არცერთი ნაკადი არ აკმაყოფილებს ხარისხის შეზღუდვებს",
     "No supported system language. Choose a language.":
         "არ არის მხარდაჭერილი სისტემის ენა. აირჩიეთ ენა.",
     "Not configured": "არ არის კონფიგურირებული",
@@ -873,6 +879,7 @@ var keyStrings = {
         "უსაფრთხო დისტანციური შეყვანის დაწყება ვერ მოხერხდა. გთხოვთ, გამოიყენოთ ეკრანის კლავიატურა.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ამ მოწყობილობაზე მიუწვდომელია უსაფრთხო დისტანციური შეყვანა. გამოიყენეთ ეკრანის კლავიატურა.",
+    "Select a live channel first": "ჯერ აირჩიეთ პირდაპირი ეთერის არხი",
     "Select a stream type:<br>%1": "აირჩიეთ ნაკადის ტიპი:<br>%1",
     "Select category to add channel": "აირჩიეთ კატეგორია არხის დასამატებლად",
     "Select color": "აირჩიეთ ფერი",
@@ -890,6 +897,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "გაგზავნეთ ეს კოდი თქვენი პროქსიდან Authorization: Bearer სათაურში.",
     "Send to TV": "ტელევიზორში გაგზავნა",
+    Series: "სერიალები",
     Server: "სერვერი",
     "Server address": "სერვერის მისამართი",
     "Server address (for example 192.168.1.20:8081)":

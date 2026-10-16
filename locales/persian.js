@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "رنگ پس زمینه",
     "Background color of selected item": "رنگ پس زمینه مورد انتخاب شده",
     "Backup state changed": "وضعیت پشتیبان گیری تغییر کرد",
+    "Backup streams": "جریان‌های پشتیبان",
     "Balance, $": "موجودی، دلار",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -606,6 +607,8 @@ var keyStrings = {
     "Manage lists": "لیست ها را مدیریت کنید",
     "Manage settings": "تنظیمات را مدیریت کنید",
     "Manual setup": "تنظیم دستی",
+    "Maximum stream bitrate": "حداکثر نرخ بیت جریان",
+    "Maximum video height": "حداکثر ارتفاع ویدیو",
     MaxTV: "MaxTV",
     "MaxTV settings": "تنظیمات MaxTV",
     Media: "رسانه",
@@ -618,6 +621,7 @@ var keyStrings = {
     "Move category up": "انتقال دسته به بالا",
     "Move channel down": "انتقال کانال به پایین",
     "Move channel up": "انتقال کانال به بالا",
+    Movies: "فیلم‌ها",
     "m3u-m3u8 playlists": "لیست های پخش M3U / M3U8",
     medium: "متوسط",
     min: "دقیقه",
@@ -637,6 +641,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "هیچ برنامه ای با کانال ها و تاریخ های لیست پخش مطابقت نداشت. منبع و ساعت دستگاه را بررسی کنید.",
     "No saved settings found": "هیچ تنظیمات ذخیره شده ای یافت نشد",
+    "No stream meets the quality limits":
+        "هیچ جریانی با محدودیت‌های کیفیت سازگار نیست",
     "No supported system language. Choose a language.":
         "هیچ زبان سیستمی پشتیبانی نمی شود. یک زبان را انتخاب کنید.",
     "Not configured": "پیکربندی نشده",
@@ -862,6 +868,7 @@ var keyStrings = {
         "ورودی از راه دور ایمن شروع نشد. لطفا از صفحه کلید روی صفحه استفاده کنید.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ورودی ایمن از راه دور در این دستگاه در دسترس نیست. از صفحه کلید روی صفحه استفاده کنید.",
+    "Select a live channel first": "ابتدا یک کانال زنده انتخاب کنید",
     "Select a stream type:<br>%1": "نوع جریان را انتخاب کنید:<br>%1",
     "Select category to add channel":
         "یک دسته را برای افزودن کانال انتخاب کنید",
@@ -881,6 +888,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "این کد را از پروکسی خود در هدر Authorization: Bearer ارسال کنید.",
     "Send to TV": "ارسال به تلویزیون",
+    Series: "سریال‌ها",
     Server: "سرور",
     "Server address": "آدرس سرور",
     "Server address (for example 192.168.1.20:8081)":

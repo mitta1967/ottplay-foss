@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Àwọ̀ abẹ́lẹ̀",
     "Background color of selected item": "Àwọ̀ abẹ́lẹ̀ ohun tí a yàn",
     "Backup state changed": "Ipo afẹyinti yipada",
+    "Backup streams": "Àwọn ìṣàn àfẹ́yìntì",
     "Balance, $": "Iye owó tó kù, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -602,6 +603,8 @@ var keyStrings = {
     "Manage lists": "Ṣàkóso àwọn àkójọ",
     "Manage settings": "Ṣàkóso ètò",
     "Manual setup": "Ṣètò pẹ̀lú ọwọ́",
+    "Maximum stream bitrate": "Ìwọ̀n bítì ìṣàn tó pọ̀ jù",
+    "Maximum video height": "Gíga fídíò tó pọ̀ jù",
     MaxTV: "MaxTV",
     "MaxTV settings": "Ètò MaxTV",
     Media: "Mídíà",
@@ -614,6 +617,7 @@ var keyStrings = {
     "Move category up": "Gbe ẹ̀ka sí òkè",
     "Move channel down": "Gbe ìkànnì sí ìsàlẹ̀",
     "Move channel up": "Gbe ìkànnì sí òkè",
+    Movies: "Àwọn fíìmù",
     "m3u-m3u8 playlists": "Àwọn àkójọ ìṣeré M3U / M3U8",
     medium: "àárín",
     min: "ìṣẹ́jú",
@@ -633,6 +637,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Kò sí ètò tó bá àwọn ìkànnì àti ọjọ́ àkójọ ìṣeré mu. Ṣàyẹ̀wò orísun àti aago ẹ̀rọ.",
     "No saved settings found": "A kò rí ètò tí a fi pamọ́",
+    "No stream meets the quality limits": "Kò sí ìṣàn tó bá ààlà dídára mu",
     "No supported system language. Choose a language.":
         "Ko si ede eto atilẹyin. Yan ede kan.",
     "Not configured": "A kò tíì ṣètò",
@@ -856,6 +861,7 @@ var keyStrings = {
         "Títẹ ọ̀rọ̀ láti ọ̀nà jíjìn tí ó ní ààbò kò lè bẹ̀rẹ̀. Jọ̀wọ́ lo àtẹ bọ́tìnì lórí ibojú.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Títẹ ọ̀rọ̀ láti ọ̀nà jíjìn tí ó ní ààbò kò sí lárọ̀ọ́wọ́tó lórí ẹ̀rọ yìí. Lo àtẹ bọ́tìnì lórí ibojú.",
+    "Select a live channel first": "Yan ikanni ìgbékalẹ̀ tààrà kọ́kọ́",
     "Select a stream type:<br>%1": "Yan irú ìṣàn:<br>%1",
     "Select category to add channel": "Yan ẹ̀ka láti fi ìkànnì kún un",
     "Select color": "Yan àwọ̀",
@@ -874,6 +880,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Fi kóòdù yìí ránṣẹ́ láti aṣojú nẹ́tíwọ́ọ̀kì rẹ nínú àkọlé Authorization: Bearer.",
     "Send to TV": "Firanṣẹ si TV",
+    Series: "Àwọn eré onítẹ̀lé",
     Server: "Sáfà",
     "Server address": "Àdírẹ́sì sáfà",
     "Server address (for example 192.168.1.20:8081)":

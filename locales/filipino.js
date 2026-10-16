@@ -106,6 +106,7 @@ var keyStrings = {
     "Background color": "Kulay ng background",
     "Background color of selected item": "Kulay ng background ng napiling item",
     "Backup state changed": "Nagbago ang status ng backup",
+    "Backup streams": "Mga reserbang stream",
     "Balance, $": "Balanse, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -629,6 +630,8 @@ var keyStrings = {
     "Manage lists": "Pamahalaan ang mga listahan",
     "Manage settings": "Pamahalaan ang mga setting",
     "Manual setup": "Manu-manong pag-setup",
+    "Maximum stream bitrate": "Pinakamataas na bitrate ng stream",
+    "Maximum video height": "Pinakamataas na taas ng video",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV na mga setting",
     Media: "Media",
@@ -641,6 +644,7 @@ var keyStrings = {
     "Move category up": "Itaas ang kategorya",
     "Move channel down": "Ilipat ang channel pababa",
     "Move channel up": "Ilipat ang channel pataas",
+    Movies: "Mga pelikula",
     "m3u-m3u8 playlists": "M3U / M3U8 na mga playlist",
     medium: "Katamtaman",
     min: "min",
@@ -660,6 +664,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Walang mga programa ang tumugma sa mga channel at petsa ng playlist. Suriin ang pinagmulan at orasan ng device.",
     "No saved settings found": "Walang nakitang mga naka-save na setting",
+    "No stream meets the quality limits":
+        "Walang stream na pasok sa mga limitasyon ng kalidad",
     "No supported system language. Choose a language.":
         "Walang sinusuportahang wika ng system. Pumili ng wika.",
     "Not configured": "Hindi pa na-configure",
@@ -889,6 +895,7 @@ var keyStrings = {
         "Hindi makapagsimula ang secure na remote input. Mangyaring gamitin ang on-screen na keyboard.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Hindi available ang secure na remote input sa device na ito. Gamitin ang on-screen na keyboard.",
+    "Select a live channel first": "Pumili muna ng live na channel",
     "Select a stream type:<br>%1": "Pumili ng uri ng stream:<br>%1",
     "Select category to add channel":
         "Pumili ng kategorya upang idagdag ang channel",
@@ -908,6 +915,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Ipadala ang code na ito mula sa iyong proxy sa header na Authorization: Bearer.",
     "Send to TV": "Ipadala sa TV",
+    Series: "Mga serye",
     Server: "server",
     "Server address": "Address ng server",
     "Server address (for example 192.168.1.20:8081)":

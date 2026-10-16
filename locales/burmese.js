@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "နောက်ခံအရောင်",
     "Background color of selected item": "ရွေးထားသည့်အရာ၏ နောက်ခံအရောင်",
     "Backup state changed": "အရန်သိမ်းမှု အခြေအနေ ပြောင်းသွားသည်။",
+    "Backup streams": "အရန်ထုတ်လွှင့်မှုများ",
     "Balance, $": "လက်ကျန်၊ $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -597,6 +598,8 @@ var keyStrings = {
     "Manage lists": "စာရင်းများကို စီမံပါ။",
     "Manage settings": "ဆက်တင်များကို စီမံပါ။",
     "Manual setup": "လူကိုယ်တိုင် စနစ်ထည့်သွင်းခြင်း။",
+    "Maximum stream bitrate": "ထုတ်လွှင့်မှု၏ အများဆုံးဘစ်နှုန်း",
+    "Maximum video height": "ဗီဒီယို၏ အများဆုံးအမြင့်",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ဆက်တင်များ",
     Media: "မီဒီယာ",
@@ -609,6 +612,7 @@ var keyStrings = {
     "Move category up": "အမျိုးအစားအပေါ်သို့ ရွှေ့ပါ။",
     "Move channel down": "ချန်နယ်ကို အောက်သို့ရွှေ့ပါ။",
     "Move channel up": "ချန်နယ်အပေါ်သို့ ရွှေ့ပါ။",
+    Movies: "ရုပ်ရှင်များ",
     "m3u-m3u8 playlists": "M3U / M3U8 အစီအစဉ်များ",
     medium: "လတ်",
     min: "မိနစ်",
@@ -628,6 +632,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "အစီအစဉ်များနှင့် ရက်စွဲများနှင့် ကိုက်ညီသည့် အစီအစဉ်မရှိပါ။ အရင်းအမြစ်နှင့် စက်နာရီကို စစ်ဆေးပါ။",
     "No saved settings found": "သိမ်းဆည်းထားသော ဆက်တင်များကို မတွေ့ပါ။",
+    "No stream meets the quality limits": "အရည်အသွေးကန့်သတ်ချက်နှင့် ကိုက်ညီသော ထုတ်လွှင့်မှုမရှိပါ",
     "No supported system language. Choose a language.":
         "ပံ့ပိုးထားသော စနစ်ဘာသာစကားမရှိပါ။ ဘာသာစကားတစ်ခုကို ရွေးပါ။",
     "Not configured": "မသတ်မှတ်ရသေးပါ",
@@ -851,6 +856,7 @@ var keyStrings = {
         "လုံခြုံသော အဝေးထိန်း ထည့်သွင်းမှု မစတင်နိုင်ပါ။ ကျေးဇူးပြု၍ မျက်နှာပြင်ပေါ်ရှိ ကီးဘုတ်ကို အသုံးပြုပါ။",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "လုံခြုံသောအဝေးမှ ထည့်သွင်းမှုကို ဤစက်ပစ္စည်းတွင် မရရှိနိုင်ပါ။ မျက်နှာပြင်ပေါ်ရှိ ကီးဘုတ်ကို အသုံးပြုပါ။",
+    "Select a live channel first": "ဦးစွာ တိုက်ရိုက်ချန်နယ်တစ်ခု ရွေးပါ",
     "Select a stream type:<br>%1": "ထုတ်လွှင့်မှုအမျိုးအစား-<br>%1 ကို ရွေးပါ။",
     "Select category to add channel": "ချန်နယ်ကို ထည့်ရန် အမျိုးအစားတစ်ခုကို ရွေးပါ။",
     "Select color": "အရောင်ရွေးပါ။",
@@ -869,6 +875,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Authorization: Bearer ခေါင်းစီးရှိ သင့်ပရောက်စီမှ ဤကုဒ်ကို ပို့ပါ။",
     "Send to TV": "TV သို့ ပို့ပါ။",
+    Series: "ဇာတ်လမ်းတွဲများ",
     Server: "ဆာဗာ",
     "Server address": "ဆာဗာလိပ်စာ",
     "Server address (for example 192.168.1.20:8081)":

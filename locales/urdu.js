@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "پس منظر کا رنگ",
     "Background color of selected item": "منتخب آئٹم کے پس منظر کا رنگ",
     "Backup state changed": "بیک اپ کی حالت بدل گئی۔",
+    "Backup streams": "متبادل اسٹریمز",
     "Balance, $": "بیلنس، $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -616,6 +617,8 @@ var keyStrings = {
     "Manage lists": "فہرستوں کا نظم کریں۔",
     "Manage settings": "ترتیبات کا نظم کریں۔",
     "Manual setup": "دستی سیٹ اپ",
+    "Maximum stream bitrate": "اسٹریم کی زیادہ سے زیادہ بٹ ریٹ",
+    "Maximum video height": "ویڈیو کی زیادہ سے زیادہ اونچائی",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ترتیبات",
     Media: "میڈیا",
@@ -628,6 +631,7 @@ var keyStrings = {
     "Move category up": "زمرہ کو اوپر لے جائیں۔",
     "Move channel down": "چینل کو نیچے لے جائیں۔",
     "Move channel up": "چینل کو اوپر لے جائیں۔",
+    Movies: "فلمیں",
     "m3u-m3u8 playlists": "M3U / M3U8 پلے لسٹس",
     medium: "میڈیم",
     min: "منٹ",
@@ -647,6 +651,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "کوئی پروگرام پلے لسٹ چینلز اور تاریخوں سے مماثل نہیں ہے۔ ماخذ اور آلہ کی گھڑی کو چیک کریں۔",
     "No saved settings found": "کوئی محفوظ کردہ ترتیبات نہیں ملی",
+    "No stream meets the quality limits":
+        "کوئی اسٹریم معیار کی حدود پر پورا نہیں اترتا",
     "No supported system language. Choose a language.":
         "کوئی تعاون یافتہ سسٹم زبان نہیں۔ ایک زبان کا انتخاب کریں۔",
     "Not configured": "ترتیب نہیں دیا گیا",
@@ -871,6 +877,7 @@ var keyStrings = {
         "محفوظ ریموٹ ان پٹ شروع نہیں ہو سکا۔ براہ کرم آن اسکرین کی بورڈ استعمال کریں۔",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "اس ڈیوائس پر محفوظ ریموٹ ان پٹ دستیاب نہیں ہے۔ آن اسکرین کی بورڈ استعمال کریں۔",
+    "Select a live channel first": "پہلے براہ راست چینل منتخب کریں",
     "Select a stream type:<br>%1": "ایک سلسلہ کی قسم منتخب کریں:<br>%1",
     "Select category to add channel":
         "چینل شامل کرنے کے لیے ایک زمرہ منتخب کریں۔",
@@ -890,6 +897,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "یہ کوڈ اپنی پراکسی سے Authorization: Bearer ہیڈر میں بھیجیں۔",
     "Send to TV": "TV پر بھیجیں۔",
+    Series: "ڈرامہ سیریز",
     Server: "سرور",
     "Server address": "سرور کا پتہ",
     "Server address (for example 192.168.1.20:8081)":

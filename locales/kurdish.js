@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "Rengê paşxanê",
     "Background color of selected item": "Rengê paşxaneya tiştê hilbijartî",
     "Backup state changed": "Rewşa hilanînê guherî",
+    "Backup streams": "Herikînên yedek",
     "Balance, $": "Bîlanço, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -616,6 +617,8 @@ var keyStrings = {
     "Manage lists": "Lîsteyan birêve bibin",
     "Manage settings": "Mîhengan birêve bibin",
     "Manual setup": "Sazkirina bi destan",
+    "Maximum stream bitrate": "Leza bitan a herî zêde ya herikînê",
+    "Maximum video height": "Bilindahiya herî zêde ya vîdyoyê",
     MaxTV: "MaxTV",
     "MaxTV settings": "Mîhengên MaxTV",
     Media: "Medya",
@@ -628,6 +631,7 @@ var keyStrings = {
     "Move category up": "Kategorî bikişîne jor",
     "Move channel down": "Kanalê berjêr bikin",
     "Move channel up": "Kanalê ber bi jor ve bigerîne",
+    Movies: "Fîlm",
     "m3u-m3u8 playlists": "Lîsteyên lêdanê yên M3U / M3U8",
     medium: "navîn",
     min: "xulek",
@@ -647,6 +651,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Tu bername bi kanal û tarîxên lîsteya lêdanê re li hev nehat. Çavkanî û demjimêra cîhazê kontrol bikin.",
     "No saved settings found": "Mîhengên tomarkirî nehatin dîtin",
+    "No stream meets the quality limits": "Tu herikîn li sînorên kalîteyê nayê",
     "No supported system language. Choose a language.":
         "Zimanek pergalê nayê destek kirin. Zimanek hilbijêre.",
     "Not configured": "Nehatiye sazkirin",
@@ -873,6 +878,7 @@ var keyStrings = {
         "Ketina ji dûr a ewledar nikarî dest pê bike. Ji kerema xwe klavyeya li ser ekranê bikar bînin.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Ketina ji dûr a ewle li ser vê cîhazê tune ye. Klavyeya li ser ekranê bikar bînin.",
+    "Select a live channel first": "Pêşî kanaleke zindî hilbijêrin",
     "Select a stream type:<br>%1": "Cureyê weşanê hilbijêrin:<br>%1",
     "Select category to add channel":
         "Kategoriyek hilbijêre ku kanalê zêde bike",
@@ -892,6 +898,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Vê kodê ji proxy-ya xwe di sernavê Authorization: Bearer de bişînin.",
     "Send to TV": "Ji TV re bişîne",
+    Series: "Rêzefîlm",
     Server: "Pêşkêşker",
     "Server address": "Navnîşana pêşkêşkerê",
     "Server address (for example 192.168.1.20:8081)":

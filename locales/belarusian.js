@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "Колер фону",
     "Background color of selected item": "Колер фону выбранага пункта",
     "Backup state changed": "Стан рэзервовай копіі зменены",
+    "Backup streams": "Рэзервовыя патокі",
     "Balance, $": "Баланс, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -611,6 +612,8 @@ var keyStrings = {
     "Manage lists": "Кіраванне спісамі",
     "Manage settings": "Кіраванне наладамі",
     "Manual setup": "Ручное наладжванне",
+    "Maximum stream bitrate": "Максімальны бітрэйт патоку",
+    "Maximum video height": "Максімальная вышыня відэа",
     MaxTV: "MaxTV",
     "MaxTV settings": "Налады MaxTV",
     Media: "Медыя",
@@ -623,6 +626,7 @@ var keyStrings = {
     "Move category up": "Перамясціць катэгорыю ўверх",
     "Move channel down": "Перасунуць канал уніз",
     "Move channel up": "Перасунуць канал уверх",
+    Movies: "Фільмы",
     "m3u-m3u8 playlists": "Плэйлісты m3u-m3u8",
     medium: "сярэдні",
     min: "хв",
@@ -642,6 +646,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Няма праграм, якія адпавядаюць каналам і датам спісу прайгравання. Праверце крыніцу і гадзіннік прылады.",
     "No saved settings found": "Захаваныя налады не знойдзены",
+    "No stream meets the quality limits":
+        "Ніводзін паток не адпавядае абмежаванням якасці",
     "No supported system language. Choose a language.":
         "Сістэмная мова не падтрымліваецца. Выберыце мову.",
     "Not configured": "Не наладжана",
@@ -864,6 +870,7 @@ var keyStrings = {
         "Бяспечны аддалены ўвод не можа быць запушчаны. Выкарыстоўвайце экранную клавіятуру.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Бяспечны аддалены ўвод недаступны на гэтай прыладзе. Выкарыстоўвайце экранную клавіятуру.",
+    "Select a live channel first": "Спачатку выберыце канал прамога эфіру",
     "Select a stream type:<br>%1": "Выберыце тып патоку:<br>%1",
     "Select category to add channel": "Выбар катэгорыі для дадання канала",
     "Select color": "Выберыце колер",
@@ -882,6 +889,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Перадавайце гэты код з проксі ў загалоўку Authorization: Bearer.",
     "Send to TV": "Адправіць на тэлевізар",
+    Series: "Серыялы",
     Server: "Сервер",
     "Server address": "Адрас сервера",
     "Server address (for example 192.168.1.20:8081)":

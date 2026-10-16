@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "Fon reňki",
     "Background color of selected item": "Saýlanan bölegiň fon reňki",
     "Backup state changed": "Ätiýaçlyk nusganyň ýagdaýy üýtgedi",
+    "Backup streams": "Ätiýaçlyk akymlar",
     "Balance, $": "Balans, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -611,6 +612,8 @@ var keyStrings = {
     "Manage lists": "Sanawlary dolandyr",
     "Manage settings": "Sazlamalary dolandyr",
     "Manual setup": "El bilen sazlamak",
+    "Maximum stream bitrate": "Akymyň iň ýokary bit tizligi",
+    "Maximum video height": "Wideonyň iň uly beýikligi",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV sazlamalary",
     Media: "Mediýa",
@@ -623,6 +626,7 @@ var keyStrings = {
     "Move category up": "Kategoriýany ýokary geçir",
     "Move channel down": "Kanaly aşak geçir",
     "Move channel up": "Kanaly ýokary geçir",
+    Movies: "Filmler",
     "m3u-m3u8 playlists": "M3U / M3U8 oýnatma sanawlary",
     medium: "orta",
     min: "min",
@@ -642,6 +646,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Gepleşikler oýnatma sanawynyň kanallaryna we senelerine gabat gelmedi. Çeşmäni we enjamyň sagadyny barlaň.",
     "No saved settings found": "Saklanan sazlamalar tapylmady",
+    "No stream meets the quality limits":
+        "Hiç bir akym hil çäklendirmelerine gabat gelmeýär",
     "No supported system language. Choose a language.":
         "Goldanýan ulgam dili ýok. Dil saýlaň.",
     "Not configured": "Sazlanmadyk",
@@ -863,6 +869,7 @@ var keyStrings = {
         "Howpsuz uzakdan girizmek başlamady. Ekran klawiaturasyny ulanyň.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Bu enjamda howpsuz uzakdan girizmek elýeterli däl. Ekran klawiaturasyny ulanyň.",
+    "Select a live channel first": "Ilki göni ýaýlym kanalyny saýlaň",
     "Select a stream type:<br>%1": "Ýaýlymyň görnüşini saýlaň:<br>%1",
     "Select category to add channel": "Kanal goşmak üçin kategoriýa saýlaň",
     "Select color": "Reňk saýlaň",
@@ -881,6 +888,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Bu kody proksiňizden Authorization: Bearer sözbaşysynda iberiň.",
     "Send to TV": "Telewizora iber",
+    Series: "Seriallar",
     Server: "Serwer",
     "Server address": "Serweriň salgysy",
     "Server address (for example 192.168.1.20:8081)":

@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "Arka plan rengi",
     "Background color of selected item": "Seçili öğenin arka plan rengi",
     "Backup state changed": "Yedekleme durumu değiştirildi",
+    "Backup streams": "Yedek akışlar",
     "Balance, $": "Bakiye, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -615,6 +616,8 @@ var keyStrings = {
     "Manage lists": "Listeleri yönet",
     "Manage settings": "Ayarları yönet",
     "Manual setup": "Elle kurulum",
+    "Maximum stream bitrate": "En yüksek akış bit hızı",
+    "Maximum video height": "En yüksek video yüksekliği",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ayarları",
     Media: "Medya",
@@ -627,6 +630,7 @@ var keyStrings = {
     "Move category up": "Kategoriyi yukarı taşı",
     "Move channel down": "Kanala aşağı taşı",
     "Move channel up": "Kanala yukarı taşı",
+    Movies: "Filmler",
     "m3u-m3u8 playlists": "m3u-m3u8 oynatma listeleri",
     medium: "orta",
     min: "dk",
@@ -646,6 +650,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Çalma listesi kanalları ve tarihleriyle eşleşen program yok. Kaynağı ve cihaz saatini kontrol edin.",
     "No saved settings found": "Kaydedilmiş ayar bulunamadı",
+    "No stream meets the quality limits":
+        "Hiçbir akış kalite sınırlarını karşılamıyor",
     "No supported system language. Choose a language.":
         "Desteklenen sistem dili yok. Bir dil seçin.",
     "Not configured": "Yapılandırılmadı",
@@ -868,6 +874,7 @@ var keyStrings = {
         "Güvenli uzaktan giriş başlatılamadı. Lütfen ekran klavyesini kullanın.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Güvenli uzaktan giriş bu cihazda mevcut değil. Ekran klavyesini kullanın.",
+    "Select a live channel first": "Önce canlı bir kanal seçin",
     "Select a stream type:<br>%1": "Akış türünü seçin:<br>%1",
     "Select category to add channel": "Kanal eklemek için kategori seçin",
     "Select color": "Renk seç",
@@ -886,6 +893,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Bu kodu vekil sunucunuzdan Authorization: Bearer başlığında gönderin.",
     "Send to TV": "TV'ye gönder",
+    Series: "Diziler",
     Server: "Sunucu",
     "Server address": "Sunucu adresi",
     "Server address (for example 192.168.1.20:8081)":

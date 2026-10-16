@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "Agba ndabere",
     "Background color of selected item": "Agba ndabere ihe ahọpụtara",
     "Backup state changed": "Ọnọdụ ndabere gbanwere",
+    "Backup streams": "Iyi nnọchi",
     "Balance, $": "Ego fọdụrụ, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -608,6 +609,8 @@ var keyStrings = {
     "Manage lists": "Jikwaa ndepụta",
     "Manage settings": "Jikwaa ntọala",
     "Manual setup": "Nhazi aka",
+    "Maximum stream bitrate": "Ọsọ bit iyi kacha elu",
+    "Maximum video height": "Ogo vidiyo kacha elu",
     MaxTV: "MaxTV",
     "MaxTV settings": "Ntọala MaxTV",
     Media: "Mgbasa ozi",
@@ -620,6 +623,7 @@ var keyStrings = {
     "Move category up": "Bugharịa otu elu",
     "Move channel down": "Bugharịa ọwa ala",
     "Move channel up": "Bugharịa ọwa elu",
+    Movies: "Ihe nkiri",
     "m3u-m3u8 playlists": "Ndepụta ọkpụkpọ M3U / M3U8",
     medium: "ọkara",
     min: "nkeji",
@@ -639,6 +643,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Enweghị mmemme dabara na ọwa na ụbọchị ndepụta ọkpụkpọ. Lelee isi iyi na elekere ngwaọrụ.",
     "No saved settings found": "Achọtaghị ntọala echekwara",
+    "No stream meets the quality limits": "Ọ dịghị iyi dabara na oke ogo",
     "No supported system language. Choose a language.":
         "Enweghị asụsụ sistemụ akwadoro. Họrọ asụsụ.",
     "Not configured": "Ahazibeghị",
@@ -860,6 +865,7 @@ var keyStrings = {
         "Ntinye dị anya echekwara enweghị ike ịmalite. Biko jiri kiiboodu ihuenyo.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Ntinye dị anya echekwara adịghị na ngwaọrụ a. Jiri kiiboodu ihuenyo.",
+    "Select a live channel first": "Buru ụzọ họrọ ọwa mgbasa ozi dị ndụ",
     "Select a stream type:<br>%1": "Họrọ ụdị iyi:<br>%1",
     "Select category to add channel": "Họrọ otu iji tinye ọwa",
     "Select color": "Họrọ agba",
@@ -878,6 +884,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Zipụ koodu a site na sava nnọchite gị na nkụnye Authorization: Bearer.",
     "Send to TV": "Ziga na TV",
+    Series: "Usoro ihe nkiri",
     Server: "Sava",
     "Server address": "Adreesị sava",
     "Server address (for example 192.168.1.20:8081)":

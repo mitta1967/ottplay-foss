@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Цвят на фона",
     "Background color of selected item": "Цвят на фона на избрания елемент",
     "Backup state changed": "Състоянието на архивиране е променено",
+    "Backup streams": "Резервни потоци",
     "Balance, $": "Баланс, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -621,6 +622,8 @@ var keyStrings = {
     "Manage lists": "Управление на списъците",
     "Manage settings": "Управление на настройките",
     "Manual setup": "Ръчна настройка",
+    "Maximum stream bitrate": "Максимален битрейт на потока",
+    "Maximum video height": "Максимална височина на видеото",
     MaxTV: "MaxTV",
     "MaxTV settings": "Настройки за MaxTV",
     Media: "Медия",
@@ -633,6 +636,7 @@ var keyStrings = {
     "Move category up": "Преместване на категорията нагоре",
     "Move channel down": "Премести канала надолу",
     "Move channel up": "Премести канала нагоре",
+    Movies: "Филми",
     "m3u-m3u8 playlists": "Плейлисти m3u-m3u8",
     medium: "среден",
     min: "мин",
@@ -652,6 +656,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Няма програми, съответстващи на каналите и датите на плейлиста. Проверете източника и часовника на устройството.",
     "No saved settings found": "Няма намерени запазени настройки",
+    "No stream meets the quality limits":
+        "Нито един поток не отговаря на ограниченията за качество",
     "No supported system language. Choose a language.":
         "Няма поддържан системен език. Изберете език.",
     "Not configured": "Не е настроено",
@@ -876,6 +882,7 @@ var keyStrings = {
         "Сигурният дистанционен вход не може да стартира. Моля, използвайте екранната клавиатура.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Сигурното дистанционно въвеждане не е налично на това устройство. Използвайте екранната клавиатура.",
+    "Select a live channel first": "Първо изберете канал на живо",
     "Select a stream type:<br>%1": "Изберете тип поток:<br>%1",
     "Select category to add channel": "Изберете категория за добавяне на канал",
     "Select color": "Изберете цвят",
@@ -894,6 +901,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Изпращайте този код от проксито в заглавката Authorization: Bearer.",
     "Send to TV": "Изпрати до телевизора",
+    Series: "Сериали",
     Server: "Сървър",
     "Server address": "Адрес на сървъра",
     "Server address (for example 192.168.1.20:8081)":
