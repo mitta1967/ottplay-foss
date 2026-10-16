@@ -228,7 +228,7 @@ ott handoff living-room bedroom
 playback-URL в этот контракт не входят.
 [Контракт handoff](docs/remote-handoff.ru.md),
 [Протокол управления](docs/remote-workbench.md),
-[надёжное управление и ограничения](https://github.com/open-ott-play/ottplay-control-server/blob/main/docs/reliable-control.ru.md).
+[надёжное управление и ограничения](https://github.com/open-ott-play/ottplay-control-server/blob/ee48d7246467ff259494ef2009c255fdc2c8de48/docs/reliable-control.ru.md).
 
 ## Проверка изменений и документации
 
