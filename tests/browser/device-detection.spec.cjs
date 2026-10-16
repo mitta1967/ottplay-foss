@@ -393,7 +393,7 @@ for (const device of ["lg/webos", "lg/netcast", "pc"]) {
                 await expect(
                     page
                         .locator("#list")
-                        .getByRole("button", { name: /^Streaming player type/ })
+                        .getByRole("option", { name: /^Streaming player type/ })
                 ).toHaveCount(device === "lg/webos" ? 0 : 1);
                 await expect(
                     page
@@ -1531,7 +1531,7 @@ test.describe("LG Magic Remote pointer and button transitions", () => {
                     device,
                     true
                 );
-                const manual = page.locator("#listIn").getByRole("button", {
+                const manual = page.locator("#listIn").getByRole("option", {
                     exact: true,
                     name: "Manual setup",
                 });
@@ -1637,7 +1637,7 @@ test.describe("LG Magic Remote pointer and button transitions", () => {
             "pc",
             true
         );
-        const manual = page.locator("#listIn").getByRole("button", {
+        const manual = page.locator("#listIn").getByRole("option", {
             exact: true,
             name: "Manual setup",
         });

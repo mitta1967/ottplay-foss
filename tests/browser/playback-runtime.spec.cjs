@@ -224,7 +224,9 @@ test("native editor remote button sends typed draft, resumes and saves only on c
     baseURL,
 }) => {
     const fixture = await nativeRemoteInputFixture(page, context, baseURL);
-    const field = page.getByLabel("Search", { exact: true });
+    const field = page
+        .getByRole("dialog", { exact: true, name: "Search" })
+        .getByLabel("Search", { exact: true });
     await field.fill("Typed draft & <literal>");
     const remote = page.getByRole("button", {
         exact: true,
@@ -272,7 +274,9 @@ test("native editor remote cancel preserves typing and Escape discards without s
     baseURL,
 }) => {
     const fixture = await nativeRemoteInputFixture(page, context, baseURL);
-    const field = page.getByLabel("Search", { exact: true });
+    const field = page
+        .getByRole("dialog", { exact: true, name: "Search" })
+        .getByLabel("Search", { exact: true });
     await field.fill("Keep this draft");
     await page
         .getByRole("button", { exact: true, name: "Remote text entry" })
@@ -299,7 +303,9 @@ test("native editor remote button explains missing configuration and keeps the f
         baseURL,
         false
     );
-    const field = page.getByLabel("Search", { exact: true });
+    const field = page
+        .getByRole("dialog", { exact: true, name: "Search" })
+        .getByLabel("Search", { exact: true });
     await field.fill("Local draft");
     await page
         .getByRole("button", { exact: true, name: "Remote text entry" })
@@ -909,10 +915,10 @@ async function titleFilterFixture(page, context, baseURL, holdPages = false) {
         window.__ottMedia.open("");
     });
     await page
-        .getByRole("button", { exact: true, name: "Мультфильмы" })
+        .getByRole("option", { exact: true, name: "Мультфильмы" })
         .click();
     await expect(
-        page.getByRole("button", { exact: true, name: "Три кота" })
+        page.getByRole("option", { exact: true, name: "Три кота" })
     ).toBeVisible();
     return {
         errors,
@@ -941,7 +947,7 @@ test("media title filter uses TV and SWOP confirmation and survives paging and B
     baseURL,
 }) => {
     const fixture = await titleFilterFixture(page, context, baseURL, true);
-    const title = (name) => page.getByRole("button", { exact: true, name });
+    const title = (name) => page.getByRole("option", { exact: true, name });
     const loading = await page.evaluate(() => window._("Loading..."));
     const frame = () =>
         page.evaluate(() => {
@@ -1089,10 +1095,10 @@ test("stale media title filter editors cannot change another list or source", as
             window.__lateFilterSave();
         }, replaceSource);
         await page
-            .getByRole("button", { exact: true, name: "Мультфильмы" })
+            .getByRole("option", { exact: true, name: "Мультфильмы" })
             .click();
         await expect(
-            page.getByRole("button", { exact: true, name: "Смешарики" })
+            page.getByRole("option", { exact: true, name: "Смешарики" })
         ).toBeVisible();
         await expect(page.locator("#listCaption")).not.toContainText(
             "must not be applied"
