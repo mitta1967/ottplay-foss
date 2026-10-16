@@ -121,117 +121,147 @@ for (const language of ["_eng", "_rus"]) {
     );
 }
 
-test("Plex account sign-in selects a server without retaining the account token", async ({
-    page,
-    context,
-    baseURL,
-}) => {
-    const local = new URL(baseURL).origin;
-    const accountToken = "fixture-account-access";
-    const serverToken = "fixture-server-access";
-    await context.route("**/*", async (route) => {
-        const url = new URL(route.request().url());
-        const headers = { "access-control-allow-origin": "*" };
-        if (url.origin === local) return route.continue();
-        if (
-            url.origin === "https://plex.tv" ||
-            url.origin === "https://clients.plex.tv"
-        ) {
-            if (url.pathname === "/api/v2/pins")
-                return route.fulfill({
-                    headers,
-                    json: { code: "ABCD", expiresIn: 900, id: 7 },
-                });
-            if (url.pathname === "/api/v2/pins/7")
-                return route.fulfill({
-                    headers,
-                    json: {
-                        authToken: accountToken,
-                        code: "ABCD",
-                        expiresIn: 900,
-                        id: 7,
-                    },
-                });
-            if (url.pathname === "/api/v2/resources")
-                return route.fulfill({
-                    headers,
-                    json: [
-                        {
-                            accessToken: serverToken,
-                            clientIdentifier: "fixture-server",
-                            connections: [
-                                { local: false, relay: false, uri: plex },
-                            ],
-                            name: "Fixture server",
-                            owned: true,
-                            provides: "server",
-                        },
-                    ],
-                });
-        }
-        if (url.origin === plex) {
-            if (url.pathname === "/identity") {
-                expect(url.searchParams.get("X-Plex-Token")).toBeNull();
-                return route.fulfill({
-                    headers,
-                    json: {
-                        MediaContainer: { machineIdentifier: "fixture-server" },
-                    },
-                });
-            }
-            if (url.pathname === "/library/sections")
-                return route.fulfill({
-                    headers,
-                    json: {
-                        MediaContainer: {
-                            Directory: [
+for (const format of ["JSON", "XML"]) {
+    test(
+        "Plex account sign-in selects a server without retaining the account token: " +
+            format,
+        async ({ page, context, baseURL }) => {
+            const local = new URL(baseURL).origin;
+            const accountToken = "fixture-account-access";
+            const serverToken = "fixture-server-access";
+            await context.route("**/*", async (route) => {
+                const url = new URL(route.request().url());
+                const headers = { "access-control-allow-origin": "*" };
+                if (url.origin === local) return route.continue();
+                if (
+                    url.origin === "https://plex.tv" ||
+                    url.origin === "https://clients.plex.tv"
+                ) {
+                    if (url.pathname === "/api/v2/pins")
+                        return route.fulfill({
+                            headers,
+                            json: { code: "ABCD", expiresIn: 900, id: 7 },
+                        });
+                    if (url.pathname === "/api/v2/pins/7")
+                        return route.fulfill({
+                            headers,
+                            json: {
+                                authToken: accountToken,
+                                code: "ABCD",
+                                expiresIn: 900,
+                                id: 7,
+                            },
+                        });
+                    if (url.pathname === "/api/v2/resources")
+                        return route.fulfill({
+                            headers,
+                            json: [
                                 {
-                                    key: "7",
-                                    title: "Account library",
-                                    type: "movie",
+                                    accessToken: serverToken,
+                                    clientIdentifier: "fixture-server",
+                                    connections: [
+                                        {
+                                            local: false,
+                                            relay: false,
+                                            uri: plex,
+                                        },
+                                    ],
+                                    name: "Fixture server",
+                                    owned: true,
+                                    provides: "server",
                                 },
                             ],
-                        },
-                    },
-                });
+                        });
+                }
+                if (url.origin === plex) {
+                    if (url.pathname === "/identity") {
+                        expect(url.searchParams.get("X-Plex-Token")).toBeNull();
+                        expect(
+                            route.request().headers()["x-plex-token"]
+                        ).toBeUndefined();
+                        return route.fulfill({
+                            headers,
+                            ...(format === "XML"
+                                ? {
+                                      body: '<MediaContainer machineIdentifier="fixture-server"/>',
+                                      contentType: "application/xml",
+                                  }
+                                : {
+                                      json: {
+                                          MediaContainer: {
+                                              machineIdentifier:
+                                                  "fixture-server",
+                                          },
+                                      },
+                                  }),
+                        });
+                    }
+                    if (url.pathname === "/library/sections")
+                        return route.fulfill({
+                            headers,
+                            ...(format === "XML"
+                                ? {
+                                      body: '<MediaContainer size="1"><Directory key="7" title="Account library" type="movie"/></MediaContainer>',
+                                      contentType: "application/xml",
+                                  }
+                                : {
+                                      json: {
+                                          MediaContainer: {
+                                              Directory: [
+                                                  {
+                                                      key: "7",
+                                                      title: "Account library",
+                                                      type: "movie",
+                                                  },
+                                              ],
+                                          },
+                                      },
+                                  }),
+                        });
+                }
+                return route.abort();
+            });
+            await context.routeWebSocket("**/*", (socket) => socket.close());
+            await context.addInitScript(() => {
+                localStorage.setItem("ottplaylang", "_eng");
+                localStorage.setItem("ottplayprov", "plex");
+            });
+            await page.goto("/f/pc/");
+            await expect(page.locator("body")).toContainText(
+                "Sign in with Plex"
+            );
+            await page.evaluate(() => {
+                window.selIndex = 0;
+                window.listKeyHandler(window.keys.ENTER);
+            });
+            await page.waitForFunction(() =>
+                window.listArray?.some((row) =>
+                    String(row).includes("Fixture server")
+                )
+            );
+            await page.evaluate(() => {
+                window.selIndex = window.listArray.findIndex((row) =>
+                    String(row).includes("Fixture server")
+                );
+                window.listKeyHandler(window.keys.ENTER);
+            });
+            await expect(page.locator("body")).toContainText("Account library");
+            const stored = await page.evaluate(() =>
+                Object.fromEntries(
+                    Object.keys(localStorage).map((key) => [
+                        key,
+                        localStorage.getItem(key),
+                    ])
+                )
+            );
+            expect(JSON.parse(stored.plexcfg)).toMatchObject({
+                address: plex,
+                token: serverToken,
+            });
+            expect(JSON.stringify(stored)).not.toContain(accountToken);
         }
-        return route.abort();
-    });
-    await context.routeWebSocket("**/*", (socket) => socket.close());
-    await context.addInitScript(() => {
-        localStorage.setItem("ottplaylang", "_eng");
-        localStorage.setItem("ottplayprov", "plex");
-    });
-    await page.goto("/f/pc/");
-    await expect(page.locator("body")).toContainText("Sign in with Plex");
-    await page.evaluate(() => {
-        window.selIndex = 0;
-        window.listKeyHandler(window.keys.ENTER);
-    });
-    await page.waitForFunction(() =>
-        window.listArray?.some((row) => String(row).includes("Fixture server"))
     );
-    await page.evaluate(() => {
-        window.selIndex = window.listArray.findIndex((row) =>
-            String(row).includes("Fixture server")
-        );
-        window.listKeyHandler(window.keys.ENTER);
-    });
-    await expect(page.locator("body")).toContainText("Account library");
-    const stored = await page.evaluate(() =>
-        Object.fromEntries(
-            Object.keys(localStorage).map((key) => [
-                key,
-                localStorage.getItem(key),
-            ])
-        )
-    );
-    expect(JSON.parse(stored.plexcfg)).toMatchObject({
-        address: plex,
-        token: serverToken,
-    });
-    expect(JSON.stringify(stored)).not.toContain(accountToken);
-});
+}
 
 async function select(page, title) {
     await page.waitForFunction(

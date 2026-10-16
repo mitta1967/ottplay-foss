@@ -475,7 +475,10 @@ function connectPlexAccountServer(
             },
             function (identity) {
                 try {
-                    identity = plexContainer(identity, window);
+                    identity = (window as any).__ottPlex.parseContainer(
+                        identity,
+                        window
+                    );
                 } catch (_) {
                     miss(0);
                     return;
@@ -499,7 +502,10 @@ function connectPlexAccountServer(
                     },
                     function (result) {
                         try {
-                            plexContainer(result, window);
+                            (window as any).__ottPlex.parseContainer(
+                                result,
+                                window
+                            );
                         } catch (_) {
                             miss(0);
                             return;

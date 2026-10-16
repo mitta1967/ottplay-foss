@@ -1507,4 +1507,5 @@ function plexConfiguredSource(w: any, text: string): string | null {
     configuredSource: plexConfiguredSource,
     create: createPlexClient,
     normalize: normalizePlexConfig,
+    parseContainer: plexContainer,
 };

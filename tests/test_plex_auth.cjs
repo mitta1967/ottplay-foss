@@ -5,26 +5,26 @@ const vm = require("node:vm");
 const ts = require("typescript");
 const { webcrypto } = require("node:crypto");
 const { JSDOM } = require("jsdom");
-const { sourceFunctions } = require("./test_port_vod.cjs");
-
-const containerSource = sourceFunctions("src/plugins/plex.ts", [
-    "plexContainer",
-]);
-
-const source = ts
-    .transpileModule(
-        fs.readFileSync(
-            path.join(__dirname, "../src/plugins/plex-auth.ts"),
-            "utf8"
-        ),
+const modules = ["plex.ts", "plex-auth.ts"].map((file) => {
+    const source = ts.transpileModule(
+        fs.readFileSync(path.join(__dirname, "../src/plugins", file), "utf8"),
         {
             compilerOptions: {
                 module: ts.ModuleKind.ES2015,
                 target: ts.ScriptTarget.ES5,
             },
         }
-    )
-    .outputText.replace(/^export .*$/gm, "");
+    ).outputText;
+    // The classic linker isolates each module. Cross-module calls must use
+    // their published API, even before emitted-bundle browser acceptance.
+    return "(function () {\n" + source + "\n})();";
+});
+
+function loadModules(w, run) {
+    modules.forEach(run);
+    assert.equal(w.plexContainer, undefined);
+    assert.equal(typeof w.__ottPlex.parseContainer, "function");
+}
 
 function fixture() {
     let now = 100000;
@@ -85,7 +85,7 @@ function fixture() {
         URL,
     };
     w.window = w;
-    vm.runInNewContext(containerSource + source, w);
+    loadModules(w, (source) => vm.runInNewContext(source, w));
     const callbacks = {
         onConnected: (result) => output.connected.push(result),
         onError: (message) => output.errors.push(message),
@@ -150,7 +150,7 @@ function jqueryFixture(file) {
             },
         };
     });
-    w.eval(containerSource + source);
+    loadModules(w, (source) => w.eval(source));
     return {
         api: w.__ottPlexAuth,
         callbacks: {
