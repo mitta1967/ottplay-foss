@@ -56,6 +56,7 @@ function checkDocumentation(repository = root) {
             "playback-stream-policy",
             "remote-handoff",
             "roadmap-delivery",
+            "roadmap-size",
             "settings-recovery",
             "xtream-media",
         ].flatMap((name) => [`docs/${name}.md`, `docs/${name}.ru.md`]),

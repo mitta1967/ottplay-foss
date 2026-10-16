@@ -8,6 +8,9 @@ are separate artifacts. Updating one does not update the others.
 
 ![Responsibilities and trust boundaries](diagrams/roadmap-components.svg)
 
+See the [measured byte cost and comparison chart](roadmap-size.md); execution
+speed and device playback are separate acceptance checks.
+
 ## What is implemented
 
 1. **A known audio/video sample.** [Information → Audio](audio-video-check.md)
