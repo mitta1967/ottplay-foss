@@ -1480,7 +1480,12 @@ test("explicit A/V diagnostic forces the MP4 decoder and restores mute after end
     w.sStreamMaxHeight = 360;
     w.video.muted = true;
     assert.equal(w.__ottAvTest.start(), true);
-    assert.equal(w.video.src, "diagnostics/av-v1.mp4");
+    assert.equal(w.video.src, "/diagnostics/av-v1.mp4");
+    assert.equal(
+        new URL(w.video.src, "https://player.test/f/lg/webos/").pathname,
+        "/diagnostics/av-v1.mp4",
+        "Device entry routes must use the root fixture"
+    );
     assert.equal(w.video.muted, false);
     assert.equal(
         w.stbIsPlaying(),

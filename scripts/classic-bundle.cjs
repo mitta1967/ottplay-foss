@@ -174,6 +174,7 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
         "window.__ottOsMediaSession",
     ]),
     "build/device/native-pip.js": Object.freeze(["window.__ottNativePip"]),
+    "build/guide/bindings.js": Object.freeze(["window.__ottGuideBindings"]),
     "build/guide/classic-reminders.js": Object.freeze([
         "window.__ottClassicReminders",
     ]),
@@ -185,9 +186,7 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
     ]),
     "build/guide/reminders.js": Object.freeze(["window.__ottReminderService"]),
     "build/guide/screen.js": Object.freeze(["window.__ottGuideScreen"]),
-    "build/guide/bindings.js": Object.freeze(["window.__ottGuideBindings"]),
     "build/guide/service.js": Object.freeze(["window.__ottGuideService"]),
-    "build/ui/accessibility.js": Object.freeze(["window.__ottAccessibility"]),
     "build/hosted/epg.js": Object.freeze(["window.__ottHostedEpg"]),
     "build/media/classic-adapter.js": Object.freeze(["window.__ottMedia"]),
     "build/media/journal.js": Object.freeze(["window.__ottMediaJournal"]),
@@ -256,6 +255,7 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
     "build/settings/library-backup.js": Object.freeze([
         "window.__ottLibraryBackup",
     ]),
+    "build/ui/accessibility.js": Object.freeze(["window.__ottAccessibility"]),
     "build/ui/classic-screen-port.js": Object.freeze([
         "window.__ottClassicScreenPort",
         "window.__ottScreens",
