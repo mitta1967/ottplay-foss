@@ -6032,6 +6032,19 @@ var infoArr: any[] = [
         name: "Debug HUD",
     },
 ];
+if (
+    (window as any).Capacitor ||
+    (window as any).__TAURI__ ||
+    (window as any).__OTTPLAY_HOSTED__
+) {
+    infoArr.push({
+        action: function () {
+            (window as any).__ottGuideBindings.open();
+        },
+        desc: "Edit",
+        name: "EPG",
+    });
+}
 if ((window as any).__OTTPLAY_HOSTED__) {
     infoArr.push({
         action: function () {

@@ -59,6 +59,7 @@ export interface Channel {
     description?: string | (() => string);
     epg?: string | number;
     epg_external?: boolean;
+    epg_manual?: boolean;
     epg_src?: string;
     epg_url?: string | number;
     icon?: string;
@@ -1201,7 +1202,9 @@ export function fetchChannelGuide(
                 var xmltvUrls = channelXmltvUrls(ch);
                 (window as any).Capacitor.Plugins.MobileXmltvEpg.getEpg({
                     archive_hours: archiveHours,
-                    ch: ch?.channel_name || ch?.name || "",
+                    ch: ch?.epg_manual
+                        ? ""
+                        : ch?.channel_name || ch?.name || "",
                     channel_id: String(channelId),
                     hash: hash,
                     time_shift_hours: timeShiftHours,
@@ -1238,7 +1241,10 @@ export function fetchChannelGuide(
                 usesNativeXmltv(channels[channelId])
             ) {
                 var ch = channels[channelId];
-                var channelName = (ch && (ch.channel_name || ch.name)) || "";
+                var channelName =
+                    ch && ch.epg_manual
+                        ? ""
+                        : (ch && (ch.channel_name || ch.name)) || "";
                 var hash =
                     ch && (ch as any).epg_url != null
                         ? String((ch as any).epg_url)

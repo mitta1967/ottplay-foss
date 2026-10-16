@@ -108,3 +108,7 @@ compatibility fixtures; new runtime tests assert the explicit timeline semantics
 All new runtime modules target ES5 and use existing array/object/timer facilities.
 They do not require Proxy, Map, WeakMap, fetch or AbortController. Attribution and
 third-party notices are unchanged.
+
+## Manual bindings and accessible controls
+
+The classic M3U player supports local source/channel-scoped XMLTV overrides on hosted and native transports. The [binding and accessibility guide](guide-binding-accessibility.md) ([русский](guide-binding-accessibility.ru.md)) describes exact-ID semantics, reset, platform limits, keyboard focus and regression checks.

@@ -277,7 +277,9 @@
             return {
                 archiveHours: Math.max(0, Number(channel.rec) || 0),
                 id: String(channel.id),
-                name: channel.channel_name || channel.name || "",
+                name: channel.epg_manual
+                    ? ""
+                    : channel.channel_name || channel.name || "",
                 sources: urls,
                 tvgId: channel.epg || "",
                 tvgName: channel.tn || "",
