@@ -4,8 +4,9 @@
 
 This is the versioned documentation home in the source repository. GitHub can
 render these Markdown pages directly; maintaining them here keeps the instructions,
-diagrams and tests in the same review as the code. Publishing a separate GitHub
-Wiki is an independent operation, not something implied by these files.
+diagrams and tests in the same review as the code. The separate [GitHub Wiki](https://github.com/open-ott-play/ottplay-foss/wiki)
+is exported from these sources and identifies its source revision on each page.
+See the [publishing instructions](../wiki-publishing.md).
 
 ## Start and install
 
@@ -49,6 +50,8 @@ Wiki is an independent operation, not something implied by these files.
   and [diagnostic consent, redaction and retention](../diagnostic-security.md).
 - [Native device checklist](../mode-b-device-smoke.md), [Tauri device checklist](../mode-b-tauri-smoke.md)
   and [browser window controls](../browser-window-controls.md).
+
+- [Measured feature cost](../roadmap-size.md), raw evidence and SVG chart.
 
 ## Develop and release
 
