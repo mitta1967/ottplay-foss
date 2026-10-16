@@ -419,6 +419,7 @@ function connectPlexAccountServer(
     preferredUrl?: string
 ): () => void {
     var operation = beginPlexAuth();
+    var parseContainer = (window as any).__ottPlex.parseContainer;
     var routing = plexAccountRouting(server);
     var candidates = (routing ? routing.connections : [])
         .slice(0, 24)
@@ -475,10 +476,7 @@ function connectPlexAccountServer(
             },
             function (identity) {
                 try {
-                    identity = (window as any).__ottPlex.parseContainer(
-                        identity,
-                        window
-                    );
+                    identity = parseContainer(identity, window);
                 } catch (_) {
                     miss(0);
                     return;
@@ -502,10 +500,7 @@ function connectPlexAccountServer(
                     },
                     function (result) {
                         try {
-                            (window as any).__ottPlex.parseContainer(
-                                result,
-                                window
-                            );
+                            parseContainer(result, window);
                         } catch (_) {
                             miss(0);
                             return;
