@@ -125,6 +125,7 @@ function fixture() {
         restoreListPanelState() {},
         saveListPanelState() {},
         scrollUp() {},
+        settingsRecoveryRequired: () => false,
         showPage() {},
         stbEventToKeyCode: (e) => e.keyCode,
         stbGetItem: () => null,
@@ -170,6 +171,7 @@ function fixture() {
             .join("\n")
     );
     w.eval(func("src/ui/index.ts", "localizedTextHtml"));
+    w.eval(func("src/storage/recovery-ui.ts", "showSettingsRecovery"));
     w.setTimeout = () => 1;
     w.clearTimeout = () => {};
     w.requestAnimationFrame = () => {};
