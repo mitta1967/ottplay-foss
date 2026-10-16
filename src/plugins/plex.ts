@@ -450,11 +450,20 @@ function createPlexClient(
             Number(container.offset) ||
             Number(params["X-Plex-Container-Start"]) ||
             0;
-        var count = Number(container.size) || items(container).length;
+        var count =
+            container.size === undefined
+                ? items(container).length
+                : Number(container.size);
         if (
             navigation &&
             count > 0 &&
-            Number(container.totalSize) > offset + count
+            (Number(container.totalSize) > offset + count ||
+                // Some PMS responses omit totals. A full page may have more
+                // rows; a short or empty page ends this bounded cursor walk.
+                (container.totalSize === undefined &&
+                    count === 200 &&
+                    items(container).length === count &&
+                    offset + count < 100000))
         )
             result.push({
                 __ottMediaLabel: { key: "Next", value: translate("Next") },

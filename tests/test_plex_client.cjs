@@ -1613,6 +1613,101 @@ test("cursor rows are explicit and selected folder titles override generic serve
     });
 });
 
+test("unknown catalog totals retain quiet pagination through full pages and stop at short or empty pages", () => {
+    for (const total of [200, 403]) {
+        const f = fixture();
+        const route = {
+            path: "/library/metadata/10/children",
+            plexSource: source,
+            title: "Episodes",
+        };
+        function reply(offset) {
+            last(f).reply({
+                MediaContainer: {
+                    Metadata: Array.from(
+                        { length: Math.min(200, total - offset) },
+                        (_, i) => ({
+                            ratingKey: String(offset + i + 1),
+                            title: "Episode " + (offset + i + 1),
+                            type: "episode",
+                        })
+                    ),
+                    offset,
+                },
+            });
+        }
+        f.client.load(route, () => {});
+        reply(0);
+        let rows = f.host.mediaRecords;
+        const initial = JSON.stringify(rows);
+        const ids = [];
+        for (let step = 0; step < 4; step++) {
+            ids.push(
+                ...rows
+                    .filter((row) => row.request)
+                    .map((row) => row.request.path)
+            );
+            const cursor = rows.find((row) => row.__ottMediaNext);
+            if (!cursor) break;
+            assert.equal(cursor.playlist_url.offset, ids.length);
+            f.client.page(cursor.playlist_url, (result) => {
+                assert.equal(result.error, undefined);
+                rows = result.items;
+            });
+            reply(cursor.playlist_url.offset);
+        }
+        assert.equal(ids.length, total);
+        assert.equal(new Set(ids).size, total);
+        assert.equal(
+            rows.some((row) => row.__ottMediaNext),
+            false
+        );
+        assert.equal(f.requests.length, Math.floor(total / 200) + 1);
+        assert.equal(JSON.stringify(f.host.mediaRecords), initial);
+    }
+});
+
+test("unknown-total cursors preserve offset and size guards and cannot grow beyond the catalog bound", () => {
+    const route = {
+        offset: 200,
+        path: "/library/metadata/10/children",
+        plexSource: source,
+    };
+    const rows = Array.from({ length: 200 }, (_, i) => ({
+        ratingKey: String(i + 1),
+        title: "Episode " + i,
+        type: "episode",
+    }));
+    for (const response of [
+        { Metadata: rows, offset: 0 },
+        { Metadata: rows.concat(rows[0]), offset: 200 },
+    ]) {
+        const f = fixture();
+        let result;
+        f.client.page(route, (value) => (result = value));
+        last(f).reply({ MediaContainer: response });
+        assert(result.error);
+        assert.equal(result.items.length, 0);
+    }
+    for (const response of [
+        { Metadata: rows, offset: 200, size: 0 },
+        { Metadata: rows, offset: 200, size: 201 },
+        { Metadata: rows, offset: 99800 },
+    ]) {
+        const f = fixture();
+        let result;
+        f.client.page(
+            { ...route, offset: response.offset },
+            (value) => (result = value)
+        );
+        last(f).reply({ MediaContainer: response });
+        assert.equal(
+            result.items.some((row) => row.__ottMediaNext),
+            false
+        );
+    }
+});
+
 test("quiet pages do not mutate navigation or cancel resolve and full collection", () => {
     const f = fixture({ playback: "original" });
     const target = {
