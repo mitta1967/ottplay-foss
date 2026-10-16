@@ -14,6 +14,8 @@
   during a pending full-screen switch.
 - Release Plex playback sessions with a keepalive request before page-exit
   teardown, avoiding duplicate stop requests and WebKit reload failures.
+- Preserve Android kiosk resume after changing strictness remotely while the
+  screen is off, including a channel selected while asleep.
 - Strengthen release-candidate fuzz evidence with required seed corpora, bounded
   replay and validation of the pinned shared workflow.
 
