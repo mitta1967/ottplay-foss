@@ -291,8 +291,8 @@ reviewed in [PR #780](https://github.com/open-ott-play/ottplay-foss/pull/780):
 
 - Chromium passed 13 Plex browser scenarios. The native-HLS case applies to
   WebKit and is excluded from the Chromium count.
-- WebKit passed all 14 Plex browser scenarios, including native HLS and remote
-  queue replay after reload.
+- WebKit passed all 14 Plex browser scenarios, including native HLS, remote
+  queue completion, and saved-favorite replay after reload.
 - The loading-screen touch scenario passed separately in Chromium, Firefox
   and WebKit using trusted browser input.
 - Plex client checks passed 41 scenarios; authentication passed 20 scenarios
