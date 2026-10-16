@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: open-ott-play/ottplay-control-server
-          ref: d8188b24d615db6e8132f28da69d82b315c6ba36
+          ref: a206f39ea8abd1ec046282831d63ae74bf2d20fa
           path: .control-integration
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -53,6 +53,7 @@ jobs:
           node scripts/smoke-diagnostics.cjs
           node scripts/smoke-remote-cli.cjs
           node scripts/smoke-workbench.cjs
+          node .control-integration/scripts/smoke_foss_roadmap.cjs .
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
