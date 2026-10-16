@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, "..");
 const source = [
     "src/core/auto-playback.ts",
     "src/core/native-hls.ts",
+    "src/playback/stream-policy.ts",
     "src/core/index.ts",
 ]
     .map((file) =>
@@ -94,7 +95,8 @@ function fixture(options = {}) {
         nextTimer = 0;
     const timers = new Map(),
         players = [],
-        shakaPlayers = [];
+        shakaPlayers = [],
+        messages = [];
     const preferences = {};
     const documentListeners = {};
     if (options.savedPlayerMode !== undefined)
@@ -215,6 +217,9 @@ function fixture(options = {}) {
             return nextTimer;
         },
         shaka: { Player: Shaka },
+        showShift(message) {
+            messages.push(message);
+        },
         ...options.globals,
     };
     if (options.hlsMissing) delete w.Hls;
@@ -241,7 +246,7 @@ function fixture(options = {}) {
         }
         throw new Error("Unexpected unbounded timer loop");
     }
-    return { advance, players, preferences, shakaPlayers, timers, w };
+    return { advance, messages, players, preferences, shakaPlayers, timers, w };
 }
 
 function ready(target, video = false) {
@@ -1267,6 +1272,95 @@ test("probe timeout or unknown/error result restores native even when user pause
     }
 });
 
+test("native Auto transition owns its error before outer recovery and preserves later HLS retries", () => {
+    for (const code of [3, 4]) {
+        const f = fixture();
+        const url = "https://source.invalid/live.m3u8";
+        f.w.stbPlay(url);
+        f.w.video.error = { code };
+        f.w.video.emit("error");
+        f.w.video.emit("error");
+        f.advance(0);
+        assert.equal(f.players.length, 1);
+        assert.deepEqual(
+            f.messages,
+            [],
+            "queued Auto fallback is not terminal"
+        );
+        assert.notEqual(f.w.__ottStreamPolicy.snapshot().state, "failed");
+        f.players[0].emit("error", {
+            details: "manifestParsingError",
+            fatal: true,
+            type: "network",
+        });
+        assert.equal(f.messages.at(-1), "Reconnecting…");
+        f.advance(500);
+        assert.equal(
+            f.w.__ottStreamPolicy.snapshot().attempts,
+            1,
+            "Auto fallback retains its request retry budget"
+        );
+        assert.equal(
+            f.w.video.src,
+            url,
+            "the retry reopens the original source"
+        );
+        f.w.video.error = { code };
+        f.w.video.emit("error");
+        f.advance(0);
+        assert.equal(f.players.length, 2);
+        assert.equal(f.players[1].url, url);
+        assert.equal(f.messages.includes("Stream could not be played"), false);
+        f.w.stbStop();
+        assert.equal(f.timers.size, 0);
+    }
+});
+
+test("native errors during an Auto probe remain owned until its deferred outcome", () => {
+    for (const result of ["hls", "radio"]) {
+        const f = fixture();
+        const url = "https://source.invalid/live.m3u8";
+        f.w.stbPlay(url);
+        const activeProbe = probe(f);
+        f.w.video.error = { code: 3 };
+        f.w.video.emit("error");
+        f.advance(0);
+        assert.deepEqual(f.messages, []);
+        if (result === "hls") hevc(activeProbe);
+        else activeProbe.emit("tracks", { id: "main", tracks: { audio: {} } });
+        f.advance(0);
+        assert.deepEqual(f.messages, []);
+        assert.equal(activeProbe.destroyCalls, 1);
+        if (result === "hls") assert.equal(f.players.length, 2);
+        else {
+            assert.equal(f.w.video.src, url);
+            // The completed probe no longer hides an unrelated native error.
+            f.w.video.error = { code: 3 };
+            f.w.video.emit("error");
+            f.advance(0);
+            assert.equal(f.messages.at(-1), "Stream could not be played");
+        }
+        f.w.stbStop();
+        assert.equal(f.timers.size, 0);
+    }
+});
+
+test("Stop and source replacement cancel queued native failure and Auto fallback", () => {
+    for (const action of ["stop", "replace"]) {
+        const f = fixture();
+        f.w.stbPlay("old.m3u8");
+        f.w.video.error = { code: 3 };
+        f.w.video.emit("error");
+        if (action === "stop") f.w.stbStop();
+        else f.w.stbPlay("new.mp4");
+        f.advance(10000);
+        assert.deepEqual(f.messages, []);
+        assert.equal(f.players.length, 0);
+        assert.equal(f.timers.size, 0);
+        assert.equal(f.w.video.src, action === "stop" ? "" : "new.mp4");
+    }
+});
+
 test("direct MP4 stays native while an HLS-only webview uses hls.js immediately", () => {
     const f = fixture({ nativeHls: false });
     f.w.stbPlay("movie.mp4?download=1", 12);
@@ -1276,6 +1370,8 @@ test("direct MP4 stays native while an HLS-only webview uses hls.js immediately"
     f.w.video.emit("error");
     f.advance(10000);
     assert.equal(f.players.length, 0);
+    assert.equal(f.messages.at(-1), "Stream could not be played");
+    assert.equal(f.timers.size, 0);
     f.w.stbPlay("movie.m3u8?download=1");
     assert.equal(f.players.length, 1);
     assert.equal(f.players[0].media, f.w.video);

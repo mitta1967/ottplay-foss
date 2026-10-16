@@ -169,7 +169,7 @@ var _playSession = 0;
 var _coreShakaTeardown: PromiseLike<unknown> | null = null;
 var _corePendingSeek: (() => void) | null = null;
 var _corePendingSeekPosition: number | null = null;
-var _coreAutoCancel: ((restoreNative?: boolean) => void) | null = null;
+var _coreAutoCancel: ReturnType<typeof watchAutoNativePlayback> | null = null;
 var _coreAutoHlsUsed = false;
 var _corePlaybackMode = 0;
 /** A temporary diagnostic owns the main decoder, independently of the Demo provider. */
@@ -3150,6 +3150,9 @@ function openCoreEngineLease(
                             if (
                                 active() &&
                                 _corePlaybackMode === 0 &&
+                                !(
+                                    _coreAutoCancel && _coreAutoCancel.pending()
+                                ) &&
                                 media &&
                                 media.error
                             )
