@@ -1634,7 +1634,7 @@ function startCorePlayback(
                     : detail && detail.category === 1
                       ? "network"
                       : detail && detail.category === 6
-                        ? "auth"
+                        ? "drm"
                         : "decode",
                 status
             );

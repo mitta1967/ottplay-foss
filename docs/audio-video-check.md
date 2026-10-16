@@ -25,8 +25,8 @@ change also prevents restoring the captured request. Idle checks return to idle.
 The temporary lease emits no channel position, completion, history or OS media
 metadata updates. It uses the existing main lane, so a second decoder does not
 compete for hardware resources. Source credentials are resolved afresh when the
-original live request returns. Muting during the check remains effective; the demo's temporary startup mute is never stored
-as the user's permanent preference.
+original live request returns. Muting during the check remains effective; the
+demo's temporary startup mute is never stored as the user's permanent preference.
 
 The asset generator and validation belong to the bundled diagnostic fixture.
 Runtime ownership is covered by `tests/test_media_backend.cjs` and

@@ -1477,6 +1477,22 @@ test("A/V diagnostic does not persist the demo's temporary mute as the user's ch
     w.__ottAvTest.stop();
     assert.equal(w.video.muted, false);
 });
+test("Shaka DRM capability failure is terminal without claiming provider login is required", async () => {
+    const { w, shakas } = fixture();
+    const messages = [];
+    w.showShift = (text) => messages.push(text);
+    w.playerMode = 2;
+    w.stbPlay("https://source.invalid/protected.mpd");
+    shakas[0].attached.resolve();
+    await tick();
+    shakas[0].loaded.reject({ category: 6, code: 6001 });
+    await tick();
+    assert.equal(messages.pop(), "Stream could not be played");
+    assert.equal(w.__ottStreamPolicy.snapshot().attempts, 0);
+    w.stbStop();
+    shakas[0].destroyed.resolve();
+    await tick();
+});
 (async () => {
     let failures = 0;
     for (const [name, fn] of cases) {
