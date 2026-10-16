@@ -1374,6 +1374,59 @@ test("Shaka enforces user restrictions and reports an impossible ceiling without
     shakas[0].destroyed.resolve();
     await tick();
 });
+for (const terminal of [
+    { category: 1, code: 1001, data: ["upstream", 401], severity: 2 },
+    { category: 1, code: 1001, data: ["upstream", 403], severity: 2 },
+    { category: 6, code: 6001, severity: 2 },
+    { category: 4, code: 4012, severity: 2 },
+])
+    test(
+        "Shaka terminal error cancels an already queued transient retry: " +
+            JSON.stringify(terminal),
+        async () => {
+            const { w, shakas } = fixture();
+            const timers = new Map();
+            let serial = 0;
+            w.setTimeout = (callback) => {
+                timers.set(++serial, callback);
+                return serial;
+            };
+            w.clearTimeout = (id) => timers.delete(id);
+            w.playerMode = 2;
+            w.stbPlay("https://source.invalid/live.mpd");
+            const first = shakas[0];
+            first.attached.resolve();
+            await tick();
+            const transient = { category: 1, code: 1003, severity: 2 };
+            first.events.error({ detail: transient });
+            assert.equal(timers.size, 1);
+            const stale = [...timers.values()][0];
+            first.events.error({ detail: terminal });
+            assert.equal(
+                timers.size,
+                0,
+                "terminal failure must remove the pending timer"
+            );
+            assert.equal(
+                w.__ottStreamPolicy.snapshot().state,
+                terminal.category === 1 ? "access-denied" : "failed"
+            );
+            // The same failure can arrive through both the event and load rejection.
+            first.loaded.reject(transient);
+            stale();
+            await tick();
+            assert.equal(
+                shakas.length,
+                1,
+                "stale timer cannot recreate the failed decoder"
+            );
+            assert.equal(w.__ottStreamPolicy.snapshot().attempts, 0);
+            assert.equal(timers.size, 0);
+            w.stbStop();
+            first.destroyed.resolve();
+            await tick();
+        }
+    );
 test("HLS quality restriction is applied before fragment loading", () => {
     const { w, players } = fixture();
     w.sStreamMaxHeight = 720;

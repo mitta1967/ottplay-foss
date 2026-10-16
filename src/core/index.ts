@@ -1044,7 +1044,12 @@ function createCoreStreamAttempt(
             clear();
         },
         fail: function (kind: string, status?: number, position?: number) {
-            if (!active() || pending || ended) return;
+            if (!active() || ended) return;
+            var denied = status === 401 || status === 403 || kind === "auth";
+            // Parallel requests may report denial/DRM after a transient failure.
+            // Terminal errors cancel that scheduled retry and any future attempts.
+            if (pending && !denied && (kind === "network" || kind === "decode"))
+                return;
             resumePosition =
                 position !== undefined
                     ? position
@@ -1053,7 +1058,6 @@ function createCoreStreamAttempt(
                         isFinite(video.currentTime)
                       ? video.currentTime
                       : undefined;
-            var denied = status === 401 || status === 403 || kind === "auth";
             var transient =
                 !status || status === 408 || status === 429 || status >= 500;
             if (!denied && kind === "network" && transient && retries < 2)
@@ -1065,6 +1069,8 @@ function createCoreStreamAttempt(
             )
                 endpoint++;
             else {
+                clear();
+                pending = false;
                 ended = true;
                 report(denied ? "access-denied" : "failed");
                 $("#buffering").hide();
