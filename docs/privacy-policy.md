@@ -1,6 +1,6 @@
 # Privacy Policy — OTT-play FOSS
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-16
 
 Published by **alvit**. For privacy or support questions, contact [alvit.work@gmail.com](mailto:alvit.work@gmail.com).
 
@@ -8,11 +8,11 @@ This policy describes **OTT-play FOSS** (`play.ott.foss.play`, Android Play dist
 
 ## About this app
 
-OTT-play FOSS is an open-source player for playlists, media streams and programme guides that you configure. The project does not operate an IPTV subscription service. We publish an original synthetic video test pattern on here.now for the optional Demo mode; we do not host the television or provider content you configure.
+OTT-play FOSS is an open-source player for playlists, media streams and programme guides that you configure. The project does not operate an IPTV subscription service. We publish original synthetic video fixtures on here.now for the optional Demo mode and audio/video check; we do not host the television or provider content you configure.
 
 Project source and support: [OTT-play FOSS](https://github.com/open-ott-play/ottplay-foss), [support issues](https://github.com/open-ott-play/ottplay-foss/issues).
 
-Connections use your configured services or the optional hosted Demo described below. The Play distribution has no bundled commercial provider catalog, dealer activation, or automatic fallback XMLTV service. Full retains provider integrations and a fallback guide source; selecting an integration can contact that provider's services, and using the default guide can contact its operator. Those services have their own policies.
+Connections use your configured services or the optional hosted Demo and audio/video check described below. The Play distribution has no bundled commercial provider catalog, dealer activation, or automatic fallback XMLTV service. Full retains provider integrations and a fallback guide source; selecting an integration can contact that provider's services, and using the default guide can contact its operator. Those services have their own policies.
 
 ## Information used by the app
 
@@ -73,7 +73,7 @@ Android uses network access, a media-playback foreground service and a wake lock
 - **Content / IPTV operators and optional remote-service operators** you configure — see above.
 - **Apple App Store / Google Play** — subject to their own privacy policies when you download or update the app through those stores.
 - **GitHub** (source, issues, releases) — subject to GitHub's privacy policy if you interact with the project there.
-- **here.now** — hosts the optional synthetic demo media, receiving the connection data described above.
+- **here.now** — hosts the optional synthetic demo media and audio/video diagnostic fixture, receiving the connection data described above.
 
 ## Your choices
 
