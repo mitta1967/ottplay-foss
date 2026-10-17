@@ -1094,7 +1094,7 @@ EPG_URLS="http://example.com/epg.xml.gz" ./target/release/ottplay-server --port 
 - [Quick starts in 88 interface languages](./docs/readme/README.md) — generated from the shipped UI translations; full engineering manuals are EN/RU.
 - [Quality limits and live recovery](./docs/playback-stream-policy.md) / [По-русски](./docs/playback-stream-policy.ru.md).
 - [Manual XMLTV mapping and classic accessibility](./docs/guide-binding-accessibility.md) / [По-русски](./docs/guide-binding-accessibility.ru.md).
-- [Local audio/video check](./docs/audio-video-check.md) / [По-русски](./docs/audio-video-check.ru.md).
+- [Hosted audio/video check](./docs/audio-video-check.md) / [По-русски](./docs/audio-video-check.ru.md).
 - [Xtream media library](./docs/xtream-media.md) / [По-русски](./docs/xtream-media.ru.md).
 - [Same-source device handoff](./docs/remote-handoff.md) / [По-русски](./docs/remote-handoff.ru.md).
 - [Recoverable local settings](./docs/settings-recovery.md) / [По-русски](./docs/settings-recovery.ru.md).
