@@ -329,6 +329,20 @@ function defineSetting(
                 }
               : undefined,
         defaultValue: fallback,
+        ...(rules.pin
+            ? {
+                  invalidValue: "!locked-invalid-pin",
+                  prepare: function (value: string) {
+                      return (window as any).__ottPinSecurity.prepare(value);
+                  },
+                  protectOnLoad: true,
+                  protectRollback: function (value: string | null) {
+                      return (window as any).__ottPinSecurity.protectRollback(
+                          value
+                      );
+                  },
+              }
+            : {}),
         effects: effects,
         encode: rules.list
             ? function (value) {
@@ -363,7 +377,7 @@ function defineSetting(
             if (rules.pin)
                 return (
                     typeof value === "string" &&
-                    (value === "*" || /^\d{4}$/.test(value))
+                    (window as any).__ottPinSecurity.valid(value)
                 );
             if (rules.color) {
                 if (
@@ -730,6 +744,29 @@ export const settingsStore = createSettingsStore(settingsSchema, {
                 },
             };
         }
+        if (entry.protectOnLoad) {
+            var readProtected = storage.get,
+                writeProtected = storage.set,
+                removeProtected = storage.del;
+            return {
+                current: function () {
+                    return (
+                        storage.get === readProtected &&
+                        storage.set === writeProtected &&
+                        storage.del === removeProtected
+                    );
+                },
+                read: function () {
+                    return readProtected.call(storage, key);
+                },
+                remove: function () {
+                    removeProtected.call(storage, key);
+                },
+                write: function (v) {
+                    writeProtected.call(storage, key, v);
+                },
+            };
+        }
         return {
             key: key,
             read: function () {
@@ -936,7 +973,10 @@ export function exportSettings(): string {
     return JSON.stringify(
         {
             settings: writeLegacySettingsFields(
-                w.OttPlayCore.classicPortableSnapshot(settings, false)
+                w.__ottPinSecurity.protectSnapshot(
+                    w.OttPlayCore.classicPortableSnapshot(settings, false),
+                    "parentPin"
+                )
             ),
             timestamp: Date.now(),
             tv: tv,

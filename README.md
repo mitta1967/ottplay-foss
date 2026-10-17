@@ -2,6 +2,8 @@
 
 [Русское руководство](README.ru.md) · [Quick starts in 88 languages](docs/readme/README.md) · [Documentation wiki](docs/wiki/Home.md)
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15593/badge)](https://www.bestpractices.dev/projects/15593)
+
 [![Fuzzing: RC only](https://img.shields.io/badge/Fuzzing-RC%20only-blue)](FUZZING.md)
 
 Public release candidates run bounded, isolated fuzz campaigns for native/server
@@ -60,7 +62,7 @@ The synthetic test pattern can be regenerated with `scripts/generate-demo-media.
 - **Shared interface**: OTT Server, Tauri and Capacitor use the same channel-list theme and visibility settings. Interface settings control highlight and selection colors; Channel list settings control channel names, picons, current programmes, progress and archive markers.
 - **Providers**: M3U/M3U8, Xtream live TV plus [on-demand movie/series catalogs](docs/xtream-media.md), Stalker/Ministra, Plex and VPortal. Provider capabilities and account access determine available archive and media-library features.
 - **Push commands**: Remote control via webhook — change channel, provider, playlist, show popups
-- **Remote text entry (swop)**: Phone keyboard via Cloudflare Worker when TV/phone are on different networks (allowlisted Device UUID; ♥™ on VKB)
+- **Remote text entry (swop)**: Phone keyboard via Cloudflare Worker when TV/phone are on different networks (installation-authorized sessions; ♥™ on VKB)
 - **Per-device routing**: UUID-based addressing for multi-device setups
 - **Local proxy**: Optional local command server for 100% local automation (no central server needed)
 - **Controller integration**: Device/action-scoped operators, optional durable command outcomes, resumable Local/Home preset application and same-source live/archive handoff through the matching [control server](https://github.com/open-ott-play/ottplay-control-server). These require the updated controller/CLI; they are not supplied by a standalone browser tab.
@@ -101,10 +103,10 @@ When debug is enabled:
 ## Capacitor iOS and Android
 
 This repository packages the shared TypeScript frontend with Capacitor for iOS and
-Android. Both use system fonts and the npm-locked native runtime. The modern Full
-APK supports Android 7+; the compatibility APK supports Android 5.1+ with WebView
-60+. Both are signed and included in qualified beta, RC and stable releases,
-alongside the iOS IPA.
+Android 7+. Both use system fonts and the npm-locked native runtime. A separate
+API 22 compatibility APK supports Android 5.1/6 with WebView 60 or newer. Both
+Android APKs are signed and included in qualified beta, RC and stable releases,
+alongside the unsigned iOS IPA.
 The independent Kotlin app remains in
 [ottplay-android](https://github.com/open-ott-play/ottplay-android).
 
@@ -146,7 +148,8 @@ Tauri desktop smoke: [desktop checklist](docs/mode-b-tauri-smoke.md).
 | **Windows** | `.msi` / `.exe` | x64 |
 | **Linux** | `.AppImage`, `.deb`, `.rpm` | Various distributions |
 | **iOS** | `.ipa` via AltStore / TestFlight / Xcode | Sideload only — not on App Store yet |
-| **Android** | Full Capacitor APK (Android 7+) or API 22 APK (Android 5.1+, WebView 60+) | Same Full app identity; independent [native Kotlin application](https://github.com/open-ott-play/ottplay-android) has its own releases |
+| **Android (shared frontend)** | `ottplay-foss-android-full.apk` / `ottplay-foss-android-api22.apk` | Signed Capacitor packages; choose the supported Android version |
+| **Android (native Kotlin)** | Separate [native application](https://github.com/open-ott-play/ottplay-android) | Public repository; separate application and release workflow |
 
 Supported installers are attached to qualified GitHub releases: [https://github.com/open-ott-play/ottplay-foss/releases/latest](https://github.com/open-ott-play/ottplay-foss/releases/latest)
 
@@ -200,24 +203,28 @@ installation, use [local macOS delivery](docs/macos-local-delivery.md).
 
 ### Linux
 
-**AppImage (recommended):**
+Linux playback needs GStreamer HLS, H.264 and AAC plugins in addition to
+WebKitGTK. The packages declare these media dependencies; AppImage builds bundle
+the media framework. See [Linux media packaging](docs/linux-media-packaging.md)
+for codec checks and the distinction between browser and native acceptance.
+
+**AppImage:**
 
 ```bash
-chmod +x OttPlay.FOSS_*_x86_64.AppImage
-./OttPlay.FOSS_*_x86_64.AppImage
+chmod +x OttPlay.FOSS_*_amd64.AppImage
+./OttPlay.FOSS_*_amd64.AppImage
 ```
 
 **Debian/Ubuntu (.deb):**
 
 ```bash
-sudo dpkg -i ottplay-foss_*.deb
-sudo apt-get install -f
+sudo apt install ./OttPlay.FOSS_*.deb
 ```
 
-**RHEL/Fedora (.rpm):**
+**Fedora (.rpm):**
 
 ```bash
-sudo rpm -i ottplay-foss_*.rpm
+sudo dnf --enablerepo=fedora-cisco-openh264 install ./OttPlay.FOSS-*.rpm
 ```
 
 ---

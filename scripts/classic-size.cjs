@@ -204,7 +204,41 @@ const { gzipSync } = require("node:zlib");
 // Post-beta Plex integration and explicit damaged-journal recovery (including
 // scoped cookie reset) measure 879533 / 271761 on Node 26.8.2, Rollup 4.64.5.
 // Allocate their measured cost while preserving native/Node 22/version room.
-const BUDGET = Object.freeze({ bytes: 879900, gzipBytes: 273000 });
+// Transport suspension retains the logical lease while cancelling its engine
+// and resolver, then safely reattaches on wake. Node 26.8.2 measures 848868 raw /
+// 262607 gzip web bytes. Reserve +1000 raw for this lifecycle path and its
+// stale-callback guards; retain the existing compressed budget.
+// The required 40-hex source revision adds up to 40 gzip bytes across 68
+// identity controls on Node 22.23.3. Native output reaches 263606 gzip bytes.
+// Allocate 64 compressed bytes for this metadata and its compression variation;
+// keep the raw cap and every staged entry check unchanged.
+// Attached-engine diagnostics add 868 raw / at most 233 gzip bytes on Node
+// 22.23.3 across beta.10 and final-base web/native output; reserve 900 / 256.
+// Explicit debug-v2 negotiation preserves legacy payloads. Node 22.23.3 measures
+// +235 raw / at most 108 gzip bytes; existing raw limits fit. Allocate 128 gzip
+// bytes per entry and complete payload while keeping all provider assets counted.
+// Salted PIN migration, bundled SHA256/HMAC/PBKDF2 primitives and fail-closed
+// backup/rollback boundaries add 12549 raw / at most 4203 gzip bytes over 29e44213
+// on Node 26.8.2: web 862631/267163, native 862589/267222. Allocate 12600/4250
+// once, preserving existing Node22 and release-identity reserves. No payload
+// or compatibility checks are removed; the seven provider assets are unchanged.
+// Verified startup protection replaces post-unlock legacy migration. Its guarded
+// load/publication and complete-copy failover add 480 raw bytes on Node 26.8.2
+// (863111 versus 862631). Allocate 500 raw bytes. Recompressing the same
+// source with CI Node 22.23.3 (zlib 1.3.1) measures 268281 / 268346 gzip
+// web/native, versus 268113 / 268182 before startup protection. Allocate
+// 192 gzip bytes for the measured maximum +168, retaining the prior source
+// identity and release-version headroom. Node 26 uses a different zlib build.
+// The scoped SJCL word-copy fix avoids V8 species-probe startup stalls.
+// Node 22.23.3: prior 848f web 863151/268323 -> fixed 863425/268420.
+// Reserve +256 raw/+128 gzip once; all five measured outputs fit while
+// preserving native transforms and release-identity room.
+// Combine the independently reviewed roadmap and main allowances once over
+// their common 1ecbc0e7 baseline (848400 raw / 263600 gzip). No artifact or
+// provider is excluded, and no additional integration reserve is introduced.
+const BUDGET = Object.freeze({ bytes: 895156, gzipBytes: 278018 });
+// The SJCL repair changes only the entry; retain the previous per-provider caps.
+const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
 // cannot disguise growth of the complete player payload.
 // Classic MAG support adds ~5 KB to the optional Stalker family and a small
@@ -314,7 +348,17 @@ const BUDGET = Object.freeze({ bytes: 879900, gzipBytes: 273000 });
 // 964459/305344 -> 995587/315103 web; 995545/315154 native.
 // The same build, counting all eight optional providers, is 1000388 / 316600.
 // Keep every provider inside the bound; no runtime code is excluded or deferred.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1000800, gzipBytes: 317800 });
+// Count the same transport-suspension code once in the complete payload.
+// CI Node 22 measures 306569 gzip bytes; retain 81 bytes for release identity.
+// Count the same 64-byte source-metadata allowance once in the full payload.
+// All seven providers remain included and contribute 43074 gzip bytes.
+// Count the same 900 / 256 engine-diagnostic allowance once; providers do not change.
+// Count the same 12600/4250 PIN migration allowance once in the total, plus
+// the measured startup protection cost of 500 raw / 192 gzip bytes.
+// Count the same +256 raw/+128 gzip word-copy repair once; all seven
+// provider outputs and every artifact remain in the complete-payload checks.
+// Combine both reviewed deltas over the common 964900 / 306550 baseline.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1016056, gzipBytes: 322918 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
@@ -372,7 +416,11 @@ function inspectBundleSets(root, artifacts = ARTIFACTS, providerKinds) {
         }
         const providers = expected.map((name) => {
             const file = path.join(directory, name);
-            return measureBundle(fs.readFileSync(path.join(root, file)), file);
+            return measureBundle(
+                fs.readFileSync(path.join(root, file)),
+                file,
+                PROVIDER_BUDGET
+            );
         });
         const total = [entry, ...providers].reduce(
             (sum, item) => ({
@@ -446,6 +494,7 @@ module.exports = {
     inspectBundleSets,
     inspectBundles,
     measureBundle,
+    PROVIDER_BUDGET,
     TOTAL_BUDGET,
     writeBundleReport,
 };

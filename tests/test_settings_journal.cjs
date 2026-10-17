@@ -181,6 +181,97 @@ assert.equal(
 );
 assert.equal(load(retryPort).stbGetItem("one"), "old");
 
+// Use the real domain-to-native transaction path: protected rollback bytes
+// must survive the adapter boundary without journaling the legacy preimage.
+const domain = { exports: {} };
+vm.runInNewContext(
+    ts.transpileModule(fs.readFileSync("src/settings/store.ts", "utf8"), {
+        compilerOptions: {
+            module: ts.ModuleKind.CommonJS,
+            target: ts.ScriptTarget.ES5,
+        },
+    }).outputText,
+    domain
+);
+const pinFixture = require("./helpers/protected-pin-fixture.cjs");
+const previousPin = pinFixture.record("2468");
+const nextPin = pinFixture.record("9876");
+function protectedBatch(native, api) {
+    return [
+        { after: nextPin, key: "parentPIN", rollback: previousPin },
+        { after: "after", key: "ordinary" },
+    ].map(({ key, after, rollback }) => ({
+        after,
+        before: native.getItem(key),
+        ...(rollback === undefined ? {} : { rollback }),
+        storage: {
+            key,
+            read: () => api.storage.get(key),
+            remove: () => api.storage.del(key),
+            transaction: api.storage.transaction,
+            write: (value) => api.storage.set(key, value),
+        },
+    }));
+}
+for (const fail of [false, true]) {
+    const native = backing({ ordinary: "before", parentPIN: "2468" });
+    const api = load(native);
+    if (fail) native.reject = "ordinary";
+    const commit = () =>
+        domain.exports.commitSettingsWrites(
+            protectedBatch(native, api),
+            () => true,
+            () => true
+        );
+    if (fail) assert.throws(commit, /quota/);
+    else commit();
+    assert.equal(native.getItem("parentPIN"), fail ? previousPin : nextPin);
+    assert.equal(native.getItem("ordinary"), fail ? "before" : "after");
+    for (const snapshot of native.snapshots) {
+        if (!snapshot.ottplaySettingsJournalV1) continue;
+        const journal = JSON.parse(snapshot.ottplaySettingsJournalV1);
+        assert.equal(journal.version, 1);
+        const pin = journal.writes.find((entry) => entry.key === "parentPIN");
+        assert.deepEqual(Object.keys(pin).sort(), ["after", "before", "key"]);
+        assert.equal(pin.before, previousPin);
+        assert.equal(pin.after, nextPin);
+        const restarted = backing(snapshot);
+        load(restarted);
+        assert.equal(restarted.getItem("ordinary"), "before");
+        assert.equal(
+            restarted.getItem("parentPIN"),
+            snapshot.parentPIN === "2468" ? "2468" : previousPin,
+            "A restart never writes the legacy PIN back after replacement"
+        );
+    }
+}
+const changedNative = backing({ ordinary: "before", parentPIN: "2468" });
+const changedApi = load(changedNative);
+const staleWrites = protectedBatch(changedNative, changedApi);
+changedNative.map.set("parentPIN", previousPin);
+assert.throws(
+    () =>
+        domain.exports.commitSettingsWrites(
+            staleWrites,
+            () => true,
+            () => true
+        ),
+    /Settings changed/,
+    "Optimistic admission compares raw preimages, not protected rollback bytes"
+);
+assert.deepEqual(changedNative.snapshots, []);
+const badRollback = backing({ one: "old" });
+assert.throws(
+    () =>
+        api.writeSettingsJournal(
+            badRollback,
+            [{ after: "new", before: "old", key: "one", rollback: undefined }],
+            () => true
+        ),
+    /Invalid settings batch/
+);
+assert.deepEqual(badRollback.snapshots, []);
+
 const { JSDOM } = require("jsdom");
 function recoveryPage(port, options = {}) {
     const dom = new JSDOM(

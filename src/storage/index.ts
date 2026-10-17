@@ -110,6 +110,7 @@ interface JournalWrite {
     after: string | null;
     before: string | null;
     key: string;
+    rollback?: string | null;
 }
 
 let recoveryStorage: Storage | null = null;
@@ -251,13 +252,31 @@ export function writeSettingsJournal(
         throw new Error("Settings recovery required");
     var seen: Record<string, boolean> = Object.create(null);
     writes.forEach(function (entry) {
-        if (!entry.key || isStorageMetadataKey(entry.key) || seen[entry.key])
+        if (
+            !entry.key ||
+            isStorageMetadataKey(entry.key) ||
+            seen[entry.key] ||
+            (Object.prototype.hasOwnProperty.call(entry, "rollback") &&
+                entry.rollback !== null &&
+                typeof entry.rollback !== "string")
+        )
             throw new Error("Invalid settings batch");
         seen[entry.key] = true;
         if (!current() || backing.getItem(entry.key) !== entry.before)
             throw new Error("Settings changed");
     });
-    var raw = JSON.stringify({ version: 1, writes: writes });
+    // Only recovery bytes are persisted. The raw preimage remains in memory for
+    // optimistic comparisons; legacy credentials must not enter the journal.
+    var recovery = writes.map(function (entry) {
+        return {
+            after: entry.after,
+            before: Object.prototype.hasOwnProperty.call(entry, "rollback")
+                ? entry.rollback
+                : entry.before,
+            key: entry.key,
+        };
+    });
+    var raw = JSON.stringify({ version: 1, writes: recovery });
     if (writes.length > 16000 || raw.length > 2 * 1024 * 1024)
         throw new Error("Settings batch too large");
     backing.setItem(key, raw);
@@ -303,9 +322,12 @@ function readStorageCookies(includeUnowned = false): Record<string, string> {
             } catch (_malformedCookie) {
                 // A corrupt marker is incomplete, not an absent override list.
                 if (isStorageMetadataKey(key)) result[key] = "";
+                if (key === "parentPIN") result[key] = "!locked-invalid-pin";
             }
         }
-    } catch (_cookieAccess) {}
+    } catch (_cookieAccess) {
+        result.parentPIN = "!locked-invalid-pin";
+    }
     if (
         !includeUnowned &&
         Object.prototype.hasOwnProperty.call(result, STORAGE_RESET_EPOCH)
@@ -370,10 +392,12 @@ function readStorageFallback(cookies: Record<string, string>): string[] | null {
 
 function createLocalStorageAdapter(): StorageAdapter {
     let nativeStorage: Storage | null = null;
+    let pinReadUncertain = false;
     try {
         nativeStorage = window.localStorage;
         if (nativeStorage) nativeStorage.getItem("");
     } catch (_error) {
+        pinReadUncertain = true;
         nativeStorage = null;
     }
     // A failed or corrupt journal must not silently hydrate a half-imported account.
@@ -499,7 +523,10 @@ function createLocalStorageAdapter(): StorageAdapter {
     const failover = function (): void {
         const previous = nativeStorage;
         nativeStorage = null;
-        if (!previous || incomplete) return;
+        if (!previous || incomplete) {
+            pinReadUncertain = true;
+            return;
+        }
         const scopedCookies =
             readStorageCookies()[STORAGE_RESET_EPOCH] !== undefined;
         try {
@@ -514,11 +541,20 @@ function createLocalStorageAdapter(): StorageAdapter {
                 }
             }
             if (scopedCookies) persistOverrides();
-        } catch (_error) {}
+            // A complete readable snapshot establishes absence as well as values.
+            pinReadUncertain = false;
+        } catch (_error) {
+            pinReadUncertain = true;
+        }
     };
     const get = function (key: string): string | null {
         if (isStorageMetadataKey(key)) return null;
-        if (overrides[key] || incomplete) return fallback.get(key);
+        if (overrides[key] || incomplete) {
+            const value = fallback.get(key);
+            return key === "parentPIN" && value === null && incomplete
+                ? "!locked-invalid-pin"
+                : value;
+        }
         if (nativeStorage) {
             try {
                 return nativeStorage.getItem(key);
@@ -526,7 +562,10 @@ function createLocalStorageAdapter(): StorageAdapter {
                 failover();
             }
         }
-        return fallback.get(key);
+        const value = fallback.get(key);
+        return key === "parentPIN" && value === null && pinReadUncertain
+            ? "!locked-invalid-pin"
+            : value;
     };
     const set = function (key: string, value: string): void {
         if (isStorageMetadataKey(key)) return;
@@ -577,6 +616,7 @@ function createLocalStorageAdapter(): StorageAdapter {
                     delete overrides[key];
                 });
                 incomplete = false;
+                pinReadUncertain = false;
                 persistOverrides();
                 return;
             } catch (_error) {
@@ -1010,6 +1050,10 @@ export function portableSettingsSnapshot(
         if (key === "__ottKioskV1" || isStorageMetadataKey(key))
             delete result[key];
     });
+    if (Object.prototype.hasOwnProperty.call(result, "parentPIN"))
+        result.parentPIN = (window as any).__ottPinSecurity.prepare(
+            result.parentPIN
+        );
     return result;
 }
 
@@ -1020,6 +1064,11 @@ export function restoreLocalSettingsSnapshot(items: Record<string, any>): void {
     var imported = portableSettingsSnapshot(items);
     var w = window as any;
     var current = w.stbGetAllItems();
+    if (
+        !Object.prototype.hasOwnProperty.call(imported, "parentPIN") &&
+        Object.prototype.hasOwnProperty.call(current, "parentPIN")
+    )
+        imported.parentPIN = w.__ottPinSecurity.prepare(current.parentPIN);
     var retained = w.OttPlayCore.classicInstallationState(current, true);
     var address = retained.commandServerAddress;
     var token = retained.commandServerToken;
@@ -1042,11 +1091,16 @@ export function restoreLocalSettingsSnapshot(items: Record<string, any>): void {
             return !isStorageMetadataKey(key);
         })
         .map(function (key) {
+            var before = read.call(w, key);
             return {
                 after: Object.prototype.hasOwnProperty.call(imported, key)
                     ? imported[key]
                     : null,
-                before: read.call(w, key),
+                before: before,
+                rollback:
+                    key === "parentPIN" && before !== null
+                        ? w.__ottPinSecurity.protectRollback(before)
+                        : before,
                 storage: {
                     key: key,
                     read: function () {

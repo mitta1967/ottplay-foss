@@ -353,6 +353,15 @@ export default defineConfig(({ mode }) => ({
                         androidCompileRoot,
                         androidFlavor
                     );
+                    // Static cryptographic primitives are not TypeScript output.
+                    // Keep the isolated Android link root complete as well.
+                    mkdirSync(join(androidCompileRoot!, "js/vendor"), {
+                        recursive: true,
+                    });
+                    cpSync(
+                        resolve(__dirname, "js/vendor/sjcl-pin.js"),
+                        join(androidCompileRoot!, "js/vendor/sjcl-pin.js")
+                    );
                 } else {
                     execFileSync(
                         process.execPath,
@@ -388,7 +397,14 @@ export default defineConfig(({ mode }) => ({
                 const version = pkg.version || "local";
                 bundle = embedPlayerBuildIdentity(
                     bundle.replace(/__OTTP_VERSION__/g, version),
-                    __dirname
+                    __dirname,
+                    {
+                        requireReleaseSource:
+                            Boolean(process.env.RELEASE_CHANNEL) ||
+                            existsSync(
+                                resolve(__dirname, ".release-plan.json")
+                            ),
+                    }
                 );
 
                 const outPath = join(outDir, "player.js");

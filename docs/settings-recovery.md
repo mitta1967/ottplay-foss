@@ -4,10 +4,16 @@
 
 Supported localStorage batches use `ottplaySettingsJournalV1`, an internal undo
 journal excluded from export, cloud payloads and ordinary setting enumeration.
-Before mutating settings, the writer records each key's exact old/new string
+Before mutating settings, the writer records each key's rollback/new string
 (or null), reads the journal back, writes and verifies the batch, then removes
 the journal as its commit point. Runtime changes publish only while the captured
 settings owner remains current. Unrelated keys are not cleared by an import.
+
+Parental PIN migration keeps the exact original value in memory for conflict
+checks, but writes only its protected replacement as the rollback value. A failed
+import or interrupted recovery must not restore a readable legacy PIN. The journal
+format remains version 1. See [PIN migration and limitations](parental-pin-storage.md)
+before updating or restoring older settings.
 
 ```mermaid
 flowchart LR

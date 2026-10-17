@@ -158,12 +158,18 @@ function stageNativeRuntime(directory, platform) {
     }
     for (const [source, destination] of [
         ["LICENSE", "licenses/project-MIT.txt"],
+        ["js/licenses/SJCL-1.0.9.txt", "licenses/SJCL-1.0.9.txt"],
         ["docs/privacy-policy.md", "privacy-policy.txt"],
         ["THIRD-PARTY-NOTICES.md", "third-party-notices.txt"],
     ])
         fs.copyFileSync(
             path.join(root, source),
             path.join(directory, destination)
+        );
+    if (platform === "tauri")
+        fs.copyFileSync(
+            path.join(root, "vendor/block-0.1.6-LICENSE.txt"),
+            path.join(licenses, "block-0.1.6-LICENSE.txt")
         );
     stageMediaRuntime(directory);
     sharedCore.stage(directory);
@@ -225,6 +231,23 @@ function auditNativeRuntime(directory) {
     );
     assert.equal(manifest.fonts, "system");
     assert.equal(manifest.components.length, LIBRARIES.length);
+    if (manifest.platform === "tauri")
+        assert.equal(
+            sha(
+                fs.readFileSync(
+                    path.join(
+                        directory,
+                        "licenses/native/block-0.1.6-LICENSE.txt"
+                    )
+                )
+            ),
+            sha(
+                fs.readFileSync(
+                    path.join(root, "vendor/block-0.1.6-LICENSE.txt")
+                )
+            ),
+            "The native Blocks runtime copyright and permission notice must remain intact"
+        );
     for (const lib of LIBRARIES) {
         const item = manifest.components.find((item) => item.name === lib.name);
         assert(

@@ -157,6 +157,9 @@ export var strLANG = "SHIFT";
 
 /** Active hls.js instance for the main video!. */
 var hlsInstance: any = null;
+// True only after this core attached a native source to the owned element.
+var coreNativeAttached = false;
+var corePipNativeAttached = false;
 // Late opt-in attaches to the active engine without restarting playback.
 (window as any).__ottDebugAttachCurrent = function (): void {
     if (window.__ottDebug && window.__ottDebug.enabled) {
@@ -1136,6 +1139,7 @@ function startCoreEngine(
     transient = false
 ): void {
     cancelCoreStreamAttempt();
+    coreNativeAttached = false;
     _coreTransientPlayback = transient;
     setCoreDemoMute(!transient && (window as any).ottplayDemoActive === true);
     if (video)
@@ -1262,6 +1266,7 @@ function startCoreEngine(
                   cancelCoreAutoPlayback();
                   cancelCoreNativeHls();
                   cancelCoreSeek();
+                  coreNativeAttached = false;
                   if (hlsInstance) {
                       hlsInstance.destroy();
                       hlsInstance = null;
@@ -1348,6 +1353,7 @@ function startCorePlayback(
         typeof Hls !== "undefined" &&
         Hls.isSupported();
     _corePlaybackMode = useHls ? 1 : mode === 2 && !_forceNative ? 2 : 0;
+    coreNativeAttached = false;
     var streamPolicy = (window as any).__ottStreamPolicy;
     var limits = streamPolicy
         ? streamPolicy.begin(_pm, _corePlaybackMode !== 0)
@@ -1516,6 +1522,8 @@ function startCorePlayback(
                             if (streamPolicy)
                                 streamPolicy.begin("html5", false);
                             video!.src = url;
+                            if (session === _playSession)
+                                coreNativeAttached = true;
                             if (nativePosition > 0)
                                 seekCoreMedia(nativePosition, session);
                             if ((window as any).forcePlay !== false)
@@ -1715,6 +1723,7 @@ function startCorePlayback(
             if (!active()) return;
             nativeAttached = true;
             media.src = sourceUrl;
+            if (active()) coreNativeAttached = true;
             if (position && position > 0) seekCoreMedia(position, session);
             if (sourceUrl !== url) {
                 // An unsupported relay response must not take away a stream
@@ -1757,6 +1766,7 @@ function startCorePlayback(
                             var nextPosition = resumePosition();
                             cancelCoreSeek();
                             media.pause();
+                            coreNativeAttached = false;
                             media.removeAttribute("src");
                             console.log(
                                 "[Auto] native HLS incompatible, using hls.js"
@@ -1813,6 +1823,7 @@ function startCorePlayback(
  * Side effects: Mutates video element; may free decoder resources.
  */
 function stopCoreEngine(): void {
+    coreNativeAttached = false;
     if (video) video.loop = false;
     _coreTransientPlayback = false;
     cancelCoreStreamAttempt();
@@ -2258,6 +2269,7 @@ export function stbSubtitleExists(): number {
  * Side effects: Shows #videopip; attaches hls.js or native src; calls videoPip!.play().
  */
 function startCorePipEngine(url: string): void {
+    corePipNativeAttached = false;
     videoPip!.loop = (window as any).ottplayDemoActive === true;
     var demoMp4 =
         (window as any).ottplayDemoActive === true &&
@@ -2286,6 +2298,7 @@ function startCorePipEngine(url: string): void {
         startHls();
     } else {
         videoPip!.src = url;
+        if (session === _corePipSession) corePipNativeAttached = true;
         if (
             auto &&
             (/\.m3u8(?:[?#]|$)/i.test(url) || isNativeHlsUrl(url)) &&
@@ -2303,12 +2316,15 @@ function startCorePipEngine(url: string): void {
                 fallback: function () {
                     _corePipAutoCancel = null;
                     media.pause();
+                    corePipNativeAttached = false;
                     media.removeAttribute("src");
                     startHls();
                 },
                 restore: function () {
                     _corePipAutoCancel = null;
                     media.src = url;
+                    if (session === _corePipSession)
+                        corePipNativeAttached = true;
                     playCoreMedia(media);
                 },
             });
@@ -2321,6 +2337,7 @@ function startCorePipEngine(url: string): void {
 
 /** Stop PiP, cancel its callbacks, and release the decoder and buffering OSD. */
 function stopCorePipEngine(): void {
+    corePipNativeAttached = false;
     videoPip!.loop = false;
     _corePipSession++;
     if (_corePipAutoCancel) _corePipAutoCancel();
@@ -3196,6 +3213,21 @@ function openCoreEngineLease(
         });
     }
     var lease: MediaEngineLease = {
+        diagnosticEngine: function () {
+            if (!active() || !media) return null;
+            var hls = pip ? hlsPipInstance : hlsInstance;
+            if (hls && hls.media === media) return "hls.js";
+            var shaka = !pip && window.player;
+            if (
+                shaka &&
+                shaka.getMediaElement &&
+                shaka.getMediaElement() === media
+            )
+                return "shaka";
+            return (pip ? corePipNativeAttached : coreNativeAttached)
+                ? "html5"
+                : null;
+        },
         dispose: function () {
             listeners.forEach(function (listener) {
                 if (media && typeof media.removeEventListener === "function")

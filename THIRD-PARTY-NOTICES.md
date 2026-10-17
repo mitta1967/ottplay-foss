@@ -65,6 +65,33 @@ This is not a complete native dependency inventory. Preserve the notices of
 resolved transitive dependencies when updating packages. An MIT notice for
 Capacitor core does not replace the App plugin's different copyright statement.
 
+The macOS media-control backend uses **block 0.1.6** under MIT, with the narrow
+upstream opaque-type soundness fix documented in [the vendored source inventory](vendor/README.md).
+Its [complete copyright and permission notice](vendor/block-0.1.6-LICENSE.txt)
+is preserved in the source and copied to `licenses/native/block-0.1.6-LICENSE.txt`
+in Tauri packages. The original license remains in force for the backport.
+
+## Linux GStreamer playback compatibility plugin
+
+Linux DEB and AppImage builds include an app-private modified
+`gst-plugins-base1.0` playback plugin from Ubuntu source version
+`1.24.2-1ubuntu0.5`. All 15 distribution patches are retained, followed by
+GStreamer's upstream stream-synchronizer flush correction
+[`03febb5048d0612157fad0ddadeaaeed924aadf0`](https://github.com/GStreamer/gstreamer/commit/03febb5048d0612157fad0ddadeaaeed924aadf0).
+The plugin remains under its upstream LGPL terms; the surrounding project's
+MIT license does not replace them. Original file-specific copyright and
+license information is preserved in
+[the distribution copyright file](packaging/linux-playback-compat/debian-copyright)
+and [upstream license](packaging/linux-playback-compat/COPYING).
+
+Both formats carry the complete pinned source archives, original and adapted
+patches, build script and notices under
+`usr/share/doc/ottplay-foss/linux-playback-compat/`. The
+[rebuild instructions](packaging/linux-playback-compat/README.md) explain the
+offline source layout and the modification. Build receipts identify the source,
+compiler flags and binary. The AppImage package verification additionally records
+its final plugin hash after the normal relative-search-path transformation.
+
 ## Shared ES5 media runtime
 
 Every profile ships the same npm-locked **hls.js 1.7.3** UMD distribution.
@@ -252,3 +279,15 @@ Both use Apache 2.0; their installed license texts are preserved in
 The UMD retains upstream bundled-component notices, including vtt.js and
 parse-headers; the shared [Apache 2.0 text](js/licenses/Apache-2.0.txt) is packaged
 alongside them. Version and output hashes are recorded in `js/media-runtime.json`.
+
+## Parental PIN password derivation
+
+The selected SHA-256, HMAC, PBKDF2, codec and bit-array modules of
+[SJCL 1.0.9](https://github.com/bitwiseshiftleft/sjcl) are used under
+[BSD-2-Clause](js/licenses/SJCL-1.0.9.txt). The selected source inventory and
+package integrity are in `js/vendor/sjcl-pin-source.json`. An exact reversible
+`sjcl-pin-word-arrays.patch.json` replaces only internal array copying to avoid
+V8 species-probe deoptimization; cryptographic rounds and work factors remain
+upstream. The fallback PIN
+deriver schedules the standard single-block PBKDF2 loop across timers using
+these HMAC primitives; it does not use SJCL randomness or encryption modes.

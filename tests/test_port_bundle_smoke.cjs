@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const acorn = require("acorn");
+const { webcrypto } = require("node:crypto");
 const { assertQrSvg } = require("./helpers/qr-svg.cjs");
 const { assertLzWire } = require("./test_lzstring.cjs");
 const assertMenuRuntime = require("./helpers/menu-runtime.cjs");
@@ -408,6 +409,9 @@ function fixture(profile) {
         close() {},
         confirm: () => false,
         console: { debug() {}, error() {}, info() {}, log() {}, warn() {} },
+        // Exercise the real ES5 crypto path with a platform CSPRNG; absence
+        // and failure are covered by the dedicated PIN rejection tests.
+        crypto: { getRandomValues: webcrypto.getRandomValues.bind(webcrypto) },
         deviceUUID: "smoke-device",
         document,
         focus() {},
@@ -927,11 +931,23 @@ function exerciseCloudRuntime(profile) {
     );
 }
 
-function exerciseAccessRuntime(profile) {
+async function exerciseAccessRuntime(profile) {
     const w = fixture(profile);
     vm.runInContext(bundle, w, { filename: bundlePath });
     w.p_pref = "access-a";
-    w.parentPIN = "2468";
+    const settlePin = require("./helpers/protected-pin-fixture.cjs")(
+        w,
+        "2468",
+        () => {
+            for (const [id, job] of [...fixtureTimers.get(w)]) {
+                if (job.delay !== 0) continue;
+                fixtureTimers.get(w).delete(id);
+                job.fn();
+            }
+        },
+        profile !== "legacy"
+    );
+    const protectedPIN = w.parentPIN;
     w.sPSchannels = 1;
     let accepted = 0;
     w.setParentAccess(true, () => accepted++);
@@ -948,7 +964,7 @@ function exerciseAccessRuntime(profile) {
     );
     assert.equal(accepted, 2);
     w.parentPIN = "9999";
-    w.parentPIN = "2468";
+    w.parentPIN = protectedPIN;
     assert.equal(
         w.parentAccess,
         false,
@@ -957,13 +973,15 @@ function exerciseAccessRuntime(profile) {
     w.enterPinAndSetAccess(() => accepted++);
     const entry = w.dialogBoxKeyHandler;
     for (const digit of "2468") entry(w.keys["N" + digit]);
+    assert.equal(accepted, 2, "hash verification must settle asynchronously");
+    await settlePin();
     assert.equal(accepted, 3);
     assert.equal(w.parentAccess, true);
     w.parentAccess = false;
     w.enterPinAndSetAccess(() => accepted++);
     const changedPin = w.dialogBoxKeyHandler;
     w.parentPIN = "9999";
-    w.parentPIN = "2468";
+    w.parentPIN = protectedPIN;
     for (const digit of "2468") changedPin(w.keys["N" + digit]);
     assert.equal(
         accepted,
@@ -2327,7 +2345,7 @@ async function main() {
                 "https://ott.example/invite?name=Телевизор&token=abc-123"
             );
             exerciseCloudRuntime(profile);
-            exerciseAccessRuntime(profile);
+            await exerciseAccessRuntime(profile);
             exerciseLibraryBackupRuntime(profile);
             exerciseScreenRuntime(profile);
             exercisePlaybackRuntime(w, profile);
