@@ -14,7 +14,7 @@ speed and device playback are separate acceptance checks.
 ## What is implemented
 
 1. **A known audio/video sample.** [Information → Audio](audio-video-check.md)
-   plays a bundled eight-second clip with left/right tones and matching flashes.
+   streams an eight-second clip from here.now (internet required) with left/right tones and matching flashes.
    It borrows the main HTML5 decoder only while idle or watching live TV. It does
    not write viewing history. [Fixture specification](../diagnostics/README.md).
 2. **Resumable Local/Home setup.** The control CLI can plan, apply, resume and
