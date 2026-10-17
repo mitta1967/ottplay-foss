@@ -64,7 +64,6 @@ COPY --from=build /app/dist/styles ./styles
 COPY --from=build /app/dist/images ./images
 COPY --from=build /app/dist/locales ./locales
 COPY --from=build /app/dist/providers ./providers
-COPY --from=build /app/dist/diagnostics ./diagnostics
 USER nonroot
 EXPOSE 8080
 CMD ["./ottplay-server", "--port", "8080"]

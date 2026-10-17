@@ -171,6 +171,26 @@ try {
         entries.some((name) => name.includes("diagnostics/")),
         false
     );
+    // Docker consumes the same built web root as this actual Mode A archive.
+    // A retired source in its COPY list must fail here, before an image build.
+    const dockerCopies = fs
+        .readFileSync(path.join(__dirname, "../Dockerfile"), "utf8")
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("COPY --from=build "));
+    assert(dockerCopies.length > 0, "Docker must package the built web root");
+    for (const line of dockerCopies) {
+        const copy = /^COPY --from=build \/app\/dist\/(\S+) \.\/(\S+)$/.exec(
+            line
+        );
+        assert(copy, "Review changed Docker web-root COPY syntax: " + line);
+        const [, source, destination] = copy;
+        assert.equal(source, destination, "Keep Docker web-root routes");
+        assert(
+            entries.includes("./" + source) ||
+                entries.includes("./" + source + "/"),
+            "Docker COPY source is absent from the packaged web root: " + source
+        );
+    }
     for (const file of hostedFiles)
         assert.equal(
             execFileSync("tar", ["-xOf", archive, "./" + file], {
