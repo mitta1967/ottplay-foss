@@ -500,6 +500,10 @@ export default defineConfig(({ mode }) => ({
                 console.log("Nested Cap contract: dist/dist/player.js");
                 // Retire media left by older builds; demo streams now live on here.now.
                 rmSync(join(outDir, "demo"), { force: true, recursive: true });
+                rmSync(join(outDir, "diagnostics"), {
+                    force: true,
+                    recursive: true,
+                });
                 // Older Mode A packaging wrote release archives into Capacitor's
                 // web root, embedding an entire stale player in iOS applications.
                 for (const file of [

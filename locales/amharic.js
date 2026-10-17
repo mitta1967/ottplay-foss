@@ -99,6 +99,7 @@ var keyStrings = {
     "Background color": "የጀርባ ቀለም",
     "Background color of selected item": "የተመረጠው ንጥል የጀርባ ቀለም",
     "Backup state changed": "የመጠባበቂያ ሁኔታ ተለውጧል",
+    "Backup streams": "ተለዋጭ ዥረቶች",
     "Balance, $": "ቀሪ ሂሳብ፣ $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -588,6 +589,8 @@ var keyStrings = {
     "Manage lists": "ዝርዝሮችን አስተዳድር",
     "Manage settings": "ቅንብሮችን አስተዳድር",
     "Manual setup": "በእጅ ማዋቀር",
+    "Maximum stream bitrate": "ከፍተኛው የዥረት ቢት ፍጥነት",
+    "Maximum video height": "ከፍተኛው የቪዲዮ ቁመት",
     MaxTV: "MaxTV",
     "MaxTV settings": "የMaxTV ቅንብሮች",
     Media: "ሚዲያ",
@@ -600,6 +603,7 @@ var keyStrings = {
     "Move category up": "ምድብ ወደ ላይ አንቀሳቅስ",
     "Move channel down": "ሰርጥ ወደ ታች አንቀሳቅስ",
     "Move channel up": "ሰርጥ ወደ ላይ አንቀሳቅስ",
+    Movies: "ፊልሞች",
     "m3u-m3u8 playlists": "የM3U / M3U8 አጫዋች ዝርዝሮች",
     medium: "መካከለኛ",
     min: "ደቂቃ",
@@ -619,6 +623,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "ከአጫዋች ዝርዝሩ ሰርጦች እና ቀናት ጋር የሚዛመዱ ፕሮግራሞች አልተገኙም። ምንጩን እና የመሣሪያውን ሰዓት ያረጋግጡ።",
     "No saved settings found": "የተቀመጡ ቅንብሮች አልተገኙም",
+    "No stream meets the quality limits": "የጥራት ገደቦችን የሚያሟላ ዥረት የለም",
     "No supported system language. Choose a language.":
         "ምንም የሚደገፍ የሥርዓት ቋንቋ የለም። ቋንቋ ይምረጡ።",
     "Not configured": "አልተዋቀረም",
@@ -835,6 +840,7 @@ var keyStrings = {
         "ደህንነቱ የተጠበቀ የርቀት ግቤት መጀመር አልቻለም። እባክዎ የማያ ገጽ ቁልፍ ሰሌዳ ይጠቀሙ።",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ደህንነቱ የተጠበቀ የርቀት ግቤት በዚህ መሣሪያ አይገኝም። የማያ ገጽ ቁልፍ ሰሌዳ ይጠቀሙ።",
+    "Select a live channel first": "መጀመሪያ የቀጥታ ሰርጥ ይምረጡ",
     "Select a stream type:<br>%1": "የዥረት ዓይነት ይምረጡ፦<br>%1",
     "Select category to add channel": "ሰርጡን ለማከል ምድብ ይምረጡ",
     "Select color": "ቀለም ምረጥ",
@@ -852,6 +858,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "ይህን ኮድ ከተኪ አገልጋይዎ በAuthorization: Bearer ራስጌ ውስጥ ይላኩ።",
     "Send to TV": "ወደ ቲቪ ላክ",
+    Series: "ተከታታይ ፊልሞች",
     Server: "አገልጋይ",
     "Server address": "የአገልጋይ አድራሻ",
     "Server address (for example 192.168.1.20:8081)":

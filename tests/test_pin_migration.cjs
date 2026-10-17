@@ -541,10 +541,20 @@ test("local backup restore never clears an existing PIN, including omitted keys 
             },
         }
     ).outputText;
-    for (const mode of ["normal", "silent-pin", "throw-other"]) {
+    for (const mode of [
+        "normal",
+        "silent-pin",
+        "throw-other",
+        "legacy-throw-other",
+    ]) {
         const f = fixture(hashed);
         try {
-            const state = { ordinary: "before", parentPIN: hashed };
+            const state = {
+                parentPIN: mode === "legacy-throw-other" ? "2468" : hashed,
+            };
+            // Put the later failing write after the credential in the real batch.
+            state.ordinary = "before";
+            const writes = [];
             Object.assign(f.w, {
                 stbClearAllItems() {
                     throw Error("must never clear PIN");
@@ -554,10 +564,12 @@ test("local backup restore never clears an existing PIN, including omitted keys 
                     delete state[key];
                 },
                 stbGetAllItems: () => ({ ...state }),
+                stbGetItem: (key) => state[key] ?? null,
                 stbSetItem(key, value) {
                     if (mode === "silent-pin" && key === "parentPIN") return;
-                    if (mode === "throw-other" && key === "ordinary")
+                    if (mode.endsWith("throw-other") && key === "ordinary")
                         throw Error("disk full");
+                    writes.push({ key, value });
                     state[key] = value;
                 },
             });
@@ -589,7 +601,7 @@ test("local backup restore never clears an existing PIN, including omitted keys 
                 assert.equal(
                     state.ordinary,
                     "before",
-                    "rejected credential aborts before clearing other keys"
+                    "rejected credential preserves other keys"
                 );
             } else {
                 assert.throws(
@@ -597,11 +609,32 @@ test("local backup restore never clears an existing PIN, including omitted keys 
                         f.w.restoreLocalSettingsSnapshot({ ordinary: "after" }),
                     /disk full/
                 );
-                assert.equal(
-                    state.parentPIN,
-                    hashed,
-                    "later failure cannot remove credential"
-                );
+                if (mode === "legacy-throw-other") {
+                    assert.match(state.parentPIN, /^pbkdf2-sha256\$600000\$/);
+                    const [, , salt, digest] = state.parentPIN.split("$");
+                    assert.equal(
+                        digest,
+                        crypto
+                            .pbkdf2Sync(
+                                "2468",
+                                Buffer.from(salt, "hex"),
+                                600000,
+                                32,
+                                "sha256"
+                            )
+                            .toString("hex")
+                    );
+                    assert.equal(
+                        writes.some(({ value }) => value === "2468"),
+                        false
+                    );
+                    assert.equal(state.ordinary, "before");
+                } else
+                    assert.equal(
+                        state.parentPIN,
+                        hashed,
+                        "later failure cannot remove credential"
+                    );
             }
         } finally {
             f.dom.window.close();

@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "Fona krāsa",
     "Background color of selected item": "Atlasītā vienuma fona krāsa",
     "Backup state changed": "Mainīts dublējuma stāvoklis",
+    "Backup streams": "Rezerves straumes",
     "Balance, $": "Atlikums, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -619,6 +620,8 @@ var keyStrings = {
     "Manage lists": "Pārvaldīt sarakstus",
     "Manage settings": "Pārvaldīt iestatījumus",
     "Manual setup": "Manuāla iestatīšana",
+    "Maximum stream bitrate": "Maksimālais straumes bitu pārraides ātrums",
+    "Maximum video height": "Maksimālais video augstums",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV iestatījumi",
     Media: "Multivide",
@@ -632,6 +635,7 @@ var keyStrings = {
     "Move category up": "Pārvietot kategoriju uz augšu",
     "Move channel down": "Pārvietot kanālu uz leju",
     "Move channel up": "Pārvietot kanālu uz augšu",
+    Movies: "Filmas",
     "m3u-m3u8 playlists": "m3u-m3u8 atskaņošanas saraksti",
     medium: "vidējs",
     min: "min",
@@ -651,6 +655,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Nav atrasti raidījumi, kas atbilst atskaņošanas saraksta kanāliem un datumiem. Pārbaudiet avotu un ierīces pulksteni.",
     "No saved settings found": "Nav atrasti saglabāti iestatījumi",
+    "No stream meets the quality limits":
+        "Neviena straume neatbilst kvalitātes ierobežojumiem",
     "No supported system language. Choose a language.":
         "Nav atbalstīta sistēmas valoda. Izvēlieties valodu.",
     "Not configured": "Nav konfigurēts",
@@ -876,6 +882,7 @@ var keyStrings = {
         "Drošo attālo ievadi nevarēja palaist. Lūdzu, izmantojiet ekrāna tastatūru.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Šajā ierīcē nav pieejama droša attālināta ievade. Izmantojiet ekrāna tastatūru.",
+    "Select a live channel first": "Vispirms atlasiet tiešraides kanālu",
     "Select a stream type:<br>%1": "Izvēlieties straumes veidu:<br>%1",
     "Select category to add channel":
         "Izvēlieties kategoriju, lai pievienotu kanālu",
@@ -895,6 +902,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Sūtiet šo kodu no starpniekservera galvenē Authorization: Bearer.",
     "Send to TV": "Nosūtīt uz TV",
+    Series: "Seriāli",
     Server: "Serveris",
     "Server address": "Servera adrese",
     "Server address (for example 192.168.1.20:8081)":

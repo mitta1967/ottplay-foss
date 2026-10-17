@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "Kulur tal-isfond",
     "Background color of selected item": "Kulur tal-isfond tal-oġġett magħżul",
     "Backup state changed": "L-istat tal-backup inbidel",
+    "Backup streams": "Strims ta’ riżerva",
     "Balance, $": "Bilanċ, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -626,6 +627,8 @@ var keyStrings = {
     "Manage lists": "Immaniġġja l-listi",
     "Manage settings": "Immaniġġja l-issettjar",
     "Manual setup": "Konfigurazzjoni manwali",
+    "Maximum stream bitrate": "Rata massima tal-bits tal-istrim",
+    "Maximum video height": "Għoli massimu tal-vidjo",
     MaxTV: "MaxTV",
     "MaxTV settings": "Issettjar ta’ MaxTV",
     Media: "Midja",
@@ -639,6 +642,7 @@ var keyStrings = {
     "Move category up": "Mexxi l-kategorija ’l fuq",
     "Move channel down": "Mexxi l-kanal ’l isfel",
     "Move channel up": "Mexxi l-kanal ’l fuq",
+    Movies: "Films",
     "m3u-m3u8 playlists": "Listi tad-daqq M3U / M3U8",
     medium: "medju",
     min: "min",
@@ -658,6 +662,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "L-ebda programm ma qabel mal-kanali u d-dati tal-lista tad-daqq. Iċċekkja s-sors u l-arloġġ tal-apparat.",
     "No saved settings found": "Ma nstab l-ebda issettjar issejvjat",
+    "No stream meets the quality limits":
+        "L-ebda strim ma jissodisfa l-limiti tal-kwalità",
     "No supported system language. Choose a language.":
         "L-ebda lingwa tas-sistema appoġġjata. Agħżel lingwa.",
     "Not configured": "Mhux ikkonfigurat",
@@ -886,6 +892,7 @@ var keyStrings = {
         "Id-dħul remot sigur ma setax jibda. Uża t-tastiera fuq l-iskrin.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Id-dħul remot sigur mhux disponibbli fuq dan l-apparat. Uża t-tastiera fuq l-iskrin.",
+    "Select a live channel first": "L-ewwel agħżel kanal dirett",
     "Select a stream type:<br>%1": "Agħżel tip ta’ strim:<br>%1",
     "Select category to add channel": "Agħżel kategorija biex iżżid il-kanal",
     "Select color": "Agħżel il-kulur",
@@ -904,6 +911,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Ibgħat dan il-kodiċi mill-proksi tiegħek fil-header Authorization: Bearer.",
     "Send to TV": "Ibgħat lit-TV",
+    Series: "Sensiliet",
     Server: "Server",
     "Server address": "Indirizz tas-server",
     "Server address (for example 192.168.1.20:8081)":

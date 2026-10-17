@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Taustavärv",
     "Background color of selected item": "Valitud üksuse taustavärv",
     "Backup state changed": "Varunduse olek muudetud",
+    "Backup streams": "Varuvood",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -612,6 +613,8 @@ var keyStrings = {
     "Manage lists": "Halda loendeid",
     "Manage settings": "Seadete haldamine",
     "Manual setup": "Käsitsi seadistamine",
+    "Maximum stream bitrate": "Voo suurim bitikiirus",
+    "Maximum video height": "Video suurim kõrgus",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV seaded",
     Media: "Meedia",
@@ -624,6 +627,7 @@ var keyStrings = {
     "Move category up": "Liigutage kategooria üles",
     "Move channel down": "Liigutage kanal alla",
     "Move channel up": "Liigutage kanal üles",
+    Movies: "Filmid",
     "m3u-m3u8 playlists": "M3U / M3U8 esitusloendid",
     medium: "Keskmine",
     min: "min",
@@ -643,6 +647,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Esitusloendi kanalitele ja kuupäevadele ei vastanud ükski saade. Kontrollige allikat ja seadme kella.",
     "No saved settings found": "Salvestatud seadeid ei leitud",
+    "No stream meets the quality limits":
+        "Ükski voog ei vasta kvaliteedipiirangutele",
     "No supported system language. Choose a language.":
         "Süsteemi keelt ei toetata. Valige keel.",
     "Not configured": "Seadistamata",
@@ -868,6 +874,7 @@ var keyStrings = {
         "Turvalist kaugsisendit ei saanud käivitada. Kasutage ekraaniklaviatuuri.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Turvaline kaugsisend pole selles seadmes saadaval. Kasutage ekraaniklaviatuuri.",
+    "Select a live channel first": "Valige esmalt otsekanal",
     "Select a stream type:<br>%1": "Valige voo tüüp:<br>%1",
     "Select category to add channel": "Valige kanali lisamiseks kategooria",
     "Select color": "Valige värv",
@@ -886,6 +893,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Saada see kood oma puhverserverist päises Authorization: Bearer.",
     "Send to TV": "Saada telerisse",
+    Series: "Sarjad",
     Server: "Server",
     "Server address": "Serveri aadress",
     "Server address (for example 192.168.1.20:8081)":

@@ -855,4 +855,56 @@ check(
         );
     }
 );
+check(
+    "transaction finishing after source change cannot publish stale settings",
+    () => {
+        let source = "one",
+            raw = "1";
+        const effects = [];
+        const transaction = (writes) => {
+            raw = writes[0].after;
+            source = "two";
+            return true;
+        };
+        const store = create(
+            [
+                {
+                    defaultValue: 1,
+                    effects: ["apply"],
+                    id: "volume",
+                    key: "volume",
+                    scope: "application",
+                    validate: (value) => typeof value === "number",
+                },
+            ],
+            {
+                context: () => source,
+                effect: (name) => effects.push(name),
+                storage: () => ({
+                    key: "volume",
+                    read: () => raw,
+                    remove: () => {
+                        raw = null;
+                    },
+                    transaction,
+                    write: (value) => {
+                        raw = value;
+                    },
+                }),
+            }
+        );
+        store.reload();
+        const draft = store.begin();
+        assert.equal(draft.set("volume", 2), true);
+        assert.equal(draft.commit(), false);
+        assert.equal(draft.errorCode(), "source_changed");
+        assert.equal(store.get("volume"), 1, "No stale runtime publication");
+        assert.equal(
+            raw,
+            "2",
+            "Already committed bytes must not be blindly rolled back"
+        );
+        assert.deepEqual(effects, []);
+    }
+);
 console.log("OK: " + passed + " settings store/domain/editor scenarios");

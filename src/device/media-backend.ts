@@ -11,7 +11,9 @@ interface MediaBackendRequest {
     lane?: string;
     paused?: boolean;
     position?: number;
+    sourceUrl?: string;
     timelineOffset?: number;
+    transient?: boolean;
     url: string;
 }
 interface MediaBackendSample {
@@ -71,10 +73,19 @@ function createMediaBackend(ports: MediaBackendPorts) {
             callback(event);
         });
     }
-    function open(request: MediaBackendRequest): any {
+    function open(
+        request: MediaBackendRequest,
+        previewEvent?: (handle: any, type: string) => void
+    ): any {
+        function announce(type: string): void {
+            if (previewEvent) previewEvent(handle, type);
+            else publish(handle, type);
+        }
         var lane = request.lane || "main";
         var previous = lanes[lane];
-        var inputContext = request.context || ports.context();
+        var inputContext = previewEvent
+            ? null
+            : request.context || ports.context();
         var context = inputContext
             ? {
                   active: inputContext.active,
@@ -136,7 +147,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
             );
         }
         function command(type: string) {
-            if (lane === "main" && context && domainCurrent())
+            if (!previewEvent && lane === "main" && context && domainCurrent())
                 ports.emit(context, type, position, duration);
         }
         function observe(type?: string) {
@@ -153,7 +164,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 phase = "loading";
                 command("loading");
                 updateTimer();
-                if (current()) publish(handle, "error");
+                if (current()) announce("error");
                 return;
             }
             if (type === "ended" && awaitingRecovery) return;
@@ -216,7 +227,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 if (!context || context.kind !== "live") command("position");
             }
             updateTimer();
-            if (current()) publish(handle, type || "position");
+            if (current()) announce(type || "position");
         }
         function seek(value: number, rebind: boolean) {
             if (!current() || !engine || !isFinite(value) || value < 0) return;
@@ -228,6 +239,11 @@ function createMediaBackend(ports: MediaBackendPorts) {
                     !context.sourceActive())
             )
                 return;
+            if (previewEvent) {
+                engine.seek(value);
+                if (current()) observe("position");
+                return;
+            }
             var next = ports.context();
             if (
                 !handle.active() &&
@@ -260,7 +276,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 command("playing");
             }
             updateTimer();
-            publish(handle, "seek");
+            announce("seek");
         }
         function attachEngine() {
             if (!handle.active() || suspended) return;
@@ -274,7 +290,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 resolved = true;
                 if (!url) {
                     command("stop");
-                    publish(handle, "error");
+                    announce("error");
                     handle.dispose();
                     return;
                 }
@@ -286,6 +302,8 @@ function createMediaBackend(ports: MediaBackendPorts) {
                             lane: request.lane,
                             paused: request.paused,
                             position: request.position,
+                            sourceUrl: request.url,
+                            transient: !!previewEvent,
                             url: url,
                         },
                         function (type: string) {
@@ -311,7 +329,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                     engine.pause();
                     if (!current()) return;
                 }
-                publish(handle, "open");
+                announce("open");
                 if (!current()) return;
                 pendingEvents.forEach(observe);
                 pendingEvents = [];
@@ -359,7 +377,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 // The engine lease checks its own generation before releasing a shared decoder.
                 if (engine) engine.dispose(replaced);
                 phase = "stopped";
-                publish(handle, "dispose");
+                announce("dispose");
             },
             id: ++sequence,
             lane: lane,
@@ -370,7 +388,31 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 command("pause");
                 if (!current()) return;
                 engine.pause();
-                if (current()) publish(handle, "pause");
+                if (current()) announce("pause");
+            },
+            previewRestore: function () {
+                if (
+                    lane !== "main" ||
+                    !context ||
+                    context.kind !== "live" ||
+                    !engine ||
+                    !handle.active() ||
+                    (phase !== "playing" && phase !== "paused")
+                )
+                    return null;
+                var sample = engine.sample();
+                if (!handle.active()) return null;
+                var paused = phase === "paused" || sample.paused;
+                return function () {
+                    if (!domainCurrent()) return null;
+                    return open({
+                        context: context || undefined,
+                        lane: "main",
+                        paused: paused,
+                        position: 0,
+                        url: request.url,
+                    });
+                };
             },
             restart: function () {
                 if (
@@ -465,7 +507,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 if (phase === "playing") awaitingRecovery = false;
                 updateTimer();
                 command(type);
-                publish(handle, type);
+                announce(type);
             },
             sample: function () {
                 observe();
@@ -505,7 +547,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 if (retired) retired.dispose();
                 if (!current()) return;
                 command("pause");
-                publish(handle, "suspend");
+                announce("suspend");
             },
             tracks: function (kind: string) {
                 return handle.active() && engine && engine.tracks
@@ -534,6 +576,56 @@ function createMediaBackend(ports: MediaBackendPorts) {
             });
         },
         open: open,
+        preview: function (url: string, closed?: (reason: string) => void) {
+            var previous = lanes.main;
+            var restore = previous && previous.previewRestore();
+            if (previous && !restore) return null;
+            var finished = false;
+            function finish(
+                handle: any,
+                resume: boolean,
+                reason: string
+            ): void {
+                if (finished) return;
+                finished = true;
+                var owns = lanes.main === handle;
+                if (owns) handle.dispose();
+                if (closed) closed(reason);
+                // A callback may select another channel; never replace that new owner.
+                if (owns && resume && !lanes.main && restore) restore();
+            }
+            var handle: any;
+            try {
+                handle = open(
+                    { lane: "main", url: url },
+                    function (current: any, type: string) {
+                        if (type === "ended" || type === "error")
+                            finish(current, true, type);
+                        else if (type === "dispose")
+                            finish(current, false, type);
+                    }
+                );
+            } catch (_) {
+                // Startup teardown already closes the preview; restore only if no
+                // reentrant replacement took ownership while the engine failed.
+                if (!lanes.main && restore) {
+                    try {
+                        restore();
+                    } catch (_) {
+                        /* The original source also failed. */
+                    }
+                }
+                return null;
+            }
+            return {
+                active: function () {
+                    return !finished && lanes.main === handle;
+                },
+                finish: function () {
+                    finish(handle, true, "cancel");
+                },
+            };
+        },
         restart: function () {
             var handle = lanes.main;
             return handle ? handle.restart() : null;

@@ -189,6 +189,8 @@ export interface PlayerSettings {
     showScroll: number;
     sleepTimeout: number;
     stopPlay: number;
+    streamMaxBitrate: number;
+    streamMaxHeight: number;
     swopBaseUrl: string;
     thumbnail: number;
     timezone: number;
@@ -286,6 +288,8 @@ export function defaultSettings(): PlayerSettings {
         showScroll: 1,
         sleepTimeout: 0,
         stopPlay: 0,
+        streamMaxBitrate: 0,
+        streamMaxHeight: 0,
         swopBaseUrl: "",
         thumbnail: 1,
         timezone: 0,
@@ -391,6 +395,7 @@ function defineSetting(
                 Math.floor(value) !== value
             )
                 return false;
+            if (rules.values) return rules.values.indexOf(value) >= 0;
             if (rules.durations)
                 return normalizeSeekDuration(value, NaN) === value;
             return rules.range
@@ -400,6 +405,12 @@ function defineSetting(
     };
 }
 export const settingsSchema: SettingDefinition[] = [
+    defineSetting("streamMaxHeight", "sStreamMaxHeight", {
+        values: [0, 360, 480, 720, 1080, 2160],
+    }),
+    defineSetting("streamMaxBitrate", "sStreamMaxBitrate", {
+        values: [0, 1000000, 2000000, 4000000, 8000000, 16000000],
+    }),
     defineSetting("preferredAudioLanguage", "sPreferredAudioLanguage", {
         language: "audio",
     }),
@@ -757,12 +768,14 @@ export const settingsStore = createSettingsStore(settingsSchema, {
             };
         }
         return {
+            key: key,
             read: function () {
                 return storage.get(key);
             },
             remove: function () {
                 storage.del(key);
             },
+            transaction: storage.transaction,
             write: function (v) {
                 storage.set(key, v);
             },
@@ -889,7 +902,20 @@ function settingsBackupContext(): any {
         );
     }
     function port(key: string): any {
+        var driver = w.__ottActiveProviderDriver;
+        var durable =
+            !get ||
+            (driver &&
+                w.stbGetItem === storage.get &&
+                w.stbSetItem === storage.set);
         return {
+            key: durable
+                ? get
+                    ? driver.storageKey
+                        ? driver.storageKey(key)
+                        : String(w.p_pref || "") + key
+                    : key
+                : undefined,
             read: function () {
                 return get ? get.call(w, key) : storage.get(key);
             },
@@ -898,6 +924,7 @@ function settingsBackupContext(): any {
                 else if (del) del.call(w, key);
                 else set.call(w, key, "");
             },
+            transaction: durable ? storage.transaction : undefined,
             write: function (value: string) {
                 if (set) set.call(w, key, value);
                 else storage.set(key, value);

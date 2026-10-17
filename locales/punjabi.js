@@ -100,6 +100,7 @@ var keyStrings = {
     "Background color": "ਬੈਕਗ੍ਰਾਊਂਡ ਰੰਗ",
     "Background color of selected item": "ਚੁਣੀ ਗਈ ਆਈਟਮ ਦਾ ਪਿਛੋਕੜ ਰੰਗ",
     "Backup state changed": "ਬੈਕਅੱਪ ਸਥਿਤੀ ਬਦਲੀ ਗਈ",
+    "Backup streams": "ਬਦਲਵੀਆਂ ਸਟ੍ਰੀਮਾਂ",
     "Balance, $": "ਬਕਾਇਆ, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -598,6 +599,8 @@ var keyStrings = {
     "Manage lists": "ਸੂਚੀਆਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ",
     "Manage settings": "ਸੈਟਿੰਗਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ",
     "Manual setup": "ਮੈਨੁਅਲ ਸੈੱਟਅੱਪ",
+    "Maximum stream bitrate": "ਸਟ੍ਰੀਮ ਦੀ ਵੱਧ ਤੋਂ ਵੱਧ ਬਿੱਟਰੇਟ",
+    "Maximum video height": "ਵੀਡੀਓ ਦੀ ਵੱਧ ਤੋਂ ਵੱਧ ਉਚਾਈ",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ਸੈਟਿੰਗਾਂ",
     Media: "ਮੀਡੀਆ",
@@ -610,6 +613,7 @@ var keyStrings = {
     "Move category up": "ਸ਼੍ਰੇਣੀ ਨੂੰ ਉੱਪਰ ਲੈ ਜਾਓ",
     "Move channel down": "ਚੈਨਲ ਨੂੰ ਹੇਠਾਂ ਲਿਜਾਓ",
     "Move channel up": "ਚੈਨਲ ਨੂੰ ਉੱਪਰ ਲੈ ਜਾਓ",
+    Movies: "ਫ਼ਿਲਮਾਂ",
     "m3u-m3u8 playlists": "M3U / M3U8 ਪਲੇਲਿਸਟਾਂ",
     medium: "ਮਾਧਿਅਮ",
     min: "ਮਿੰਟ",
@@ -629,6 +633,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "ਕੋਈ ਵੀ ਪ੍ਰੋਗਰਾਮ ਪਲੇਲਿਸਟ ਚੈਨਲਾਂ ਅਤੇ ਤਾਰੀਖਾਂ ਨਾਲ ਮੇਲ ਨਹੀਂ ਖਾਂਦਾ। ਸਰੋਤ ਅਤੇ ਡਿਵਾਈਸ ਘੜੀ ਦੀ ਜਾਂਚ ਕਰੋ।",
     "No saved settings found": "ਕੋਈ ਰੱਖਿਅਤ ਸੈਟਿੰਗਾਂ ਨਹੀਂ ਮਿਲੀਆਂ",
+    "No stream meets the quality limits":
+        "ਕੋਈ ਸਟ੍ਰੀਮ ਗੁਣਵੱਤਾ ਦੀਆਂ ਹੱਦਾਂ ਨੂੰ ਪੂਰਾ ਨਹੀਂ ਕਰਦੀ",
     "No supported system language. Choose a language.":
         "ਕੋਈ ਸਮਰਥਿਤ ਸਿਸਟਮ ਭਾਸ਼ਾ ਨਹੀਂ। ਇੱਕ ਭਾਸ਼ਾ ਚੁਣੋ।",
     "Not configured": "ਸੈੱਟਅੱਪ ਨਹੀਂ ਹੋਇਆ",
@@ -849,6 +855,7 @@ var keyStrings = {
         "ਸੁਰੱਖਿਅਤ ਰਿਮੋਟ ਇਨਪੁੱਟ ਸ਼ੁਰੂ ਨਹੀਂ ਹੋ ਸਕਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਔਨ-ਸਕ੍ਰੀਨ ਕੀਬੋਰਡ ਦੀ ਵਰਤੋਂ ਕਰੋ।",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ਇਸ ਡੀਵਾਈਸ 'ਤੇ ਸੁਰੱਖਿਅਤ ਰਿਮੋਟ ਇਨਪੁੱਟ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਔਨ-ਸਕ੍ਰੀਨ ਕੀਬੋਰਡ ਦੀ ਵਰਤੋਂ ਕਰੋ।",
+    "Select a live channel first": "ਪਹਿਲਾਂ ਸਿੱਧੇ ਪ੍ਰਸਾਰਣ ਵਾਲਾ ਚੈਨਲ ਚੁਣੋ",
     "Select a stream type:<br>%1": "ਸਟ੍ਰੀਮ ਦੀ ਕਿਸਮ ਚੁਣੋ:<br>%1",
     "Select category to add channel": "ਚੈਨਲ ਨੂੰ ਜੋੜਨ ਲਈ ਇੱਕ ਸ਼੍ਰੇਣੀ ਚੁਣੋ",
     "Select color": "ਰੰਗ ਚੁਣੋ",
@@ -866,6 +873,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "ਆਪਣੀ ਪ੍ਰੌਕਸੀ ਤੋਂ ਇਹ ਕੋਡ Authorization: Bearer ਹੈਡਰ ਵਿੱਚ ਭੇਜੋ।",
     "Send to TV": "ਟੀਵੀ 'ਤੇ ਭੇਜੋ",
+    Series: "ਲੜੀਵਾਰ",
     Server: "ਸਰਵਰ",
     "Server address": "ਸਰਵਰ ਪਤਾ",
     "Server address (for example 192.168.1.20:8081)":

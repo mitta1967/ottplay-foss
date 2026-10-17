@@ -99,6 +99,7 @@ var keyStrings = {
     "Background color": "ପୃଷ୍ଠଭୂମି ରଙ୍ଗ",
     "Background color of selected item": "ବଛା ଆଇଟମ୍‌ର ପୃଷ୍ଠଭୂମି ରଙ୍ଗ",
     "Backup state changed": "ବ୍ୟାକଅପ୍ ସ୍ଥିତି ବଦଳିଗଲା।",
+    "Backup streams": "ବିକଳ୍ପ ଷ୍ଟ୍ରିମ୍",
     "Balance, $": "ବାଲାନ୍ସ, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -589,6 +590,8 @@ var keyStrings = {
     "Manage lists": "ତାଲିକା ପରିଚାଳନା କରନ୍ତୁ",
     "Manage settings": "ସେଟିଂସ୍ ପରିଚାଳନା କରନ୍ତୁ",
     "Manual setup": "ହାତରେ ସେଟଅପ୍",
+    "Maximum stream bitrate": "ଷ୍ଟ୍ରିମର ସର୍ବାଧିକ ବିଟରେଟ୍",
+    "Maximum video height": "ଭିଡିଓର ସର୍ବାଧିକ ଉଚ୍ଚତା",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ସେଟିଂସ୍",
     Media: "ମିଡିଆ",
@@ -601,6 +604,7 @@ var keyStrings = {
     "Move category up": "ବର୍ଗକୁ ଉପରକୁ ନିଅନ୍ତୁ",
     "Move channel down": "ଚ୍ୟାନେଲ୍‌କୁ ତଳକୁ ନିଅନ୍ତୁ",
     "Move channel up": "ଚ୍ୟାନେଲ୍‌କୁ ଉପରକୁ ନିଅନ୍ତୁ",
+    Movies: "ଚଳଚ୍ଚିତ୍ର",
     "m3u-m3u8 playlists": "M3U / M3U8 ପ୍ଲେଲିଷ୍ଟଗୁଡ଼ିକ",
     medium: "ମଧ୍ୟମ",
     min: "ମି",
@@ -620,6 +624,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "କୌଣସି କାର୍ଯ୍ୟକ୍ରମ ପ୍ଲେଲିଷ୍ଟ ଚ୍ୟାନେଲ୍ ଓ ତାରିଖ ସହ ମେଳ ଖାଇଲା ନାହିଁ। ଉତ୍ସ ଓ ଡିଭାଇସ୍ ଘଣ୍ଟା ଯାଞ୍ଚ କରନ୍ତୁ।",
     "No saved settings found": "ସଞ୍ଚିତ ସେଟିଂସ୍ ମିଳିଲା ନାହିଁ",
+    "No stream meets the quality limits": "କୌଣସି ଷ୍ଟ୍ରିମ୍ ଗୁଣବତ୍ତା ସୀମା ପୂରଣ କରୁନାହିଁ",
     "No supported system language. Choose a language.":
         "ସିଷ୍ଟମ୍‌ର କୌଣସି ଭାଷା ସମର୍ଥିତ ନୁହେଁ। ଏକ ଭାଷା ବାଛନ୍ତୁ।",
     "Not configured": "ବିନ୍ୟାସ ହୋଇନାହିଁ",
@@ -835,6 +840,7 @@ var keyStrings = {
         "ସୁରକ୍ଷିତ ଦୂର ଇନପୁଟ୍ ଆରମ୍ଭ ହୋଇପାରିଲା ନାହିଁ। ପରଦା କୀବୋର୍ଡ ବ୍ୟବହାର କରନ୍ତୁ।",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ଏହି ଡିଭାଇସ୍‌ରେ ସୁରକ୍ଷିତ ଦୂର ଇନପୁଟ୍ ଉପଲବ୍ଧ ନାହିଁ। ପରଦା କୀବୋର୍ଡ ବ୍ୟବହାର କରନ୍ତୁ।",
+    "Select a live channel first": "ପ୍ରଥମେ ଏକ ସିଧା ପ୍ରସାରଣ ଚ୍ୟାନେଲ୍ ବାଛନ୍ତୁ",
     "Select a stream type:<br>%1": "ଷ୍ଟ୍ରିମ୍ ପ୍ରକାର ବାଛନ୍ତୁ:<br>%1",
     "Select category to add channel": "ଚ୍ୟାନେଲ୍ ଯୋଡ଼ିବାକୁ ବର୍ଗ ବାଛନ୍ତୁ",
     "Select color": "ରଙ୍ଗ ବାଛନ୍ତୁ",
@@ -852,6 +858,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "ପ୍ରକ୍ସିରୁ Authorization: Bearer ହେଡର୍‌ରେ ଏହି କୋଡ୍ ପଠାନ୍ତୁ।",
     "Send to TV": "ଟିଭି ପଠାନ୍ତୁ।",
+    Series: "ଧାରାବାହିକ",
     Server: "ସର୍ଭର୍",
     "Server address": "ସର୍ଭର୍ ଠିକଣା",
     "Server address (for example 192.168.1.20:8081)":

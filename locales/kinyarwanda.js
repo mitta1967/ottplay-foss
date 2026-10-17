@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color of selected item":
         "Ibara ry'inyuma ry'ikintu cyatoranyijwe",
     "Backup state changed": "Imiterere ya kopi y’ingoboka yahindutse",
+    "Backup streams": "Imiyoboro y'ingoboka",
     "Balance, $": "Amafaranga asigaye, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -632,6 +633,8 @@ var keyStrings = {
     "Manage lists": "Genzura intonde",
     "Manage settings": "Genzura igenamiterere",
     "Manual setup": "Igenamiterere rikorwa n'intoki",
+    "Maximum stream bitrate": "Umuvuduko ntarengwa wa biti z'umuyoboro",
+    "Maximum video height": "Ubuhagarike ntarengwa bwa videwo",
     MaxTV: "MaxTV",
     "MaxTV settings": "Igenamiterere rya MaxTV",
     Media: "Ibitangazamakuru",
@@ -644,6 +647,7 @@ var keyStrings = {
     "Move category up": "Zamura icyiciro",
     "Move channel down": "Manura shene",
     "Move channel up": "Zamura shene",
+    Movies: "Filimi",
     "m3u-m3u8 playlists": "Intonde zo gukina za M3U / M3U8",
     medium: "biringaniye",
     min: "min",
@@ -663,6 +667,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Nta biganiro bihuye na shene n'amatariki y'urutonde rwo gukina byabonetse. Reba isoko n'isaha y'igikoresho.",
     "No saved settings found": "Nta genamiterere ryabitswe ryabonetse",
+    "No stream meets the quality limits":
+        "Nta muyoboro wujuje imipaka y'ubwiza",
     "No supported system language. Choose a language.":
         "Nta rurimi rwa sisitemu rushyigikiwe. Hitamo ururimi.",
     "Not configured": "Ntibyagenwe",
@@ -889,6 +895,7 @@ var keyStrings = {
         "Iyinjiza rya kure ririnzwe ryanze gutangira. Koresha mwandikisho yo kuri ekara.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Iyinjiza rya kure ririnzwe ntiriboneka kuri iki gikoresho. Koresha mwandikisho yo kuri ekara.",
+    "Select a live channel first": "Banza uhitemo shene inyura ako kanya",
     "Select a stream type:<br>%1": "Hitamo ubwoko bw'isakaza:<br>%1",
     "Select category to add channel": "Hitamo icyiciro cyo kongeramo shene",
     "Select color": "Hitamo ibara",
@@ -907,6 +914,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Ohereza iyi kode ivuye kuri porogisi yawe mu mutwe wa Authorization: Bearer.",
     "Send to TV": "Ohereza kuri TV",
+    Series: "Filimi z'uruhererekane",
     Server: "Seriveri",
     "Server address": "Aderesi ya seriveri",
     "Server address (for example 192.168.1.20:8081)":

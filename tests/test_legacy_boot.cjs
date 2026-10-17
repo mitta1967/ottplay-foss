@@ -1062,6 +1062,24 @@ detectedLanguage(
 
 // Exercise the actual ES5 storage writer against a silent 4096-byte cookie
 // limit, then feed its persisted bytes into the real early boot script.
+for (const storageError of [undefined, "access", "read"])
+    detectedLanguage(
+        {
+            cookie: "ottplayStorageFallback.reset=1; ottplayStorageFallback=%5B%5D; ottplaylang=_rus",
+            navigator: { languages: ["fr-FR"] },
+            storageError,
+        },
+        "_fra"
+    );
+detectedLanguage(
+    {
+        cookie: "ottplayStorageFallback.reset=1; ottplayStorageFallback=%5B%22ottplaylang%22%5D; ottplaylang=_rus",
+        navigator: { languages: ["fr-FR"] },
+    },
+    "_rus",
+    false
+);
+
 function chunkedBootCookies(rejected) {
     const cookies = {};
     const saved = { ottplaylang: "_eng", ottplaylangmode: "manual" };

@@ -49,9 +49,9 @@ try {
     }
     const sets = inspectBundleSets(root);
     assert.equal(sets.length, 3);
-    assert.equal(sets[0].providers.length, 7);
-    assert.equal(sets[0].total.bytes, measurement.bytes * 8);
-    assert.equal(sets[0].total.gzipBytes, measurement.gzipBytes * 8);
+    assert.equal(sets[0].providers.length, 8);
+    assert.equal(sets[0].total.bytes, measurement.bytes * 9);
+    assert.equal(sets[0].total.gzipBytes, measurement.gzipBytes * 9);
     const extra = path.join(root, "dist/provider-old.js");
     fs.writeFileSync(extra, source);
     assert.throws(() => inspectBundleSets(root), /Unexpected provider bundle/);

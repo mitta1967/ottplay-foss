@@ -99,6 +99,7 @@ var keyStrings = {
     "Background color": "צבע רקע",
     "Background color of selected item": "צבע הרקע של הפריט הנבחר",
     "Backup state changed": "מצב הגיבוי השתנה",
+    "Backup streams": "שידורים חלופיים",
     "Balance, $": "יתרה, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -592,6 +593,8 @@ var keyStrings = {
     "Manage lists": "נהל רשימות",
     "Manage settings": "נהל הגדרות",
     "Manual setup": "הגדרה ידנית",
+    "Maximum stream bitrate": "קצב סיביות מרבי של השידור",
+    "Maximum video height": "גובה וידאו מרבי",
     MaxTV: "MaxTV",
     "MaxTV settings": "הגדרות MaxTV",
     Media: "מדיה",
@@ -604,6 +607,7 @@ var keyStrings = {
     "Move category up": "הזז קטגוריה למעלה",
     "Move channel down": "הזז ערוץ למטה",
     "Move channel up": "הזז ערוץ למעלה",
+    Movies: "סרטים",
     "m3u-m3u8 playlists": "פלייליסטים m3u-m3u8",
     medium: "בינוני",
     min: "דק",
@@ -623,6 +627,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "אין תוכניות שתואמות לערוצים ולתאריכים של רשימת ההשמעה. בדוק את המקור והשעון של המכשיר.",
     "No saved settings found": "לא נמצאו הגדרות שמורות",
+    "No stream meets the quality limits": "אין שידור שעומד במגבלות האיכות",
     "No supported system language. Choose a language.":
         "אין שפת מערכת נתמכת. בחר שפה.",
     "Not configured": "לא הוגדר",
@@ -841,6 +846,7 @@ var keyStrings = {
         "לא ניתן היה להפעיל קלט מרחוק מאובטח. אנא השתמש במקלדת שעל המסך.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "קלט מאובטח מרחוק אינו זמין במכשיר זה. השתמש במקלדת שעל המסך.",
+    "Select a live channel first": "יש לבחור תחילה ערוץ בשידור חי",
     "Select a stream type:<br>%1": "בחר סוג שידור:<br>%1",
     "Select category to add channel": "בחר קטגוריה להוספת ערוץ",
     "Select color": "בחר צבע",
@@ -858,6 +864,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "יש לשלוח קוד זה מהפרוקסי בכותרת Authorization: Bearer.",
     "Send to TV": "שלח לטלוויזיה",
+    Series: "סדרות",
     Server: "שרת",
     "Server address": "כתובת שרת",
     "Server address (for example 192.168.1.20:8081)":

@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "สีพื้นหลัง",
     "Background color of selected item": "สีพื้นหลังของรายการที่เลือก",
     "Backup state changed": "สถานะการสำรองข้อมูลมีการเปลี่ยนแปลง",
+    "Backup streams": "สตรีมสำรอง",
     "Balance, $": "ยอดคงเหลือ, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -597,6 +598,8 @@ var keyStrings = {
     "Manage lists": "จัดการรายการ",
     "Manage settings": "จัดการการตั้งค่า",
     "Manual setup": "การตั้งค่าด้วยตนเอง",
+    "Maximum stream bitrate": "อัตราบิตสตรีมสูงสุด",
+    "Maximum video height": "ความสูงวิดีโอสูงสุด",
     MaxTV: "MaxTV",
     "MaxTV settings": "การตั้งค่า MaxTV",
     Media: "สื่อ",
@@ -609,6 +612,7 @@ var keyStrings = {
     "Move category up": "ย้ายหมวดหมู่ขึ้น",
     "Move channel down": "เลื่อนช่องลง",
     "Move channel up": "ย้ายช่องขึ้น",
+    Movies: "ภาพยนตร์",
     "m3u-m3u8 playlists": "เพลย์ลิสต์ M3U / M3U8",
     medium: "ปานกลาง",
     min: "นาที",
@@ -628,6 +632,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "ไม่มีโปรแกรมที่ตรงกับช่องและวันที่ของเพลย์ลิสต์ ตรวจสอบแหล่งที่มาและนาฬิกาของอุปกรณ์",
     "No saved settings found": "ไม่พบการตั้งค่าที่บันทึกไว้",
+    "No stream meets the quality limits": "ไม่มีสตรีมที่ตรงตามข้อจำกัดคุณภาพ",
     "No supported system language. Choose a language.":
         "ไม่มีภาษาของระบบที่รองรับ เลือกภาษา",
     "Not configured": "ยังไม่ได้กำหนดค่า",
@@ -844,6 +849,7 @@ var keyStrings = {
         "ไม่สามารถเริ่มอินพุตระยะไกลแบบปลอดภัยได้ กรุณาใช้แป้นพิมพ์บนหน้าจอ",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "การป้อนข้อมูลระยะไกลที่ปลอดภัยไม่พร้อมใช้งานบนอุปกรณ์นี้ ใช้แป้นพิมพ์บนหน้าจอ",
+    "Select a live channel first": "เลือกช่องถ่ายทอดสดก่อน",
     "Select a stream type:<br>%1": "เลือกประเภทสตรีม:<br>%1",
     "Select category to add channel": "เลือกหมวดหมู่ที่จะเพิ่มช่อง",
     "Select color": "เลือกสี",
@@ -861,6 +867,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "ส่งรหัสนี้จากพร็อกซีของคุณในส่วนหัว Authorization: Bearer",
     "Send to TV": "ส่งไปยังทีวี",
+    Series: "ซีรีส์",
     Server: "เซิร์ฟเวอร์",
     "Server address": "ที่อยู่เซิร์ฟเวอร์",
     "Server address (for example 192.168.1.20:8081)":

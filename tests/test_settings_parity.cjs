@@ -1728,3 +1728,31 @@ for (const profile of [
 console.log(
     "OK: inactivity never wakes manual standby; native wake locks follow actual shared state"
 );
+
+// Quality ceilings use explicit semantic values, not menu indexes, in storage.
+{
+    const { w, stored, typed } = fixture();
+    w.settingsInterface();
+    const height = w.listArray.find(
+        (row) => row.settingId === "streamMaxHeight"
+    );
+    const bitrate = w.listArray.find(
+        (row) => row.settingId === "streamMaxBitrate"
+    );
+    assert.equal(height.val, 0);
+    height.val = height.settingValues.indexOf(720);
+    bitrate.val = bitrate.settingValues.indexOf(4000000);
+    assert.equal(w.__ottSettingsEditor.save(), true);
+    assert.equal(stored.get("sStreamMaxHeight"), "720");
+    assert.equal(stored.get("sStreamMaxBitrate"), "4000000");
+    assert.equal(typed().streamMaxHeight, 720);
+    assert.equal(typed().streamMaxBitrate, 4000000);
+    w.settingsInterface();
+    assert.equal(
+        w.listArray.find((row) => row.settingId === "streamMaxHeight").val,
+        3
+    );
+}
+console.log(
+    "OK: quality ceiling choices persist semantic height and bitrate values"
+);

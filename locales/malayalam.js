@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "പശ്ചാത്തല നിറം",
     "Background color of selected item": "തിരഞ്ഞെടുത്ത ഇനത്തിൻ്റെ പശ്ചാത്തല നിറം",
     "Backup state changed": "ബാക്കപ്പ് നില മാറ്റി",
+    "Backup streams": "പകരം സ്ട്രീമുകൾ",
     "Balance, $": "ബാലൻസ്, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -603,6 +604,8 @@ var keyStrings = {
     "Manage lists": "ലിസ്റ്റുകൾ നിയന്ത്രിക്കുക",
     "Manage settings": "ക്രമീകരണങ്ങൾ നിയന്ത്രിക്കുക",
     "Manual setup": "മാനുവൽ സജ്ജീകരണം",
+    "Maximum stream bitrate": "സ്ട്രീമിന്റെ പരമാവധി ബിറ്റ് നിരക്ക്",
+    "Maximum video height": "വീഡിയോയുടെ പരമാവധി ഉയരം",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ക്രമീകരണങ്ങൾ",
     Media: "മീഡിയ",
@@ -615,6 +618,7 @@ var keyStrings = {
     "Move category up": "വിഭാഗം മുകളിലേക്ക് നീക്കുക",
     "Move channel down": "ചാനൽ താഴേക്ക് നീക്കുക",
     "Move channel up": "ചാനൽ മുകളിലേക്ക് നീക്കുക",
+    Movies: "സിനിമകൾ",
     "m3u-m3u8 playlists": "M3U / M3U8 പ്ലേലിസ്റ്റുകൾ",
     medium: "ഇടത്തരം",
     min: "മിനിറ്റ്",
@@ -634,6 +638,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "പ്രോഗ്രാമുകളൊന്നും പ്ലേലിസ്റ്റ് ചാനലുകളുമായും തീയതികളുമായും പൊരുത്തപ്പെടുന്നില്ല. ഉറവിടവും ഉപകരണ ക്ലോക്കും പരിശോധിക്കുക.",
     "No saved settings found": "സംരക്ഷിച്ച ക്രമീകരണങ്ങളൊന്നും കണ്ടെത്തിയില്ല",
+    "No stream meets the quality limits":
+        "ഒരു സ്ട്രീമും ഗുണനിലവാര പരിധികൾ പാലിക്കുന്നില്ല",
     "No supported system language. Choose a language.":
         "പിന്തുണയ്ക്കുന്ന സിസ്റ്റം ഭാഷയില്ല. ഒരു ഭാഷ തിരഞ്ഞെടുക്കുക.",
     "Not configured": "സജ്ജീകരിച്ചിട്ടില്ല",
@@ -857,6 +863,7 @@ var keyStrings = {
         "സുരക്ഷിത വിദൂര ഇൻപുട്ട് ആരംഭിക്കാൻ കഴിഞ്ഞില്ല. ദയവായി ഓൺ-സ്ക്രീൻ കീബോർഡ് ഉപയോഗിക്കുക.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ഈ ഉപകരണത്തിൽ സുരക്ഷിത റിമോട്ട് ഇൻപുട്ട് ലഭ്യമല്ല. ഓൺ-സ്ക്രീൻ കീബോർഡ് ഉപയോഗിക്കുക.",
+    "Select a live channel first": "ആദ്യം ഒരു തത്സമയ ചാനൽ തിരഞ്ഞെടുക്കുക",
     "Select a stream type:<br>%1": "ഒരു സ്ട്രീം തരം തിരഞ്ഞെടുക്കുക:<br>%1",
     "Select category to add channel": "ചാനൽ ചേർക്കാൻ ഒരു വിഭാഗം തിരഞ്ഞെടുക്കുക",
     "Select color": "നിറം തിരഞ്ഞെടുക്കുക",
@@ -874,6 +881,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "നിങ്ങളുടെ പ്രോക്സിയിൽ നിന്ന് ഈ കോഡ് Authorization: Bearer ഹെഡറിൽ അയയ്ക്കുക.",
     "Send to TV": "ടിവിയിലേക്ക് അയയ്‌ക്കുക",
+    Series: "പരമ്പരകൾ",
     Server: "സെർവർ",
     "Server address": "സെർവർ വിലാസം",
     "Server address (for example 192.168.1.20:8081)":

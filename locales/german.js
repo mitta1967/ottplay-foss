@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color of selected item":
         "Hintergrundfarbe des ausgewählten Eintrags",
     "Backup state changed": "Sicherungsstatus geändert",
+    "Backup streams": "Ersatzstreams",
     "Balance, $": "Guthaben, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -628,6 +629,8 @@ var keyStrings = {
     "Manage lists": "Listen verwalten",
     "Manage settings": "Einstellungen verwalten",
     "Manual setup": "Manuelle Einrichtung",
+    "Maximum stream bitrate": "Maximale Stream-Bitrate",
+    "Maximum video height": "Maximale Videohöhe",
     MaxTV: "MaxTV",
     "MaxTV settings": "Einstellungen für MaxTV",
     Media: "Medien",
@@ -641,6 +644,7 @@ var keyStrings = {
     "Move category up": "Kategorie nach oben verschieben",
     "Move channel down": "Sender nach unten verschieben",
     "Move channel up": "Sender nach oben verschieben",
+    Movies: "Filme",
     "m3u-m3u8 playlists": "M3U-M3U8-Playlists",
     medium: "mittel",
     min: "Min.",
@@ -660,6 +664,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Keine Programme stimmten mit den Kanälen und Daten der Wiedergabeliste überein. Überprüfen Sie die Quelle und die Geräteuhr.",
     "No saved settings found": "Keine gespeicherten Einstellungen gefunden",
+    "No stream meets the quality limits":
+        "Kein Stream erfüllt die Qualitätsgrenzen",
     "No supported system language. Choose a language.":
         "Keine unterstützte Systemsprache. Wählen Sie eine Sprache.",
     "Not configured": "Nicht eingerichtet",
@@ -884,6 +890,7 @@ var keyStrings = {
         "Die sichere Remote-Eingabe konnte nicht gestartet werden. Bitte nutzen Sie die Bildschirmtastatur.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Die sichere Remote-Eingabe ist auf diesem Gerät nicht verfügbar. Verwenden Sie die Bildschirmtastatur.",
+    "Select a live channel first": "Zuerst einen Live-Kanal auswählen",
     "Select a stream type:<br>%1": "Wählen Sie einen Streamtyp:<br>%1",
     "Select category to add channel":
         "Kategorie zum Hinzufügen des Senders auswählen",
@@ -903,6 +910,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Senden Sie diesen Code vom Proxy im Header Authorization: Bearer.",
     "Send to TV": "An TV senden",
+    Series: "Serien",
     Server: "Server",
     "Server address": "Serveradresse",
     "Server address (for example 192.168.1.20:8081)":

@@ -61,7 +61,6 @@ if (require.main === module) {
                 "classicPlaybackMode",
                 "classicPlaybackAutoMode",
                 "PlaybackRecovery",
-                "PlaybackRestart",
             ],
             /var _networkRetries|var _mediaRecovered|var _liveRestartUsed/,
         ],

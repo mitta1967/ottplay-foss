@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Cor de fundo",
     "Background color of selected item": "Cor de fundo do item selecionado",
     "Backup state changed": "Estado de backup alterado",
+    "Backup streams": "Fluxos alternativos",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -624,6 +625,8 @@ var keyStrings = {
     "Manage lists": "Gerir listas",
     "Manage settings": "Gerir configurações",
     "Manual setup": "Configuração manual",
+    "Maximum stream bitrate": "Taxa de bits máxima do fluxo",
+    "Maximum video height": "Altura máxima do vídeo",
     MaxTV: "MaxTV",
     "MaxTV settings": "Configurações de MaxTV",
     Media: "Multimédia",
@@ -637,6 +640,7 @@ var keyStrings = {
     "Move category up": "Mover categoria para cima",
     "Move channel down": "Mover canal para baixo",
     "Move channel up": "Mover canal para cima",
+    Movies: "Filmes",
     "m3u-m3u8 playlists": "Listas m3u-m3u8",
     medium: "médio",
     min: "min",
@@ -656,6 +660,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Nenhum programa corresponde aos canais e datas da lista de reprodução. Verifique a fonte e o relógio do dispositivo.",
     "No saved settings found": "Não foram encontradas configurações guardadas",
+    "No stream meets the quality limits":
+        "Nenhum fluxo atende aos limites de qualidade",
     "No supported system language. Choose a language.":
         "Nenhum idioma de sistema suportado. Escolha um idioma.",
     "Not configured": "Não configurado",
@@ -881,6 +887,7 @@ var keyStrings = {
         "A entrada remota segura não pôde ser iniciada. Por favor, use o teclado na tela.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "A entrada remota segura não está disponível neste dispositivo. Use o teclado na tela.",
+    "Select a live channel first": "Selecione primeiro um canal ao vivo",
     "Select a stream type:<br>%1": "Selecione um tipo de fluxo:<br>%1",
     "Select category to add channel":
         "Selecionar categoria para adicionar canal",
@@ -900,6 +907,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Envie este código a partir do proxy no cabeçalho Authorization: Bearer.",
     "Send to TV": "Enviar para TV",
+    Series: "Séries",
     Server: "Servidor",
     "Server address": "Endereço do servidor",
     "Server address (for example 192.168.1.20:8081)":

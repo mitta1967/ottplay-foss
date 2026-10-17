@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color of selected item":
         "Color de fons de l’element seleccionat",
     "Backup state changed": "L'estat de la còpia de seguretat ha canviat",
+    "Backup streams": "Fluxos de reserva",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -636,6 +637,8 @@ var keyStrings = {
     "Manage lists": "Gestiona les llistes",
     "Manage settings": "Gestiona la configuració",
     "Manual setup": "Configuració manual",
+    "Maximum stream bitrate": "Taxa de bits màxima del flux",
+    "Maximum video height": "Alçada màxima del vídeo",
     MaxTV: "MaxTV",
     "MaxTV settings": "Configuració de MaxTV",
     Media: "Multimèdia",
@@ -649,6 +652,7 @@ var keyStrings = {
     "Move category up": "Mou la categoria amunt",
     "Move channel down": "Mou el canal avall",
     "Move channel up": "Mou el canal amunt",
+    Movies: "Pel·lícules",
     "m3u-m3u8 playlists": "Llistes M3U / M3U8",
     medium: "mitjà",
     min: "min",
@@ -668,6 +672,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Cap programa coincideix amb els canals i les dates de la llista. Comprova la font i el rellotge del dispositiu.",
     "No saved settings found": "No s’ha trobat cap configuració desada",
+    "No stream meets the quality limits":
+        "Cap flux compleix els límits de qualitat",
     "No supported system language. Choose a language.":
         "No s'admet cap idioma del sistema. Trieu un idioma.",
     "Not configured": "Sense configurar",
@@ -895,6 +901,7 @@ var keyStrings = {
         "No s’ha pogut iniciar l’entrada remota segura. Utilitza el teclat en pantalla.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "L’entrada remota segura no està disponible en aquest dispositiu. Utilitza el teclat en pantalla.",
+    "Select a live channel first": "Selecciona primer un canal en directe",
     "Select a stream type:<br>%1": "Selecciona un tipus de transmissió:<br>%1",
     "Select category to add channel":
         "Selecciona una categoria on afegir el canal",
@@ -914,6 +921,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Envia aquest codi des del servidor intermediari a la capçalera Authorization: Bearer.",
     "Send to TV": "Envia a la televisió",
+    Series: "Sèries",
     Server: "Servidor",
     "Server address": "Adreça del servidor",
     "Server address (for example 192.168.1.20:8081)":

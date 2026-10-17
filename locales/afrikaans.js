@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Agtergrondkleur",
     "Background color of selected item": "Agtergrondkleur van die gekose item",
     "Backup state changed": "Rugsteunstatus verander",
+    "Backup streams": "Rugsteunstrome",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -617,6 +618,8 @@ var keyStrings = {
     "Manage lists": "Bestuur lyste",
     "Manage settings": "Bestuur instellings",
     "Manual setup": "Handmatige opstelling",
+    "Maximum stream bitrate": "Maksimum stroom-bistempo",
+    "Maximum video height": "Maksimum videohoogte",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV-instellings",
     Media: "Media",
@@ -630,6 +633,7 @@ var keyStrings = {
     "Move category up": "Skuif kategorie op",
     "Move channel down": "Skuif kanaal af",
     "Move channel up": "Skuif kanaal op",
+    Movies: "Rolprente",
     "m3u-m3u8 playlists": "M3U / M3U8-snitlyste",
     medium: "medium",
     min: "min",
@@ -649,6 +653,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Geen programme stem met die snitlyskanale en datums ooreen nie. Kontroleer die bron en toestelklok.",
     "No saved settings found": "Geen gestoorde instellings gevind nie",
+    "No stream meets the quality limits":
+        "Geen stroom voldoen aan die gehaltegrense nie",
     "No supported system language. Choose a language.":
         "Geen ondersteunde stelseltaal nie. Kies 'n taal.",
     "Not configured": "Nie opgestel nie",
@@ -873,6 +879,7 @@ var keyStrings = {
         "Veilige afstandinvoer kon nie begin nie. Gebruik asseblief die skermsleutelbord.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Veilige afstandinvoer is nie op hierdie toestel beskikbaar nie. Gebruik die skermsleutelbord.",
+    "Select a live channel first": "Kies eers 'n regstreekse kanaal",
     "Select a stream type:<br>%1": "Kies 'n stroomtipe:<br>%1",
     "Select category to add channel":
         "Kies 'n kategorie om die kanaal by te voeg",
@@ -891,6 +898,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Stuur hierdie kode vanaf jou instaanbediener in die Authorization: Bearer-kopveld.",
     "Send to TV": "Stuur na TV",
+    Series: "TV-reekse",
     Server: "Bediener",
     "Server address": "Bedieneradres",
     "Server address (for example 192.168.1.20:8081)":

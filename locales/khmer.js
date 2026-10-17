@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "ពណ៌ផ្ទៃខាងក្រោយ",
     "Background color of selected item": "ពណ៌ផ្ទៃខាងក្រោយនៃធាតុដែលបានជ្រើសរើស",
     "Backup state changed": "ស្ថានភាពបម្រុងទុកបានផ្លាស់ប្តូរ",
+    "Backup streams": "ស្ទ្រីមបម្រុង",
     "Balance, $": "សមតុល្យ $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -600,6 +601,8 @@ var keyStrings = {
     "Manage lists": "គ្រប់គ្រងបញ្ជី",
     "Manage settings": "គ្រប់គ្រងការកំណត់",
     "Manual setup": "ការដំឡើងដោយដៃ",
+    "Maximum stream bitrate": "អត្រាប៊ីតស្ទ្រីមអតិបរមា",
+    "Maximum video height": "កម្ពស់វីដេអូអតិបរមា",
     MaxTV: "MaxTV",
     "MaxTV settings": "ការកំណត់ MaxTV",
     Media: "ប្រព័ន្ធផ្សព្វផ្សាយ",
@@ -612,6 +615,7 @@ var keyStrings = {
     "Move category up": "ផ្លាស់ទីប្រភេទឡើងលើ",
     "Move channel down": "ផ្លាស់ទីឆានែលចុះក្រោម",
     "Move channel up": "ផ្លាស់ទីឆានែលឡើងលើ",
+    Movies: "ភាពយន្ត",
     "m3u-m3u8 playlists": "បញ្ជីចាក់ M3U / M3U8",
     medium: "មធ្យម",
     min: "នាទី",
@@ -631,6 +635,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "គ្មានកម្មវិធីដែលត្រូវគ្នានឹងប៉ុស្តិ៍ និងកាលបរិច្ឆេទនៃបញ្ជីចាក់ទេ។ ពិនិត្យមើលប្រភព និងនាឡិកាឧបករណ៍។",
     "No saved settings found": "រកមិនឃើញការកំណត់ដែលបានរក្សាទុកទេ។",
+    "No stream meets the quality limits": "គ្មានស្ទ្រីមណាមួយបំពេញដែនកំណត់គុណភាពទេ",
     "No supported system language. Choose a language.":
         "គ្មានភាសាប្រព័ន្ធដែលគាំទ្រទេ។ ជ្រើសរើសភាសា។",
     "Not configured": "មិនទាន់បានកំណត់",
@@ -853,6 +858,7 @@ var keyStrings = {
         "ការបញ្ចូលពីចម្ងាយសុវត្ថិភាពមិនអាចចាប់ផ្តើមបានទេ។ សូមប្រើក្តារចុចលើអេក្រង់។",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ការបញ្ចូលពីចម្ងាយសុវត្ថិភាពមិនមាននៅលើឧបករណ៍នេះទេ។ ប្រើក្តារចុចលើអេក្រង់។",
+    "Select a live channel first": "សូមជ្រើសរើសប៉ុស្តិ៍ផ្សាយផ្ទាល់ជាមុន",
     "Select a stream type:<br>%1": "ជ្រើសរើសប្រភេទស្ទ្រីម៖ <br>%1",
     "Select category to add channel": "ជ្រើសរើសប្រភេទដើម្បីបន្ថែមឆានែល",
     "Select color": "ជ្រើសរើសពណ៌",
@@ -870,6 +876,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "ផ្ញើលេខកូដនេះពីប្រូកស៊ីរបស់អ្នកនៅក្នុងបឋមកថា Authorization: Bearer ។",
     "Send to TV": "ផ្ញើទៅទូរទស្សន៍",
+    Series: "រឿងភាគ",
     Server: "ម៉ាស៊ីនមេ",
     "Server address": "អាសយដ្ឋានម៉ាស៊ីនមេ",
     "Server address (for example 192.168.1.20:8081)":
@@ -1035,7 +1042,7 @@ var keyStrings = {
         "ការវិនិច្ឆ័យដែលអាចទុកចិត្តបានគឺមិនអាចប្រើបានទេ ដោយសារទំហំផ្ទុកឧបករណ៍មិនអាចធ្វើបច្ចុប្បន្នភាពបានទេ។",
     "Trusted diagnostics is waiting for this player to reconnect.":
         "ការធ្វើរោគវិនិច្ឆ័យដែលគួរឱ្យទុកចិត្តកំពុងរង់ចាំកម្មវិធីចាក់នេះដើម្បីភ្ជាប់ឡើងវិញ។",
-    "Try demo": "សាកល្បងសាកល្បង",
+    "Try demo": "សាកល្បងការបង្ហាញ",
     "TV DOSUG": "TV DOSUG",
     "TV DOSUG settings": "ការកំណត់ TV DOSUG",
     TVClub: "TVClub",

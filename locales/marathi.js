@@ -100,6 +100,7 @@ var keyStrings = {
     "Background color": "पार्श्वभूमी रंग",
     "Background color of selected item": "निवडलेल्या आयटमचा पार्श्वभूमी रंग",
     "Backup state changed": "बॅकअप स्थिती बदलली",
+    "Backup streams": "पर्यायी स्ट्रीम",
     "Balance, $": "शिल्लक, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -600,6 +601,8 @@ var keyStrings = {
     "Manage lists": "याद्या व्यवस्थापित करा",
     "Manage settings": "सेटिंग्ज व्यवस्थापित करा",
     "Manual setup": "मॅन्युअल सेटअप",
+    "Maximum stream bitrate": "स्ट्रीमचा कमाल बिटरेट",
+    "Maximum video height": "व्हिडिओची कमाल उंची",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV सेटिंग्ज",
     Media: "मीडिया",
@@ -612,6 +615,7 @@ var keyStrings = {
     "Move category up": "श्रेणी वर हलवा",
     "Move channel down": "चॅनेल खाली हलवा",
     "Move channel up": "चॅनेल वर हलवा",
+    Movies: "चित्रपट",
     "m3u-m3u8 playlists": "M3U / M3U8 प्लेलिस्ट",
     medium: "मध्यम",
     min: "मिनिटे",
@@ -631,6 +635,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "कोणतेही कार्यक्रम प्लेलिस्ट चॅनेल आणि तारखांशी जुळलेले नाहीत. स्त्रोत आणि डिव्हाइस घड्याळ तपासा.",
     "No saved settings found": "कोणतीही जतन केलेली सेटिंग्ज आढळली नाहीत",
+    "No stream meets the quality limits":
+        "कोणतीही स्ट्रीम गुणवत्तेच्या मर्यादा पूर्ण करत नाही",
     "No supported system language. Choose a language.":
         "कोणतीही समर्थित प्रणाली भाषा नाही. एक भाषा निवडा.",
     "Not configured": "कॉन्फिगर केलेले नाही",
@@ -849,6 +855,7 @@ var keyStrings = {
         "सुरक्षित रिमोट इनपुट सुरू होऊ शकले नाही. कृपया ऑन-स्क्रीन कीबोर्ड वापरा.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "या डिव्हाइसवर सुरक्षित रिमोट इनपुट अनुपलब्ध आहे. ऑन-स्क्रीन कीबोर्ड वापरा.",
+    "Select a live channel first": "प्रथम थेट प्रसारणाची वाहिनी निवडा",
     "Select a stream type:<br>%1": "प्रवाह प्रकार निवडा:<br>%1",
     "Select category to add channel": "चॅनेल जोडण्यासाठी श्रेणी निवडा",
     "Select color": "रंग निवडा",
@@ -866,6 +873,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "हा कोड आपल्या प्रॉक्सीकडून Authorization: Bearer हेडरमध्ये पाठवा.",
     "Send to TV": "टीव्हीवर पाठवा",
+    Series: "मालिका",
     Server: "सर्व्हर",
     "Server address": "सर्व्हर पत्ता",
     "Server address (for example 192.168.1.20:8081)":

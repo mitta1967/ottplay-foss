@@ -98,6 +98,7 @@ var keyStrings = {
     "Background color": "ສີພື້ນຫຼັງ",
     "Background color of selected item": "ສີພື້ນຫຼັງຂອງລາຍການທີ່ເລືອກ",
     "Backup state changed": "ສະຖານະສຳຮອງຖືກປ່ຽນ",
+    "Backup streams": "ສະຕຣີມສຳຮອງ",
     "Balance, $": "ຍອດເຫຼືອ, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -585,6 +586,8 @@ var keyStrings = {
     "Manage lists": "ຈັດການລາຍການ",
     "Manage settings": "ຈັດການການຕັ້ງຄ່າ",
     "Manual setup": "ຕັ້ງຄ່າດ້ວຍຕົນເອງ",
+    "Maximum stream bitrate": "ອັດຕາບິດສະຕຣີມສູງສຸດ",
+    "Maximum video height": "ຄວາມສູງວິດີໂອສູງສຸດ",
     MaxTV: "MaxTV",
     "MaxTV settings": "ການຕັ້ງຄ່າ MaxTV",
     Media: "ສື່",
@@ -597,6 +600,7 @@ var keyStrings = {
     "Move category up": "ຍ້າຍໝວດໝູ່ຂຶ້ນ",
     "Move channel down": "ຍ້າຍຊ່ອງລົງ",
     "Move channel up": "ຍ້າຍຊ່ອງຂຶ້ນ",
+    Movies: "ຮູບເງົາ",
     "m3u-m3u8 playlists": "ລາຍການຫຼິ້ນ M3U / M3U8",
     medium: "ກາງ",
     min: "ນາທີ",
@@ -614,6 +618,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "ບໍ່ມີລາຍການທີ່ກົງກັບຊ່ອງ ແລະ ວັນທີໃນລາຍການຫຼິ້ນ. ກວດສອບແຫຼ່ງ ແລະ ໂມງອຸປະກອນ.",
     "No saved settings found": "ບໍ່ພົບການຕັ້ງຄ່າທີ່ບັນທຶກໄວ້",
+    "No stream meets the quality limits": "ບໍ່ມີສະຕຣີມທີ່ກົງກັບຂໍ້ຈຳກັດຄຸນນະພາບ",
     "No supported system language. Choose a language.":
         "ບໍ່ມີພາສາລະບົບທີ່ຮອງຮັບ. ເລືອກພາສາ.",
     "Not configured": "ຍັງບໍ່ຕັ້ງຄ່າ",
@@ -829,6 +834,7 @@ var keyStrings = {
         "ບໍ່ສາມາດເລີ່ມການປ້ອນທາງໄກທີ່ປອດໄພ. ໃຊ້ແປ້ນພິມໃນຈໍ.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ການປ້ອນທາງໄກທີ່ປອດໄພບໍ່ພ້ອມໃຊ້ໃນອຸປະກອນນີ້. ໃຊ້ແປ້ນພິມໃນຈໍ.",
+    "Select a live channel first": "ກະລຸນາເລືອກຊ່ອງສົດກ່ອນ",
     "Select a stream type:<br>%1": "ເລືອກປະເພດສະຕຣີມ:<br>%1",
     "Select category to add channel": "ເລືອກໝວດໝູ່ເພື່ອເພີ່ມຊ່ອງ",
     "Select color": "ເລືອກສີ",
@@ -846,6 +852,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "ສົ່ງລະຫັດນີ້ຈາກພຣັອກຊີໃນສ່ວນຫົວ Authorization: Bearer.",
     "Send to TV": "ສົ່ງໄປໂທລະທັດ",
+    Series: "ຊີຣີ",
     Server: "ເຊີບເວີ",
     "Server address": "ທີ່ຢູ່ເຊີບເວີ",
     "Server address (for example 192.168.1.20:8081)":

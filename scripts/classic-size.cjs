@@ -196,6 +196,14 @@ const { gzipSync } = require("node:zlib");
 // Cancellable Plex arrow waits and buffered HLS resume add 1282 raw / at most
 // 366 gzip bytes on Node 26.8.2 at version 1.1.54. Allocate +1300 / +400, retaining
 // the existing native, clean-source identity and release-version reserve.
+// Reviewed roadmap cost: bbf9ca7b -> cae971da on the same Node 26.8.2,
+// Terser 5.51.2 and zlib 1.2.12: entry 848092/262392 -> 874926/270321
+// raw/gzip; native 874884/270372. Retain the prior Node 22/native/version
+// reserve, plus the one-byte rooted diagnostic URL fix. Full evidence and
+// scope (JavaScript only, separate A/V asset) are in docs/roadmap-size.md.
+// Post-beta Plex integration and explicit damaged-journal recovery (including
+// scoped cookie reset) measure 879533 / 271761 on Node 26.8.2, Rollup 4.64.5.
+// Allocate their measured cost while preserving native/Node 22/version room.
 // Transport suspension retains the logical lease while cancelling its engine
 // and resolver, then safely reattaches on wake. Node 26.8.2 measures 848868 raw /
 // 262607 gzip web bytes. Reserve +1000 raw for this lifecycle path and its
@@ -225,7 +233,10 @@ const { gzipSync } = require("node:zlib");
 // Node 22.23.3: prior 848f web 863151/268323 -> fixed 863425/268420.
 // Reserve +256 raw/+128 gzip once; all five measured outputs fit while
 // preserving native transforms and release-identity room.
-const BUDGET = Object.freeze({ bytes: 863656, gzipBytes: 268618 });
+// Combine the independently reviewed roadmap and main allowances once over
+// their common 1ecbc0e7 baseline (848400 raw / 263600 gzip). No artifact or
+// provider is excluded, and no additional integration reserve is introduced.
+const BUDGET = Object.freeze({ bytes: 895156, gzipBytes: 278018 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -333,6 +344,10 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Include the shared skip wait, buffered HLS resume and optional Plex retries:
 // +1670 raw / at most 488 gzip bytes over fbc80031, measured with all seven
 // providers on Node 26.8.2. Allocate +1700 / +500 to preserve the prior reserve.
+// All eight provider families remain counted, including lazy Xtream:
+// 964459/305344 -> 995587/315103 web; 995545/315154 native.
+// The same build, counting all eight optional providers, is 1000388 / 316600.
+// Keep every provider inside the bound; no runtime code is excluded or deferred.
 // Count the same transport-suspension code once in the complete payload.
 // CI Node 22 measures 306569 gzip bytes; retain 81 bytes for release identity.
 // Count the same 64-byte source-metadata allowance once in the full payload.
@@ -342,7 +357,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // the measured startup protection cost of 500 raw / 192 gzip bytes.
 // Count the same +256 raw/+128 gzip word-copy repair once; all seven
 // provider outputs and every artifact remain in the complete-payload checks.
-const TOTAL_BUDGET = Object.freeze({ bytes: 980156, gzipBytes: 311668 });
+// Combine both reviewed deltas over the common 964900 / 306550 baseline.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1016056, gzipBytes: 322918 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

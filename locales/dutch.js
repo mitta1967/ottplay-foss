@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color of selected item":
         "Achtergrondkleur van geselecteerd item",
     "Backup state changed": "Back-upstatus gewijzigd",
+    "Backup streams": "Reservestreams",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -622,6 +623,8 @@ var keyStrings = {
     "Manage lists": "Lijsten beheren",
     "Manage settings": "Instellingen beheren",
     "Manual setup": "Handmatige configuratie",
+    "Maximum stream bitrate": "Maximale streambitsnelheid",
+    "Maximum video height": "Maximale videohoogte",
     MaxTV: "MaxTV",
     "MaxTV settings": "Instellingen voor MaxTV",
     Media: "Media",
@@ -634,6 +637,7 @@ var keyStrings = {
     "Move category up": "Categorie omhoog verplaatsen",
     "Move channel down": "Zender omlaag verplaatsen",
     "Move channel up": "Zender omhoog verplaatsen",
+    Movies: "Films",
     "m3u-m3u8 playlists": "M3U-/M3U8-afspeellijsten",
     medium: "middel",
     min: "min",
@@ -653,6 +657,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Er zijn geen programma's die overeenkomen met de kanalen en datums in de afspeellijst. Controleer de bron- en apparaatklok.",
     "No saved settings found": "Geen opgeslagen instellingen gevonden",
+    "No stream meets the quality limits":
+        "Geen stream voldoet aan de kwaliteitslimieten",
     "No supported system language. Choose a language.":
         "Geen ondersteunde systeemtaal. Kies een taal.",
     "Not configured": "Niet ingesteld",
@@ -879,6 +885,7 @@ var keyStrings = {
         "Beveiligde externe invoer kon niet starten. Gebruik het schermtoetsenbord.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Beveiligde invoer op afstand is niet beschikbaar op dit apparaat. Gebruik het schermtoetsenbord.",
+    "Select a live channel first": "Selecteer eerst een livekanaal",
     "Select a stream type:<br>%1": "Kies een streamtype:<br>%1",
     "Select category to add channel":
         "Categorie kiezen om zender toe te voegen",
@@ -898,6 +905,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Verzend deze code vanuit uw proxy in de header Authorization: Bearer.",
     "Send to TV": "Verzenden naar tv",
+    Series: "Televisieseries",
     Server: "Server",
     "Server address": "Serveradres",
     "Server address (for example 192.168.1.20:8081)":

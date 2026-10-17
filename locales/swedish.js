@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "Bakgrundsfärg",
     "Background color of selected item": "Bakgrundsfärg för valt objekt",
     "Backup state changed": "Säkerhetskopiering har ändrats",
+    "Backup streams": "Reservströmmar",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -614,6 +615,8 @@ var keyStrings = {
     "Manage lists": "Hantera listor",
     "Manage settings": "Hantera inställningar",
     "Manual setup": "Manuell inställning",
+    "Maximum stream bitrate": "Maximal bithastighet för strömmen",
+    "Maximum video height": "Maximal videohöjd",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV-inställningar",
     Media: "Media",
@@ -627,6 +630,7 @@ var keyStrings = {
     "Move category up": "Flytta kategori uppåt",
     "Move channel down": "Flytta kanal nedåt",
     "Move channel up": "Flytta kanal uppåt",
+    Movies: "Filmer",
     "m3u-m3u8 playlists": "M3U- / M3U8-spellistor",
     medium: "mellan",
     min: "min",
@@ -646,6 +650,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Inga program matchade spellistans kanaler och datum. Kontrollera källan och enhetens klocka.",
     "No saved settings found": "Inga sparade inställningar hittades",
+    "No stream meets the quality limits":
+        "Ingen ström uppfyller kvalitetsgränserna",
     "No supported system language. Choose a language.":
         "Inget systemspråk som stöds. Välj ett språk.",
     "Not configured": "Inte konfigurerat",
@@ -870,6 +876,7 @@ var keyStrings = {
         "Säker fjärrinmatning kunde inte startas. Använd tangentbordet på skärmen.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Säker fjärrinmatning är inte tillgänglig på den här enheten. Använd tangentbordet på skärmen.",
+    "Select a live channel first": "Välj först en direktsänd kanal",
     "Select a stream type:<br>%1": "Välj strömtyp:<br>%1",
     "Select category to add channel": "Välj kategori att lägga till kanalen i",
     "Select color": "Välj färg",
@@ -887,6 +894,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Skicka koden från din proxy i rubriken Authorization: Bearer.",
     "Send to TV": "Skicka till TV",
+    Series: "TV-serier",
     Server: "Server",
     "Server address": "Serveradress",
     "Server address (for example 192.168.1.20:8081)":

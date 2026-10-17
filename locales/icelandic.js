@@ -100,6 +100,7 @@ var keyStrings = {
     "Background color": "Bakgrunnslitur",
     "Background color of selected item": "Bakgrunnslitur valins atriðis",
     "Backup state changed": "Afritunarstöðu breytt",
+    "Backup streams": "Varastreymi",
     "Balance, $": "Inneign, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -605,6 +606,8 @@ var keyStrings = {
     "Manage lists": "Stjórna listum",
     "Manage settings": "Stjórna stillingum",
     "Manual setup": "Handvirk uppsetning",
+    "Maximum stream bitrate": "Hámarksbitahraði streymis",
+    "Maximum video height": "Hámarkshæð myndskeiðs",
     MaxTV: "MaxTV",
     "MaxTV settings": "Stillingar fyrir MaxTV",
     Media: "Miðlar",
@@ -617,6 +620,7 @@ var keyStrings = {
     "Move category up": "Færa flokk upp",
     "Move channel down": "Færa rás niður",
     "Move channel up": "Færa rás upp",
+    Movies: "Kvikmyndir",
     "m3u-m3u8 playlists": "M3U / M3U8-spilunarlistar",
     medium: "miðlungs",
     min: "mín",
@@ -636,6 +640,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Engir þættir pössuðu við rásir og dagsetningar spilunarlistans. Athugaðu uppsprettuna og klukku tækisins.",
     "No saved settings found": "Engar vistaðar stillingar fundust",
+    "No stream meets the quality limits": "Ekkert streymi uppfyllir gæðamörkin",
     "No supported system language. Choose a language.":
         "Ekkert tungumál kerfisins er stutt. Veldu tungumál.",
     "Not configured": "Ekki uppsett",
@@ -860,6 +865,7 @@ var keyStrings = {
         "Ekki tókst að ræsa öruggan fjarinnslátt. Notaðu skjályklaborðið.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Öruggur fjarinnsláttur er ekki tiltækur í þessu tæki. Notaðu skjályklaborðið.",
+    "Select a live channel first": "Veldu fyrst rás í beinni",
     "Select a stream type:<br>%1": "Veldu tegund straums:<br>%1",
     "Select category to add channel": "Veldu flokk til að bæta rásinni við",
     "Select color": "Veldu lit",
@@ -877,6 +883,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Sendu þennan kóða frá milliþjóninum þínum í hausnum Authorization: Bearer.",
     "Send to TV": "Senda í sjónvarp",
+    Series: "Þáttaraðir",
     Server: "Þjónn",
     "Server address": "Vistfang þjóns",
     "Server address (for example 192.168.1.20:8081)":

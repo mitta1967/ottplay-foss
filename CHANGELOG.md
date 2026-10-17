@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Changes
+
+- Bound playback recovery and backup attempts across engine replacement, preserve
+  configured quality limits, and provide an optional hosted picture-and-sound check.
+- Add lazy Xtream movie and series browsing, explicit channel-to-guide bindings,
+  accessible classic dialogs, and same-source live/archive handoff with a compatible
+  controller. VOD handoff is not included.
+- Recover interrupted local settings transactions before loading accounts. Recovery
+  assumes a single writer; damaged journals require an explicit retry or reset.
+- Add English/Russian feature guides, illustrated verification reports and localized
+  quick starts for all 88 interface languages. The hosted diagnostic requires internet
+  access and is fetched only when explicitly started.
+
 - Avoid V8 array-species deoptimization during legacy-UA PIN startup without reducing PBKDF2 work; retain exact upstream provenance and differential cryptographic tests.
 
 ### Security

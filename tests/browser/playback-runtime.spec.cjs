@@ -6,6 +6,117 @@ const { test, expect } = require("@playwright/test");
 
 const mediaRoot = path.resolve(__dirname, "../fixtures/media-runtime");
 
+test("corrupt settings journal offers explicit recovery before provider hydration", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const origin = new URL(baseURL).origin;
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await context.route("**/*", (route) =>
+        new URL(route.request().url()).origin === origin
+            ? route.continue()
+            : route.abort("blockedbyclient")
+    );
+    await context.routeWebSocket("**/*", (socket) => socket.close());
+    await context.addInitScript(() => {
+        if (sessionStorage.getItem("recoveryFixture")) {
+            // Observe the reload before ordinary first-run defaults are saved.
+            window.__recoveryAfterReset = {
+                cookie: document.cookie,
+                journal: localStorage.getItem("ottplaySettingsJournalV1"),
+                setting: localStorage.getItem("recoveryFixtureSetting"),
+            };
+            return;
+        }
+        sessionStorage.setItem("recoveryFixture", "1");
+        localStorage.setItem("ottplaylang", "_eng");
+        localStorage.setItem("ottplayprov", "demo");
+        localStorage.setItem("recoveryFixtureSetting", "partial-private-value");
+        localStorage.setItem("recoveryFixtureCookie", "recorded-cookie-key");
+        localStorage.setItem(
+            "ottplaySettingsJournalV1",
+            "{malformed-private-journal"
+        );
+        document.cookie = "recoveryFixtureCookie=stale; path=/";
+    });
+    await page.goto("/f/pc/");
+    const dialog = page.getByRole("alertdialog", {
+        name: "Player could not start",
+    });
+    await expect(dialog).toBeVisible();
+    await expect(
+        dialog.getByRole("button", { exact: true, name: "Retry" })
+    ).toBeFocused();
+    await expect(dialog).not.toContainText("private");
+    await page.screenshot({
+        path: test.info().outputPath("settings-recovery.png"),
+    });
+    const original = await page.evaluate(() => ({
+        cookie: document.cookie,
+        journal: localStorage.getItem("ottplaySettingsJournalV1"),
+        setting: localStorage.getItem("recoveryFixtureSetting"),
+    }));
+    expect(original).toEqual({
+        cookie: "recoveryFixtureCookie=stale",
+        journal: "{malformed-private-journal",
+        setting: "partial-private-value",
+    });
+    expect(
+        await page.evaluate(() => ({
+            channelsReady: window.commandChannelsReady === true,
+            deviceStarted: !!window.__ottDevice,
+            provider: window.stbGetItem("ottplayprov"),
+            setting: window.stbGetItem("recoveryFixtureSetting"),
+        }))
+    ).toEqual({
+        channelsReady: false,
+        deviceStarted: false,
+        provider: null,
+        setting: null,
+    });
+    await dialog.getByRole("button", { exact: true, name: "Retry" }).click();
+    await expect(dialog).toBeVisible();
+    await dialog
+        .getByRole("button", { exact: true, name: "Clear settings" })
+        .click();
+    await expect(
+        dialog.getByText("Clear all settings?", { exact: true })
+    ).toBeVisible();
+    await expect(
+        dialog.getByRole("button", { exact: true, name: "Cancel" })
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(
+        dialog.getByRole("button", { exact: true, name: "Retry" })
+    ).toBeFocused();
+    expect(
+        await page.evaluate(() => ({
+            cookie: document.cookie,
+            journal: localStorage.getItem("ottplaySettingsJournalV1"),
+            setting: localStorage.getItem("recoveryFixtureSetting"),
+        }))
+    ).toEqual(original);
+    await dialog
+        .getByRole("button", { exact: true, name: "Clear settings" })
+        .click();
+    await Promise.all([
+        page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+        dialog
+            .getByRole("button", { exact: true, name: "Clear settings" })
+            .click(),
+    ]);
+    expect(await page.evaluate(() => window.__recoveryAfterReset)).toEqual({
+        cookie: "ottplayStorageFallback.reset=1; ottplayStorageFallback=%5B%5D",
+        journal: null,
+        setting: null,
+    });
+    await page.waitForFunction(() => !!window.__ottDevice);
+    await expect(dialog).toHaveCount(0);
+    expect(errors).toEqual([]);
+});
+
 test("remote archive receipt resolves without playback and starts the selected past programme", async ({
     page,
     context,
@@ -224,7 +335,9 @@ test("native editor remote button sends typed draft, resumes and saves only on c
     baseURL,
 }) => {
     const fixture = await nativeRemoteInputFixture(page, context, baseURL);
-    const field = page.getByLabel("Search", { exact: true });
+    const field = page
+        .getByRole("dialog", { exact: true, name: "Search" })
+        .getByLabel("Search", { exact: true });
     await field.fill("Typed draft & <literal>");
     const remote = page.getByRole("button", {
         exact: true,
@@ -272,7 +385,9 @@ test("native editor remote cancel preserves typing and Escape discards without s
     baseURL,
 }) => {
     const fixture = await nativeRemoteInputFixture(page, context, baseURL);
-    const field = page.getByLabel("Search", { exact: true });
+    const field = page
+        .getByRole("dialog", { exact: true, name: "Search" })
+        .getByLabel("Search", { exact: true });
     await field.fill("Keep this draft");
     await page
         .getByRole("button", { exact: true, name: "Remote text entry" })
@@ -299,7 +414,9 @@ test("native editor remote button explains missing configuration and keeps the f
         baseURL,
         false
     );
-    const field = page.getByLabel("Search", { exact: true });
+    const field = page
+        .getByRole("dialog", { exact: true, name: "Search" })
+        .getByLabel("Search", { exact: true });
     await field.fill("Local draft");
     await page
         .getByRole("button", { exact: true, name: "Remote text entry" })
@@ -909,10 +1026,10 @@ async function titleFilterFixture(page, context, baseURL, holdPages = false) {
         window.__ottMedia.open("");
     });
     await page
-        .getByRole("button", { exact: true, name: "Мультфильмы" })
+        .getByRole("option", { exact: true, name: "Мультфильмы" })
         .click();
     await expect(
-        page.getByRole("button", { exact: true, name: "Три кота" })
+        page.getByRole("option", { exact: true, name: "Три кота" })
     ).toBeVisible();
     return {
         errors,
@@ -941,7 +1058,7 @@ test("media title filter uses TV and SWOP confirmation and survives paging and B
     baseURL,
 }) => {
     const fixture = await titleFilterFixture(page, context, baseURL, true);
-    const title = (name) => page.getByRole("button", { exact: true, name });
+    const title = (name) => page.getByRole("option", { exact: true, name });
     const loading = await page.evaluate(() => window._("Loading..."));
     const frame = () =>
         page.evaluate(() => {
@@ -1089,10 +1206,10 @@ test("stale media title filter editors cannot change another list or source", as
             window.__lateFilterSave();
         }, replaceSource);
         await page
-            .getByRole("button", { exact: true, name: "Мультфильмы" })
+            .getByRole("option", { exact: true, name: "Мультфильмы" })
             .click();
         await expect(
-            page.getByRole("button", { exact: true, name: "Смешарики" })
+            page.getByRole("option", { exact: true, name: "Смешарики" })
         ).toBeVisible();
         await expect(page.locator("#listCaption")).not.toContainText(
             "must not be applied"

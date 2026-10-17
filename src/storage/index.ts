@@ -48,6 +48,7 @@ export interface StorageAdapter {
     reset(): void;
     set(key: string, value: string): void;
     setI(key: string, value: number): void;
+    transaction?(writes: JournalWrite[], current: () => boolean): boolean;
 }
 
 function createStorageAdapter(
@@ -92,18 +93,221 @@ function createStorageAdapter(
  * operations switch to cookies/memory for this session and preserve readable keys.
  */
 const STORAGE_FALLBACK_KEYS = "ottplayStorageFallback";
+const STORAGE_RESET_EPOCH = STORAGE_FALLBACK_KEYS + ".reset";
 const STORAGE_COOKIE_ATTRIBUTES =
     "; expires=Tue, 19 Jan 2038 03:14:07 GMT; path=/";
 
 /** Internal cookie bookkeeping must never be imported as a user setting. */
 export function isStorageMetadataKey(key: string): boolean {
     return (
+        key === "ottplaySettingsJournalV1" ||
         key === STORAGE_FALLBACK_KEYS ||
         key.indexOf(STORAGE_FALLBACK_KEYS + ".") === 0
     );
 }
 
-function readStorageCookies(): Record<string, string> {
+interface JournalWrite {
+    after: string | null;
+    before: string | null;
+    key: string;
+    rollback?: string | null;
+}
+
+let recoveryStorage: Storage | null = null;
+
+/** A failed boot recovery quarantines every adapter until a fresh page loads. */
+export function settingsRecoveryRequired(): boolean {
+    return recoveryStorage !== null;
+}
+
+/** Called only by the recovery screen after an explicit user action. */
+export function recoverStoredSettings(clear: boolean): void {
+    var backing = recoveryStorage;
+    if (!backing) return;
+    if (!clear) {
+        recoverSettingsJournal(backing);
+        return;
+    }
+    var cookies = readStorageCookies(true);
+    var cookieKeys = readStorageFallback(cookies) || [];
+    var key = "ottplaySettingsJournalV1";
+    // A reset must never become an undo on the next boot. Keep this invalid
+    // journal as a durable barrier until native data and cookie policy reset.
+    var barrier = '{"version":0}';
+    backing.setItem(key, barrier);
+    function ownsReset(): void {
+        if (backing!.getItem(key) !== barrier)
+            throw new Error("Settings journal changed");
+    }
+    ownsReset();
+    var names: string[] = [];
+    for (var i = 0; i < backing.length; i++) {
+        var name = backing.key(i);
+        if (name !== null && name !== key) names.push(name);
+    }
+    names.forEach(function (name) {
+        if (cookieKeys.indexOf(name) < 0) cookieKeys.push(name);
+    });
+    Object.keys(cookies).forEach(function (name) {
+        if (isStorageMetadataKey(name) && name !== STORAGE_RESET_EPOCH)
+            cookieKeys.push(name);
+    });
+    names.forEach(function (name) {
+        ownsReset();
+        backing!.removeItem(name);
+        if (backing!.getItem(name) !== null)
+            throw new Error("Settings recovery failed");
+    });
+    // Delete only recorded player keys at the root path used by our adapter.
+    // Foreign path/domain cookies are not ours to remove. A durable epoch and
+    // empty allowlist keep unrecorded legacy cookies out of future fallbacks.
+    cookieKeys.forEach(function (name) {
+        ownsReset();
+        document.cookie =
+            encodeURIComponent(name) +
+            "=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/";
+    });
+    ownsReset();
+    cookies = readStorageCookies(true);
+    if (
+        cookieKeys.some(function (name) {
+            return Object.prototype.hasOwnProperty.call(cookies, name);
+        })
+    )
+        throw new Error("Settings recovery failed");
+    document.cookie = STORAGE_RESET_EPOCH + "=1" + STORAGE_COOKIE_ATTRIBUTES;
+    document.cookie =
+        STORAGE_FALLBACK_KEYS + "=%5B%5D" + STORAGE_COOKIE_ATTRIBUTES;
+    cookies = readStorageCookies(true);
+    if (
+        backing.length !== 1 ||
+        cookies[STORAGE_RESET_EPOCH] !== "1" ||
+        cookies[STORAGE_FALLBACK_KEYS] !== "[]"
+    )
+        throw new Error("Settings recovery failed");
+    ownsReset();
+    backing.removeItem(key);
+    if (backing.getItem(key) !== null)
+        throw new Error("Settings recovery failed");
+    // Keep this page quarantined: modules may already have captured defaults.
+    // The screen reloads only after this entire operation succeeds.
+}
+
+/** Undo a prepared batch before settings/provider hydration. Never overwrite a foreign edit. */
+export function recoverSettingsJournal(backing: Storage): void {
+    var key = "ottplaySettingsJournalV1";
+    var raw = backing.getItem(key);
+    if (raw === null) return;
+    if (raw.length > 2 * 1024 * 1024)
+        throw new Error("Invalid settings journal");
+    var record = JSON.parse(raw);
+    var seen: Record<string, boolean> = Object.create(null);
+    if (
+        !record ||
+        record.version !== 1 ||
+        !Array.isArray(record.writes) ||
+        record.writes.length > 16000 ||
+        Object.keys(record).sort().join(",") !== "version,writes"
+    )
+        throw new Error("Invalid settings journal");
+    record.writes.forEach(function (entry: JournalWrite) {
+        if (
+            !entry ||
+            Object.keys(entry).sort().join(",") !== "after,before,key" ||
+            typeof entry.key !== "string" ||
+            !entry.key ||
+            isStorageMetadataKey(entry.key) ||
+            seen[entry.key] ||
+            (entry.before !== null && typeof entry.before !== "string") ||
+            (entry.after !== null && typeof entry.after !== "string")
+        )
+            throw new Error("Invalid settings journal");
+        seen[entry.key] = true;
+    });
+    for (var i = record.writes.length - 1; i >= 0; i--) {
+        var entry = record.writes[i];
+        if (backing.getItem(key) !== raw)
+            throw new Error("Settings journal changed");
+        if (backing.getItem(entry.key) !== entry.after) continue;
+        if (entry.before === null) backing.removeItem(entry.key);
+        else backing.setItem(entry.key, entry.before);
+        if (backing.getItem(entry.key) !== entry.before)
+            throw new Error("Settings recovery failed");
+    }
+    if (backing.getItem(key) !== raw)
+        throw new Error("Settings journal changed");
+    backing.removeItem(key);
+    if (backing.getItem(key) !== null)
+        throw new Error("Settings recovery failed");
+}
+
+/** Single-writer undo journal. Committed state is published by removing the journal. */
+export function writeSettingsJournal(
+    backing: Storage,
+    writes: JournalWrite[],
+    current: () => boolean
+): void {
+    var key = "ottplaySettingsJournalV1";
+    if (backing.getItem(key) !== null)
+        throw new Error("Settings recovery required");
+    var seen: Record<string, boolean> = Object.create(null);
+    writes.forEach(function (entry) {
+        if (
+            !entry.key ||
+            isStorageMetadataKey(entry.key) ||
+            seen[entry.key] ||
+            (Object.prototype.hasOwnProperty.call(entry, "rollback") &&
+                entry.rollback !== null &&
+                typeof entry.rollback !== "string")
+        )
+            throw new Error("Invalid settings batch");
+        seen[entry.key] = true;
+        if (!current() || backing.getItem(entry.key) !== entry.before)
+            throw new Error("Settings changed");
+    });
+    // Only recovery bytes are persisted. The raw preimage remains in memory for
+    // optimistic comparisons; legacy credentials must not enter the journal.
+    var recovery = writes.map(function (entry) {
+        return {
+            after: entry.after,
+            before: Object.prototype.hasOwnProperty.call(entry, "rollback")
+                ? entry.rollback
+                : entry.before,
+            key: entry.key,
+        };
+    });
+    var raw = JSON.stringify({ version: 1, writes: recovery });
+    if (writes.length > 16000 || raw.length > 2 * 1024 * 1024)
+        throw new Error("Settings batch too large");
+    backing.setItem(key, raw);
+    if (backing.getItem(key) !== raw)
+        throw new Error("Settings journal rejected");
+    try {
+        writes.forEach(function (entry) {
+            if (
+                !current() ||
+                backing.getItem(key) !== raw ||
+                backing.getItem(entry.key) !== entry.before
+            )
+                throw new Error("Settings changed");
+            if (entry.after === null) backing.removeItem(entry.key);
+            else backing.setItem(entry.key, entry.after);
+            if (backing.getItem(entry.key) !== entry.after)
+                throw new Error("Settings write rejected");
+        });
+        if (!current() || backing.getItem(key) !== raw)
+            throw new Error("Settings changed");
+        backing.removeItem(key);
+        if (backing.getItem(key) !== null)
+            throw new Error("Settings journal rejected");
+    } catch (error) {
+        // If recovery is interrupted again, the retained journal is retried at boot.
+        if (backing.getItem(key) === raw) recoverSettingsJournal(backing);
+        throw error;
+    }
+}
+
+function readStorageCookies(includeUnowned = false): Record<string, string> {
     const result: Record<string, string> = Object.create(null);
     try {
         const entries = (document.cookie || "").split(";");
@@ -124,6 +328,19 @@ function readStorageCookies(): Record<string, string> {
     } catch (_cookieAccess) {
         result.parentPIN = "!locked-invalid-pin";
     }
+    if (
+        !includeUnowned &&
+        Object.prototype.hasOwnProperty.call(result, STORAGE_RESET_EPOCH)
+    ) {
+        const allowed = readStorageFallback(result);
+        Object.keys(result).forEach(function (key) {
+            if (
+                !isStorageMetadataKey(key) &&
+                (!allowed || allowed.indexOf(key) < 0)
+            )
+                delete result[key];
+        });
+    }
     return result;
 }
 
@@ -137,7 +354,10 @@ function storageFallbackHash(value: string): string {
 /** null means incomplete: never replace cookie values with stale native data. */
 function readStorageFallback(cookies: Record<string, string>): string[] | null {
     const parts = Object.keys(cookies).filter(function (key) {
-        return key.indexOf(STORAGE_FALLBACK_KEYS + ".") === 0;
+        return (
+            key !== STORAGE_RESET_EPOCH &&
+            key.indexOf(STORAGE_FALLBACK_KEYS + ".") === 0
+        );
     });
     const marker = cookies[STORAGE_FALLBACK_KEYS];
     if (marker === undefined) return parts.length ? null : [];
@@ -179,6 +399,27 @@ function createLocalStorageAdapter(): StorageAdapter {
     } catch (_error) {
         pinReadUncertain = true;
         nativeStorage = null;
+    }
+    // A failed or corrupt journal must not silently hydrate a half-imported account.
+    if (nativeStorage) {
+        try {
+            recoverSettingsJournal(nativeStorage);
+        } catch (_recoveryError) {
+            recoveryStorage = nativeStorage;
+            // Module evaluation must finish so the recovery UI can be reached.
+            // Neither cookies nor native partial settings may escape quarantine.
+            return createStorageAdapter(
+                function () {
+                    return null;
+                },
+                function () {},
+                function () {},
+                function () {},
+                function () {
+                    return {};
+                }
+            );
+        }
     }
     let cookieWrites = true;
     const fallback = createCookieAdapter(function () {
@@ -245,6 +486,7 @@ function createLocalStorageAdapter(): StorageAdapter {
         for (let i = 0; i < parts.length; i++)
             if (cookies[STORAGE_FALLBACK_KEYS + "." + i] !== parts[i]) return;
         Object.keys(cookies).forEach(function (key) {
+            if (key === STORAGE_RESET_EPOCH) return;
             if (key.indexOf(STORAGE_FALLBACK_KEYS + ".") !== 0) return;
             const index = key.slice(STORAGE_FALLBACK_KEYS.length + 1);
             if (
@@ -262,6 +504,8 @@ function createLocalStorageAdapter(): StorageAdapter {
                     v: 2,
                 })
             );
+        else if (cookies[STORAGE_RESET_EPOCH] !== undefined)
+            fallback.set(STORAGE_FALLBACK_KEYS, "[]");
         else fallback.del(STORAGE_FALLBACK_KEYS);
     };
     const mark = function (
@@ -283,15 +527,20 @@ function createLocalStorageAdapter(): StorageAdapter {
             pinReadUncertain = true;
             return;
         }
+        const scopedCookies =
+            readStorageCookies()[STORAGE_RESET_EPOCH] !== undefined;
         try {
             for (let i = 0; i < previous.length; i++) {
                 const key = previous.key(i);
                 if (key != null && !isStorageMetadataKey(key)) {
                     const value = previous.getItem(key);
-                    if (value != null && !overrides[key])
+                    if (value != null && !overrides[key]) {
                         fallback.set(key, value);
+                        if (scopedCookies) overrides[key] = true;
+                    }
                 }
             }
+            if (scopedCookies) persistOverrides();
             // A complete readable snapshot establishes absence as well as values.
             pinReadUncertain = false;
         } catch (_error) {
@@ -406,7 +655,18 @@ function createLocalStorageAdapter(): StorageAdapter {
         }
         return fallback.dump();
     };
-    return createStorageAdapter(get, set, del, clear, dump);
+    var adapter = createStorageAdapter(get, set, del, clear, dump);
+    adapter.transaction = function (writes, current) {
+        // Cookie/session fallbacks have no durable transaction contract.
+        if (!nativeStorage || incomplete || Object.keys(overrides).length)
+            return false;
+        writeSettingsJournal(nativeStorage, writes, current);
+        writes.forEach(function (entry) {
+            fallback.del(entry.key);
+        });
+        return true;
+    };
+    return adapter;
 }
 
 // -- Cookie implementation ------------------------------------------------------
@@ -724,7 +984,7 @@ export const stbGetItem = storage.get;
 
 /** Read the value a fresh page can recover, excluding session-memory fallbacks. */
 export function stbGetPersistedItem(key: string): string | null {
-    if (isStorageMetadataKey(key)) return null;
+    if (settingsRecoveryRequired() || isStorageMetadataKey(key)) return null;
     const cookies = readStorageCookies();
     const overrides = readStorageFallback(cookies);
     if (overrides !== null && overrides.indexOf(key) < 0) {
@@ -814,38 +1074,74 @@ export function restoreLocalSettingsSnapshot(items: Record<string, any>): void {
     var token = retained.commandServerToken;
     var localEnabled = retained.sLocalHttpEnabled;
     var localCode = retained.sLocalHttpDeviceCode;
-    // Cancel delivery before clearing storage. Keep this installation's own
-    // credentials, but require an explicit reconnect after restoring settings.
+    imported.commandServerAddress = address;
+    imported.commandServerToken = token;
+    imported.commandServerEnabled = "0";
+    imported.sLocalHttpEnabled = localEnabled;
+    imported.sLocalHttpDeviceCode = localCode;
+    var read = w.stbGetItem,
+        write = w.stbSetItem,
+        remove = w.stbDelItem;
+    var keys = Object.keys(current);
+    Object.keys(imported).forEach(function (key) {
+        if (keys.indexOf(key) < 0) keys.push(key);
+    });
+    var writes = keys
+        .filter(function (key) {
+            return !isStorageMetadataKey(key);
+        })
+        .map(function (key) {
+            var before = read.call(w, key);
+            return {
+                after: Object.prototype.hasOwnProperty.call(imported, key)
+                    ? imported[key]
+                    : null,
+                before: before,
+                rollback:
+                    key === "parentPIN" && before !== null
+                        ? w.__ottPinSecurity.protectRollback(before)
+                        : before,
+                storage: {
+                    key: key,
+                    read: function () {
+                        return read.call(w, key);
+                    },
+                    remove: function () {
+                        remove.call(w, key);
+                    },
+                    transaction:
+                        w.ottpStorage &&
+                        read === w.ottpStorage.get &&
+                        write === w.ottpStorage.set &&
+                        remove === w.ottpStorage.del
+                            ? w.ottpStorage.transaction
+                            : undefined,
+                    write: function (value: string) {
+                        write.call(w, key, value);
+                    },
+                },
+            };
+        })
+        .filter(function (entry) {
+            return entry.before !== entry.after;
+        });
+    function admitted(): boolean {
+        return (
+            read === w.stbGetItem &&
+            write === w.stbSetItem &&
+            remove === w.stbDelItem
+        );
+    }
+    w.commitSettingsWrites(writes, admitted, admitted);
+    // Publish runtime effects only after storage committed. Retain installation authority.
     if (w.__ottCommandServer)
         w.__ottCommandServer.configure({
             address: address,
             enabled: false,
             token: token,
         });
-    w.stbSetItem("commandServerEnabled", "0");
     if (w.__ottClassicPlayback) w.__ottClassicPlayback.suspendPersistence();
     if (w.__ottClassicGuide) w.__ottClassicGuide.invalidate(false);
-    if (Object.prototype.hasOwnProperty.call(imported, "parentPIN")) {
-        // Do not clear the credential between writes: interrupted restores must
-        // retain a valid protected PIN, never turn an absent key into 1234.
-        if (typeof w.stbDelItem !== "function")
-            throw new Error("Safe settings restore unavailable");
-        w.stbSetItem("parentPIN", imported.parentPIN);
-        if (w.stbGetAllItems().parentPIN !== imported.parentPIN)
-            throw new Error("Parental PIN storage rejected restore");
-        Object.keys(current).forEach(function (name) {
-            if (name !== "parentPIN") w.stbDelItem(name);
-        });
-    } else w.stbClearAllItems();
-    for (var key in imported) {
-        if (Object.prototype.hasOwnProperty.call(imported, key))
-            w.stbSetItem(key, imported[key]);
-    }
-    w.stbSetItem("commandServerAddress", address);
-    w.stbSetItem("commandServerToken", token);
-    w.stbSetItem("commandServerEnabled", "0");
     // The existing native listener is independent. Preserve current local
     // consent and its code; imported values can neither enable nor replace it.
-    w.stbSetItem("sLocalHttpEnabled", localEnabled);
-    w.stbSetItem("sLocalHttpDeviceCode", localCode);
 }

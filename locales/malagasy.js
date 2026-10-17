@@ -107,6 +107,7 @@ var keyStrings = {
     "Background color of selected item":
         "Lokon'ny ambadik'ilay singa voafantina",
     "Backup state changed": "Niova ny toetry ny backup",
+    "Backup streams": "Fandefasana solony",
     "Balance, $": "Vola sisa, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -641,6 +642,8 @@ var keyStrings = {
     "Manage lists": "Tantano ny lisitra",
     "Manage settings": "Tantano ny fikirakirana",
     "Manual setup": "Fikirakirana an-tanana",
+    "Maximum stream bitrate": "Tahan'ny bit an'ny fandefasana ambony indrindra",
+    "Maximum video height": "Haavon'ny horonan-tsary ambony indrindra",
     MaxTV: "MaxTV",
     "MaxTV settings": "Fikirakirana MaxTV",
     Media: "Haino aman-jery",
@@ -654,6 +657,7 @@ var keyStrings = {
     "Move category up": "Afindrao miakatra ny sokajy",
     "Move channel down": "Afindrao midina ny fantsona",
     "Move channel up": "Afindrao miakatra ny fantsona",
+    Movies: "Sarimihetsika",
     "m3u-m3u8 playlists": "Lisitra fandefasana M3U / M3U8",
     medium: "salantsalany",
     min: "min",
@@ -673,6 +677,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Tsy misy fandaharana mifanaraka amin'ny fantsona sy datin'ny lisitra. Jereo ny loharano sy ny famantaranandron'ny fitaovana.",
     "No saved settings found": "Tsy hita ny fikirakirana voatahiry",
+    "No stream meets the quality limits":
+        "Tsy misy fandefasana mahafeno ny fetran'ny kalitao",
     "No supported system language. Choose a language.":
         "Tsy misy fiteny tohanana rafitra. Misafidiana fiteny iray.",
     "Not configured": "Tsy voakirakira",
@@ -903,6 +909,7 @@ var keyStrings = {
         "Tsy afaka nanomboka ny fampidirana lavitra azo antoka. Ampiasao azafady ny fitendry eo amin'ny efijery.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Tsy misy fampidirana lavitra azo antoka amin'ity fitaovana ity. Ampiasao ny fitendry eo amin'ny efijery.",
+    "Select a live channel first": "Misafidiana fantsona mivantana aloha",
     "Select a stream type:<br>%1": "Misafidiana karazana fikorianana:<br>%1",
     "Select category to add channel":
         "Misafidiana sokajy hanampiana ny fantsona",
@@ -922,6 +929,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Alefaso avy amin'ny lohamilina mpanelanelanao ity kaody ity ao amin'ny lohapejy Authorization: Bearer.",
     "Send to TV": "Alefaso amin'ny fahitalavitra",
+    Series: "Tantara mitohy",
     Server: "Lohamilina",
     "Server address": "Adiresin'ny lohamilina",
     "Server address (for example 192.168.1.20:8081)":

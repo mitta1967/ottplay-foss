@@ -12,6 +12,7 @@ import {
     exportSettingsUI,
     importSettingsUI,
 } from "./settings/transfer-ui";
+import { showSettingsRecovery } from "./storage/recovery-ui";
 import {
     hasTmdbService,
     listPreviewRect,
@@ -1878,6 +1879,7 @@ function startupError(
  * Edge case: Wrapped in try/catch — exceptions are displayed in #launch.
  */
 export function startPlayer(): void {
+    if (showSettingsRecovery()) return;
     // Cap/Tauri boot leaves hostUrl ""; language packs + icons resolve via
     // absolute "/locales/…". Prefer location.origin when present so nested
     // Cap paths and capacitor://localhost match CSS/bundle host.
@@ -4411,6 +4413,34 @@ window.settingsInterface = function (): void {
                 "players",
                 w.playerModeNames
             ),
+            {
+                name: label("Maximum video height") + " (HLS/Shaka)",
+                settingId: "streamMaxHeight",
+                settingValues: [0, 360, 480, 720, 1080, 2160],
+                values: [
+                    label("Automatic"),
+                    "360p",
+                    "480p",
+                    "720p",
+                    "1080p",
+                    "2160p",
+                ],
+            },
+            {
+                name: label("Maximum stream bitrate") + " (HLS/Shaka)",
+                settingId: "streamMaxBitrate",
+                settingValues: [
+                    0, 1000000, 2000000, 4000000, 8000000, 16000000,
+                ],
+                values: [
+                    label("Automatic"),
+                    "1 Mbps",
+                    "2 Mbps",
+                    "4 Mbps",
+                    "8 Mbps",
+                    "16 Mbps",
+                ],
+            },
             choice(label("Buffer Size, s"), "bufSize", w.bufferSizes),
         ])
     );
@@ -5970,7 +6000,27 @@ function toggleDebugHudInfo(): void {
     }
 }
 
+function editBackupStreams(): void {
+    if ((window as any).__ottStreamPolicy)
+        (window as any).__ottStreamPolicy.edit(editSettingsText);
+}
+function audioVideoTest(): void {
+    var test = (window as any).__ottAvTest;
+    if (!test) return;
+    showSelectBox(
+        0,
+        [_("Play"), _("Stop")],
+        function (selected: number) {
+            if (selected === 0 && !test.start())
+                showShift(_("Stream could not be played"));
+            else if (selected === 1) test.stop();
+        },
+        -1
+    );
+}
 var infoArr: any[] = [
+    { action: audioVideoTest, name: "Audio" },
+    { action: editBackupStreams, name: "Backup streams" },
     { action: buttonsInfo, name: "Description of remote control buttons" },
     { action: noop },
     { action: pluginInfo, desc: "Player and device info", name: "About" },
@@ -5984,6 +6034,19 @@ var infoArr: any[] = [
         name: "Debug HUD",
     },
 ];
+if (
+    (window as any).Capacitor ||
+    (window as any).__TAURI__ ||
+    (window as any).__OTTPLAY_HOSTED__
+) {
+    infoArr.push({
+        action: function () {
+            (window as any).__ottGuideBindings.open();
+        },
+        desc: "Edit",
+        name: "EPG",
+    });
+}
 if ((window as any).__OTTPLAY_HOSTED__) {
     infoArr.push({
         action: function () {

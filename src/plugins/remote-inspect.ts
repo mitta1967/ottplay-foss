@@ -23,6 +23,7 @@ export function installRemoteInspection(w: any): any {
         "aspect",
         "play_catalog",
         "play_archive_catalog",
+        "playback_handoff_import",
         "vportal",
         "vportal_search",
         "vportal_random",

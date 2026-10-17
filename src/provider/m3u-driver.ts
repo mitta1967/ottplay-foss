@@ -254,6 +254,8 @@ function createM3uProviderDriver(
         var nativeDefaults = xmltvUrls(headerUrls, [], plan.aliases);
         sourceIds(attribute(parsed.header, "url-tvg"), false, plan.raw);
         sourceIds(attribute(parsed.header, "x-tvg-url"), false, plan.raw);
+        var bindings = (window as any).__ottGuideBindings;
+        var bindingPlan = bindings ? bindings.prepare() : null;
         parsed.entries.forEach(function (entry: any) {
             var row = parsed.channels[entry.id];
             var name = entry.generatedName
@@ -281,12 +283,17 @@ function createM3uProviderDriver(
                     plan.guideServer !== defaultCompanion()
                 );
             }
+            if (
+                bindings &&
+                !(sources.length === 1 && String(sources[0]).charAt(0) === "=")
+            )
+                bindings.apply(row, entry.id, bindingPlan);
             var titleHash = entry.titleHashInput
                 ? ports.hash(entry.titleHashInput)
                 : 0;
             var keys = [
                 entry.id,
-                ports.m3u.hashText(entry.epgId),
+                ports.m3u.hashText(row.epg_manual ? row.epg : entry.epgId),
                 ports.m3u.hashText(entry.epgName),
                 titleHash,
             ].join("-");
@@ -298,12 +305,17 @@ function createM3uProviderDriver(
             if (direct) {
                 row.epg_src = sources[0];
                 row.epg_url = ports.m3u.hashText(entry.epgId);
-            } else if (titleHash !== 0 || entry.epgId || entry.epgName) {
+            } else if (
+                row.epg_manual ||
+                titleHash !== 0 ||
+                entry.epgId ||
+                entry.epgName
+            ) {
                 plan.guide.push(
                     keys +
                         (sources.length ? "~" + sources.join("-") : "") +
                         "~" +
-                        encodeURIComponent(wireName)
+                        encodeURIComponent(row.epg_manual ? "" : wireName)
                 );
             }
             if (
@@ -354,7 +366,7 @@ function createM3uProviderDriver(
             catalog.ids.forEach(function (id) {
                 var row = catalog.channels[id];
                 metadata.native_channels[String(id)] = {
-                    name: row.channel_name || "",
+                    name: row.epg_manual ? "" : row.channel_name || "",
                     tvg_id: row.epg || "",
                     tvg_name: row.tn || "",
                     xmltv_urls: (row.xmltv_urls || []).slice(),

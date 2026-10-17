@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color of selected item":
         "Hautatutako elementuaren atzeko planoaren kolorea",
     "Backup state changed": "Babeskopia-egoera aldatu da",
+    "Backup streams": "Ordezko korronteak",
     "Balance, $": "Saldoa, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -622,6 +623,8 @@ var keyStrings = {
     "Manage lists": "Kudeatu zerrendak",
     "Manage settings": "Kudeatu ezarpenak",
     "Manual setup": "Eskuzko konfigurazioa",
+    "Maximum stream bitrate": "Korrontearen gehieneko bit-tasa",
+    "Maximum video height": "Bideoaren gehieneko altuera",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ezarpenak",
     Media: "Multimedia",
@@ -635,6 +638,7 @@ var keyStrings = {
     "Move category up": "Mugitu kategoria gora",
     "Move channel down": "Mugitu kanala behera",
     "Move channel up": "Mugitu kanala gora",
+    Movies: "Filmak",
     "m3u-m3u8 playlists": "M3U / M3U8 erreprodukzio-zerrendak",
     medium: "ertaina",
     min: "min",
@@ -654,6 +658,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Ez da zerrendako kanal eta datekin bat datorren saiorik aurkitu. Egiaztatu iturria eta gailuaren erlojua.",
     "No saved settings found": "Ez da gordetako ezarpenik aurkitu",
+    "No stream meets the quality limits":
+        "Ez dago kalitate-mugak betetzen dituen korronterik",
     "No supported system language. Choose a language.":
         "Ez da sistemaren hizkuntzarik onartzen. Aukeratu hizkuntza bat.",
     "Not configured": "Konfiguratu gabe",
@@ -880,6 +886,7 @@ var keyStrings = {
         "Urruneko sarrera segurua ezin izan da hasi. Erabili pantailako teklatua.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Urruneko sarrera segurua ez dago erabilgarri gailu honetan. Erabili pantailako teklatua.",
+    "Select a live channel first": "Hautatu lehenik zuzeneko kanal bat",
     "Select a stream type:<br>%1": "Hautatu transmisio mota:<br>%1",
     "Select category to add channel": "Hautatu kategoria kanal hau gehitzeko",
     "Select color": "Hautatu kolorea",
@@ -898,6 +905,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Bidali kode hau zure proxy zerbitzaritik Authorization: Bearer goiburuan.",
     "Send to TV": "Bidali telebistara",
+    Series: "Telesailak",
     Server: "Zerbitzaria",
     "Server address": "Zerbitzariaren helbidea",
     "Server address (for example 192.168.1.20:8081)":

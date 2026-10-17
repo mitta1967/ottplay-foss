@@ -15,8 +15,18 @@ export interface SettingDefinition {
 }
 export interface SettingStorage {
     current?(): boolean;
+    key?: string;
     read(): string | null;
     remove(): void;
+    transaction?(
+        writes: {
+            key: string;
+            before: string | null;
+            after: string | null;
+            rollback?: string | null;
+        }[],
+        current: () => boolean
+    ): boolean;
     write(value: string): void;
 }
 export interface SettingsPorts {
@@ -44,6 +54,38 @@ export function commitSettingsWrites(
     current: () => boolean,
     rollbackAllowed: () => boolean
 ): void {
+    var transaction = writes.length && writes[0].storage.transaction;
+    if (
+        transaction &&
+        writes.every(function (write) {
+            return (
+                typeof write.storage.key === "string" &&
+                write.storage.transaction === transaction
+            );
+        }) &&
+        transaction(
+            writes.map(function (write) {
+                return {
+                    after: write.after,
+                    before: write.before,
+                    key: write.storage.key!,
+                    rollback: Object.prototype.hasOwnProperty.call(
+                        write,
+                        "rollback"
+                    )
+                        ? write.rollback
+                        : write.before,
+                };
+            }),
+            current
+        )
+    ) {
+        // A native/reentrant commit can finish after the source changes. Its
+        // durable bytes are committed, but stale runtime values must not publish.
+        if (!current())
+            throw settingsFailure("source_changed", "Settings source changed");
+        return;
+    }
     var batch = writes.map(function (write) {
         return {
             after: write.after,

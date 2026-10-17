@@ -325,6 +325,7 @@ try {
         "playCoreMedia",
         "cancelCoreSeek",
         "cancelCoreAutoPlayback",
+        "cancelCoreStreamAttempt",
         "cancelCoreSourcePreparation",
         "cancelCoreNativeHls",
         "destroyCoreShaka",
@@ -366,9 +367,11 @@ try {
         clearInterval() {},
         clearPlayTimeInterval() {},
         console,
+        coreAvTest: null,
         coreDeviceEffects: {},
         coreMediaBackend: null,
         coreSourcePreparationCancel: null,
+        coreStreamAttempt: null,
         hlsInstance: {
             destroy() {
                 destroyed++;
@@ -420,7 +423,44 @@ try {
         );
     }
     w.stbResume = resume;
+    const recovery = [];
+    let pendingRecovery = true;
+    w.coreStreamAttempt = {
+        dispose() {
+            recovery.push("dispose");
+        },
+        pause() {
+            recovery.push("pause");
+        },
+        resume() {
+            recovery.push("resume");
+            return pendingRecovery;
+        },
+    };
+    vm.runInContext(scripts.MEDIA_PAUSE, w);
+    assert.equal(video.paused, true);
+    vm.runInContext(scripts.MEDIA_PLAY, w);
+    assert.equal(
+        video.paused,
+        true,
+        "pending recovery must not resume a retired decoder"
+    );
+    assert.equal(w.forcePlay, true, "Play releases the user's pause intent");
+    assert.deepEqual(recovery, ["pause", "resume"]);
+    pendingRecovery = false;
+    vm.runInContext(scripts.MEDIA_PLAY, w);
+    assert.equal(
+        video.paused,
+        false,
+        "ordinary resume is restored when recovery does not own it"
+    );
     vm.runInContext(scripts.MEDIA_STOP, w);
+    assert.deepEqual(recovery, ["pause", "resume", "resume", "dispose"]);
+    assert.equal(
+        w.coreStreamAttempt,
+        null,
+        "Stop retires the current recovery owner"
+    );
     assert.equal(w._playSession, 2);
     assert.equal(w._coreNativeAttempt, 1);
     assert.equal(destroyed, 1);

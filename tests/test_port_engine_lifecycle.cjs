@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, "..");
 const source = [
     "src/plugins/access-media.ts",
     "src/core/native-hls.ts",
+    "src/playback/stream-policy.ts",
     "src/core/index.ts",
 ]
     .map((file) => fs.readFileSync(path.join(root, file), "utf8"))
@@ -146,6 +147,13 @@ function fixture() {
         shakas.push(this);
     }
     Shaka.isBrowserSupported = () => true;
+    Shaka.prototype.configure = function (config) {
+        this.config = config;
+    };
+    Shaka.prototype.addEventListener = function (type, callback) {
+        this.events ||= {};
+        this.events[type] = callback;
+    };
     Shaka.prototype.attach = function (media) {
         this.media = media;
         return this.attached.promise;
@@ -1323,6 +1331,425 @@ test("HLS level zero is never confused with current higher level", () => {
     });
     assert.equal(players[0].removed, undefined);
 });
+test("Shaka retries are bounded across player recreation and retain VOD position", async () => {
+    const { w, shakas } = fixture();
+    const timers = new Map(),
+        messages = [];
+    let serial = 0;
+    w.setTimeout = (callback) => {
+        timers.set(++serial, callback);
+        return serial;
+    };
+    w.clearTimeout = (id) => timers.delete(id);
+    w.showShift = (message) => messages.push(message);
+    w.playerMode = 2;
+    w.stbPlay("https://source.invalid/movie.mpd", 20);
+    for (let i = 0; i < 3; i++) {
+        const player = shakas[i];
+        player.attached.resolve();
+        await tick();
+        if (i) assert.equal(player.position, 37);
+        w.video.currentTime = 37;
+        w.video.readyState = 3;
+        player.loaded.reject({
+            category: 1,
+            code: 1001,
+            data: ["secret URL", 503],
+        });
+        await tick();
+        if (i < 2) {
+            assert.equal(timers.size, 1);
+            const [id, run] = timers.entries().next().value;
+            timers.delete(id);
+            run();
+            assert.equal(player.destroyCalls, 1);
+            assert.equal(
+                shakas.length,
+                i + 1,
+                "must await destroy before attaching retry"
+            );
+            player.destroyed.resolve();
+            await tick();
+        }
+    }
+    assert.equal(timers.size, 0);
+    assert.equal(messages.pop(), "Stream could not be played");
+    assert.equal(w.__ottStreamPolicy.snapshot().attempts, 2);
+    w.stbStop();
+    shakas[2].destroyed.resolve();
+    await tick();
+});
+test("Shaka error event deduplicates load rejection and Stop cancels its retry", async () => {
+    const { w, shakas } = fixture();
+    const timers = new Map();
+    let serial = 0;
+    w.setTimeout = (callback) => {
+        timers.set(++serial, callback);
+        return serial;
+    };
+    w.clearTimeout = (id) => timers.delete(id);
+    w.playerMode = 2;
+    w.stbPlay("https://source.invalid/live.mpd");
+    shakas[0].attached.resolve();
+    await tick();
+    const error = { category: 1, code: 1003, severity: 2 };
+    shakas[0].events.error({ detail: error });
+    shakas[0].loaded.reject(error);
+    await tick();
+    assert.equal(timers.size, 1);
+    const stale = [...timers.values()][0];
+    w.stbStop();
+    shakas[0].destroyed.resolve();
+    await tick();
+    stale();
+    await tick();
+    assert.equal(timers.size, 0);
+    assert.equal(shakas.length, 1);
+});
+test("Shaka enforces user restrictions and reports an impossible ceiling without retries", async () => {
+    const { w, shakas } = fixture();
+    const messages = [];
+    w.showShift = (message) => messages.push(message);
+    w.sStreamMaxHeight = 720;
+    w.sStreamMaxBitrate = 4000000;
+    w.playerMode = 2;
+    w.stbPlay("https://source.invalid/live.mpd");
+    assert.equal(shakas[0].config.restrictions.maxHeight, 720);
+    assert.equal(shakas[0].config.restrictions.maxBandwidth, 4000000);
+    shakas[0].attached.resolve();
+    await tick();
+    shakas[0].loaded.reject({ category: 4, code: 4012 });
+    await tick();
+    assert.equal(messages.pop(), "No stream meets the quality limits");
+    assert.equal(w.__ottStreamPolicy.snapshot().attempts, 0);
+    w.stbStop();
+    shakas[0].destroyed.resolve();
+    await tick();
+});
+for (const terminal of [
+    { category: 1, code: 1001, data: ["upstream", 401], severity: 2 },
+    { category: 1, code: 1001, data: ["upstream", 403], severity: 2 },
+    { category: 6, code: 6001, severity: 2 },
+    { category: 4, code: 4012, severity: 2 },
+])
+    test(
+        "Shaka terminal error cancels an already queued transient retry: " +
+            JSON.stringify(terminal),
+        async () => {
+            const { w, shakas } = fixture();
+            const timers = new Map();
+            let serial = 0;
+            w.setTimeout = (callback) => {
+                timers.set(++serial, callback);
+                return serial;
+            };
+            w.clearTimeout = (id) => timers.delete(id);
+            w.playerMode = 2;
+            w.stbPlay("https://source.invalid/live.mpd");
+            const first = shakas[0];
+            first.attached.resolve();
+            await tick();
+            const transient = { category: 1, code: 1003, severity: 2 };
+            first.events.error({ detail: transient });
+            assert.equal(timers.size, 1);
+            const stale = [...timers.values()][0];
+            first.events.error({ detail: terminal });
+            assert.equal(
+                timers.size,
+                0,
+                "terminal failure must remove the pending timer"
+            );
+            assert.equal(
+                w.__ottStreamPolicy.snapshot().state,
+                terminal.category === 1 ? "access-denied" : "failed"
+            );
+            // The same failure can arrive through both the event and load rejection.
+            first.loaded.reject(transient);
+            stale();
+            await tick();
+            assert.equal(
+                shakas.length,
+                1,
+                "stale timer cannot recreate the failed decoder"
+            );
+            assert.equal(w.__ottStreamPolicy.snapshot().attempts, 0);
+            assert.equal(timers.size, 0);
+            w.stbStop();
+            first.destroyed.resolve();
+            await tick();
+        }
+    );
+test("HLS quality restriction is applied before fragment loading", () => {
+    const { w, players } = fixture();
+    w.sStreamMaxHeight = 720;
+    w.playerMode = 1;
+    w.stbPlay("https://source.invalid/live.m3u8");
+    const player = players[0];
+    assert.equal(player.config.autoStartLoad, false);
+    player.levels = [{ height: 480 }, { height: 720 }, { height: 1080 }];
+    player.removeLevel = function (index) {
+        this.levels.splice(index, 1);
+    };
+    player.events.manifest();
+    assert.deepEqual(
+        player.levels.map((level) => level.height),
+        [480, 720]
+    );
+    assert.equal(player.startLoads.length, 1);
+    assert.equal(player.autoLevelCapping, 1);
+    w.stbStop();
+});
+test("HLS quality-limited startup preserves finite positive resume positions and otherwise uses live edge", () => {
+    for (const limits of [
+        { sStreamMaxHeight: 720 },
+        { sStreamMaxBitrate: 4000000 },
+        { sStreamMaxBitrate: 4000000, sStreamMaxHeight: 720 },
+    ]) {
+        for (const position of [
+            undefined,
+            0,
+            -1,
+            -20,
+            NaN,
+            Infinity,
+            -Infinity,
+            0.25,
+            37,
+        ]) {
+            const { w, players } = fixture();
+            Object.assign(w, limits);
+            w.playerMode = 1;
+            w.stbPlay("https://source.invalid/stream.m3u8", position);
+            const player = players[0];
+            const expected =
+                Number.isFinite(position) && position > 0 ? position : -1;
+            assert.equal(player.config.autoStartLoad, false);
+            assert.equal(player.config.startPosition ?? -1, expected);
+            assert.deepEqual(player.startLoads, []);
+            player.levels = [{ bitrate: 2000000, height: 720 }];
+            player.events.manifest();
+            assert.deepEqual(
+                player.startLoads,
+                [expected],
+                `quality-limited start position ${String(position)}`
+            );
+            w.stbStop();
+        }
+    }
+});
+test("HLS outer recovery samples the VOD position before destroy resets the media", () => {
+    const { w, players } = fixture();
+    let retry;
+    w.setTimeout = (callback) => {
+        retry = callback;
+        return 1;
+    };
+    w.clearTimeout = () => {};
+    w.playerMode = 1;
+    w.stbPlay("https://source.invalid/movie.m3u8", 20);
+    w.video.currentTime = 37;
+    w.video.readyState = 3;
+    players[0].hasEnoughToStart = true;
+    players[0].events.error(null, {
+        details: "manifestParsingError",
+        fatal: true,
+        type: "network",
+    });
+    assert.equal(
+        w.video.currentTime,
+        0,
+        "fixture models destroy resetting the media"
+    );
+    retry();
+    assert.equal(players[1].config.startPosition, 37);
+    w.stbStop();
+});
+for (const details of [
+    ["manifestParsingError", "manifestParsingError"],
+    ["levelParsingError", "levelParsingError"],
+    ["manifestLoadError", "manifestLoadError", "manifestLoadError"],
+    ["manifestParsingError", "manifestLoadError", "manifestParsingError"],
+    ["manifestLoadError", "levelParsingError", "levelParsingError"],
+    ["manifestLoadError", "manifestLoadError", "levelParsingError"],
+]) {
+    test(
+        "HLS shares its outer retry budget without repeating parse recovery: " +
+            details.join(", "),
+        () => {
+            const { w, players } = fixture();
+            const timers = new Map();
+            let sequence = 0;
+            w.setTimeout = (callback) => {
+                timers.set(++sequence, callback);
+                return sequence;
+            };
+            w.clearTimeout = (id) => timers.delete(id);
+            w.playerMode = 1;
+            w.stbPlay("https://source.invalid/live.m3u8");
+            for (let attempt = 0; attempt < details.length; attempt++) {
+                const player = players.at(-1);
+                // A successful manifest must not replenish the request's budget.
+                player.events.manifest();
+                const detail = details[attempt];
+                const inEngineAttempts = detail.includes("Parsing") ? 1 : 3;
+                for (let failure = 0; failure < inEngineAttempts; failure++) {
+                    player.events.error(null, {
+                        details: detail,
+                        fatal: true,
+                        type: "network",
+                    });
+                }
+                assert.equal(player.destroyCalls, 1);
+                if (attempt === details.length - 1) {
+                    assert.equal(
+                        timers.size,
+                        0,
+                        "exhausted request cannot reconnect"
+                    );
+                } else {
+                    assert.equal(timers.size, 1);
+                    const [id, callback] = timers.entries().next().value;
+                    timers.delete(id);
+                    callback();
+                    assert.equal(players.length, attempt + 2);
+                }
+            }
+            assert.equal(players.length, details.length);
+            w.stbStop();
+        }
+    );
+}
+test("explicit A/V diagnostic forces the MP4 decoder and restores mute after end", () => {
+    const { w, players, shakas } = fixture();
+    w.playerMode = 2;
+    w.sStreamMaxHeight = 360;
+    w.video.muted = true;
+    assert.equal(
+        w.video.src,
+        "",
+        "No diagnostic request before explicit start"
+    );
+    assert.equal(w.__ottAvTest.start(), true);
+    assert.equal(
+        w.video.src,
+        "https://mantra-basin-76mq.here.now/diagnostics/av-v1.mp4"
+    );
+    assert.equal(
+        new URL(w.video.src, "https://player.test/f/lg/webos/").href,
+        w.video.src,
+        "Device entry routes must preserve the hosted HTTPS fixture"
+    );
+    assert.equal(w.video.muted, false);
+    assert.equal(
+        w.stbIsPlaying(),
+        false,
+        "diagnostic playback must not enter live catch-up on Pause"
+    );
+    assert.equal(w.playerMode, 2);
+    assert.equal(players.length, 0);
+    assert.equal(shakas.length, 0);
+    for (const callback of [...w.video.listeners.ended]) callback();
+    assert.equal(w.video.muted, true);
+    assert.equal(w.__ottCoreBackend().current(), null);
+});
+test("hosted A/V network failure closes the diagnostic and restores mute", () => {
+    const { w } = fixture();
+    const messages = [];
+    w.showShift = (text) => messages.push(text);
+    w.video.muted = true;
+    assert.equal(w.__ottAvTest.start(), true);
+    w.video.error = { code: 2 };
+    for (const callback of [...w.video.listeners.error]) callback();
+    assert.equal(w.__ottCoreBackend().current(), null);
+    assert.equal(w.video.muted, true);
+    assert(messages.includes("Stream could not be played"));
+});
+test("A/V diagnostic Stop cannot restart and its deadline cannot replace a new channel", () => {
+    const { w } = fixture();
+    let deadline;
+    w.setTimeout = (callback) => {
+        deadline = callback;
+        return 1;
+    };
+    w.clearTimeout = () => {};
+    assert.equal(w.__ottAvTest.start(), true);
+    const stale = deadline;
+    w.stbStop();
+    stale();
+    assert.equal(w.__ottCoreBackend().current(), null);
+    assert.equal(w.__ottAvTest.start(), true);
+    const replaced = deadline;
+    w.stbPlay("new-channel.mp4");
+    replaced();
+    assert.equal(w.video.src, "new-channel.mp4");
+    w.stbStop();
+});
+test("A/V diagnostic is unavailable on an optional native engine without taking its decoder", () => {
+    const { w } = fixture();
+    w.__ottCoreTransport.configure({
+        engine: () => assert.fail("should not open a test engine"),
+    });
+    assert.equal(w.__ottAvTest.start(), false);
+});
+test("A/V diagnostic does not persist the demo's temporary mute as the user's choice", () => {
+    const { w } = fixture();
+    w.ottplayDemoActive = true;
+    w.video.muted = true;
+    w._coreDemoMute = { media: w.video, muted: false };
+    assert.equal(w.__ottAvTest.start(), true);
+    w.__ottAvTest.stop();
+    assert.equal(w.video.muted, false);
+});
+test("A/V diagnostic keeps normal mute and resume controls while Demo is selected", () => {
+    const { w } = fixture();
+    w.ottplayDemoActive = true;
+    w.video.muted = true;
+    w._coreDemoMute = { media: w.video, muted: false };
+    assert.equal(w.__ottAvTest.start(), true);
+    assert.equal(w.video.muted, false);
+    assert.equal(
+        w._coreDemoMute,
+        null,
+        "the transient decoder is not a silent demo"
+    );
+    w.stbPause();
+    w.stbResume();
+    assert.equal(
+        w.video.muted,
+        false,
+        "resuming the diagnostic retains audible output"
+    );
+    w.stbToggleMute();
+    assert.equal(w.video.muted, true);
+    w.stbToggleMute();
+    assert.equal(w.video.muted, false, "the user can unmute the diagnostic");
+    w.__ottAvTest.stop();
+    assert.equal(
+        w.video.muted,
+        false,
+        "idle retains the original user mute choice"
+    );
+    w.stbPlay("https://demo.invalid/demo/pattern.mp4");
+    assert.equal(w.video.muted, true, "ordinary demo playback is still silent");
+    w.stbStop();
+    assert.equal(w.video.muted, false);
+});
+test("Shaka DRM capability failure is terminal without claiming provider login is required", async () => {
+    const { w, shakas } = fixture();
+    const messages = [];
+    w.showShift = (text) => messages.push(text);
+    w.playerMode = 2;
+    w.stbPlay("https://source.invalid/protected.mpd");
+    shakas[0].attached.resolve();
+    await tick();
+    shakas[0].loaded.reject({ category: 6, code: 6001 });
+    await tick();
+    assert.equal(messages.pop(), "Stream could not be played");
+    assert.equal(w.__ottStreamPolicy.snapshot().attempts, 0);
+    w.stbStop();
+    shakas[0].destroyed.resolve();
+    await tick();
+});
 test("engine diagnostics identify attached ownership, not a mode preference", () => {
     const { w, players } = fixture();
     w.playerMode = 1;
@@ -1396,6 +1823,83 @@ test("unattached and failed engines never borrow a prior native identity", async
     assert.equal(shaka.diagnosticEngine(), "shaka");
     w.stbStop();
     assert.equal(shaka.diagnosticEngine(), null);
+});
+test("native retry clears engine ownership while the next source is unresolved", () => {
+    const { w } = fixture();
+    const timers = new Map();
+    let serial = 0,
+        ready;
+    w.setTimeout = (callback) => {
+        timers.set(++serial, callback);
+        return serial;
+    };
+    w.clearTimeout = (id) => timers.delete(id);
+    w.playerMode = 0;
+    w.stbPlay("https://source.invalid/live.mp4");
+    const handle = w.__ottCoreBackend().current();
+    assert.equal(handle.diagnosticEngine(), "html5");
+    w.__ottCoreTransport.configure({
+        prepareSource(_url, callback) {
+            ready = callback;
+            return () => {};
+        },
+    });
+    w.video.error = { code: 2 };
+    for (const callback of w.video.listeners.error) callback();
+    // The first task classifies the native failure; the second starts the retry.
+    for (let i = 0; i < 2; i++) {
+        assert.equal(timers.size, 1);
+        const [id, callback] = timers.entries().next().value;
+        timers.delete(id);
+        callback();
+    }
+    assert.equal(w.__ottCoreBackend().current(), handle);
+    assert.equal(w.__ottStreamPolicy.snapshot().attempts, 1);
+    assert.equal(w.video.src, "");
+    assert.equal(
+        handle.diagnosticEngine(),
+        null,
+        "detached native is not active"
+    );
+    w.video.error = null;
+    ready("https://source.invalid/recovered.mp4");
+    assert.equal(handle.diagnosticEngine(), "html5");
+    w.stbStop();
+});
+test("screen suspension cancels a queued stream retry before resuming a fresh lease", () => {
+    const { w, players } = fixture();
+    const timers = new Map();
+    let serial = 0;
+    w.setTimeout = (callback) => {
+        timers.set(++serial, callback);
+        return serial;
+    };
+    w.clearTimeout = (id) => timers.delete(id);
+    w.playerMode = 1;
+    w.stbPlay("https://source.invalid/live.m3u8");
+    const handle = w.__ottCoreBackend().current();
+    players[0].events.error(null, {
+        details: "manifestParsingError",
+        fatal: true,
+        type: "network",
+    });
+    assert.equal(timers.size, 1);
+    const stale = timers.values().next().value;
+    handle.suspend();
+    assert.equal(timers.size, 0);
+    assert.equal(handle.diagnosticEngine(), null);
+    stale();
+    assert.equal(players.length, 1, "suspended transport cannot be recreated");
+    handle.resume();
+    assert.equal(players.length, 2);
+    assert.equal(handle.diagnosticEngine(), "hls.js");
+    stale();
+    assert.equal(
+        players.length,
+        2,
+        "old recovery cannot replace the new lease"
+    );
+    w.stbStop();
 });
 test("PiP diagnostics use their own attached engine and clear on stop", () => {
     const { w } = fixture();
