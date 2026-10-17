@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 620" role="img" aria-labelledby="title desc">
+<title id="title">A/V check: source, hosting and playback</title>
+<desc id="desc">The diagnostic clip is downloaded only after Information → Audio → Play. Flashes follow the tones. Limit: 15 seconds. Completion: idle or an attempt to resume the still-current live session. Stop playback or choose another channel to cancel. The separate moving-pattern Demo is silent.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#49647c"/></marker></defs>
+<rect width="1160" height="620" rx="22" fill="#f3f7fc"/>
+<g font-family="system-ui, sans-serif" fill="#15324d">
+<text x="32" y="49" font-size="28" font-weight="700">A/V check: source, hosting and playback</text>
+<text x="32" y="83" font-size="18" font-weight="400">The diagnostic clip is downloaded only after Information → Audio → Play.</text>
+<rect x="32" y="125" width="314" height="265" rx="14" fill="white" stroke="#3e67c8" stroke-width="2"/>
+<rect x="32" y="125" width="314" height="53" rx="14" fill="#3e67c8"/>
+<text x="50" y="159" font-size="22" font-weight="700" fill="white">1  Repository</text>
+<text x="50" y="212" font-size="16" font-weight="400">diagnostics/av-v1.mp4</text>
+<text x="50" y="243" font-size="16" font-weight="400">464,652 bytes · MIT</text>
+<text x="50" y="274" font-size="16" font-weight="400">Generator + audio verification</text>
+<text x="50" y="305" font-size="16" font-weight="400">Kept for reproducibility</text>
+<text x="50" y="352" font-size="14" font-weight="600">Not copied into player packages</text>
+<path d="M 351 267 H 414" stroke="#49647c" stroke-width="2" marker-end="url(#arrow)"/>
+<text text-anchor="middle" x="384" y="250" font-size="11" font-weight="600">Publish</text>
+<rect x="423" y="125" width="314" height="265" rx="14" fill="white" stroke="#0b806d" stroke-width="2"/>
+<rect x="423" y="125" width="314" height="53" rx="14" fill="#0b806d"/>
+<text x="441" y="159" font-size="22" font-weight="700" fill="white">2  here.now</text>
+<text x="441" y="212" font-size="16" font-weight="400">Versioned HTTPS asset</text>
+<text x="441" y="243" font-size="16" font-weight="400">Same av-v1.mp4 bytes</text>
+<text x="441" y="274" font-size="16" font-weight="400">H.264 + AAC stereo · 8 seconds</text>
+<text x="441" y="305" font-size="16" font-weight="400">Internet access required</text>
+<text x="441" y="352" font-size="14" font-weight="600">No startup request</text>
+<path d="M 742 267 H 805" stroke="#49647c" stroke-width="2" marker-end="url(#arrow)"/>
+<text text-anchor="middle" x="775" y="250" font-size="11" font-weight="600">Play</text>
+<rect x="814" y="125" width="314" height="265" rx="14" fill="white" stroke="#935ab1" stroke-width="2"/>
+<rect x="814" y="125" width="314" height="53" rx="14" fill="#935ab1"/>
+<text x="832" y="159" font-size="22" font-weight="700" fill="white">3  Player</text>
+<text x="832" y="212" font-size="16" font-weight="400">Web / OTT Server frontend</text>
+<text x="832" y="243" font-size="16" font-weight="400">Tauri / Capacitor frontend</text>
+<text x="832" y="274" font-size="16" font-weight="400">Managed HTML5 path only</text>
+<text x="832" y="305" font-size="16" font-weight="400">Idle or live TV</text>
+<text x="832" y="352" font-size="14" font-weight="600">No VOD / archive / engine overrides</text>
+<text x="32" y="433" font-size="22" font-weight="700">What you should see and hear</text>
+<rect x="32" y="452" width="263" height="56" rx="9" fill="#dde7fc"/>
+<text x="47" y="487" font-size="17" font-weight="600">0–2 s  Left · 440 Hz</text>
+<rect x="307" y="452" width="263" height="56" rx="9" fill="#d5f0e9"/>
+<text x="322" y="487" font-size="17" font-weight="600">2–4 s  Right · 880 Hz</text>
+<rect x="582" y="452" width="263" height="56" rx="9" fill="#eddef6"/>
+<text x="597" y="487" font-size="17" font-weight="600">4–6 s  Both</text>
+<rect x="857" y="452" width="263" height="56" rx="9" fill="#e1e7ed"/>
+<text x="872" y="487" font-size="17" font-weight="600">6–8 s  Silence</text>
+<text x="32" y="550" font-size="16" font-weight="400">Flashes follow the tones. Limit: 15 seconds. Completion: idle or an attempt to resume the still-current live session.</text>
+<text x="32" y="581" font-size="16" font-weight="400">Stop playback or choose another channel to cancel. The separate moving-pattern Demo is silent.</text>
+</g></svg>
