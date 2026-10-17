@@ -210,6 +210,13 @@ var cloudSettingsTransfer = (function () {
             var before = dump.call(w);
             if (!before || typeof before !== "object" || Array.isArray(before))
                 throw new Error("Invalid storage");
+            if (
+                !Object.prototype.hasOwnProperty.call(imported, "parentPIN") &&
+                Object.prototype.hasOwnProperty.call(before, "parentPIN")
+            )
+                imported.parentPIN = w.__ottPinSecurity.prepare(
+                    before.parentPIN
+                );
             var keys = Object.keys(before);
             Object.keys(imported).forEach(function (key) {
                 if (keys.indexOf(key) === -1) keys.push(key);
@@ -232,6 +239,10 @@ var cloudSettingsTransfer = (function () {
                             ? imported[key]
                             : null,
                         before: previous,
+                        rollback:
+                            key === "parentPIN" && previous !== null
+                                ? w.__ottPinSecurity.protectRollback(previous)
+                                : previous,
                         storage: {
                             read: function () {
                                 return read.call(w, key);

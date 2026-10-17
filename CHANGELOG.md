@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+- Avoid V8 array-species deoptimization during legacy-UA PIN startup without reducing PBKDF2 work; retain exact upstream provenance and differential cryptographic tests.
+
+### Security
+
+- Store new/changed parental PINs using salted PBKDF2-HMAC-SHA256 (600,000 iterations).
+  Protect readable legacy PINs and genuinely new default PINs at settings load,
+  requiring verified storage before any unlock; convert old backup PINs before
+  import/export, preserving existing hash records.
+- Keep corrupted or unreadable PIN storage locked instead of restoring the historical
+  default. Cancel obsolete derivations across source, policy and screen changes.
+- Close all old player tabs before updating and do not downgrade against migrated
+  settings: old versions do not understand the new record and may restore `1234`.
+  See [PIN migration and limitations](docs/parental-pin-storage.md). Existing plaintext
+  can remain after storage failure, but the current player stays locked until
+  migration succeeds; no device performance claim is made.
+
+- Backport the upstream inhabited opaque class type for `block` 0.1.6, fixing
+  the macOS dependency's uninhabited foreign-static declaration without a
+  breaking Blocks API migration. Native copy/call/drop regressions are required.
+
 ## [1.1.55] - Development line
 
 ### Changes

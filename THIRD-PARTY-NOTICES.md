@@ -65,6 +65,12 @@ This is not a complete native dependency inventory. Preserve the notices of
 resolved transitive dependencies when updating packages. An MIT notice for
 Capacitor core does not replace the App plugin's different copyright statement.
 
+The macOS media-control backend uses **block 0.1.6** under MIT, with the narrow
+upstream opaque-type soundness fix documented in [the vendored source inventory](vendor/README.md).
+Its [complete copyright and permission notice](vendor/block-0.1.6-LICENSE.txt)
+is preserved in the source and copied to `licenses/native/block-0.1.6-LICENSE.txt`
+in Tauri packages. The original license remains in force for the backport.
+
 ## Linux GStreamer playback compatibility plugin
 
 Linux DEB and AppImage builds include an app-private modified
@@ -273,3 +279,15 @@ Both use Apache 2.0; their installed license texts are preserved in
 The UMD retains upstream bundled-component notices, including vtt.js and
 parse-headers; the shared [Apache 2.0 text](js/licenses/Apache-2.0.txt) is packaged
 alongside them. Version and output hashes are recorded in `js/media-runtime.json`.
+
+## Parental PIN password derivation
+
+The selected SHA-256, HMAC, PBKDF2, codec and bit-array modules of
+[SJCL 1.0.9](https://github.com/bitwiseshiftleft/sjcl) are used under
+[BSD-2-Clause](js/licenses/SJCL-1.0.9.txt). The selected source inventory and
+package integrity are in `js/vendor/sjcl-pin-source.json`. An exact reversible
+`sjcl-pin-word-arrays.patch.json` replaces only internal array copying to avoid
+V8 species-probe deoptimization; cryptographic rounds and work factors remain
+upstream. The fallback PIN
+deriver schedules the standard single-block PBKDF2 loop across timers using
+these HMAC primitives; it does not use SJCL randomness or encryption modes.
