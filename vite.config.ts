@@ -102,9 +102,7 @@ function copyRuntimeAssets(
                     (/\.(html|js|css|json|webmanifest|txt|png|gif|ico|jpe?g|svg|ttf|otf|eot|woff2?)$/i.test(
                         name
                     ) ||
-                        /^(?:pako|sax)-LICENSE$/.test(name) ||
-                        (name === "av-v1.mp4" &&
-                            basename(dirname(path)) === "diagnostics")))
+                        /^(?:pako|sax)-LICENSE$/.test(name)))
             );
         },
         recursive: true,
@@ -221,7 +219,7 @@ function stageTauriFrontend(
     }
 
     stagePlayerAssets(srcRoot, stageDir);
-    for (const directory of ["hosted", "swop-input", "diagnostics"]) {
+    for (const directory of ["hosted", "swop-input"]) {
         copyRuntimeAssets(join(distDir, directory), join(stageDir, directory));
     }
 
@@ -486,6 +484,10 @@ export default defineConfig(({ mode }) => ({
                 console.log("Nested Cap contract: dist/dist/player.js");
                 // Retire media left by older builds; demo streams now live on here.now.
                 rmSync(join(outDir, "demo"), { force: true, recursive: true });
+                rmSync(join(outDir, "diagnostics"), {
+                    force: true,
+                    recursive: true,
+                });
                 // Older Mode A packaging wrote release archives into Capacitor's
                 // web root, embedding an entire stale player in iOS applications.
                 for (const file of [
@@ -501,7 +503,6 @@ export default defineConfig(({ mode }) => ({
                     "providers",
                     "devices",
                     "js",
-                    "diagnostics",
                 ] as const) {
                     if (dir === "devices" && androidFlavor === "play") {
                         // Android uses its device shim and the HTML5 PC fallback.

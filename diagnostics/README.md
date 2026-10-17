@@ -22,3 +22,14 @@ Regenerate with `bash scripts/generate-av-diagnostic.sh`, then verify with
 generation/verification, not playback. The verifier decodes the encoded audio
 and checks routing, audible energy, silence and peak amplitude. Keep v1 stable;
 materially different timings/encoding should use a new versioned filename.
+
+The player streams the immutable v1 file from
+https://mantra-basin-76mq.here.now/diagnostics/av-v1.mp4 only when the user starts
+the A/V check. The file here is retained for reproducible verification and
+manual offline tests, but is not staged into player packages.
+
+Published bytes: 464,652. SHA-256:
+`866c273d576d3db09a0e62596f011793d66f6fbb54db727ff2045e5d744105bb`.
+The hosted file is byte-identical to this source and supports HTTPS, CORS and
+HTTP Range requests. Do not replace v1 with different content; publish a new
+versioned filename and update the player reference.

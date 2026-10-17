@@ -1572,12 +1572,20 @@ test("explicit A/V diagnostic forces the MP4 decoder and restores mute after end
     w.playerMode = 2;
     w.sStreamMaxHeight = 360;
     w.video.muted = true;
-    assert.equal(w.__ottAvTest.start(), true);
-    assert.equal(w.video.src, "/diagnostics/av-v1.mp4");
     assert.equal(
-        new URL(w.video.src, "https://player.test/f/lg/webos/").pathname,
-        "/diagnostics/av-v1.mp4",
-        "Device entry routes must use the root fixture"
+        w.video.src,
+        "",
+        "No diagnostic request before explicit start"
+    );
+    assert.equal(w.__ottAvTest.start(), true);
+    assert.equal(
+        w.video.src,
+        "https://mantra-basin-76mq.here.now/diagnostics/av-v1.mp4"
+    );
+    assert.equal(
+        new URL(w.video.src, "https://player.test/f/lg/webos/").href,
+        w.video.src,
+        "Device entry routes must preserve the hosted HTTPS fixture"
     );
     assert.equal(w.video.muted, false);
     assert.equal(
@@ -1591,6 +1599,18 @@ test("explicit A/V diagnostic forces the MP4 decoder and restores mute after end
     for (const callback of [...w.video.listeners.ended]) callback();
     assert.equal(w.video.muted, true);
     assert.equal(w.__ottCoreBackend().current(), null);
+});
+test("hosted A/V network failure closes the diagnostic and restores mute", () => {
+    const { w } = fixture();
+    const messages = [];
+    w.showShift = (text) => messages.push(text);
+    w.video.muted = true;
+    assert.equal(w.__ottAvTest.start(), true);
+    w.video.error = { code: 2 };
+    for (const callback of [...w.video.listeners.error]) callback();
+    assert.equal(w.__ottCoreBackend().current(), null);
+    assert.equal(w.video.muted, true);
+    assert(messages.includes("Stream could not be played"));
 });
 test("A/V diagnostic Stop cannot restart and its deadline cannot replace a new channel", () => {
     const { w } = fixture();

@@ -59,8 +59,11 @@ The [implementation report](implementation-report.md#post-beta-integration-and-r
 explains the fixes and validation.
 
 **Scope:** these totals exclude external media engines, language dictionaries,
-CSS, images and video. The new optional A/V clip adds **464,652 bytes to packaged
-assets**, fetched for the explicit diagnostic action rather than startup playback.
+CSS, images and video. The measured snapshot included a **464,652-byte A/V clip**. The clip is now
+[hosted on here.now](audio-video-check.md), excluded from all player packages
+and requested only for the explicit diagnostic action. This removes 464,652
+raw asset bytes; compressed package savings depend on the archive format.
+The historical JavaScript measurements above are unchanged.
 The 88 localized README files are repository documentation, not player payload.
 No startup-time, frame-rate, memory or catalogue-scale performance claim follows
 from this byte comparison. Those require separate measurements on target devices.

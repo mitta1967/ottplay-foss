@@ -21,7 +21,6 @@ COPY styles ./styles
 COPY images ./images
 COPY locales ./locales
 COPY providers ./providers
-COPY diagnostics/av-v1.mp4 ./diagnostics/av-v1.mp4
 COPY src-tauri/pip ./src-tauri/pip
 RUN npm run typecheck && npm run build:server
 

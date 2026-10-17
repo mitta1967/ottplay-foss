@@ -96,8 +96,9 @@ The final main entry is 875,197 / 270,425. See the
 [measurement method](roadmap-size.md).
 
 These are byte costs, **not measured speed improvements**. Totals exclude media
-engines, dictionaries, CSS, images and video. The explicit A/V sample adds
-464,652 packaged bytes separately. Startup time, frame pacing, memory use,
+engines, dictionaries, CSS, images and video. The measured snapshot included
+464,652 packaged A/V bytes; the [subsequent hosting change](audio-video-check.md)
+removes the clip from packages and requires internet for the explicit check. Startup time, frame pacing, memory use,
 screen-reader experience, real HDMI audio and provider behavior require their
 own measurements on target devices. No new physical-device result or beta
 release is asserted by this report. The [physical acceptance list](roadmap-delivery.md#physical-acceptance-before-promotion)

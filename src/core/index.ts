@@ -3314,7 +3314,7 @@ function startCoreAvTest(): boolean {
     var media = video,
         muted = _coreDemoMute ? _coreDemoMute.muted : media.muted;
     var test = getCoreMediaBackend().preview(
-        "/diagnostics/av-v1.mp4",
+        "https://mantra-basin-76mq.here.now/diagnostics/av-v1.mp4",
         function (reason: string) {
             if (reason === "error") showShift(_("Stream could not be played"));
             if (coreAvTestTimer !== null) clearTimeout(coreAvTestTimer);

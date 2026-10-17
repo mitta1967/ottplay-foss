@@ -42,6 +42,16 @@ Selecting **Try demo** loads our synthetic MP4 or HLS test video from `https://l
 
 The hosting service receives the requesting IP address, requested file, request time, and normal HTTP connection headers such as User-Agent. The demo adapter does not attach your IPTV credentials, playlists, account identifiers, or the player's generated device ID to these requests. Requests use HTTPS. Hosting infrastructure may keep operational/security logs under its own policies; the app does not control their retention. Contact the publisher for demo privacy or deletion inquiries. Choosing Manual setup instead avoids the demo media service.
 
+## Optional hosted audio/video check
+
+Choosing **Information → Audio → Play** loads the synthetic sound-and-picture
+fixture from `https://mantra-basin-76mq.here.now/diagnostics/av-v1.mp4` over HTTPS.
+It is requested only for this explicit action, never during player startup.
+The hosting service receives the requesting IP, file path and normal HTTP
+headers, and may retain operational logs under its own policies. This request
+does not include provider credentials, playlists or the generated device ID.
+An internet connection is required; declining the check avoids this request.
+
 ## Network security
 
 The Android Play distribution requires HTTPS for remote media and provider requests; an unsupported HTTP source produces an error rather than silently sending credentials over that connection. The hosted demo uses HTTPS. Full and other distributions can support user-configured HTTP sources: HTTP does not encrypt requests, credentials or returned media. Enter credentials and private text only for services you trust. The player does not guarantee the retention practices of a service you configure.

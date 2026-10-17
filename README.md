@@ -36,9 +36,9 @@ from **Change provider → Demo**.
 Demo mode needs an internet connection but no provider account. Its silent MP4
 and HLS test channels are hosted on here.now and shared by the web player, Tauri,
 Capacitor and OTT Server. Existing provider settings are preserved when switching.
-For a separate **local picture-and-sound check**, open **Information → Audio →
+For a separate **picture-and-sound check**, open **Information → Audio →
 Play** on the managed HTML5 engine while idle or watching live TV. This uses the
-bundled `diagnostics/av-v1.mp4`, not the silent online demo. VOD, archive and
+audible `av-v1.mp4` fixture hosted on here.now and requires an internet connection. VOD, archive and
 optional native engines are excluded; see [audio/video check](docs/audio-video-check.md).
 
 Installed desktop browser windows support **Window Controls Overlay**: Chrome can
@@ -64,7 +64,7 @@ The synthetic test pattern can be regenerated with `scripts/generate-demo-media.
 - **Per-device routing**: UUID-based addressing for multi-device setups
 - **Local proxy**: Optional local command server for 100% local automation (no central server needed)
 - **Controller integration**: Device/action-scoped operators, optional durable command outcomes, resumable Local/Home preset application and same-source live/archive handoff through the matching [control server](https://github.com/open-ott-play/ottplay-control-server). These require the updated controller/CLI; they are not supplied by a standalone browser tab.
-- **Debug**: Opt-in playback HUD / ring log via `?debug=1`, consent-based remote inspection and a bundled audio/video check
+- **Debug**: Opt-in playback HUD / ring log via `?debug=1`, consent-based remote inspection and an on-demand hosted audio/video check
 - **Keyboard accessibility**: Named classic dialogs, Tab focus containment and return, selected channel semantics and polite status announcements. These improvements do not establish full WCAG or device screen-reader conformance.
 - **24 device types**: Per-device remote control key mappings
 - **88 interface languages**: Matching catalogs, [localized quick starts](docs/readme/README.md) and [CLDR-checked keyboard alphabets](docs/localization.md). Full engineering manuals are maintained in English and Russian.

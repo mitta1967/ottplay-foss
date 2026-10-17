@@ -60,10 +60,14 @@ try {
         "hosted/sax.js",
         "swop-input/index.html",
         "swop-input/app.js",
-        "diagnostics/av-v1.mp4",
     ];
     for (const file of hostedFiles)
         fs.writeFileSync(path.join(root, "dist", file), "fixture:" + file);
+    // Even an older, uncleared build must not reintroduce the hosted fixture.
+    fs.writeFileSync(
+        path.join(root, "dist/diagnostics/av-v1.mp4"),
+        "stale clip"
+    );
     fs.writeFileSync(
         path.join(root, "dist/index.html"),
         "<!doctype html><title>fixture</title>"
@@ -163,6 +167,10 @@ try {
         });
     }
     assert.equal(entries.includes("./dist/provider-obsolete.js"), false);
+    assert.equal(
+        entries.some((name) => name.includes("diagnostics/")),
+        false
+    );
     for (const file of hostedFiles)
         assert.equal(
             execFileSync("tar", ["-xOf", archive, "./" + file], {
