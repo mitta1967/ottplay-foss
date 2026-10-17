@@ -2,8 +2,8 @@
 
 [Русский](roadmap-delivery.ru.md) · [Wiki](wiki/Home.md) · [Architecture](architecture.md)
 
-This guide describes the implementation in this branch, not the capabilities of
-an older installed release. Player, control service/CLI and native Android app
+This guide describes the implementation at the source revision of this page, not
+the capabilities of an older installed release. Player, control service/CLI and native Android app
 are separate artifacts. Updating one does not update the others.
 
 ![Responsibilities and trust boundaries](diagrams/roadmap-components.svg)
@@ -14,7 +14,9 @@ speed and device playback are separate acceptance checks.
 ## What is implemented
 
 1. **A known audio/video sample.** [Information → Audio](audio-video-check.md)
-   streams an eight-second clip from here.now (internet required) with left/right tones and matching flashes.
+   streams an eight-second clip from here.now (internet required) with left/right
+   tones and matching flashes. It is fetched only after **Play**, never at startup;
+   the media file is not included in player packages.
    It borrows the main HTML5 decoder only while idle or watching live TV. It does
    not write viewing history. [Fixture specification](../diagnostics/README.md).
 2. **Resumable Local/Home setup.** The control CLI can plan, apply, resume and
@@ -56,7 +58,8 @@ that every historical engineering document has 88 full translations.
 
 Classic output remains ES5 syntax. This does not mean every device supports
 every codec, Web API, storage guarantee or native integration. The A/V preview
-is restricted to the managed HTML5 path; explicit guide bindings use the hosted
+is restricted to the main managed HTML5 path; device engine overrides such as
+PC2/Video.js and native engines are excluded. Explicit guide bindings use the hosted
 or native XMLTV implementation; optional external companion protocols may not
 support them. Device-specific acceptance still requires the actual device.
 

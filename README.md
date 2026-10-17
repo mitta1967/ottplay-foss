@@ -40,8 +40,11 @@ and HLS test channels are hosted on here.now and shared by the web player, Tauri
 Capacitor and OTT Server. Existing provider settings are preserved when switching.
 For a separate **picture-and-sound check**, open **Information → Audio →
 Play** on the managed HTML5 engine while idle or watching live TV. This uses the
-audible `av-v1.mp4` fixture hosted on here.now and requires an internet connection. VOD, archive and
-optional native engines are excluded; see [audio/video check](docs/audio-video-check.md).
+audible `av-v1.mp4` fixture hosted on here.now and requires an internet connection.
+The clip is absent from player packages and is never fetched at startup.
+VOD, archive and device engine overrides (including PC2/Video.js and native
+engines) are excluded; see the
+[steps, expected tones and hosting diagram](docs/audio-video-check.md).
 
 Installed desktop browser windows support **Window Controls Overlay**: Chrome can
 hide the separate title bar while retaining its window buttons and app menu over
