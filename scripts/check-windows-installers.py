@@ -185,7 +185,7 @@ def installed_identity(directory, entries, version, expected_hash, observed=None
 def exercise(kind, installer, directory, product, version, expected_hash, report, output):
     row = {"format": kind, "installer": str(installer), "sha256": digest(installer),
            "status": "failed", "commands": [], "expected_sha256": expected_hash,
-           "observed_executables": {}}
+           "observed_executables": {}, "install_directory": str(directory)}
     report["installers"].append(row)
     require(not directory.exists() and not registrations(product), "Pre-existing installation")
     started = False
@@ -206,7 +206,8 @@ def exercise(kind, installer, directory, product, version, expected_hash, report
             run(nsis_command(installer, directory), row, "nsis-install")
         else:
             run_msi(installer, output / "msi-install.log", row, "msi-install", directory)
-        row["installed"] = installed_identity(directory, registrations(product), version, expected_hash,
+        row["observed_registrations"] = registrations(product)
+        row["installed"] = installed_identity(directory, row["observed_registrations"], version, expected_hash,
                                               row["observed_executables"])
         retained = output / ("installed-" + kind + ".exe")
         shutil.copy2(row["installed"]["executable"], retained)
@@ -224,6 +225,17 @@ def exercise(kind, installer, directory, product, version, expected_hash, report
                 row["cleanup_error"] = str(error)
                 row["status"] = "failed"
     require(row["status"] == "passed", "Installer cleanup failed after qualification")
+
+
+def exercise_installers(installers, temporary, product, version, references, report, output):
+    # NSIS deliberately remembers its install path after normal uninstall;
+    # MSI's AppSearch consumes that preference. Use the same owned path while
+    # still requiring files and product registration to be absent before each.
+    directory = temporary / "native install with spaces"
+    report["install_directory"] = str(directory)
+    for kind in ("nsis", "msi"):
+        exercise(kind, installers[kind][0], directory, product, version,
+                 references["formats"][kind]["sha256"], report, output)
 
 
 def main():
@@ -254,9 +266,7 @@ def main():
     temporary = Path(tempfile.mkdtemp(prefix="ottplay-installers-", dir=temp_base)).resolve()
     require(temporary.parent == temp_base, "Temporary directory escaped runner temp")
     try:
-        for kind, paths in installers.items():
-            exercise(kind, paths[0], temporary / (kind + " install with spaces"),
-                     product, version, references["formats"][kind]["sha256"], report, output)
+        exercise_installers(installers, temporary, product, version, references, report, output)
         report["status"] = "passed"
     except Exception as error:
         report["error"] = str(error)

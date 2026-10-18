@@ -199,6 +199,48 @@ class InstallerChecks(unittest.TestCase):
             self.assertEqual(operations, ["nsis-install", "nsis-cleanup"])
             self.assertEqual(report["installers"][0]["status"], "failed")
 
+    def test_sequential_formats_use_the_same_owned_remembered_directory(self):
+        with tempfile.TemporaryDirectory() as folder:
+            temporary = Path(folder)
+            remembered = []
+            calls = []
+
+            def exercise(kind, installer, directory, product, version, expected_hash, report, output):
+                self.assertFalse(directory.exists())
+                self.assertEqual(directory.parent, temporary)
+                if remembered:
+                    self.assertEqual(directory, remembered[0])
+                directory.mkdir()
+                remembered[:] = [directory]  # Normal NSIS uninstall preserves this preference.
+                directory.rmdir()  # Product files are removed before the next format.
+                calls.append((kind, expected_hash))
+
+            report = {}
+            installers = {kind: [temporary / kind] for kind in ("nsis", "msi")}
+            refs = {"formats": {kind: {"sha256": kind + "-hash"} for kind in installers}}
+            with patch.object(checks, "exercise", side_effect=exercise):
+                checks.exercise_installers(installers, temporary, "Product", "1.2.3", refs, report, temporary)
+            self.assertEqual(calls, [("nsis", "nsis-hash"), ("msi", "msi-hash")])
+            self.assertEqual(Path(report["install_directory"]), temporary / "native install with spaces")
+
+    def test_each_format_refuses_remaining_files_or_product_registration(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base = Path(folder)
+            installer = base / "setup"
+            installer.write_bytes(b"installer")
+            for kind in ("nsis", "msi"):
+                for files_exist in (True, False):
+                    directory = base / "native install with spaces"
+                    if files_exist:
+                        directory.mkdir()
+                    with patch.object(checks, "registrations", return_value=[] if files_exist else [{"key": "existing"}]), patch.object(checks, "run") as run:
+                        with self.assertRaisesRegex(RuntimeError, "Pre-existing installation"):
+                            checks.exercise(kind, installer, directory, "Product", "1.2.3", "0" * 64,
+                                            {"installers": []}, base)
+                        run.assert_not_called()
+                    if files_exist:
+                        directory.rmdir()
+
     def test_timeout_kills_only_the_owned_process_tree(self):
         process = Mock(pid=4321)
         process.poll.return_value = None

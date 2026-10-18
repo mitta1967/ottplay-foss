@@ -2,8 +2,13 @@
 
 The `Windows installer lifecycle` job in `native-parity.yml` builds the current
 frontend and both Tauri Windows installers with the locked Rust dependency graph.
-It needs no signing secret and publishes no release. The job installs each
-package in a unique runner-temporary directory whose name contains spaces.
+It needs no signing secret and publishes no release. The job installs the two
+formats sequentially into one unique runner-temporary directory whose name
+contains spaces. Each format starts with no product files or registration.
+NSIS deliberately retains its preferred install path on normal uninstall, and
+MSI reads that preference. Reusing the exact owned path respects this upstream
+behavior without deleting preferences or accepting an unexpected location.
+This does not qualify overriding a previously remembered installation path.
 
 `scripts/check-windows-installers.py` requires a disposable GitHub-hosted Windows
 runner and refuses a pre-existing product registration. For both NSIS and MSI,
@@ -44,3 +49,6 @@ reference derivation or the installed/locked CLI comparison rejects the build.
 The exact transformation and restoration are in the reviewed upstream
 [Tauri bundler source](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/crates/tauri-bundler/src/bundle.rs).
 A future CLI update requires checking that contract before changing the guard.
+The remembered-directory behavior is defined by the pinned
+[NSIS template](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi)
+and [MSI template](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/crates/tauri-bundler/src/bundle/windows/msi/main.wxs).
