@@ -114,3 +114,32 @@ hosts when changing the corresponding patches. Dependency sources retain
 their upstream licenses; SQLx and Tauri utilities are MIT/Apache-2.0, and the
 existing Rustls PKI types are MIT/Apache-2.0. This update does not relicense the
 vendored source archives.
+
+## Windows updater ZIP extraction (2026-10-18)
+
+RustSec database `999ec89d5d3f10f20be14750ec8c2d8b44e0ac9b` reports
+RUSTSEC-2026-0367, RUSTSEC-2026-0368 and RUSTSEC-2026-0369 against `zip` 4.6.1.
+The only application edge to that crate is the Windows-only legacy archive
+feature of `tauri-plugin-updater` 2.12.0. The current stable updater 2.14.0 also
+requires ZIP 4, so upgrading it alone does not remove these findings.
+
+Windows now disables that optional archive feature while retaining Rustls TLS
+and system-proxy support. The release collector already publishes raw `.exe`
+and `.msi` installers and their signatures when signing is configured; it does
+not publish Windows ZIP update wrappers. The updater's existing raw installer
+path handles those formats. Legacy ZIP-wrapped Windows updates are no longer
+accepted. This does not activate updater signing or change the configured key.
+
+macOS and Linux keep their existing default updater features, including the
+`tar`/`flate2` support needed for application and AppImage updates. The ZIP
+crate itself is Windows-only upstream and is absent from every selected target
+graph. `python3 scripts/check-updater-features.py` checks the resolved Windows,
+macOS and Linux runtime dependency graphs in native CI. Native compilation and
+release acceptance remain required; graph validation is not an installation test.
+
+Cargo's cross-platform lockfile still retains optional `zip` 4.6.1 because it
+records all available target/feature combinations. Consequently lockfile-only
+`cargo audit` and repository scanners continue reporting these three records.
+No ignore list or advisory suppression is added. Do not enable the updater ZIP
+feature on Windows until upstream supports a fixed ZIP release and that path
+has been reviewed. The archived source-lockfile findings above are unchanged.
