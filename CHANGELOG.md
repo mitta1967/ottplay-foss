@@ -4,11 +4,24 @@
 
 ## [1.1.57] - 2026-10-18
 
+### Changes
+
 - Keep the blank video poster explicit in both main and picture-in-picture players.
 - Remove the duplicate NAS settings entry while retaining NAS access from the source popup.
 - Refresh the verified shared-core receipt and safe frontend/build dependencies.
 - Update pinned CI tooling and check the updater dependency graph on each desktop target.
 - Disable the unused ZIP updater archive feature on Windows to remove vulnerable ZIP code from shipped runtime dependency graphs. Raw MSI/EXE installers remain supported; legacy ZIP-wrapped Windows updater payloads are no longer supported. Linux/macOS archive support is unchanged.
+
+### Upgrade
+
+- Install the published package for your platform and architecture. Windows users can install the raw MSI/EXE installers directly; legacy ZIP-wrapped updater payloads are no longer supported. Linux and macOS retain their existing archive support.
+- Keep settings backups private and close other player instances before upgrading. Do not reopen migrated parental-PIN settings in an older player; see [PIN migration and limitations](docs/parental-pin-storage.md).
+
+### Security
+
+- The Windows updater no longer selects the vulnerable ZIP extraction dependency. CI checks the actual Windows, Linux and macOS runtime dependency graphs; optional ZIP entries may still appear in the cross-platform lockfile.
+- Six informational unmaintained-dependency advisories remain tracked, including the Linux MPRIS zbus dependency family. These are not claimed as fixed by this release; see [Rust dependency security](docs/rust-dependency-security.md) for the current assessment and migration constraints.
+- Build the CI Scorecard scanner from the reviewed toolkit revision with Go 1.27.2 and checksum-pinned modules, replacing the older scanner dependency graph.
 
 ## [1.1.56] - Development line
 
