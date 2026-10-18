@@ -154,7 +154,8 @@ function fixture(options = {}) {
         $: (selector) => ({
             attr(name, value) {
                 assert.equal(selector, "video");
-                for (const element of [w.video, w.videoPip]) element[name] = value;
+                for (const element of [w.video, w.videoPip])
+                    element[name] = value;
                 return this;
             },
             css() {},
