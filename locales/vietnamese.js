@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "Màu nền",
     "Background color of selected item": "Màu nền mục được chọn",
     "Backup state changed": "Trạng thái sao lưu đã thay đổi",
+    "Backup streams": "Luồng dự phòng",
     "Balance, $": "Số dư, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -607,6 +608,8 @@ var keyStrings = {
     "Manage lists": "Quản lý danh sách",
     "Manage settings": "Quản lý cài đặt",
     "Manual setup": "Thiết lập thủ công",
+    "Maximum stream bitrate": "Tốc độ bit luồng tối đa",
+    "Maximum video height": "Chiều cao video tối đa",
     MaxTV: "MaxTV",
     "MaxTV settings": "Cài đặt MaxTV",
     Media: "Đa phương tiện",
@@ -620,6 +623,7 @@ var keyStrings = {
     "Move category up": "Chuyển danh mục lên",
     "Move channel down": "Chuyển kênh xuống",
     "Move channel up": "Chuyển kênh lên",
+    Movies: "Phim",
     "m3u-m3u8 playlists": "Danh sách phát M3U / M3U8",
     medium: "vừa",
     min: "phút",
@@ -639,6 +643,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Không có chương trình nào phù hợp với kênh và ngày của danh sách phát. Kiểm tra nguồn và đồng hồ thiết bị.",
     "No saved settings found": "Không tìm thấy cài đặt đã lưu",
+    "No stream meets the quality limits":
+        "Không có luồng nào đáp ứng giới hạn chất lượng",
     "No supported system language. Choose a language.":
         "Không có ngôn ngữ hệ thống được hỗ trợ. Chọn một ngôn ngữ.",
     "Not configured": "Chưa cấu hình",
@@ -860,6 +866,7 @@ var keyStrings = {
         "Không thể khởi động đầu vào từ xa an toàn. Vui lòng sử dụng bàn phím trên màn hình.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Đầu vào từ xa an toàn không khả dụng trên thiết bị này. Sử dụng bàn phím trên màn hình.",
+    "Select a live channel first": "Trước tiên hãy chọn kênh trực tiếp",
     "Select a stream type:<br>%1": "Chọn loại luồng:<br>%1",
     "Select category to add channel": "Chọn danh mục để thêm kênh",
     "Select color": "Chọn màu",
@@ -878,6 +885,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Gửi mã này từ proxy của bạn trong tiêu đề Authorization: Bearer.",
     "Send to TV": "Gửi tới TV",
+    Series: "Phim bộ",
     Server: "Máy chủ",
     "Server address": "Địa chỉ máy chủ",
     "Server address (for example 192.168.1.20:8081)":

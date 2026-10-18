@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Фон түсі",
     "Background color of selected item": "Таңдалған элементтің фон түсі",
     "Backup state changed": "Сақтық көшірме күйі өзгертілді",
+    "Backup streams": "Қосалқы ағындар",
     "Balance, $": "Баланс, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -614,6 +615,8 @@ var keyStrings = {
     "Manage lists": "Тізімдерді басқару",
     "Manage settings": "Баптауларды басқару",
     "Manual setup": "Қолмен баптау",
+    "Maximum stream bitrate": "Ағынның ең үлкен битрейті",
+    "Maximum video height": "Бейненің ең үлкен биіктігі",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV баптаулары",
     Media: "Медиа",
@@ -626,6 +629,7 @@ var keyStrings = {
     "Move category up": "Санатты жоғары жылжыту",
     "Move channel down": "Арнаны төмен жылжыту",
     "Move channel up": "Арнаны жоғары жылжыту",
+    Movies: "Фильмдер",
     "m3u-m3u8 playlists": "M3U / M3U8 ойнату тізімдері",
     medium: "орташа",
     min: "мин",
@@ -645,6 +649,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Ойнату тізімі арналары мен күндеріне сәйкес келетін бағдарламалар жоқ. Дереккөзді және құрылғы сағатын тексеріңіз.",
     "No saved settings found": "Сақталған баптаулар табылмады",
+    "No stream meets the quality limits":
+        "Ешбір ағын сапа шектеулеріне сай келмейді",
     "No supported system language. Choose a language.":
         "Қолдау көрсетілетін жүйе тілі жоқ. Тілді таңдаңыз.",
     "Not configured": "Бапталмаған",
@@ -868,6 +874,7 @@ var keyStrings = {
         "Қауіпсіз қашықтан енгізу іске қосылмады. Экрандық пернетақтаны пайдаланыңыз.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Бұл құрылғыда қауіпсіз қашықтан енгізу мүмкін емес. Экрандық пернетақтаны пайдаланыңыз.",
+    "Select a live channel first": "Алдымен тікелей эфир арнасын таңдаңыз",
     "Select a stream type:<br>%1": "Ағын түрін таңдаңыз:<br>%1",
     "Select category to add channel": "Арнаны қосатын санатты таңдаңыз",
     "Select color": "Түсті таңдаңыз",
@@ -885,6 +892,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Бұл кодты проксиден Authorization: Bearer тақырыбында жіберіңіз.",
     "Send to TV": "Теледидарға жіберу",
+    Series: "Телехикаялар",
     Server: "Сервер",
     "Server address": "Сервер мекенжайы",
     "Server address (for example 192.168.1.20:8081)":

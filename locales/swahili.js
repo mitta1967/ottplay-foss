@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color of selected item":
         "Rangi ya mandharinyuma ya kipengee kilichochaguliwa",
     "Backup state changed": "Hali ya kuhifadhi nakala imebadilishwa",
+    "Backup streams": "Mitiririko ya akiba",
     "Balance, $": "Salio, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -623,6 +624,8 @@ var keyStrings = {
     "Manage lists": "Dhibiti orodha",
     "Manage settings": "Dhibiti mipangilio",
     "Manual setup": "Mpangilio wa mwongozo",
+    "Maximum stream bitrate": "Kiwango cha juu cha biti cha mtiririko",
+    "Maximum video height": "Urefu wa juu wa video",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV mipangilio",
     Media: "Vyombo vya habari",
@@ -636,6 +639,7 @@ var keyStrings = {
     "Move category up": "Sogeza kategoria juu",
     "Move channel down": "Sogeza kituo chini",
     "Move channel up": "Sogeza kituo juu",
+    Movies: "Filamu",
     "m3u-m3u8 playlists": "M3U / orodha za kucheza za M3U8",
     medium: "Wastani",
     min: "dak",
@@ -655,6 +659,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Hakuna programu zinazolingana na vituo na tarehe za orodha ya kucheza. Angalia chanzo na saa ya kifaa.",
     "No saved settings found": "Hakuna mipangilio iliyohifadhiwa iliyopatikana",
+    "No stream meets the quality limits":
+        "Hakuna mtiririko unaotimiza mipaka ya ubora",
     "No supported system language. Choose a language.":
         "Hakuna lugha ya mfumo inayotumika. Chagua lugha.",
     "Not configured": "Haijasanidiwa",
@@ -879,6 +885,7 @@ var keyStrings = {
         "Ingizo salama la mbali haikuweza kuanza. Tafadhali tumia kibodi ya skrini.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Ingizo la usalama la mbali halipatikani kwenye kifaa hiki. Tumia kibodi kwenye skrini.",
+    "Select a live channel first": "Chagua kwanza kituo cha moja kwa moja",
     "Select a stream type:<br>%1": "Chagua aina ya mtiririko:<br>%1",
     "Select category to add channel": "Chagua kategoria ili kuongeza kituo",
     "Select color": "Chagua rangi",
@@ -897,6 +904,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Tuma msimbo huu kutoka kwa seva yako wakilishi katika kichwa cha Authorization: Bearer.",
     "Send to TV": "Tuma kwa TV",
+    Series: "Misururu",
     Server: "Seva",
     "Server address": "Anwani ya seva",
     "Server address (for example 192.168.1.20:8081)":

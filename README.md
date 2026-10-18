@@ -1,5 +1,15 @@
 # OTT-play FOSS
 
+[![OTT-play FOSS channel browser in a perspective view](docs/images/hero.png)](docs/images/studio-2026-default.png)
+
+*Existing Studio 2026 interface screenshot with synthetic channel and programme fixtures.
+Open the image for the original, flat view; this is not a capture of a live subscription.
+[Image source and regeneration](docs/images/README.md).*
+
+[Русское руководство](README.ru.md) · [Quick starts in 88 languages](docs/readme/README.md) · [Documentation wiki](docs/wiki/Home.md)
+
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15593/badge)](https://www.bestpractices.dev/projects/15593)
+
 [![Fuzzing: RC only](https://img.shields.io/badge/Fuzzing-RC%20only-blue)](FUZZING.md)
 
 Public release candidates run bounded, isolated fuzz campaigns for native/server
@@ -33,8 +43,14 @@ from **Change provider → Demo**.
 
 Demo mode needs an internet connection but no provider account. Its silent MP4
 and HLS test channels are hosted on here.now and shared by the web player, Tauri,
-Capacitor and OTT Server. Video files are not included in application bundles.
-Existing provider settings are preserved when switching.
+Capacitor and OTT Server. Existing provider settings are preserved when switching.
+For a separate **picture-and-sound check**, open **Information → Audio →
+Play** on the managed HTML5 engine while idle or watching live TV. This uses the
+audible `av-v1.mp4` fixture hosted on here.now and requires an internet connection.
+The clip is absent from player packages and is never fetched at startup.
+VOD, archive and device engine overrides (including PC2/Video.js and native
+engines) are excluded; see the
+[steps, expected tones and hosting diagram](docs/audio-video-check.md).
 
 Installed desktop browser windows support **Window Controls Overlay**: Chrome can
 hide the separate title bar while retaining its window buttons and app menu over
@@ -48,19 +64,28 @@ The synthetic test pattern can be regenerated with `scripts/generate-demo-media.
 
 ## Features
 
-- **Playback**: HLS, DASH, plain HTTP streams via HLS.js and Shaka Player; soft live reconnect on fatal HLS parse/network
-- **EPG**: XMLTV guide with fuzzy channel matching, time-shift/catch-up, denser guide rows, programme-title search (N5 in EPG), reminders before timers
+- **Playback**: HLS, DASH and plain HTTP streams, with managed HLS.js/Shaka quality ceilings, bounded recovery and up to three explicit backup URLs per live channel. Archive/VOD never switch to a live backup; see [quality and recovery](docs/playback-stream-policy.md).
+- **EPG**: XMLTV matching, time-shift/catch-up, programme-title search (N5 in EPG), reminders and a manual feed/ID binding for an exact channel in the hosted/native XMLTV path. See [binding and accessibility](docs/guide-binding-accessibility.md).
 - **Favorites**: Multi-list favorites (switch/add/rename/delete from Actions → Favorite lists); parental PIN
-- **Settings**: Export/import settings + favorites as JSON; continue-watching archive resume bookmark
+- **Settings**: JSON export/import of settings and favorites, an undo journal for supported localStorage batches, source-aware archive resume and exact stored-settings comparison for controller workflows. Recovery assumes one writer; custom storage adapters retain best-effort rollback. See [settings recovery](docs/settings-recovery.md).
 - **Shared interface**: OTT Server, Tauri and Capacitor use the same channel-list theme and visibility settings. Interface settings control highlight and selection colors; Channel list settings control channel names, picons, current programmes, progress and archive markers.
-- **Providers**: M3U playlists, Xtream Codes API, Stalker middleware
+- **Providers**: M3U/M3U8, Xtream live TV plus [on-demand movie/series catalogs](docs/xtream-media.md), Stalker/Ministra, Plex and VPortal. Provider capabilities and account access determine available archive and media-library features.
 - **Push commands**: Remote control via webhook — change channel, provider, playlist, show popups
-- **Remote text entry (swop)**: Phone keyboard via Cloudflare Worker when TV/phone are on different networks (allowlisted Device UUID; ♥™ on VKB)
+- **Remote text entry (swop)**: Phone keyboard via Cloudflare Worker when TV/phone are on different networks (installation-authorized sessions; ♥™ on VKB)
 - **Per-device routing**: UUID-based addressing for multi-device setups
 - **Local proxy**: Optional local command server for 100% local automation (no central server needed)
-- **Debug**: Opt-in playback HUD / ring log via `?debug=1`
+- **Controller integration**: Device/action-scoped operators, optional durable command outcomes, resumable Local/Home preset application and same-source live/archive handoff through the matching [control server](https://github.com/open-ott-play/ottplay-control-server). These require the updated controller/CLI; they are not supplied by a standalone browser tab.
+- **Debug**: Opt-in playback HUD / ring log via `?debug=1`, consent-based remote inspection and an on-demand hosted audio/video check
+- **Keyboard accessibility**: Named classic dialogs, Tab focus containment and return, selected channel semantics and polite status announcements. These improvements do not establish full WCAG or device screen-reader conformance.
 - **24 device types**: Per-device remote control key mappings
-- **28 interface languages**: Matching translation catalogs and [CLDR-checked keyboard alphabets](docs/localization.md)
+- **88 interface languages**: Matching catalogs, [localized quick starts](docs/readme/README.md) and [CLDR-checked keyboard alphabets](docs/localization.md). Full engineering manuals are maintained in English and Russian.
+
+The [delivery guide](docs/roadmap-delivery.md) describes the implemented feature
+set in this source revision, platform boundaries, diagrams and verification.
+Installed releases or hosted deployments may use an earlier revision. The independent native
+[Android application](https://github.com/open-ott-play/ottplay-android) also keeps
+audio/subtitle choices by language, role and label instead of manifest indexes;
+its implementation and release are separate from this frontend.
 
 ## Debug HUD
 
@@ -87,8 +112,10 @@ When debug is enabled:
 ## Capacitor iOS and Android
 
 This repository packages the shared TypeScript frontend with Capacitor for iOS and
-Android 7+. Both use system fonts and the npm-locked native runtime. The Full APK
-is signed and included in beta, RC and stable releases, alongside the iOS IPA.
+Android 7+. Both use system fonts and the npm-locked native runtime. A separate
+API 22 compatibility APK supports Android 5.1/6 with WebView 60 or newer. Both
+Android APKs are signed and included in qualified beta, RC and stable releases,
+alongside the unsigned iOS IPA.
 The independent Kotlin app remains in
 [ottplay-android](https://github.com/open-ott-play/ottplay-android).
 
@@ -97,6 +124,7 @@ npm ci
 npm run build:ios             # build and audit the frontend, then sync iOS
 npm run cap:ios               # open in Xcode
 npm run android:full:release  # build and audit the Full Capacitor APK
+npm run android:api22:release # Android 5.1 compatibility APK, same Full interface
 ```
 
 See [Capacitor configuration](docs/capacitor-mobile.md) and
@@ -129,15 +157,17 @@ Tauri desktop smoke: [desktop checklist](docs/mode-b-tauri-smoke.md).
 | **Windows** | `.msi` / `.exe` | x64 |
 | **Linux** | `.AppImage`, `.deb`, `.rpm` | Various distributions |
 | **iOS** | `.ipa` via AltStore / TestFlight / Xcode | Sideload only — not on App Store yet |
-| **Android** | Separate [native application](https://github.com/open-ott-play/ottplay-android) | Public repository; separate release workflow |
+| **Android (shared frontend)** | `ottplay-foss-android-full.apk` / `ottplay-foss-android-api22.apk` | Signed Capacitor packages; choose the supported Android version |
+| **Android (native Kotlin)** | Separate [native application](https://github.com/open-ott-play/ottplay-android) | Public repository; separate application and release workflow |
 
 Supported installers are attached to qualified GitHub releases: [https://github.com/open-ott-play/ottplay-foss/releases/latest](https://github.com/open-ott-play/ottplay-foss/releases/latest)
 
 > **Note:** macOS app bundles use ad-hoc signing when Apple signing credentials
 > are absent; this does not provide Developer ID or notarization. Windows/Linux
 > installers and iOS release packages may be unsigned. iOS requires signing before
-> installation on a physical device. The current workflow does not build Android
-> packages; older releases may include retired Capacitor APKs.
+> installation on a physical device. Qualified Full and API 22 Android release
+> APKs use the established signing certificate; local release builds need a
+> configured keystore to produce signed APKs.
 
 ---
 
@@ -182,24 +212,28 @@ installation, use [local macOS delivery](docs/macos-local-delivery.md).
 
 ### Linux
 
-**AppImage (recommended):**
+Linux playback needs GStreamer HLS, H.264 and AAC plugins in addition to
+WebKitGTK. The packages declare these media dependencies; AppImage builds bundle
+the media framework. See [Linux media packaging](docs/linux-media-packaging.md)
+for codec checks and the distinction between browser and native acceptance.
+
+**AppImage:**
 
 ```bash
-chmod +x OttPlay.FOSS_*_x86_64.AppImage
-./OttPlay.FOSS_*_x86_64.AppImage
+chmod +x OttPlay.FOSS_*_amd64.AppImage
+./OttPlay.FOSS_*_amd64.AppImage
 ```
 
 **Debian/Ubuntu (.deb):**
 
 ```bash
-sudo dpkg -i ottplay-foss_*.deb
-sudo apt-get install -f
+sudo apt install ./OttPlay.FOSS_*.deb
 ```
 
-**RHEL/Fedora (.rpm):**
+**Fedora (.rpm):**
 
 ```bash
-sudo rpm -i ottplay-foss_*.rpm
+sudo dnf --enablerepo=fedora-cisco-openh264 install ./OttPlay.FOSS-*.rpm
 ```
 
 ---
@@ -381,11 +415,16 @@ window does not supply the missing signing identity or provisioning profile.
 
 ### Android application
 
-Build and installation instructions belong to the separate
-[ottplay-android repository](https://github.com/open-ott-play/ottplay-android), which
-is public and has its own release workflow. Historical APKs in older
-`ottplay-foss` releases are retired Capacitor builds, not the new native application.
-No old release assets are deleted or replaced by this extraction.
+Choose the Full Capacitor APK from this repository's release for the shared
+player interface. Use the API 22 compatibility APK on Android 5.1–6; it needs
+WebView 60 or newer. Keep the application identity and signing certificate when
+updating so the existing profiles remain available. See [build instructions](android/README.md)
+and [distribution, signing and remote installation](docs/android-distributions.md).
+
+The separate [ottplay-android repository](https://github.com/open-ott-play/ottplay-android)
+contains the native Kotlin/Compose application. It has its own identity,
+preferences and release workflow, and does not replace a Capacitor installation
+in place. Historical release assets remain available.
 
 ---
 
@@ -393,8 +432,8 @@ No old release assets are deleted or replaced by this extraction.
 
 ```bash
 # 1. Build the player bundle
-npm install
-npm run build          # production (minified → dist/player.js)
+npm ci
+npm run build:server   # production web/TV assets (ES5 → dist/player.js)
 
 # 2. Build + start the Rust server
 cargo build --release -p ottplay-server
@@ -406,7 +445,14 @@ cargo build --release -p ottplay-server
 
 Use your own deployment of the same revision for browser smoke testing.
 
-On first load: press **F2 (Settings) → Providers → M3U**, enter your playlist URL.
+Use Node 22 and the Rust stable toolchain. Run the server from the repository
+root so its static assets are available. Native builds require the platform
+toolchains described below; they are unnecessary for the server-only build.
+
+On first load choose **Try demo**, or open **Settings → Change provider →
+M3U / M3U8 playlists**. Open **Select playlist**, select a slot, enter **Playlist
+URL**, save the edit and choose **Load playlist**. A playlist or provider account
+comes from you; the application does not supply a paid channel subscription.
 
 ## Mode A companion smoke
 
@@ -1038,7 +1084,7 @@ EPG_URLS="http://example.com/epg.xml.gz" ./target/release/ottplay-server --port 
 │   ├── legacy-core.js     # Retained compatibility test oracle (not packaged)
 │   └── {device}/device.js # Device adapters and key mappings
 ├── styles/player.css      # Responsive player interface and themes
-├── locales/{language}.js  # 28 complete language packs, named in English
+├── locales/{language}.js  # 88 matching language catalogs, named in English
 ├── images/player-logo.png # Player startup logo
 ├── providers/             # Provider descriptions, logos and retained test oracles
 ├── js/                    # CDN libraries (HLS.js, Shaka, jQuery)
@@ -1058,7 +1104,17 @@ EPG_URLS="http://example.com/epg.xml.gz" ./target/release/ottplay-server --port 
 
 ## Documentation
 
-- [Browser generations, operating systems and exact release-candidate checks](docs/browser-compatibility.md)
+- [Documentation wiki](./docs/wiki/Home.md) / [Вики по-русски](./docs/wiki/Home.ru.md) — task-oriented navigation and maintenance rules.
+- [Implementation report](./docs/implementation-report.md) / [Процесс и результат](./docs/implementation-report.ru.md) — colored diagrams, verified behavior, measured cost and release gates.
+- [Delivery guide](./docs/roadmap-delivery.md) / [Руководство по новым возможностям](./docs/roadmap-delivery.ru.md) — features, limitations and verification.
+- [Quick starts in 88 interface languages](./docs/readme/README.md) — generated from the shipped UI translations; full engineering manuals are EN/RU.
+- [Quality limits and live recovery](./docs/playback-stream-policy.md) / [По-русски](./docs/playback-stream-policy.ru.md).
+- [Manual XMLTV mapping and classic accessibility](./docs/guide-binding-accessibility.md) / [По-русски](./docs/guide-binding-accessibility.ru.md).
+- [Hosted audio/video check](./docs/audio-video-check.md) / [По-русски](./docs/audio-video-check.ru.md).
+- [Xtream media library](./docs/xtream-media.md) / [По-русски](./docs/xtream-media.ru.md).
+- [Same-source device handoff](./docs/remote-handoff.md) / [По-русски](./docs/remote-handoff.ru.md).
+- [Recoverable local settings](./docs/settings-recovery.md) / [По-русски](./docs/settings-recovery.ru.md).
+- [Browser generations, operating systems and exact release-candidate checks](docs/browser-compatibility.md) / [По-русски](docs/browser-compatibility.ru.md).
 
 - [Player architecture](./docs/architecture.md) — runtime ownership, provider integration, playback, guide, device adapters and build contracts.
 - [Classic ES5 build pipeline](./docs/build-pipeline.md) — compilation, compatibility checks and artifact size limits.
@@ -1069,7 +1125,8 @@ EPG_URLS="http://example.com/epg.xml.gz" ./target/release/ottplay-server --port 
 
 ## License
 
-FOSS — free and open source.
+[MIT](LICENSE) — free and open source. Provider content and third-party
+dependencies retain their own rights and licenses.
 
 ## Desktop updater / notarization (Mode B)
 

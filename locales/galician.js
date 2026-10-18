@@ -106,6 +106,7 @@ var keyStrings = {
     "Background color of selected item":
         "Cor do fondo do elemento seleccionado",
     "Backup state changed": "O estado da copia de seguranza cambiou",
+    "Backup streams": "Fluxos de reserva",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -633,6 +634,8 @@ var keyStrings = {
     "Manage lists": "Xestionar listas",
     "Manage settings": "Xestionar configuración",
     "Manual setup": "Configuración manual",
+    "Maximum stream bitrate": "Taxa de bits máxima do fluxo",
+    "Maximum video height": "Altura máxima do vídeo",
     MaxTV: "MaxTV",
     "MaxTV settings": "Configuración de MaxTV",
     Media: "Multimedia",
@@ -646,6 +649,7 @@ var keyStrings = {
     "Move category up": "Mover a categoría arriba",
     "Move channel down": "Mover a canle abaixo",
     "Move channel up": "Mover a canle arriba",
+    Movies: "Películas",
     "m3u-m3u8 playlists": "Listas M3U / M3U8",
     medium: "mediano",
     min: "min",
@@ -665,6 +669,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Ningún programa coincidiu coas canles e as datas da lista. Comproba a fonte e o reloxo do dispositivo.",
     "No saved settings found": "Non se atopou ningunha configuración gardada",
+    "No stream meets the quality limits":
+        "Ningún fluxo cumpre os límites de calidade",
     "No supported system language. Choose a language.":
         "Non se admite ningún idioma do sistema. Escolle un idioma.",
     "Not configured": "Sen configurar",
@@ -890,6 +896,7 @@ var keyStrings = {
         "Non se puido iniciar a entrada remota segura. Usa o teclado na pantalla.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "A entrada remota segura non está dispoñible neste dispositivo. Usa o teclado na pantalla.",
+    "Select a live channel first": "Escolle primeiro unha canle en directo",
     "Select a stream type:<br>%1": "Selecciona un tipo de transmisión:<br>%1",
     "Select category to add channel":
         "Selecciona unha categoría para engadir a canle",
@@ -909,6 +916,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Envía este código desde o teu servidor proxy na cabeceira Authorization: Bearer.",
     "Send to TV": "Enviar á TV",
+    Series: "Series de TV",
     Server: "Servidor",
     "Server address": "Enderezo do servidor",
     "Server address (for example 192.168.1.20:8081)":

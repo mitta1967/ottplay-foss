@@ -36,6 +36,7 @@ module.exports = function sharedCoreRuntime(context, options = {}) {
     if (options.vendorOnly) return core;
     const privateRuntime = require("./private-runtime.cjs");
     if (!context.window) context.window = context;
+    require("./pin-runtime.cjs")(context);
     for (const file of [
         "src/settings/library-backup.ts",
         "src/provider/source-identity.ts",
@@ -73,6 +74,7 @@ module.exports = function sharedCoreRuntime(context, options = {}) {
         "src/provider/m3u-settings.ts",
         "src/provider/m3u-driver.ts",
         "src/provider/drivers.ts",
+        "src/provider/xtream-media.ts",
     ])
         privateRuntime(context, file);
     return core;

@@ -106,6 +106,7 @@ var keyStrings = {
     "Background color": "Launin bango",
     "Background color of selected item": "Launin bangon abin da aka zaɓa",
     "Backup state changed": "An canza yanayin Ajiyayyen",
+    "Backup streams": "Rafukan madadi",
     "Balance, $": "Ragowar kuɗi, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -615,6 +616,8 @@ var keyStrings = {
     "Manage lists": "Sarrafa jeri",
     "Manage settings": "Sarrafa saituna",
     "Manual setup": "Saitawa da hannu",
+    "Maximum stream bitrate": "Mafi girman saurin bit na rafi",
+    "Maximum video height": "Mafi girman tsayin bidiyo",
     MaxTV: "MaxTV",
     "MaxTV settings": "Saitunan MaxTV",
     Media: "Kafofin watsa labarai",
@@ -628,6 +631,7 @@ var keyStrings = {
     "Move category up": "Matsar da rukuni sama",
     "Move channel down": "Matsar da tasha ƙasa",
     "Move channel up": "Matsar da tasha sama",
+    Movies: "Fina-finai",
     "m3u-m3u8 playlists": "Jerin kunnawa na M3U / M3U8",
     medium: "matsakaici",
     min: "minti",
@@ -647,6 +651,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Babu shirin da ya dace da tashoshi da kwanakin jerin kunnawa. Duba tushen da agogon na'ura.",
     "No saved settings found": "Ba a sami saitunan da aka ajiye ba",
+    "No stream meets the quality limits":
+        "Babu rafin da ya cika iyakokin inganci",
     "No supported system language. Choose a language.":
         "Babu yaren tsarin da aka goyan baya. Zaɓi harshe.",
     "Not configured": "Ba a saita ba",
@@ -871,6 +877,7 @@ var keyStrings = {
         "Amintaccen shigarwa daga nesa bai iya farawa ba. Yi amfani da madannan allo.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Amintaccen shigarwa daga nesa ba ya samuwa a wannan na'ura. Yi amfani da madannan allo.",
+    "Select a live channel first": "Da farko zaɓi tashar kai tsaye",
     "Select a stream type:<br>%1": "Zaɓi nau'in rafi:<br>%1",
     "Select category to add channel": "Zaɓi rukuni don ƙara tashar",
     "Select color": "Zaɓi launi",
@@ -889,6 +896,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Aika wannan lambar daga sabar wakilinka a kan Authorization: Bearer na saƙon HTTP.",
     "Send to TV": "Aika zuwa TV",
+    Series: "Jerin shirye-shirye",
     Server: "Sabar",
     "Server address": "Adireshin sabar",
     "Server address (for example 192.168.1.20:8081)":

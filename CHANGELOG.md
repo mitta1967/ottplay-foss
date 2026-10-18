@@ -1,9 +1,82 @@
 # Changelog
 
+## Unreleased
+
+## [1.1.56] - Development line
+
+### Changes
+
+- Bound playback recovery and backup attempts across engine replacement, preserve
+  configured quality limits, and provide an optional hosted picture-and-sound check.
+- Add lazy Xtream movie and series browsing, explicit channel-to-guide bindings,
+  accessible classic dialogs, and same-source live/archive handoff with a compatible
+  controller. VOD handoff is not included.
+- Recover interrupted local settings transactions before loading accounts. Recovery
+  assumes a single writer; damaged journals require an explicit retry or reset.
+- Add English/Russian feature guides, illustrated verification reports and localized
+  quick starts for all 88 interface languages. The hosted diagnostic requires internet
+  access and is fetched only when explicitly started.
+
+- Avoid V8 array-species deoptimization during legacy-UA PIN startup without reducing PBKDF2 work; retain exact upstream provenance and differential cryptographic tests.
+- Preserve playback startup, retry and fallback counters through natural EOF for
+  explicit version 3 diagnostics. Existing version 1/2 diagnostics and controller
+  capability responses keep their exact schemas.
+
+### Upgrade
+
+- Close other player tabs before upgrading and keep settings backups private.
+  PIN records migrate when settings load; do not reopen migrated settings in an
+  older player, which may replace an unsupported record with its old default PIN.
+- Use a compatible updated controller for same-source live/archive handoff.
+  Existing controller commands remain compatible; the new diagnostic counters
+  require an explicit version 3 client and are not requested by older controllers.
+- The hosted picture-and-sound diagnostic is optional and uses the network only
+  when started. Playback checks on synthetic fixtures do not qualify every
+  physical TV, decoder, live provider or DRM service.
+
+### Security
+
+- Store new/changed parental PINs using salted PBKDF2-HMAC-SHA256 (600,000 iterations).
+  Protect readable legacy PINs and genuinely new default PINs at settings load,
+  requiring verified storage before any unlock; convert old backup PINs before
+  import/export, preserving existing hash records.
+- Keep corrupted or unreadable PIN storage locked instead of restoring the historical
+  default. Cancel obsolete derivations across source, policy and screen changes.
+- Close all old player tabs before updating and do not downgrade against migrated
+  settings: old versions do not understand the new record and may restore `1234`.
+  See [PIN migration and limitations](docs/parental-pin-storage.md). Existing plaintext
+  can remain after storage failure, but the current player stays locked until
+  migration succeeds; no device performance claim is made.
+
+- Backport the upstream inhabited opaque class type for `block` 0.1.6, fixing
+  the macOS dependency's uninhabited foreign-static declaration without a
+  breaking Blocks API migration. Native copy/call/drop regressions are required.
+
 ## [1.1.55] - Development line
 
 ### Changes
 
+- Preserve byte-pinned media inputs, generated assets and license texts on
+  Windows checkouts, avoiding an unnecessary runtime rebuild while retaining
+  strict release source verification.
+- Include the upstream GStreamer stream-startup flush fix in an app-private
+  Linux playback plugin, preserving Ubuntu's security patches. DEB activation
+  is restricted to reviewed Ubuntu 24.04 plugin bytes; AppImages bundle the
+  rebuilt plugin and corresponding source without changing system libraries.
+- Report the actual attached playback engine in runtime diagnostics, including
+  HLS-to-native fallback; stopped or unavailable engines remain explicitly null.
+  Explicit debug version 2 requests add this evidence while version 1 remains
+  compatible with existing controllers and CLIs.
+
+- Preserve the exact source revision in release frontend diagnostics. Verify
+  committed media assets before CI builds and reject release builds whose
+  source identity cannot be validated against the frozen version plan.
+- Declare the Linux HLS, H.264 and AAC package dependencies, bundle the
+  AppImage media framework, and require decoded audio/video buffers and clean
+  end-of-stream in the Linux build's codec preflight.
+- Keep native Linux builds on the fixed Ubuntu 24.04 baseline for x86_64 and
+  ARM64. Run Linux WebKit browser checks on Ubuntu 26.04 x64 and historical
+  macOS WebKit checks on Intel, retaining the complete RC browser scenarios.
 - Keep loading Plex catalogs after a full page when the server omits the total
   item count, instead of stopping at the first 200 entries.
 - Accept JSON and XML during Plex server connection checks while verifying the
@@ -21,6 +94,13 @@
 
 ### Upgrade
 
+- Install DEB packages with `sudo apt install ./OttPlay.FOSS_*.deb` so media
+  dependencies are resolved. On Fedora, use
+  `sudo dnf --enablerepo=fedora-cisco-openh264 install ./OttPlay.FOSS-*.rpm`;
+  the real `openh264` library is required, not the non-decoding `noopenh264`
+  placeholder. Select only the intended architecture's package and see
+  [Linux media packaging](docs/linux-media-packaging.md) for requirements and
+  the separate browser/native playback checks.
 - Update using the package for the same platform as your existing installation.
   This patch preserves saved profiles and settings and introduces no data or
   credential migration.

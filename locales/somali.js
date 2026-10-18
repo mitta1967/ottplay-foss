@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "Midabka asalka",
     "Background color of selected item": "Midabka asalka shayga la doortay",
     "Backup state changed": "Xaaladda kaabta ayaa isbedelay",
+    "Backup streams": "Qulqullo kayd ah",
     "Balance, $": "Hadhaaga, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -628,6 +629,8 @@ var keyStrings = {
     "Manage lists": "Maamul liisaska",
     "Manage settings": "Maamul dejinta",
     "Manual setup": "Dejinta gacanta",
+    "Maximum stream bitrate": "Xawaaraha bit-ka qulqulka ugu badan",
+    "Maximum video height": "Dhererka ugu badan ee fiidyowga",
     MaxTV: "MaxTV",
     "MaxTV settings": "Dejinta MaxTV",
     Media: "Warbaahin",
@@ -641,6 +644,7 @@ var keyStrings = {
     "Move category up": "Qaybta kor u dhaqaaji",
     "Move channel down": "Kanaalka hoos u dhaqaaji",
     "Move channel up": "Kanaalka kor u dhaqaaji",
+    Movies: "Filimaan",
     "m3u-m3u8 playlists": "Liisaska daarista M3U / M3U8",
     medium: "dhexdhexaad",
     min: "daqiiqo",
@@ -660,6 +664,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Lama helin barnaamijyo ku habboon kanaallada iyo taariikhaha liiska daarista. Hubi isha iyo saacadda qalabka.",
     "No saved settings found": "Dejin kaydsan lama helin",
+    "No stream meets the quality limits": "Ma jiro qulqul buuxiya xadka tayada",
     "No supported system language. Choose a language.":
         "Ma jiro luqad nidaam la taageeray. Dooro luqad",
     "Not configured": "Lama dejin",
@@ -889,6 +894,7 @@ var keyStrings = {
         "Gelinta fog ee sugan way bilaaban weyday. Fadlan isticmaal kiiboodhka shaashadda.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Gelinta fog ee sugan lagama heli karo qalabkan. Isticmaal kiiboodhka shaashadda.",
+    "Select a live channel first": "Marka hore dooro kanaal toos ah",
     "Select a stream type:<br>%1": "Dooro nooca baahinta:<br>%1",
     "Select category to add channel": "Dooro qayb aad kanaalka ku darto",
     "Select color": "Dooro midab",
@@ -906,6 +912,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Ka dir koodhkan proksigaaga adigoo gelinaya madaxa Authorization: Bearer.",
     "Send to TV": "U dir TV",
+    Series: "Taxanayaal",
     Server: "Seerfar",
     "Server address": "Cinwaanka seerfarka",
     "Server address (for example 192.168.1.20:8081)":

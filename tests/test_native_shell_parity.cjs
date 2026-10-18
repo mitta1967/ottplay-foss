@@ -1050,6 +1050,9 @@ const coreControls = functions("src/core/index.ts", [
     "cancelCoreSeek",
     "cancelCoreAutoPlayback",
     "cancelCoreSourcePreparation",
+    "cancelCoreStreamAttempt",
+    "countCoreAttempt",
+    "createCoreStreamAttempt",
     "cancelCoreNativeHls",
     "destroyCoreShaka",
     "resetCoreNativeBitrate",
@@ -1065,25 +1068,40 @@ const coreControls = functions("src/core/index.ts", [
 for (const platform of Object.keys(nativeSources)) {
     let destroyed = 0,
         cancelled = 0;
+    let timerId = 0;
+    const timers = new Map();
     const w = {
+        _: (text) => text,
         _coreAutoCancel: null,
         _coreDemoMute: null,
         _coreNativeAttempt: 0,
         _coreNativeHls: null,
         _coreNativeHlsCleanup: null,
         _corePendingSeek: null,
+        _corePendingSeekPosition: null,
         _corePipSession: 0,
         _coreShakaTeardown: null,
-        _inLiveRestart: false,
+        _coreTransientPlayback: false,
         _playSession: 0,
-        cancelLiveRestart() {},
+        $: () => ({ hide() {} }),
         clearInterval() {},
         clearPlayTimeInterval() {},
+        clearTimeout(id) {
+            timers.delete(id);
+        },
+        coreAttemptCounters: {
+            engineStarts: 1,
+            fatalErrors: 0,
+            nativeFallbacks: 0,
+            streamRetries: 0,
+        },
+        coreAvTest: null,
         coreDeviceEffects: {},
         coreMediaBackend: null,
         coreSourcePreparationCancel() {
             cancelled++;
         },
+        coreStreamAttempt: null,
         hlsInstance: {
             destroy() {
                 destroyed++;
@@ -1092,6 +1110,11 @@ for (const platform of Object.keys(nativeSources)) {
         setInterval() {
             return 1;
         },
+        setTimeout(callback) {
+            timers.set(++timerId, callback);
+            return timerId;
+        },
+        showShift() {},
         video: {
             pause() {
                 this.paused = true;
@@ -1132,7 +1155,30 @@ for (const platform of Object.keys(nativeSources)) {
     assert.equal(w.video.paused, true, platform + " explicit Pause");
     assert.equal(w.forcePlay, false);
     assert.equal(cancelled, 0, platform + " Pause keeps pending preparation");
+
+    // Exercise the actual retry owner through each shipped native media action.
+    // Pause retains retry intent; repeated Play schedules one attempt; Stop retires it.
+    let restarted = 0;
+    w.coreStreamAttempt = w.createCoreStreamAttempt(
+        w._playSession,
+        "fixture.mp4",
+        () => restarted++
+    );
+    vm.runInContext(nativeScript(platform, "play"), w);
+    w.coreStreamAttempt.fail("network", 503);
+    assert.equal(timers.size, 1, platform + " transient failure queues retry");
+    vm.runInContext(nativeScript(platform, "pause"), w);
+    assert.equal(timers.size, 0, platform + " Pause defers retry");
+    for (let i = 0; i < 2; i++)
+        vm.runInContext(nativeScript(platform, "play"), w);
+    assert.equal(timers.size, 1, platform + " repeated Play coalesces retry");
+    const staleRetry = [...timers.values()][0];
     vm.runInContext(nativeScript(platform, "stop"), w);
+    assert.equal(timers.size, 0, platform + " Stop cancels retry");
+    staleRetry();
+    assert.equal(restarted, 0, platform + " retired retry cannot restart");
+    assert.equal(w.coreAttemptCounters.streamRetries, 0);
+    assert.equal(w.coreStreamAttempt, null);
     assert.equal(destroyed, 1, platform + " Stop tears down HLS");
     assert.equal(cancelled, 1, platform + " Stop cancels pending preparation");
     assert.equal(w._playSession, 2);

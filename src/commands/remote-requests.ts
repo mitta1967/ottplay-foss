@@ -10,6 +10,7 @@ import { handleCommand } from "./index";
 import { executeRemoteAppUpdate } from "./remote-app-update";
 import { handleRemoteArchive } from "./remote-archive";
 import { executeRemoteFavorites } from "./remote-favorites";
+import { executeRemoteHandoff } from "./remote-handoff";
 import { remotePlexQueue } from "./remote-plex";
 import { handleRemoteProfiles } from "./remote-profiles";
 import {
@@ -48,6 +49,13 @@ export function executeRemoteRequest(
 ): (() => void) | void {
     var w = window as any;
     var params = request.params || {};
+    if (
+        request.action === "playback_handoff_export" ||
+        request.action === "playback_handoff_import"
+    ) {
+        executeRemoteHandoff(w, request, done);
+        return;
+    }
     if (request.action === "inspect" && w.__ottRemoteInspect)
         return w.__ottRemoteInspect.request(request, done);
     if (request.action === "favorites")
@@ -72,6 +80,7 @@ export function executeRemoteRequest(
             "channels",
             "providers",
             "profiles",
+            "settings_compare",
             "programs",
             "epg_catalog",
             "restart",
@@ -160,7 +169,8 @@ export function executeRemoteRequest(
     if (
         request.action === "profiles" ||
         request.action === "profile" ||
-        request.action === "profile_settings"
+        request.action === "profile_settings" ||
+        request.action === "settings_compare"
     ) {
         handleRemoteProfiles(request, done);
         return;

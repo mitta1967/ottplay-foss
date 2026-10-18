@@ -207,10 +207,12 @@ const code = {
 // Policy fixtures stop at loadChannels; catalogue and account transports are
 // exercised by their own tests. Settings mounting still needs the production
 // Plex configuration codec, and the provider error renderer needs its imported
-// metadata escaper. Run those actual pure helpers without inventing a codec.
+// metadata escaper. Startup uses the actual recovery UI with a controlled
+// storage-status boundary. Run these source dependencies in the fixture realm.
 const fixtureDependencies = [
     ["src/utils/helpers.ts", "metadataText"],
     ["src/plugins/plex.ts", "normalizePlexConfig"],
+    ["src/storage/recovery-ui.ts", "showSettingsRecovery"],
 ]
     .map(([file, name]) => {
         const source = ts.createSourceFile(
@@ -974,7 +976,8 @@ test("Full still loads branded stored and URL-pinned providers", () => {
 function startupFixture(
     flavor,
     startup = startupProfiles[flavor],
-    ready = true
+    ready = true,
+    recoveryRequired = false
 ) {
     // No resources are enabled: any img DOM would expose its request URL,
     // but the test never performs a network fetch.
@@ -989,6 +992,7 @@ function startupFixture(
     const calls = [];
     const errors = [];
     Object.assign(w, {
+        _: (text) => text,
         console: { error: (error) => errors.push(error), log() {}, warn() {} },
         host: "https://localhost",
         hostUrl: "",
@@ -997,6 +1001,7 @@ function startupFixture(
         onPlayerStart: () => calls.push("start"),
         onStbReady: () => calls.push("ready"),
         PLAYER_VERSION: "42.7.fixture",
+        settingsRecoveryRequired: () => recoveryRequired,
         stbInit: () => {
             calls.push("stb");
             return ready;
@@ -1010,13 +1015,50 @@ function startupFixture(
     );
     w.stbPlay = function () {};
     w.__ottCoreTransport = { play: w.stbPlay };
-    w.eval(code[flavor] + startup);
+    w.eval(fixtureDependencies + code[flavor] + startup);
     attachSourceAliases(w);
     w.startPlayer();
     return { calls, close: () => w.close(), errors, w };
 }
 
 for (const flavor of ["full", "play"]) {
+    test(
+        flavor +
+            " actual startup exposes recovery before provider or device initialization",
+        () => {
+            const f = startupFixture(
+                flavor,
+                startupProfiles[flavor],
+                true,
+                true
+            );
+            try {
+                assert.deepEqual(f.calls, []);
+                assert.deepEqual(f.errors, []);
+                const recovery =
+                    f.w.document.querySelector("[role=alertdialog]");
+                assert.equal(
+                    recovery?.getAttribute("aria-label"),
+                    "Player could not start"
+                );
+                assert.deepEqual(
+                    Array.from(
+                        recovery.querySelectorAll("button"),
+                        (button) => button.textContent
+                    ),
+                    ["Retry", "Clear settings"]
+                );
+                assert.equal(f.w.document.activeElement.textContent, "Retry");
+                assert.equal(
+                    f.w.document.querySelectorAll("#launch img").length,
+                    0
+                );
+                assert.equal(f.w.__ottDevice, undefined);
+            } finally {
+                f.close();
+            }
+        }
+    );
     test(
         flavor +
             " actual startup renders its version and completes initialization with the correct logo policy",

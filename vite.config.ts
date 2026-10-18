@@ -353,6 +353,15 @@ export default defineConfig(({ mode }) => ({
                         androidCompileRoot,
                         androidFlavor
                     );
+                    // Static cryptographic primitives are not TypeScript output.
+                    // Keep the isolated Android link root complete as well.
+                    mkdirSync(join(androidCompileRoot!, "js/vendor"), {
+                        recursive: true,
+                    });
+                    cpSync(
+                        resolve(__dirname, "js/vendor/sjcl-pin.js"),
+                        join(androidCompileRoot!, "js/vendor/sjcl-pin.js")
+                    );
                 } else {
                     execFileSync(
                         process.execPath,
@@ -388,7 +397,14 @@ export default defineConfig(({ mode }) => ({
                 const version = pkg.version || "local";
                 bundle = embedPlayerBuildIdentity(
                     bundle.replace(/__OTTP_VERSION__/g, version),
-                    __dirname
+                    __dirname,
+                    {
+                        requireReleaseSource:
+                            Boolean(process.env.RELEASE_CHANNEL) ||
+                            existsSync(
+                                resolve(__dirname, ".release-plan.json")
+                            ),
+                    }
                 );
 
                 const outPath = join(outDir, "player.js");
@@ -484,6 +500,10 @@ export default defineConfig(({ mode }) => ({
                 console.log("Nested Cap contract: dist/dist/player.js");
                 // Retire media left by older builds; demo streams now live on here.now.
                 rmSync(join(outDir, "demo"), { force: true, recursive: true });
+                rmSync(join(outDir, "diagnostics"), {
+                    force: true,
+                    recursive: true,
+                });
                 // Older Mode A packaging wrote release archives into Capacitor's
                 // web root, embedding an entire stale player in iOS applications.
                 for (const file of [

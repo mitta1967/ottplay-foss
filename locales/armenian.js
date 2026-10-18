@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Ֆոնի գույն",
     "Background color of selected item": "Ընտրված տարրի ֆոնի գույն",
     "Backup state changed": "Պահուստավորման վիճակը փոխվել է",
+    "Backup streams": "Պահեստային հոսքեր",
     "Balance, $": "Մնացորդ, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -614,6 +615,8 @@ var keyStrings = {
     "Manage lists": "Կառավարել ցուցակները",
     "Manage settings": "Կառավարել կարգավորումները",
     "Manual setup": "Ձեռքով կարգավորում",
+    "Maximum stream bitrate": "Հոսքի առավելագույն բիթային արագություն",
+    "Maximum video height": "Տեսանյութի առավելագույն բարձրություն",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV կարգավորումներ",
     Media: "Մեդիա",
@@ -626,6 +629,7 @@ var keyStrings = {
     "Move category up": "Տեղափոխել կատեգորիան վերև",
     "Move channel down": "Տեղափոխել ալիքը ներքև",
     "Move channel up": "Տեղափոխել ալիքը վերև",
+    Movies: "Ֆիլմեր",
     "m3u-m3u8 playlists": "m3u-m3u8 նվագարկման ցուցակներ",
     medium: "միջին",
     min: "րոպե",
@@ -645,6 +649,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Ոչ մի ծրագիր չի համապատասխանում երգացանկի ալիքներին և ամսաթվերին: Ստուգեք աղբյուրը և սարքի ժամացույցը:",
     "No saved settings found": "Պահպանված կարգավորումներ չեն գտնվել",
+    "No stream meets the quality limits":
+        "Ոչ մի հոսք չի համապատասխանում որակի սահմանափակումներին",
     "No supported system language. Choose a language.":
         "Համակարգի լեզուն չի աջակցվում։ Ընտրեք լեզու։",
     "Not configured": "Կարգավորված չէ",
@@ -872,6 +878,7 @@ var keyStrings = {
         "Անվտանգ հեռակառավարման մուտքագրումը չհաջողվեց սկսել: Խնդրում ենք օգտագործել էկրանի ստեղնաշարը:",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Անվտանգ հեռակառավարման մուտքագրումն անհասանելի է այս սարքում: Օգտագործեք էկրանի ստեղնաշարը:",
+    "Select a live channel first": "Նախ ընտրեք ուղիղ եթերի ալիք",
     "Select a stream type:<br>%1": "Ընտրեք հոսքի տեսակը՝<br>%1",
     "Select category to add channel":
         "Ընտրեք կատեգորիա ալիքը ավելացնելու համար",
@@ -891,6 +898,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Այս կոդն ուղարկեք պրոքսիից՝ Authorization: Bearer վերնագրում։",
     "Send to TV": "Ուղարկել հեռուստացույց",
+    Series: "Սերիալներ",
     Server: "Սերվեր",
     "Server address": "Սերվերի հասցե",
     "Server address (for example 192.168.1.20:8081)":

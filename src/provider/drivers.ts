@@ -436,7 +436,7 @@ function createXtreamDriver(
         capabilities: {
             archive: true,
             guide: true,
-            media: false,
+            media: true,
             settings: true,
         },
         credentials: credentials,
@@ -1645,12 +1645,20 @@ function mountProviderDriver(
                         after: write.after,
                         before: write.before,
                         storage: {
+                            key: key,
                             read: function () {
                                 return read.call(host, key);
                             },
                             remove: function () {
                                 remove.call(host, key);
                             },
+                            transaction:
+                                host.ottpStorage &&
+                                read === host.ottpStorage.get &&
+                                writeValue === host.ottpStorage.set &&
+                                remove === host.ottpStorage.del
+                                    ? host.ottpStorage.transaction
+                                    : undefined,
                             write: function (value: string) {
                                 writeValue.call(host, key, value);
                             },
@@ -2040,6 +2048,8 @@ function mountProviderDriver(
         driver.load(function (catalog, error, pending) {
             if (owner.active() && !pending && settled) settled();
             if (!owner.active()) return;
+            if (id === "xtream" && catalog)
+                host.__ottXtreamMedia.mount(host, driver, owner);
             if (error === "credentials" && !specialized) {
                 if (stalkerSettings) stalkerSettings.edit();
                 else editSettings();

@@ -99,6 +99,7 @@ var keyStrings = {
     "Background color": "నేపథ్య రంగు",
     "Background color of selected item": "ఎంచుకున్న అంశం యొక్క నేపథ్య రంగు",
     "Backup state changed": "బ్యాకప్ స్థితి మార్చబడింది",
+    "Backup streams": "ప్రత్యామ్నాయ స్ట్రీమ్‌లు",
     "Balance, $": "బ్యాలెన్స్, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -595,6 +596,8 @@ var keyStrings = {
     "Manage lists": "జాబితాలను నిర్వహించండి",
     "Manage settings": "సెట్టింగ్‌లను నిర్వహించండి",
     "Manual setup": "మాన్యువల్ సెటప్",
+    "Maximum stream bitrate": "స్ట్రీమ్ గరిష్ఠ బిట్‌రేట్",
+    "Maximum video height": "వీడియో గరిష్ఠ ఎత్తు",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV సెట్టింగ్‌లు",
     Media: "మీడియా",
@@ -607,6 +610,7 @@ var keyStrings = {
     "Move category up": "వర్గాన్ని పైకి తరలించండి",
     "Move channel down": "ఛానెల్‌ని క్రిందికి తరలించండి",
     "Move channel up": "ఛానెల్‌ని పైకి తరలించండి",
+    Movies: "సినిమాలు",
     "m3u-m3u8 playlists": "M3U / M3U8 ప్లేజాబితాలు",
     medium: "మధ్యస్థం",
     min: "నిమి",
@@ -626,6 +630,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "ఏ ప్రోగ్రామ్‌లు ప్లేజాబితా ఛానెల్‌లు మరియు తేదీలతో సరిపోలలేదు. మూలం మరియు పరికర గడియారాన్ని తనిఖీ చేయండి.",
     "No saved settings found": "సేవ్ చేయబడిన సెట్టింగ్‌లు ఏవీ కనుగొనబడలేదు",
+    "No stream meets the quality limits": "ఏ స్ట్రీమ్ నాణ్యత పరిమితులను చేరుకోలేదు",
     "No supported system language. Choose a language.":
         "మద్దతు ఉన్న సిస్టమ్ భాష లేదు. ఒక భాషను ఎంచుకోండి.",
     "Not configured": "కాన్ఫిగర్ చేయబడలేదు",
@@ -843,6 +848,7 @@ var keyStrings = {
         "సురక్షిత రిమోట్ ఇన్‌పుట్ ప్రారంభం కాలేదు. దయచేసి ఆన్-స్క్రీన్ కీబోర్డ్‌ని ఉపయోగించండి.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ఈ పరికరంలో సురక్షిత రిమోట్ ఇన్‌పుట్ అందుబాటులో లేదు. ఆన్-స్క్రీన్ కీబోర్డ్ ఉపయోగించండి.",
+    "Select a live channel first": "ముందుగా ప్రత్యక్ష ఛానెల్‌ను ఎంచుకోండి",
     "Select a stream type:<br>%1": "స్ట్రీమ్ రకాన్ని ఎంచుకోండి:<br>%1",
     "Select category to add channel": "ఛానెల్‌ని జోడించడానికి వర్గాన్ని ఎంచుకోండి",
     "Select color": "రంగును ఎంచుకోండి",
@@ -860,6 +866,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "మీ ప్రాక్సీ నుండి ఈ కోడ్‌ను Authorization: Bearer హెడర్‌లో పంపండి.",
     "Send to TV": "టీవీకి పంపండి",
+    Series: "ధారావాహికలు",
     Server: "సర్వర్",
     "Server address": "సర్వర్ చిరునామా",
     "Server address (for example 192.168.1.20:8081)":

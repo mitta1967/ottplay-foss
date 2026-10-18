@@ -19,6 +19,7 @@ var providerAssetGroups: { [kind: string]: string[][] } = {
     ],
     stalker: [["__ottStalkerDriver", "create", "mountSettings"]],
     vportal: [["__ottVPortalDriver", "create", "mount", "reportLoad"]],
+    xtream: [["__ottXtreamMedia", "mount"]],
 };
 
 interface ProviderAssetOwner {

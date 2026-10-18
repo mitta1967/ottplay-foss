@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "لون الخلفية",
     "Background color of selected item": "لون خلفية العنصر المحدد",
     "Backup state changed": "تم تغيير حالة النسخ الاحتياطي",
+    "Backup streams": "تدفقات احتياطية",
     "Balance, $": "الرصيد، دولار",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -598,6 +599,8 @@ var keyStrings = {
     "Manage lists": "إدارة القوائم",
     "Manage settings": "إدارة الإعدادات",
     "Manual setup": "الإعداد اليدوي",
+    "Maximum stream bitrate": "أقصى معدل بت للبث",
+    "Maximum video height": "أقصى ارتفاع للفيديو",
     MaxTV: "MaxTV",
     "MaxTV settings": "إعدادات MaxTV",
     Media: "وسائل الإعلام",
@@ -610,6 +613,7 @@ var keyStrings = {
     "Move category up": "نقل الفئة لأعلى",
     "Move channel down": "تحريك القناة للأسفل",
     "Move channel up": "تحريك القناة للأعلى",
+    Movies: "أفلام",
     "m3u-m3u8 playlists": "قوائم التشغيل M3U / M3U8",
     medium: "متوسطة",
     min: "دقيقة",
@@ -629,6 +633,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "لا توجد برامج مطابقة لقنوات قائمة التشغيل والتواريخ. تحقق من المصدر وساعة الجهاز.",
     "No saved settings found": "لم يتم العثور على إعدادات محفوظة",
+    "No stream meets the quality limits": "لا يوجد بث يطابق حدود الجودة",
     "No supported system language. Choose a language.":
         "لا توجد لغة نظام معتمدة. اختر لغة.",
     "Not configured": "غير مُعدّ",
@@ -849,6 +854,7 @@ var keyStrings = {
         "تعذر بدء الإدخال الآمن عن بعد. الرجاء استخدام لوحة المفاتيح التي تظهر على الشاشة.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "لا يتوفر الإدخال الآمن عن بعد على هذا الجهاز. استخدم لوحة المفاتيح التي تظهر على الشاشة.",
+    "Select a live channel first": "اختر قناة مباشرة أولاً",
     "Select a stream type:<br>%1": "حدد نوع الدفق:<br>%1",
     "Select category to add channel": "حدد فئة لإضافة القناة",
     "Select color": "اختيار اللون",
@@ -866,6 +872,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "أرسل هذا الرمز من الوكيل الخاص بك في رأس Authorization: Bearer.",
     "Send to TV": "إرسال إلى التلفزيون",
+    Series: "مسلسلات",
     Server: "الخادم",
     "Server address": "عنوان الخادم",
     "Server address (for example 192.168.1.20:8081)":

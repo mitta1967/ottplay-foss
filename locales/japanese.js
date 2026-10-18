@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "背景色",
     "Background color of selected item": "選択した項目の背景色",
     "Backup state changed": "バックアップ状態が変更されました",
+    "Backup streams": "予備ストリーム",
     "Balance, $": "残高、$",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -612,6 +613,8 @@ var keyStrings = {
     "Manage lists": "リストの管理",
     "Manage settings": "設定を管理する",
     "Manual setup": "手動セットアップ",
+    "Maximum stream bitrate": "ストリームの最大ビットレート",
+    "Maximum video height": "動画の最大高さ",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTVの設定",
     Media: "メディア",
@@ -625,6 +628,7 @@ var keyStrings = {
     "Move category up": "カテゴリを上に移動します",
     "Move channel down": "チャンネルを下に移動します",
     "Move channel up": "チャンネルを上に移動します",
+    Movies: "映画",
     "m3u-m3u8 playlists": "M3U / M3U8 プレイリスト",
     medium: "中",
     min: "分",
@@ -644,6 +648,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "プレイリストのチャンネルと日付に一致する番組はありませんでした。ソースとデバイスのクロックを確認してください。",
     "No saved settings found": "保存された設定が見つかりません",
+    "No stream meets the quality limits":
+        "画質制限を満たすストリームがありません",
     "No supported system language. Choose a language.":
         "サポートされているシステム言語がありません。言語を選択してください。",
     "Not configured": "未設定",
@@ -869,6 +875,7 @@ var keyStrings = {
         "セキュアリモート入力を開始できませんでした。スクリーンキーボードをご利用ください。",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "このデバイスでは安全なリモート入力は利用できません。オンスクリーンキーボードを使用します。",
+    "Select a live channel first": "先にライブチャンネルを選択してください",
     "Select a stream type:<br>%1": "ストリームの種類を選択します。<br>%1",
     "Select category to add channel":
         "チャンネルを追加するカテゴリーを選択してください",
@@ -888,6 +895,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "このコードをプロキシから Authorization: Bearer ヘッダーに含めて送信します。",
     "Send to TV": "テレビに送る",
+    Series: "シリーズ",
     Server: "サーバー",
     "Server address": "サーバーアドレス",
     "Server address (for example 192.168.1.20:8081)":

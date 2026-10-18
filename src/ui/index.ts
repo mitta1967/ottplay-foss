@@ -388,6 +388,9 @@ export function uiInit(): void {
         }
     );
 
+    if ((window as any).__ottAccessibility)
+        (window as any).__ottAccessibility.install();
+
     // Click on info bar toggles channel info display
     $infoBar.on("click.ottUi", function (e: any) {
         if (!e) e = event;
@@ -960,13 +963,19 @@ export function showPage(): void {
             (window as any).channelListItemWidth = itemWidth;
         }
     } catch (_wCap) {}
+    var restoreRowFocus =
+        !!listInElement && listInElement.contains(document.activeElement);
     for (var i = pageStart; i < pageEnd; i++) {
         html +=
             '<div id="it' +
             i +
             '" data-idx="' +
             i +
-            '" role="button" tabindex="0" class="item"';
+            '" role="option" tabindex="-1" aria-posinset="' +
+            (i + 1) +
+            '" aria-setsize="' +
+            dataArr.length +
+            '" class="item"';
         html += ">";
         try {
             html += getListItemFn ? getListItemFn(dataArr[i], i) : "";
@@ -1096,6 +1105,12 @@ export function showPage(): void {
         }
     } catch (_pin) {}
     (window as any).selIndex = selIndex;
+    if ((window as any).__ottAccessibility)
+        (window as any).__ottAccessibility.select(
+            listInElement,
+            selIndex,
+            restoreRowFocus
+        );
     scheduleListDetailUpdate();
 }
 
@@ -1167,6 +1182,13 @@ export function changeSelect(delta: number): void {
         $(newItem).addClass("ott-selected");
         newItem.style.backgroundColor = curColorB || "#668";
         newItem.style.color = curColor || "gold";
+        if ((window as any).__ottAccessibility)
+            (window as any).__ottAccessibility.select(
+                listInElement,
+                selIndex,
+                !!listInElement &&
+                    listInElement.contains(document.activeElement)
+            );
         scheduleListDetailUpdate();
     } else {
         showPage();
@@ -1203,6 +1225,13 @@ export function setSelect(index: number): void {
             newItem.style.backgroundColor = curColorB || "#668";
             newItem.style.color = curColor || "gold";
         }
+        if ((window as any).__ottAccessibility)
+            (window as any).__ottAccessibility.select(
+                listInElement,
+                selIndex,
+                !!listInElement &&
+                    listInElement.contains(document.activeElement)
+            );
         scheduleListDetailUpdate();
     }
 }
@@ -1357,8 +1386,9 @@ export function showShift(message: string): void {
 export function infoBox(message: string): void {
     $("#dialogbox")
         .html(
-            localizedTextHtml(message) +
-                "<br/><br/>" +
+            '<div id="dialogMessage">' +
+                localizedTextHtml(message) +
+                "</div><br/><br/>" +
                 renderButtonHint(keys.ENTER, strENTER, "Ok")
         )
         .show();
@@ -1394,7 +1424,7 @@ export function confirmBox(
     // Preserve legacy cancellation on any non-ENTER key; expose No for touch users.
     $("#dialogbox")
         .html(
-            "<center>" +
+            '<center><div id="dialogMessage">' +
                 // Preserve line breaks without interpreting other message HTML.
                 localizedTextHtml(
                     metadataText(_(message)).replace(
@@ -1403,7 +1433,7 @@ export function confirmBox(
                     ),
                     true
                 ) +
-                "<br/><br/>" +
+                "</div><br/><br/>" +
                 renderButtonHint(keys.ENTER, strENTER, "Yes") +
                 renderButtonHint(keys.RETURN, strRETURN, "No") +
                 "</center>"

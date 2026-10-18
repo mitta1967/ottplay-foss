@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "Дэвсгэрийн өнгө",
     "Background color of selected item": "Сонгосон зүйлийн дэвсгэрийн өнгө",
     "Backup state changed": "Нөөцлөлтийн төлөв өөрчлөгдсөн",
+    "Backup streams": "Нөөц урсгалууд",
     "Balance, $": "Үлдэгдэл, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -622,6 +623,8 @@ var keyStrings = {
     "Manage lists": "Жагсаалт удирдах",
     "Manage settings": "Тохиргоо удирдах",
     "Manual setup": "Гараар тохируулах",
+    "Maximum stream bitrate": "Урсгалын хамгийн их битийн хурд",
+    "Maximum video height": "Видеоны хамгийн их өндөр",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV-ийн тохиргоо",
     Media: "Медиа",
@@ -634,6 +637,7 @@ var keyStrings = {
     "Move category up": "Ангиллыг дээш шилжүүлэх",
     "Move channel down": "Сувгийг доош шилжүүлэх",
     "Move channel up": "Сувгийг дээш шилжүүлэх",
+    Movies: "Кино",
     "m3u-m3u8 playlists": "M3U / M3U8 тоглуулах жагсаалтууд",
     medium: "дунд",
     min: "мин",
@@ -653,6 +657,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Нэвтрүүлэг тоглуулах жагсаалтын суваг, огноотой таарсангүй. Эх сурвалж болон төхөөрөмжийн цагийг шалгана уу.",
     "No saved settings found": "Хадгалсан тохиргоо олдсонгүй",
+    "No stream meets the quality limits":
+        "Чанарын хязгаарт тохирох урсгал алга",
     "No supported system language. Choose a language.":
         "Системийн хэлийг дэмждэггүй. Хэл сонгоно уу.",
     "Not configured": "Тохируулаагүй",
@@ -876,6 +882,7 @@ var keyStrings = {
         "Алсаас аюулгүй оруулж эхэлсэнгүй. Дэлгэцийн гар ашиглана уу.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Энэ төхөөрөмж дээр алсаас аюулгүй оруулах боломжгүй. Дэлгэцийн гар ашиглана уу.",
+    "Select a live channel first": "Эхлээд шууд сувгийг сонгоно уу",
     "Select a stream type:<br>%1": "Урсгалын төрлийг сонгоно уу:<br>%1",
     "Select category to add channel": "Суваг нэмэх ангиллыг сонгоно уу",
     "Select color": "Өнгө сонгох",
@@ -894,6 +901,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Энэ кодыг проксигоосоо Authorization: Bearer толгой хэсэгт илгээнэ үү.",
     "Send to TV": "ТВ рүү илгээх",
+    Series: "Олон ангит кино",
     Server: "Сервер",
     "Server address": "Серверийн хаяг",
     "Server address (for example 192.168.1.20:8081)":

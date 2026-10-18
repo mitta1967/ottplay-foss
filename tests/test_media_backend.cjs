@@ -42,6 +42,8 @@ function fixture() {
             };
             leases.push(lease);
             return {
+                diagnosticAttempt: () => lease.attempt || null,
+                diagnosticEngine: () => lease.engine || null,
                 dispose() {
                     lease.disposed++;
                     if (lease.onDispose) lease.onDispose();
@@ -1017,6 +1019,367 @@ test("restart waits for asynchronous pause confirmation before releasing restora
     f.playing(1, 8);
     assert.equal(f.leases[1].sample.paused, false);
     assert.equal(f.backend.current().snapshot().phase, "playing");
+});
+
+test("diagnostic preview owns one decoder without emitting old channel position or completion", (f) => {
+    f.domain({ generation: 1, kind: "live", position: 0 });
+    f.backend.open({ url: "live-source" });
+    f.playing(0, 100);
+    let closed = 0;
+    const observed = [];
+    f.backend.subscribe((event) => observed.push(event.type));
+    const preview = f.backend.preview("diagnostic.mp4", () => closed++);
+    assert.ok(preview.active());
+    assert.equal(f.leases[0].disposed, 1);
+    assert.equal(f.leases[1].request.transient, true);
+    const count = f.commands.length;
+    observed.length = 0;
+    f.playing(1, 2);
+    f.leases[1].event("timeupdate");
+    f.backend.seek(4);
+    f.backend.current().pause();
+    f.backend.current().resume();
+    assert.equal(f.commands.length, count);
+    assert.deepEqual(
+        observed,
+        [],
+        "temporary playback does not publish OS metadata for the old channel"
+    );
+    f.leases[1].event("ended");
+    assert.equal(closed, 1);
+    assert.equal(preview.active(), false);
+    assert.equal(f.leases[1].disposed, 1);
+    assert.equal(f.leases[2].request.url, "live-source");
+    assert.equal(f.leases[2].request.position, 0);
+    assert.equal(
+        f.commands.some((command) => command.type === "ended"),
+        false
+    );
+});
+test("diagnostic preview restores a paused live channel after explicit finish", (f) => {
+    f.domain({ generation: 1, kind: "live", position: 0 });
+    const old = f.backend.open({ url: "live-source" });
+    f.playing();
+    old.pause();
+    const preview = f.backend.preview("diagnostic.mp4");
+    preview.finish();
+    preview.finish();
+    assert.equal(f.leases.length, 3);
+    assert.equal(f.leases[2].request.paused, true);
+});
+for (const reason of ["stop", "replacement", "source"])
+    test("diagnostic preview never restores after " + reason, (f) => {
+        f.domain({ generation: 1, kind: "live", position: 0 });
+        f.backend.open({ url: "live-source" });
+        f.playing();
+        const preview = f.backend.preview("diagnostic.mp4");
+        if (reason === "stop") f.backend.stop();
+        if (reason === "replacement") f.backend.open({ url: "new-source" });
+        if (reason === "source")
+            f.domain({ generation: 2, kind: "live", position: 0 });
+        f.leases[1].event("ended");
+        preview.finish();
+        assert.equal(
+            f.leases.filter((lease) => lease.request.url === "live-source")
+                .length,
+            1
+        );
+        if (reason === "replacement") assert.equal(f.leases[2].disposed, 0);
+    });
+for (const kind of ["vod", "archive"])
+    test(
+        "diagnostic preview leaves " + kind + " history and decoder untouched",
+        (f) => {
+            f.domain({ generation: 1, kind, position: 50 });
+            const old = f.backend.open({ position: 50, url: "recording" });
+            f.playing(0, 50);
+            assert.equal(f.backend.preview("diagnostic.mp4"), null);
+            assert.equal(f.backend.current(), old);
+            assert.equal(f.leases[0].disposed, 0);
+        }
+    );
+test("idle diagnostic error cleans up without starting an old channel", (f) => {
+    f.domain(null);
+    const preview = f.backend.preview("diagnostic.mp4");
+    f.leases[0].event("error");
+    assert.equal(preview.active(), false);
+    assert.equal(f.backend.current(), null);
+    assert.equal(f.commands.length, 0);
+});
+test("diagnostic completion callback cannot overwrite a synchronously selected channel", (f) => {
+    f.domain({ generation: 1, kind: "live", position: 0 });
+    f.backend.open({ url: "live-source" });
+    f.playing();
+    const preview = f.backend.preview("diagnostic.mp4", () =>
+        f.backend.open({ url: "chosen-in-callback" })
+    );
+    preview.finish();
+    assert.equal(f.leases.length, 3);
+    assert.equal(f.leases[2].request.url, "chosen-in-callback");
+});
+
+test("diagnostic startup exception restores the previous live decoder", (f) => {
+    f.domain({ generation: 1, kind: "live", position: 0 });
+    f.backend.open({ url: "live-source" });
+    f.playing();
+    const originalOpen = f.ports.open;
+    f.ports.open = (request, event) => {
+        if (request.transient) throw new Error("failed test decoder");
+        return originalOpen(request, event);
+    };
+    assert.equal(f.backend.preview("diagnostic.mp4"), null);
+    assert.equal(f.leases.length, 2);
+    assert.equal(f.leases[1].request.url, "live-source");
+});
+
+test("diagnostic suspension preserves transient source identity and hides retired events", (f) => {
+    f.domain({ generation: 1, kind: "live", position: 0 });
+    f.backend.open({ url: "live-source" });
+    f.playing();
+    const resolutions = [];
+    const events = [];
+    f.ports.resolve = (url, done) => {
+        resolutions.push({ done, url });
+        return () => {};
+    };
+    f.backend.subscribe((event) => events.push(event));
+    const preview = f.backend.preview("diagnostic.mp4");
+    const handle = f.backend.current();
+    resolutions[0].done("signed-diagnostic-1");
+    f.leases[1].engine = "hls.js";
+    f.playing(1, 2);
+    assert.equal(handle.diagnosticEngine(), "hls.js");
+    handle.suspend();
+    assert.equal(handle.diagnosticEngine(), null);
+    assert.equal(f.leases[1].disposed, 1);
+    handle.resume();
+    resolutions[0].done("retired-signed-diagnostic");
+    assert.equal(f.leases.length, 2);
+    assert.equal(resolutions[1].url, "diagnostic.mp4");
+    resolutions[1].done("signed-diagnostic-2");
+    assert.equal(f.leases[2].request.sourceUrl, "diagnostic.mp4");
+    assert.equal(f.leases[2].request.url, "signed-diagnostic-2");
+    assert.equal(f.leases[2].request.transient, true);
+    f.leases[2].engine = "html5";
+    assert.equal(handle.diagnosticEngine(), "html5");
+    f.leases[1].event("ended");
+    assert.equal(preview.active(), true);
+    f.playing(2, 3);
+    f.leases[2].event("ended");
+    assert.equal(preview.active(), false);
+    assert.equal(resolutions[2].url, "live-source");
+    resolutions[2].done("fresh-live-source");
+    assert.equal(f.leases[3].request.sourceUrl, "live-source");
+    assert.equal(f.leases[3].request.transient, false);
+    assert.equal(
+        events.some((event) => event.id === handle.id),
+        false
+    );
+});
+
+test("diagnostic resolver failure stays private and retires the preview", (f) => {
+    f.domain(null);
+    const events = [];
+    f.backend.subscribe((event) => events.push(event.type));
+    f.ports.resolve = (_url, done) => {
+        done(null);
+        return () => {};
+    };
+    const preview = f.backend.preview("unavailable-diagnostic.mp4");
+    assert.equal(preview.active(), false);
+    assert.equal(f.backend.current(), null);
+    assert.equal(f.leases.length, 0);
+    assert.deepEqual(events, []);
+    assert.deepEqual(f.commands, []);
+});
+
+for (const kind of ["live", "vod", "archive"])
+    test("screen suspension releases transport and reopens " + kind, () => {
+        const f = fixture();
+        f.domain({
+            generation: 1,
+            kind,
+            position: kind === "archive" ? 1000 : 0,
+        });
+        const h = f.backend.open({ position: 10, url: "stream" });
+        f.playing(0, 37);
+        const saved = h.snapshot().position;
+        h.suspend();
+        h.suspend();
+        assert.equal(f.leases[0].disposed, 1);
+        assert.equal(f.backend.current(), h);
+        assert.equal(h.snapshot().phase, "paused");
+        assert.equal(h.snapshot().position, saved);
+        assert.equal(
+            f.timers.some((timer) => timer.active),
+            false
+        );
+        f.leases[0].event("playing");
+        assert.equal(
+            h.snapshot().phase,
+            "paused",
+            "retired decoder events are ignored"
+        );
+        h.resume();
+        assert.equal(f.leases.length, 2);
+        assert.equal(f.leases[1].request.position, kind === "live" ? 0 : 37);
+        assert.equal(f.leases[1].request.paused, false);
+        f.playing(1, kind === "live" ? 0 : 37);
+        assert.equal(h.snapshot().phase, "playing");
+        assert.equal(h.snapshot().position, kind === "live" ? 0 : saved);
+    });
+test("screen suspension cancels resolution and ignores late results", () => {
+    const f = fixture();
+    const callbacks = [];
+    let cancelled = 0;
+    f.ports.resolve = (url, done) => {
+        callbacks.push(done);
+        return () => cancelled++;
+    };
+    const h = f.backend.open({ url: "expiring" });
+    h.suspend();
+    assert.equal(cancelled, 1);
+    callbacks[0]("old");
+    assert.equal(f.leases.length, 0);
+    h.resume();
+    assert.equal(callbacks.length, 2, "wake resolves a fresh session");
+    callbacks[0]("old-again");
+    callbacks[1]("new");
+    assert.equal(f.leases.length, 1);
+    assert.equal(f.leases[0].request.url, "new");
+    h.suspend();
+    h.dispose();
+    h.resume();
+    assert.equal(
+        callbacks.length,
+        2,
+        "a disposed sleeping lease cannot reopen"
+    );
+});
+test("ordinary pause keeps its transport while screen suspension releases it", () => {
+    const f = fixture();
+    const h = f.backend.open({ url: "stream" });
+    f.playing(0, 37);
+    h.pause();
+    assert.equal(f.leases[0].disposed, 0);
+    h.suspend();
+    assert.equal(f.leases[0].disposed, 1);
+    assert.equal(h.snapshot().phase, "paused");
+    assert.equal(
+        f.leases.length,
+        1,
+        "no automatic reload of an already paused item"
+    );
+    h.resume();
+    assert.equal(
+        f.leases.length,
+        2,
+        "explicit Play can resume the released item"
+    );
+});
+
+test("a sleeping subscriber prevents replacement source resolution", () => {
+    const f = fixture();
+    const prior = f.backend.open({ url: "first" });
+    const resolutions = [];
+    f.ports.resolve = (url, done) => {
+        resolutions.push(url);
+        done(url);
+        return () => {};
+    };
+    f.backend.subscribe(() => {
+        const current = f.backend.current();
+        if (current && current !== prior) current.suspend();
+    });
+    const replacement = f.backend.open({ url: "asleep" });
+    assert.equal(replacement.snapshot().phase, "paused");
+    assert.deepEqual(
+        resolutions,
+        [],
+        "sleep must block source preparation too"
+    );
+    assert.equal(f.leases.length, 1);
+});
+
+test("engine diagnostics follow ownership, suspension and natural stop without sampling", () => {
+    const f = fixture();
+    const first = f.backend.open({ url: "first" });
+    f.leases[0].engine = "hls.js";
+    const commandCount = f.commands.length;
+    assert.equal(first.diagnosticEngine(), "hls.js");
+    assert.equal(
+        f.commands.length,
+        commandCount,
+        "observation emits no commands"
+    );
+    first.suspend();
+    assert.equal(first.diagnosticEngine(), null);
+    first.resume();
+    f.leases[1].engine = "html5";
+    assert.equal(first.diagnosticEngine(), "html5");
+    const next = f.backend.open({ url: "next" });
+    f.leases[2].engine = "shaka";
+    assert.equal(first.diagnosticEngine(), null);
+    assert.equal(next.diagnosticEngine(), "shaka");
+    f.playing(2);
+    f.leases[2].event("ended");
+    assert.equal(next.diagnosticEngine(), null);
+    const retired = f.backend.open({ url: "retired" });
+    f.leases[3].engine = "hls.js";
+    f.domain({ generation: 2, kind: "vod", position: 0 });
+    assert.equal(
+        retired.diagnosticEngine(),
+        null,
+        "retired source has no authority"
+    );
+    f.backend.dispose();
+});
+
+test("EOF retains one final attempt before synchronous engine disposal", () => {
+    const f = fixture();
+    const first = f.backend.open({ url: "first" });
+    f.leases[0].attempt = {
+        engineStarts: 3,
+        fatalErrors: 2,
+        nativeFallbacks: 1,
+        streamRetries: 1,
+    };
+    const attachment = first.diagnosticAttempt().attachment;
+    f.playing();
+    const emit = f.ports.emit;
+    f.ports.emit = (...args) => {
+        emit(...args);
+        if (args[1] === "ended") f.backend.dispose();
+    };
+    f.leases[0].event("ended");
+    assert.equal(f.backend.current(), null);
+    assert.equal(first.diagnosticAttempt(), null);
+    const final = f.backend.lastAttempt();
+    assert.equal(final.handleId, first.id);
+    assert.equal(final.generation, 1);
+    assert.equal(final.attachment, attachment);
+    assert.equal(final.reason, "ended");
+    assert.equal(final.engineStarts, 3);
+    assert.equal(final.nativeFallbacks, 1);
+    assert.equal(final.streamRetries, 1);
+    final.streamRetries = 0;
+    assert.equal(f.backend.lastAttempt().streamRetries, 1);
+    const second = f.backend.open({ url: "second" });
+    f.leases[1].attempt = {
+        ...f.leases[0].attempt,
+        engineStarts: 1,
+        streamRetries: 0,
+    };
+    f.playing(1);
+    f.leases[1].event("ended");
+    assert.equal(f.backend.lastAttempt().handleId, second.id);
+    f.leases[0].event("ended");
+    assert.equal(
+        f.backend.lastAttempt().handleId,
+        second.id,
+        "stale EOF cannot overwrite new history"
+    );
+    assert.equal(f.backend.lastAttempt("pip"), null);
 });
 
 console.log(

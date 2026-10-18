@@ -433,6 +433,26 @@ console.log(
     await Promise.resolve();
     assert.equal(replies[0].status, "ok");
     assert.equal(replies[0].data.data, data);
+    for (const version of [1, 2, 3]) {
+        replies = [];
+        w.__ottRuntimeDebug = {
+            snapshot: (requested) => {
+                assert.equal(requested, version);
+                return Promise.resolve({ ...data, version });
+            },
+        };
+        api.request(
+            { params: { runtime, section: "debug", version } },
+            (value) => replies.push(value)
+        );
+        await Promise.resolve();
+        assert.equal(replies[0].data.version, version);
+        assert.equal(replies[0].data.data.version, version);
+    }
+    for (const section of ["doctor", "snapshot", "operation"])
+        for (const version of [2, 3])
+            assert.equal(query(section, { version }).status, "rejected");
+    assert.equal(query("debug", { version: 4 }).status, "rejected");
     delete w.__ottRuntimeDebug;
     assert.equal(query("debug").status, "unsupported");
     console.log(

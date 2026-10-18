@@ -99,6 +99,7 @@ var keyStrings = {
     "Background color": "Background color",
     "Background color of selected item": "Background color of selected item",
     "Backup state changed": "Backup state changed",
+    "Backup streams": "Backup streams",
     "Balance, $": "Balance, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -606,6 +607,8 @@ var keyStrings = {
     "Manage lists": "Manage lists",
     "Manage settings": "Manage settings",
     "Manual setup": "Manual setup",
+    "Maximum stream bitrate": "Maximum stream bitrate",
+    "Maximum video height": "Maximum video height",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV settings",
     Media: "Media",
@@ -618,6 +621,7 @@ var keyStrings = {
     "Move category up": "Move category up",
     "Move channel down": "Move channel down",
     "Move channel up": "Move channel up",
+    Movies: "Movies",
     "m3u-m3u8 playlists": "M3U / M3U8 playlists",
     medium: "medium",
     min: "min",
@@ -637,6 +641,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "No programmes matched the playlist channels and dates. Check the source and device clock.",
     "No saved settings found": "No saved settings found",
+    "No stream meets the quality limits": "No stream meets the quality limits",
     "No supported system language. Choose a language.":
         "No supported system language. Choose a language.",
     "Not configured": "Not configured",
@@ -858,6 +863,7 @@ var keyStrings = {
         "Secure remote input could not start. Please use the on-screen keyboard.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Secure remote input is unavailable on this device. Use the on-screen keyboard.",
+    "Select a live channel first": "Select a live channel first",
     "Select a stream type:<br>%1": "Select a stream type:<br>%1",
     "Select category to add channel": "Select a category to add the channel",
     "Select color": "Select color",
@@ -876,6 +882,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Send this code from your proxy in the Authorization: Bearer header.",
     "Send to TV": "Send to TV",
+    Series: "Series",
     Server: "Server",
     "Server address": "Server address",
     "Server address (for example 192.168.1.20:8081)":

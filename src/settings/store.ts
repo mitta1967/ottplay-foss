@@ -5,13 +5,28 @@ export interface SettingDefinition {
     effects: string[];
     encode?(value: any): string;
     id: string;
+    invalidValue?: any;
     key: string;
+    prepare?(value: any): any;
+    protectOnLoad?: boolean;
+    protectRollback?(value: string | null): string | null;
     scope: "application" | "provider";
     validate(value: any): boolean;
 }
 export interface SettingStorage {
+    current?(): boolean;
+    key?: string;
     read(): string | null;
     remove(): void;
+    transaction?(
+        writes: {
+            key: string;
+            before: string | null;
+            after: string | null;
+            rollback?: string | null;
+        }[],
+        current: () => boolean
+    ): boolean;
     write(value: string): void;
 }
 export interface SettingsPorts {
@@ -22,6 +37,7 @@ export interface SettingsPorts {
 export interface SettingsWrite {
     after: string | null;
     before: string | null;
+    rollback?: string | null;
     storage: SettingStorage;
 }
 
@@ -38,10 +54,45 @@ export function commitSettingsWrites(
     current: () => boolean,
     rollbackAllowed: () => boolean
 ): void {
+    var transaction = writes.length && writes[0].storage.transaction;
+    if (
+        transaction &&
+        writes.every(function (write) {
+            return (
+                typeof write.storage.key === "string" &&
+                write.storage.transaction === transaction
+            );
+        }) &&
+        transaction(
+            writes.map(function (write) {
+                return {
+                    after: write.after,
+                    before: write.before,
+                    key: write.storage.key!,
+                    rollback: Object.prototype.hasOwnProperty.call(
+                        write,
+                        "rollback"
+                    )
+                        ? write.rollback
+                        : write.before,
+                };
+            }),
+            current
+        )
+    ) {
+        // A native/reentrant commit can finish after the source changes. Its
+        // durable bytes are committed, but stale runtime values must not publish.
+        if (!current())
+            throw settingsFailure("source_changed", "Settings source changed");
+        return;
+    }
     var batch = writes.map(function (write) {
         return {
             after: write.after,
             before: write.before,
+            rollback: Object.prototype.hasOwnProperty.call(write, "rollback")
+                ? write.rollback
+                : write.before,
             storage: write.storage,
         };
     });
@@ -85,8 +136,8 @@ export function commitSettingsWrites(
                 var actual = write.storage.read();
                 if (!rollbackAllowed()) break;
                 if (actual !== write.after) continue;
-                if (write.before === null) write.storage.remove();
-                else write.storage.write(write.before);
+                if (write.rollback === null) write.storage.remove();
+                else write.storage.write(write.rollback!);
             } catch (_rollback) {
                 /* Preserve the original failure; a caller must not publish state. */
             }
@@ -140,15 +191,47 @@ export function createSettingsStore(
         return true;
     }
     function reload(scope?: "application" | "provider"): void {
-        context = ports.context();
         var generation = ++revision;
-        var source = context;
+        var source: string;
+        var protectedVersions: Record<string, number> = Object.create(null);
+        // Revoke existing grants before any storage/crypto callback can run.
+        // Failed or reentrant loads must not retain the prior usable credential.
+        schema.forEach(function (entry) {
+            if (!entry.protectOnLoad || (scope && entry.scope !== scope))
+                return;
+            publish(entry.id, copy(entry.invalidValue));
+            protectedVersions[entry.id] = versions[entry.id] || 0;
+        });
+        try {
+            source = ports.context();
+        } catch (_contextError) {
+            return;
+        }
+        if (generation !== revision) return;
+        context = source;
+        function current(): boolean {
+            var currentSource: string;
+            try {
+                currentSource = ports.context();
+            } catch (_contextError) {
+                return false;
+            }
+            return (
+                generation === revision &&
+                source === currentSource &&
+                Object.keys(protectedVersions).every(function (id) {
+                    return (versions[id] || 0) === protectedVersions[id];
+                })
+            );
+        }
         var loaded: Record<string, any> = {};
+        var protectedReads: Record<string, () => boolean> = Object.create(null);
         schema.forEach(function (entry) {
             if (scope && entry.scope !== scope) return;
             var value = copy(entry.defaultValue);
             try {
-                var raw = ports.storage(entry).read();
+                var storage = ports.storage(entry);
+                var raw = storage.read();
                 if (raw !== null) {
                     var parsed = entry.decode
                         ? entry.decode(raw)
@@ -158,13 +241,71 @@ export function createSettingsStore(
                               : NaN
                           : raw;
                     if (entry.validate(parsed)) value = parsed;
+                    else if (
+                        Object.prototype.hasOwnProperty.call(
+                            entry,
+                            "invalidValue"
+                        )
+                    )
+                        value = copy(entry.invalidValue);
+                }
+                if (entry.protectOnLoad) {
+                    var entryCurrent = function (): boolean {
+                        var currentStorage =
+                            !storage.current || storage.current();
+                        return currentStorage && current();
+                    };
+                    if (!entry.prepare || !entry.validate(value))
+                        throw new Error("Invalid protected setting");
+                    value = entry.prepare(value);
+                    var encoded = entry.encode
+                        ? entry.encode(value)
+                        : String(value);
+                    if (encoded !== raw)
+                        commitSettingsWrites(
+                            [
+                                {
+                                    after: encoded,
+                                    before: raw,
+                                    rollback: encoded,
+                                    storage,
+                                },
+                            ],
+                            entryCurrent,
+                            entryCurrent
+                        );
+                    else if (
+                        !entryCurrent() ||
+                        storage.read() !== encoded ||
+                        !entryCurrent()
+                    )
+                        throw new Error(
+                            "Protected setting changed while loading"
+                        );
+                    protectedReads[entry.id] = function () {
+                        try {
+                            return (
+                                entryCurrent() &&
+                                storage.read() === encoded &&
+                                entryCurrent()
+                            );
+                        } catch (_readError) {
+                            return false;
+                        }
+                    };
                 }
             } catch (_error) {
-                /* Unreadable storage cannot inject an invalid preference. */
+                if (Object.prototype.hasOwnProperty.call(entry, "invalidValue"))
+                    value = copy(entry.invalidValue);
+                /* Security settings fail closed instead of restoring a default credential. */
             }
             loaded[entry.id] = copy(value);
         });
-        if (generation !== revision || source !== ports.context()) return;
+        Object.keys(protectedReads).forEach(function (id) {
+            if (!protectedReads[id]())
+                loaded[id] = copy(definitions[id].invalidValue);
+        });
+        if (!current()) return;
         Object.keys(loaded).forEach(function (id) {
             publish(id, loaded[id]);
         });
@@ -236,11 +377,18 @@ export function createSettingsStore(
                     changes.forEach(function (id) {
                         var entry = definitions[id],
                             storage = ports.storage(entry);
+                        var before = storage.read();
+                        // Preserve the old value without re-persisting a legacy
+                        // plaintext credential if a later write fails.
+                        var rollback = entry.protectRollback
+                            ? entry.protectRollback(before)
+                            : before;
                         writes.push({
                             after: entry.encode
                                 ? entry.encode(pending[id])
                                 : String(pending[id]),
-                            before: storage.read(),
+                            before: before,
+                            rollback: rollback,
                             storage: storage,
                         });
                     });
@@ -293,6 +441,13 @@ export function createSettingsStore(
                 var entry = definitions[id];
                 if (!active() || !entry || !entry.validate(value)) {
                     message = "Invalid setting: " + id;
+                    code = "invalid_setting";
+                    return false;
+                }
+                try {
+                    if (entry.prepare) value = entry.prepare(value);
+                } catch (_error) {
+                    message = "Could not protect setting: " + id;
                     code = "invalid_setting";
                     return false;
                 }

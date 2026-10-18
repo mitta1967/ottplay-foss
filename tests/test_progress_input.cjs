@@ -295,6 +295,7 @@ function startupFunctions(file, names) {
         .outputText.replace(/^export /gm, "");
 }
 const restartCode =
+    startupFunctions("src/storage/recovery-ui.ts", ["showSettingsRecovery"]) +
     startupFunctions("src/index.ts", ["startPlayer"]) +
     startupFunctions("src/core/index.ts", [
         "stbSetStandby",
@@ -335,6 +336,7 @@ for (const jqueryFile of [
                 timers.set(id, { callback, delay });
                 return id;
             },
+            settingsRecoveryRequired: () => false,
             showChannelInfo: () => infoClicks++,
             stbInit: () => false,
             stbStop() {},

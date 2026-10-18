@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Háttérszín",
     "Background color of selected item": "Kijelölt elem háttérszíne",
     "Backup state changed": "A biztonsági mentés állapota megváltozott",
+    "Backup streams": "Tartalék streamek",
     "Balance, $": "Egyenleg, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -620,6 +621,8 @@ var keyStrings = {
     "Manage lists": "Listák kezelése",
     "Manage settings": "Beállítások kezelése",
     "Manual setup": "Kézi beállítás",
+    "Maximum stream bitrate": "Maximális stream-bitráta",
+    "Maximum video height": "Maximális videómagasság",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV beállításai",
     Media: "Média",
@@ -632,6 +635,7 @@ var keyStrings = {
     "Move category up": "Kategória feljebb",
     "Move channel down": "Csatorna lejjebb",
     "Move channel up": "Csatorna feljebb",
+    Movies: "Filmek",
     "m3u-m3u8 playlists": "M3U-m3U8 playlistek",
     medium: "közepes",
     min: "perc",
@@ -651,6 +655,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Egyetlen program sem felelt meg a lejátszási listában szereplő csatornáknak és dátumoknak. Ellenőrizze a forrást és az eszköz óráját.",
     "No saved settings found": "Nem találhatók mentett beállítások",
+    "No stream meets the quality limits":
+        "Egyetlen stream sem felel meg a minőségi korlátoknak",
     "No supported system language. Choose a language.":
         "Nincs támogatott rendszernyelv. Válasszon nyelvet.",
     "Not configured": "Nincs beállítva",
@@ -877,6 +883,7 @@ var keyStrings = {
         "A biztonságos távoli bemenet nem indul el. Kérjük, használja a képernyő-billentyűzetet.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "A biztonságos távoli bemenet nem érhető el ezen az eszközön. Használja a képernyő-billentyűzetet.",
+    "Select a live channel first": "Először válasszon élő csatornát",
     "Select a stream type:<br>%1": "Válasszon adatfolyamtípust:<br>%1",
     "Select category to add channel":
         "Válasszon kategóriát a csatorna hozzáadásához",
@@ -896,6 +903,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Küldje el ezt a kódot a proxyból az Authorization: Bearer fejlécben.",
     "Send to TV": "Küldés TV-re",
+    Series: "Sorozatok",
     Server: "Kiszolgáló",
     "Server address": "Kiszolgáló címe",
     "Server address (for example 192.168.1.20:8081)":
