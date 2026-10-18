@@ -125,6 +125,7 @@ function fixture() {
         restoreListPanelState() {},
         saveListPanelState() {},
         scrollUp() {},
+        settingsRecoveryRequired: () => false,
         showPage() {},
         stbEventToKeyCode: (e) => e.keyCode,
         stbGetItem: () => null,
@@ -170,6 +171,7 @@ function fixture() {
             .join("\n")
     );
     w.eval(func("src/ui/index.ts", "localizedTextHtml"));
+    w.eval(func("src/storage/recovery-ui.ts", "showSettingsRecovery"));
     w.setTimeout = () => 1;
     w.clearTimeout = () => {};
     w.requestAnimationFrame = () => {};
@@ -256,11 +258,12 @@ test("channel list keeps hostile titles as text and preserves intentional row la
                     time: 1,
                     time_to: Date.now() / 1000 + 30,
                 },
+                other: { channel_name: "Other channel", name: "Other channel" },
             },
             currentProgramRequestQueue: [],
             getViewportWidthScale: () => 1,
             listArray: [],
-            listDataArray: ["fixture"],
+            listDataArray: ["fixture", "other"],
             listElement: null,
             listInElement: w.document.getElementById("listIn"),
             listRowHeight: () => 28,
@@ -280,6 +283,16 @@ test("channel list keeps hostile titles as text and preserves intentional row la
             sPSchannels: false,
             updateChannelListRow() {},
         });
+        // The renderer delegates roving focus and selected state to this real
+        // port; keep it present in the fixture as it is in the classic bundle.
+        w.eval(
+            js(
+                fs.readFileSync(
+                    path.join(root, "src/ui/accessibility.ts"),
+                    "utf8"
+                )
+            )
+        );
         w.eval(
             js("window.getListItemFn=" + renderer.getText(a) + ";") +
                 func("src/ui/index.ts", "showPage")
@@ -292,9 +305,34 @@ test("channel list keeps hostile titles as text and preserves intentional row la
         assert(w.document.getElementById("it0").textContent.includes(hostile));
         assert.equal(
             w.document.getElementById("it0").getAttribute("role"),
-            "button"
+            "option"
         );
         assert.equal(w.document.getElementById("it0").tabIndex, 0);
+        assert.equal(
+            w.document.getElementById("it0").getAttribute("aria-selected"),
+            "true"
+        );
+        assert.equal(
+            w.document.getElementById("it1").getAttribute("role"),
+            "option"
+        );
+        assert.equal(
+            w.document.getElementById("it1").getAttribute("aria-selected"),
+            "false"
+        );
+        assert.equal(w.document.getElementById("it1").tabIndex, -1);
+        w.selIndex = 1;
+        w.showPage();
+        assert.equal(w.document.getElementById("it0").tabIndex, -1);
+        assert.equal(
+            w.document.getElementById("it0").getAttribute("aria-selected"),
+            "false"
+        );
+        assert.equal(w.document.getElementById("it1").tabIndex, 0);
+        assert.equal(
+            w.document.getElementById("it1").getAttribute("aria-selected"),
+            "true"
+        );
         assert.equal(w.__executed, undefined);
     } finally {
         w.close();

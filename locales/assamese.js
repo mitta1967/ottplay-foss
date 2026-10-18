@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "পটভূমিৰ ৰং",
     "Background color of selected item": "নিৰ্বাচিত বস্তুৰ পটভূমিৰ ৰং",
     "Backup state changed": "বেকআপ অৱস্থা সলনি কৰা হৈছে",
+    "Backup streams": "বিকল্প ষ্ট্ৰীম",
     "Balance, $": "বেলেন্স, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -598,6 +599,8 @@ var keyStrings = {
     "Manage lists": "তালিকা পৰিচালনা কৰক",
     "Manage settings": "ছেটিংছ পৰিচালনা কৰক",
     "Manual setup": "হাতে কৰা ছেটআপ",
+    "Maximum stream bitrate": "ষ্ট্ৰীমৰ সৰ্বাধিক বিটৰেট",
+    "Maximum video height": "ভিডিঅ’ৰ সৰ্বাধিক উচ্চতা",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ছেটিংছ",
     Media: "মিডিয়া",
@@ -610,6 +613,7 @@ var keyStrings = {
     "Move category up": "শ্ৰেণী ওপৰলৈ নিয়ক",
     "Move channel down": "চেনেল তললৈ নিয়ক",
     "Move channel up": "চেনেল ওপৰলৈ নিয়ক",
+    Movies: "চলচ্চিত্ৰ",
     "m3u-m3u8 playlists": "M3U / M3U8 প্লেলিষ্ট",
     medium: "মজলীয়া",
     min: "মিনিট",
@@ -629,6 +633,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "প্লেলিষ্টৰ চেনেল আৰু তাৰিখৰ সৈতে কোনো অনুষ্ঠান মিলা নাই। উৎস আৰু ডিভাইচৰ ঘড়ী পৰীক্ষা কৰক।",
     "No saved settings found": "কোনো সংৰক্ষিত ছেটিংছ পোৱা নগ’ল",
+    "No stream meets the quality limits": "কোনো ষ্ট্ৰীমে মানৰ সীমা পূৰণ নকৰে",
     "No supported system language. Choose a language.":
         "কোনো সমৰ্থিত চিস্টেম ভাষা নাই। এটা ভাষা বাছি লওক।",
     "Not configured": "বিন্যাস কৰা হোৱা নাই",
@@ -849,6 +854,7 @@ var keyStrings = {
         "সুৰক্ষিত দূৰৱৰ্তী ইনপুট আৰম্ভ কৰিব পৰা নগ’ল। পৰ্দাৰ কীব’ৰ্ড ব্যৱহাৰ কৰক।",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "এই ডিভাইচত সুৰক্ষিত দূৰৱৰ্তী ইনপুট উপলব্ধ নহয়। পৰ্দাৰ কীব’ৰ্ড ব্যৱহাৰ কৰক।",
+    "Select a live channel first": "প্ৰথমে এটা পোনপটীয়া সম্প্ৰচাৰৰ চেনেল বাছক",
     "Select a stream type:<br>%1": "ষ্ট্ৰিমৰ প্ৰকাৰ বাছক:<br>%1",
     "Select category to add channel": "চেনেল যোগ কৰিবলৈ শ্ৰেণী বাছক",
     "Select color": "ৰং বাছক",
@@ -866,6 +872,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "আপোনাৰ প্ৰক্সিৰ পৰা Authorization: Bearer হেডাৰত এই ক’ড পঠিয়াওক।",
     "Send to TV": "টিভিলৈ পঠাওক",
+    Series: "ধাৰাবাহিক",
     Server: "ছাৰ্ভাৰ",
     "Server address": "ছাৰ্ভাৰৰ ঠিকনা",
     "Server address (for example 192.168.1.20:8081)":

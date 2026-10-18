@@ -1,5 +1,9 @@
 # Browser generations and operating systems
 
+[Русский](browser-compatibility.ru.md) · [Measured results](implementation-report.md#browser-gate-integration)
+
+![Configured browser qualification: 35 targets, 166 scenario executions](diagrams/browser-qualification.svg)
+
 The existing device, media, legacy ES5/worker, native UI and Apple native-HLS
 checks remain required. The shared TypeScript workflow additionally runs the
 Plex scenarios against the exact packaged Mode A archive: two
@@ -94,3 +98,43 @@ run, attempt, channel and exact candidate artifact ID. RC cannot use the five-
 target beta evidence. Stable promotion consumes the accepted RC bytes. Re-run
 the whole qualification workflow after failure; older attempt receipts cannot
 complete a new qualification.
+
+## From source to accepted candidate
+
+![Source, package verification, capability checks and evidence](diagrams/candidate-verification-flow.svg)
+
+1. Build the reviewed source and package the resulting Mode A files. Keep the
+   archive checksum and source identity with the candidate.
+2. Before extraction, verify bounded archive size, safe paths, file types,
+   source/version, and the complete entry/provider hash inventory. Release
+   qualification additionally checks the frozen build receipt.
+3. Probe the actual browser version and media capabilities. Select the declared
+   profile; a capability mismatch fails instead of silently reducing coverage.
+4. Run the exact scenario set against the extracted files, without rebuilding.
+   Require every scenario exactly once, with no skips, failures or retries.
+5. Retain the runtime, capabilities, candidate digest and scenario results.
+   The shared gate checks the required targets and matching run/attempt/source
+   before accepting the evidence. Release coordination and device acceptance
+   remain separate conditions.
+
+## What has been measured locally
+
+![Local integration verification: separate device and packaged-browser suites](diagrams/browser-verification-results.svg)
+
+At source `c52f4d07`, the complete Chromium device-browser run passed 196 tests
+with one expected native-HLS skip. Separately, the same packaged Mode A archive
+passed five scenarios in each of Chromium 156.0.8078.4, Firefox 157.0 and WebKit
+27.2: 15 passes, no skips or retries. These are different suites; their counts
+are not a coverage percentage or proof that all 35 hosted targets passed.
+
+The [saved receipts](evidence/post779-local-acceptance/summary.json) identify the
+actual macOS 26.7.1 host. They explicitly distinguish it from the `macos-15`
+profile label and do not qualify a release. To repeat this local check on a Mac,
+install the locked dependencies and Playwright 1.64.0 browsers, build the current
+source, then run the [saved recipe](evidence/post779-local-acceptance/reproduce.sh)
+with the repository directory as its argument. It packages the existing build,
+checks the candidate, probes each browser and saves new receipts under
+`.compatibility/`. It requires port 4189 and refuses to overwrite an existing
+`browser-candidate-web` directory. Keep the source unchanged between building
+and running the recipe. Hosted CI and physical-device results are tracked
+separately in the [implementation report](implementation-report.md).

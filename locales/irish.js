@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "Dath an chúlra",
     "Background color of selected item": "Dath cúlra na míre roghnaithe",
     "Backup state changed": "Athraíodh an staid chúltaca",
+    "Backup streams": "Sruthanna cúltaca",
     "Balance, $": "Iarmhéid, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -624,6 +625,8 @@ var keyStrings = {
     "Manage lists": "Bainistigh liostaí",
     "Manage settings": "Bainistigh socruithe",
     "Manual setup": "Socrú de láimh",
+    "Maximum stream bitrate": "Uasráta giotán an tsrutha",
+    "Maximum video height": "Uasairde físe",
     MaxTV: "MaxTV",
     "MaxTV settings": "Socruithe MaxTV",
     Media: "Meáin",
@@ -637,6 +640,7 @@ var keyStrings = {
     "Move category up": "Bog an chatagóir suas",
     "Move channel down": "Bog an cainéal síos",
     "Move channel up": "Bog an cainéal suas",
+    Movies: "Scannáin",
     "m3u-m3u8 playlists": "Seinmliostaí M3U / M3U8",
     medium: "meánach",
     min: "nóim",
@@ -656,6 +660,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Níor aimsíodh cláir a mheaitseálann cainéil agus dátaí an tseinmliosta. Seiceáil an fhoinse agus clog an ghléis.",
     "No saved settings found": "Níor aimsíodh socruithe sábháilte",
+    "No stream meets the quality limits":
+        "Ní chomhlíonann aon sruth na teorainneacha cáilíochta",
     "No supported system language. Choose a language.":
         "Gan teanga chórais tacaithe. Roghnaigh teanga.",
     "Not configured": "Gan chumrú",
@@ -879,6 +885,7 @@ var keyStrings = {
         "Níorbh fhéidir cianionchur slán a thosú. Úsáid an méarchlár ar an scáileán.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Níl cianionchur slán ar fáil ar an ngléas seo. Úsáid an méarchlár ar an scáileán.",
+    "Select a live channel first": "Roghnaigh cainéal beo ar dtús",
     "Select a stream type:<br>%1": "Roghnaigh cineál srutha:<br>%1",
     "Select category to add channel":
         "Roghnaigh catagóir chun an cainéal a chur léi",
@@ -898,6 +905,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Seol an cód seo ó do sheachfhreastalaí sa cheanntásc Authorization: Bearer.",
     "Send to TV": "Seol chuig an teilifís",
+    Series: "Sraitheanna",
     Server: "Freastalaí",
     "Server address": "Seoladh an fhreastalaí",
     "Server address (for example 192.168.1.20:8081)":

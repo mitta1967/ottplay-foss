@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color of selected item": "Χρώμα φόντου επιλεγμένου στοιχείου",
     "Backup state changed":
         "Η κατάσταση δημιουργίας αντιγράφων ασφαλείας άλλαξε",
+    "Backup streams": "Εφεδρικές ροές",
     "Balance, $": "Υπόλοιπο, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -633,6 +634,8 @@ var keyStrings = {
     "Manage lists": "Διαχείριση λιστών",
     "Manage settings": "Διαχείριση ρυθμίσεων",
     "Manual setup": "Χειροκίνητη ρύθμιση",
+    "Maximum stream bitrate": "Μέγιστος ρυθμός bit ροής",
+    "Maximum video height": "Μέγιστο ύψος βίντεο",
     MaxTV: "MaxTV",
     "MaxTV settings": "Ρυθμίσεις MaxTV",
     Media: "Πολυμέσα",
@@ -646,6 +649,7 @@ var keyStrings = {
     "Move category up": "Μετακίνηση κατηγορίας πάνω",
     "Move channel down": "Μετακίνηση καναλιού κάτω",
     "Move channel up": "Μετακίνηση καναλιού πάνω",
+    Movies: "Ταινίες",
     "m3u-m3u8 playlists": "Λίστες αναπαραγωγής m3u-m3u8",
     medium: "μεσαίο",
     min: "λεπ",
@@ -665,6 +669,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Κανένα πρόγραμμα δεν ταιριάζει με τα κανάλια και τις ημερομηνίες της λίστας αναπαραγωγής. Ελέγξτε την πηγή και το ρολόι της συσκευής.",
     "No saved settings found": "Δεν βρέθηκαν αποθηκευμένες ρυθμίσεις",
+    "No stream meets the quality limits":
+        "Καμία ροή δεν πληροί τα όρια ποιότητας",
     "No supported system language. Choose a language.":
         "Δεν υποστηρίζεται γλώσσα συστήματος. Επιλέξτε μια γλώσσα.",
     "Not configured": "Δεν έχει ρυθμιστεί",
@@ -896,6 +902,7 @@ var keyStrings = {
         "Δεν ήταν δυνατή η εκκίνηση της ασφαλούς απομακρυσμένης εισόδου. Χρησιμοποιήστε το πληκτρολόγιο οθόνης.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Η ασφαλής απομακρυσμένη είσοδος δεν είναι διαθέσιμη σε αυτήν τη συσκευή. Χρησιμοποιήστε το πληκτρολόγιο οθόνης.",
+    "Select a live channel first": "Επιλέξτε πρώτα ένα ζωντανό κανάλι",
     "Select a stream type:<br>%1": "Επιλέξτε τύπο ροής:<br>%1",
     "Select category to add channel":
         "Επιλέξτε κατηγορία για προσθήκη καναλιού",
@@ -915,6 +922,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Στείλτε αυτόν τον κωδικό από τον διακομιστή μεσολάβησης στην κεφαλίδα Authorization: Bearer.",
     "Send to TV": "Αποστολή στην τηλεόραση",
+    Series: "Σειρές",
     Server: "Διακομιστής",
     "Server address": "Διεύθυνση διακομιστή",
     "Server address (for example 192.168.1.20:8081)":

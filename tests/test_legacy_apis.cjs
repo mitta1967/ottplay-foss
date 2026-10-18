@@ -75,16 +75,20 @@ function storageFixture(
             else cookies[key] = pair.slice(equals + 1);
         },
     });
+    let keyReads = 0;
     const local = {
         clear() {
             if (mode === "clear") throw new Error("SecurityError");
             for (const key of Object.keys(saved)) delete saved[key];
         },
         getItem(key) {
-            if (mode === "read") throw new Error("SecurityError");
+            if (mode === "read" || (persisted && persisted.failReadKey === key))
+                throw new Error("SecurityError");
             return Object.hasOwn(saved, key) ? saved[key] : null;
         },
         key(index) {
+            if (mode === "dump" && ++keyReads === 1)
+                throw new Error("Transient enumeration failure");
             return Object.keys(saved)[index];
         },
         get length() {
@@ -111,6 +115,86 @@ function storageFixture(
     if (mode === "missing") c.localStorage = undefined;
     vm.runInContext(storageCode, c);
     return contextOnly ? c : c.storage;
+}
+for (const mode of ["write", "remove", "dump"]) {
+    const storage = storageFixture(mode, false, {
+        cookies: {},
+        saved: { original: "kept" },
+    });
+    if (mode === "write") storage.set("ordinary", "new");
+    else if (mode === "remove") storage.del("ordinary");
+    else storage.dump();
+    assert.equal(storage.get("original"), "kept");
+    assert.equal(
+        storage.get("parentPIN"),
+        null,
+        mode + ": complete failover proves PIN absence"
+    );
+}
+{
+    const storage = storageFixture("write", false, {
+        cookies: {},
+        failReadKey: "original",
+        saved: { original: "unreadable" },
+    });
+    storage.set("ordinary", "new");
+    assert.equal(
+        storage.get("parentPIN"),
+        "!locked-invalid-pin",
+        "incomplete failover must not invent PIN absence"
+    );
+}
+for (const mode of ["read"]) {
+    const storage = storageFixture(mode, false, {
+        cookies: {},
+        saved: { parentPIN: "9876" },
+    });
+    assert.equal(
+        storage.get("parentPIN"),
+        "!locked-invalid-pin",
+        mode + ": unreadable native PIN must not become default1234"
+    );
+}
+assert.equal(
+    storageFixture("native", false, {
+        cookies: { parentPIN: "%ZZ" },
+        saved: {},
+    }).get("parentPIN"),
+    null
+);
+assert.equal(
+    storageFixture("missing", false, {
+        cookies: { parentPIN: "%ZZ" },
+        saved: {},
+    }).get("parentPIN"),
+    "!locked-invalid-pin"
+);
+assert.equal(
+    storageFixture("missing", true).get("parentPIN"),
+    "!locked-invalid-pin"
+);
+assert.equal(
+    storageFixture("missing", false, {
+        cookies: { parentPIN: "9876" },
+        saved: {},
+    }).get("parentPIN"),
+    "9876",
+    "readable legacy cookies remain usable"
+);
+{
+    const { JSDOM } = require("jsdom");
+    const dom = new JSDOM("", {
+        runScripts: "outside-only",
+        url: "https://example.invalid",
+    });
+    Object.defineProperty(dom.window, "localStorage", {
+        get() {
+            throw new Error("denied");
+        },
+    });
+    dom.window.eval(storageCode);
+    assert.equal(dom.window.storage.get("parentPIN"), "!locked-invalid-pin");
+    dom.window.close();
 }
 function persistedOverrides(state) {
     const runtime = storageFixture("native", false, state, true);

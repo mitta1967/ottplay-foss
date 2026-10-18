@@ -9,11 +9,14 @@ const CLASSIC_MODULES = [
     "build/localization/unicode.js",
     "build/localization/index.js",
     "build/localization/assets.js",
+    "build/storage/recovery-ui.js",
     "build/localization/media.js",
     "build/settings/cloud-codec.js",
     "build/settings/cloud.js",
     "build/settings/library-backup.js",
     "build/settings/store.js",
+    "js/vendor/sjcl-pin.js",
+    "build/access/pin-security.js",
     "build/settings/index.js",
     "build/settings/editor.js",
     "build/settings/transfer-ui.js",
@@ -37,6 +40,7 @@ const CLASSIC_MODULES = [
     "build/media/library.js",
     "build/media/journal.js",
     "build/media/classic-adapter.js",
+    "build/guide/bindings.js",
     "build/guide/service.js",
     "build/guide/reminders.js",
     "build/guide/screen.js",
@@ -46,6 +50,7 @@ const CLASSIC_MODULES = [
     "build/channels/index.js",
     "build/channels/classic-search.js",
     "build/debug/playback-debug.js",
+    "build/playback/stream-policy.js",
     "build/core/auto-playback.js",
     "build/core/native-hls.js",
     "build/device/adapter.js",
@@ -60,6 +65,7 @@ const CLASSIC_MODULES = [
     "build/ui/input-router.js",
     "build/ui/classic-screen-port.js",
     "build/ui/menu-registry.js",
+    "build/ui/accessibility.js",
     "build/ui/index.js",
     "build/key-handler/index.js",
     "build/provider/runtime.js",
@@ -79,11 +85,13 @@ const CLASSIC_MODULES = [
     "build/plugins/plex-queue.js",
     "build/provider/plex-driver.js",
     "build/provider/vportal-driver.js",
+    "build/provider/xtream-media.js",
     "build/provider/drivers.js",
     "build/provider/assets.js",
     "build/provider/index.js",
     "build/commands/index.js",
     "build/commands/remote-profiles.js",
+    "build/commands/remote-handoff.js",
     "build/commands/remote-plex.js",
     "build/commands/remote-favorites-contract.js",
     "build/commands/remote-favorites.js",
@@ -138,6 +146,7 @@ const CLASSIC_PROVIDER_BUNDLES = Object.freeze({
     ],
     stalker: ["build/provider/stalker-driver.js"],
     vportal: ["build/provider/vportal-driver.js"],
+    xtream: ["build/provider/xtream-media.js"],
 });
 const providerModules = new Set(Object.values(CLASSIC_PROVIDER_BUNDLES).flat());
 const CLASSIC_MAIN_MODULES = CLASSIC_MODULES.filter(
@@ -148,6 +157,7 @@ const CLASSIC_MAIN_MODULES = CLASSIC_MODULES.filter(
 // and execute immediately at their original position in CLASSIC_MODULES.
 const CLASSIC_PRIVATE_MODULES = Object.freeze({
     "build/access/classic-adapter.js": Object.freeze(["window.__ottParental"]),
+    "build/access/pin-security.js": Object.freeze(["window.__ottPinSecurity"]),
     "build/access/session.js": Object.freeze(["window.__ottAccessSession"]),
     "build/channels/channel-references.js": Object.freeze([
         "window.__ottChannelReferences",
@@ -168,6 +178,7 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
         "window.__ottOsMediaSession",
     ]),
     "build/device/native-pip.js": Object.freeze(["window.__ottNativePip"]),
+    "build/guide/bindings.js": Object.freeze(["window.__ottGuideBindings"]),
     "build/guide/classic-reminders.js": Object.freeze([
         "window.__ottClassicReminders",
     ]),
@@ -193,6 +204,9 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
     ]),
     "build/playback/journal.js": Object.freeze(["window.__ottPlaybackJournal"]),
     "build/playback/session.js": Object.freeze(["window.__ottPlaybackSession"]),
+    "build/playback/stream-policy.js": Object.freeze([
+        "window.__ottStreamPolicy",
+    ]),
     "build/plugins/native-http.js": Object.freeze([
         "window.installTauriHttpTransport",
         "window.installCapacitorHttpTransport",
@@ -236,12 +250,16 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
     "build/provider/vportal-driver.js": Object.freeze([
         "window.__ottVPortalDriver",
     ]),
+    "build/provider/xtream-media.js": Object.freeze([
+        "window.__ottXtreamMedia",
+    ]),
     "build/settings/cloud-codec.js": Object.freeze([
         "window.__ottCloudSettingsCodec",
     ]),
     "build/settings/library-backup.js": Object.freeze([
         "window.__ottLibraryBackup",
     ]),
+    "build/ui/accessibility.js": Object.freeze(["window.__ottAccessibility"]),
     "build/ui/classic-screen-port.js": Object.freeze([
         "window.__ottClassicScreenPort",
         "window.__ottScreens",

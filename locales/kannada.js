@@ -99,6 +99,7 @@ var keyStrings = {
     "Background color": "ಹಿನ್ನೆಲೆ ಬಣ್ಣ",
     "Background color of selected item": "ಆಯ್ದ ಐಟಂನ ಹಿನ್ನೆಲೆ ಬಣ್ಣ",
     "Backup state changed": "ಬ್ಯಾಕಪ್ ಸ್ಥಿತಿಯನ್ನು ಬದಲಾಯಿಸಲಾಗಿದೆ",
+    "Backup streams": "ಪರ್ಯಾಯ ಸ್ಟ್ರೀಮ್‌ಗಳು",
     "Balance, $": "ಬ್ಯಾಲೆನ್ಸ್, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -599,6 +600,8 @@ var keyStrings = {
     "Manage lists": "ಪಟ್ಟಿಗಳನ್ನು ನಿರ್ವಹಿಸಿ",
     "Manage settings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಿ",
     "Manual setup": "ಹಸ್ತಚಾಲಿತ ಸೆಟಪ್",
+    "Maximum stream bitrate": "ಸ್ಟ್ರೀಮ್‌ನ ಗರಿಷ್ಠ ಬಿಟ್‌ರೇಟ್",
+    "Maximum video height": "ವೀಡಿಯೊದ ಗರಿಷ್ಠ ಎತ್ತರ",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
     Media: "ಮಾಧ್ಯಮ",
@@ -611,6 +614,7 @@ var keyStrings = {
     "Move category up": "ವರ್ಗವನ್ನು ಮೇಲಕ್ಕೆ ಸರಿಸಿ",
     "Move channel down": "ಚಾನಲ್ ಅನ್ನು ಕೆಳಕ್ಕೆ ಸರಿಸಿ",
     "Move channel up": "ಚಾನಲ್ ಅನ್ನು ಮೇಲಕ್ಕೆ ಸರಿಸಿ",
+    Movies: "ಚಲನಚಿತ್ರಗಳು",
     "m3u-m3u8 playlists": "M3U / M3U8 ಪ್ಲೇಪಟ್ಟಿಗಳು",
     medium: "ಮಧ್ಯಮ",
     min: "ನಿಮಿಷ",
@@ -630,6 +634,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "ಯಾವುದೇ ಕಾರ್ಯಕ್ರಮಗಳು ಪ್ಲೇಪಟ್ಟಿ ಚಾನಲ್‌ಗಳು ಮತ್ತು ದಿನಾಂಕಗಳಿಗೆ ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ. ಮೂಲ ಮತ್ತು ಸಾಧನ ಗಡಿಯಾರವನ್ನು ಪರಿಶೀಲಿಸಿ.",
     "No saved settings found": "ಯಾವುದೇ ಉಳಿಸಿದ ಸೆಟ್ಟಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+    "No stream meets the quality limits":
+        "ಯಾವುದೇ ಸ್ಟ್ರೀಮ್ ಗುಣಮಟ್ಟದ ಮಿತಿಗಳನ್ನು ಪೂರೈಸುವುದಿಲ್ಲ",
     "No supported system language. Choose a language.":
         "ಯಾವುದೇ ಬೆಂಬಲಿತ ಸಿಸ್ಟಂ ಭಾಷೆ ಇಲ್ಲ. ಒಂದು ಭಾಷೆಯನ್ನು ಆರಿಸಿ.",
     "Not configured": "ಸಂರಚಿಸಲಾಗಿಲ್ಲ",
@@ -850,6 +856,7 @@ var keyStrings = {
         "ಸುರಕ್ಷಿತ ರಿಮೋಟ್ ಇನ್‌ಪುಟ್ ಪ್ರಾರಂಭಿಸಲಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಆನ್-ಸ್ಕ್ರೀನ್ ಕೀಬೋರ್ಡ್ ಬಳಸಿ.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "ಈ ಸಾಧನದಲ್ಲಿ ಸುರಕ್ಷಿತ ರಿಮೋಟ್ ಇನ್‌ಪುಟ್ ಲಭ್ಯವಿಲ್ಲ. ಆನ್-ಸ್ಕ್ರೀನ್ ಕೀಬೋರ್ಡ್ ಬಳಸಿ.",
+    "Select a live channel first": "ಮೊದಲು ನೇರಪ್ರಸಾರದ ಚಾನಲ್ ಆಯ್ಕೆಮಾಡಿ",
     "Select a stream type:<br>%1": "ಸ್ಟ್ರೀಮ್ ಪ್ರಕಾರವನ್ನು ಆಯ್ಕೆಮಾಡಿ:<br>%1",
     "Select category to add channel": "ಚಾನಲ್ ಸೇರಿಸಲು ವರ್ಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ",
     "Select color": "ಬಣ್ಣವನ್ನು ಆಯ್ಕೆಮಾಡಿ",
@@ -867,6 +874,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "ನಿಮ್ಮ ಪ್ರಾಕ್ಸಿಯಿಂದ ಈ ಕೋಡ್ ಅನ್ನು Authorization: Bearer ಹೆಡರ್‌ನಲ್ಲಿ ಕಳುಹಿಸಿ.",
     "Send to TV": "ಟಿವಿಗೆ ಕಳುಹಿಸಿ",
+    Series: "ಧಾರಾವಾಹಿಗಳು",
     Server: "ಸರ್ವರ್",
     "Server address": "ಸರ್ವರ್ ವಿಳಾಸ",
     "Server address (for example 192.168.1.20:8081)":

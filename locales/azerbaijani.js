@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "Fon rəngi",
     "Background color of selected item": "Seçilmiş elementin fon rəngi",
     "Backup state changed": "Yedəkləmə vəziyyəti dəyişdi",
+    "Backup streams": "Ehtiyat yayımlar",
     "Balance, $": "Balans, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -615,6 +616,8 @@ var keyStrings = {
     "Manage lists": "Siyahıları idarə et",
     "Manage settings": "Ayarları idarə et",
     "Manual setup": "Əl ilə quraşdırma",
+    "Maximum stream bitrate": "Maksimum yayım bit sürəti",
+    "Maximum video height": "Maksimum video hündürlüyü",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ayarları",
     Media: "Media",
@@ -627,6 +630,7 @@ var keyStrings = {
     "Move category up": "Kateqoriyanı yuxarı köçür",
     "Move channel down": "Kanalı aşağı köçür",
     "Move channel up": "Kanalı yuxarı köçür",
+    Movies: "Filmlər",
     "m3u-m3u8 playlists": "M3U / M3U8 pleylistləri",
     medium: "orta",
     min: "dəq",
@@ -646,6 +650,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Pleylist kanalları və tarixləri ilə heç bir proqram uyğun gəlmir. Mənbəni və cihazın saatını yoxlayın.",
     "No saved settings found": "Saxlanmış ayarlar tapılmadı",
+    "No stream meets the quality limits":
+        "Heç bir yayım keyfiyyət məhdudiyyətlərinə uyğun deyil",
     "No supported system language. Choose a language.":
         "Dəstəklənən sistem dili yoxdur. Dil seçin.",
     "Not configured": "Qurulmayıb",
@@ -869,6 +875,7 @@ var keyStrings = {
         "Təhlükəsiz uzaqdan giriş başlaya bilmədi. Zəhmət olmasa ekran klaviaturasından istifadə edin.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Təhlükəsiz uzaqdan giriş bu cihazda mövcud deyil. Ekran klaviaturasından istifadə edin.",
+    "Select a live channel first": "Əvvəlcə canlı kanal seçin",
     "Select a stream type:<br>%1": "Yayım növünü seçin:<br>%1",
     "Select category to add channel":
         "Kanalı əlavə etmək üçün kateqoriya seçin",
@@ -888,6 +895,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Bu kodu proksidən Authorization: Bearer başlığında göndərin.",
     "Send to TV": "TV-yə göndər",
+    Series: "Seriallar",
     Server: "Server",
     "Server address": "Server ünvanı",
     "Server address (for example 192.168.1.20:8081)":

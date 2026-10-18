@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "배경색",
     "Background color of selected item": "선택한 항목의 배경색",
     "Backup state changed": "백업 상태가 변경되었습니다.",
+    "Backup streams": "예비 스트림",
     "Balance, $": "잔액, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -607,6 +608,8 @@ var keyStrings = {
     "Manage lists": "목록 관리",
     "Manage settings": "설정 관리",
     "Manual setup": "수동설정",
+    "Maximum stream bitrate": "스트림 최대 비트레이트",
+    "Maximum video height": "동영상 최대 높이",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV 설정",
     Media: "미디어",
@@ -620,6 +623,7 @@ var keyStrings = {
     "Move category up": "카테고리 위로 이동",
     "Move channel down": "채널을 아래로 이동",
     "Move channel up": "채널을 위로 이동",
+    Movies: "영화",
     "m3u-m3u8 playlists": "M3U / M3U8 재생 목록",
     medium: "미디엄",
     min: "분",
@@ -639,6 +643,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "재생목록 채널 및 날짜와 일치하는 프로그램이 없습니다. 소스 및 장치 시계를 확인하십시오.",
     "No saved settings found": "저장된 설정을 찾을 수 없습니다.",
+    "No stream meets the quality limits":
+        "화질 제한을 충족하는 스트림이 없습니다",
     "No supported system language. Choose a language.":
         "지원되는 시스템 언어가 없습니다. 언어를 선택하세요.",
     "Not configured": "구성되지 않음",
@@ -860,6 +866,7 @@ var keyStrings = {
         "보안 원격 입력을 시작할 수 없습니다. 온스크린 키보드를 사용해 주세요.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "이 장치에서는 보안 원격 입력을 사용할 수 없습니다. 온스크린 키보드를 사용하세요.",
+    "Select a live channel first": "먼저 실시간 채널을 선택하세요",
     "Select a stream type:<br>%1": "스트림 유형 선택:<br>%1",
     "Select category to add channel": "채널을 추가할 카테고리를 선택하세요",
     "Select color": "색상을 선택하세요",
@@ -877,6 +884,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "프록시에서 Authorization: Bearer 헤더로 이 코드를 보냅니다.",
     "Send to TV": "TV로 보내기",
+    Series: "시리즈",
     Server: "서버",
     "Server address": "서버 주소",
     "Server address (for example 192.168.1.20:8081)":

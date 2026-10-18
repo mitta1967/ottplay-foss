@@ -50,6 +50,7 @@ try {
         "locales",
         "hosted",
         "swop-input",
+        "diagnostics",
     ])
         fs.mkdirSync(path.join(root, "dist", directory), { recursive: true });
     const bundle = "var fixture = true;\n";
@@ -62,6 +63,11 @@ try {
     ];
     for (const file of hostedFiles)
         fs.writeFileSync(path.join(root, "dist", file), "fixture:" + file);
+    // Even an older, uncleared build must not reintroduce the hosted fixture.
+    fs.writeFileSync(
+        path.join(root, "dist/diagnostics/av-v1.mp4"),
+        "stale clip"
+    );
     fs.writeFileSync(
         path.join(root, "dist/index.html"),
         "<!doctype html><title>fixture</title>"
@@ -161,6 +167,30 @@ try {
         });
     }
     assert.equal(entries.includes("./dist/provider-obsolete.js"), false);
+    assert.equal(
+        entries.some((name) => name.includes("diagnostics/")),
+        false
+    );
+    // Docker consumes the same built web root as this actual Mode A archive.
+    // A retired source in its COPY list must fail here, before an image build.
+    const dockerCopies = fs
+        .readFileSync(path.join(__dirname, "../Dockerfile"), "utf8")
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("COPY --from=build "));
+    assert(dockerCopies.length > 0, "Docker must package the built web root");
+    for (const line of dockerCopies) {
+        const copy = /^COPY --from=build \/app\/dist\/(\S+) \.\/(\S+)$/.exec(
+            line
+        );
+        assert(copy, "Review changed Docker web-root COPY syntax: " + line);
+        const [, source, destination] = copy;
+        assert.equal(source, destination, "Keep Docker web-root routes");
+        assert(
+            entries.includes("./" + source) ||
+                entries.includes("./" + source + "/"),
+            "Docker COPY source is absent from the packaged web root: " + source
+        );
+    }
     for (const file of hostedFiles)
         assert.equal(
             execFileSync("tar", ["-xOf", archive, "./" + file], {

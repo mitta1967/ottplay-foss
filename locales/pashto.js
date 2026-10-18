@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "د شاليد رنګ",
     "Background color of selected item": "د غوره شوي توکي د شاليد رنګ",
     "Backup state changed": "د بیک اپ حالت بدل شو",
+    "Backup streams": "بدیلې خپرونې",
     "Balance, $": "بیلانس، $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -610,6 +611,8 @@ var keyStrings = {
     "Manage lists": "لیستونه اداره کړئ",
     "Manage settings": "ترتیبات اداره کړئ",
     "Manual setup": "لاسي ترتیب",
+    "Maximum stream bitrate": "د خپرونې تر ټولو لوړه بېټ کچه",
+    "Maximum video height": "د ویډیو تر ټولو لوړ لوړوالی",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV ترتیبات",
     Media: "رسنۍ",
@@ -622,6 +625,7 @@ var keyStrings = {
     "Move category up": "کټګوري پورته یوسئ",
     "Move channel down": "چینل ښکته کړئ",
     "Move channel up": "چینل پورته کړئ",
+    Movies: "فلمونه",
     "m3u-m3u8 playlists": "M3U / M3U8 پلې‌لېستونه",
     medium: "منځنی",
     min: "دقیقې",
@@ -641,6 +645,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "هیڅ پروګرام د پلې‌لېست چینلونو او نیټو سره سمون نه خوري. سرچینه او وسیله ساعت وګورئ.",
     "No saved settings found": "هیڅ خوندي شوي ترتیبات ونه موندل شول",
+    "No stream meets the quality limits":
+        "هېڅ خپرونه د کیفیت له محدودیتونو سره برابره نه ده",
     "No supported system language. Choose a language.":
         "د ملاتړ وړ سیسټم ژبه نشته. یوه ژبه غوره کړئ.",
     "Not configured": "نه دی ترتیب شوی",
@@ -863,6 +869,7 @@ var keyStrings = {
         "خوندي ریموټ ان پټ پیل نشو. مهرباني وکړئ پر پرده کیبورډ وکاروئ.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "خوندي ریموټ ان پټ په دې وسیله کې شتون نلري. آن پرده کیبورډ وکاروئ.",
+    "Select a live channel first": "لومړی یو ژوندی چینل وټاکئ",
     "Select a stream type:<br>%1": "د جریان ډول غوره کړئ: <br> %1",
     "Select category to add channel":
         "د چینل اضافه کولو لپاره یوه کټګورۍ غوره کړئ",
@@ -882,6 +889,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "دا کوډ له خپل پراکسي څخه د Authorization: Bearer سرلیک کې واستوئ.",
     "Send to TV": "تلویزیون ته واستوئ",
+    Series: "سریالونه",
     Server: "سرور",
     "Server address": "د سرور پته",
     "Server address (for example 192.168.1.20:8081)":

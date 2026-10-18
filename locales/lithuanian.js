@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Fono spalva",
     "Background color of selected item": "Pasirinkto elemento fono spalva",
     "Backup state changed": "Pakeista atsarginės kopijos būsena",
+    "Backup streams": "Atsarginiai srautai",
     "Balance, $": "Likutis, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -617,6 +618,8 @@ var keyStrings = {
     "Manage lists": "Tvarkyti sąrašus",
     "Manage settings": "Tvarkyti nustatymus",
     "Manual setup": "Rankinis nustatymas",
+    "Maximum stream bitrate": "Didžiausia srauto sparta bitais",
+    "Maximum video height": "Didžiausias vaizdo aukštis",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV nustatymai",
     Media: "Medija",
@@ -629,6 +632,7 @@ var keyStrings = {
     "Move category up": "Perkelti kategoriją aukštyn",
     "Move channel down": "Perkelti kanalą žemyn",
     "Move channel up": "Perkelti kanalą aukštyn",
+    Movies: "Filmai",
     "m3u-m3u8 playlists": "m3u-m3u8 grojaraščiai",
     medium: "vidutinis",
     min: "min",
@@ -648,6 +652,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Nė viena laida neatitiko grojaraščio kanalų ir datų. Patikrinkite šaltinį ir įrenginio laikrodį.",
     "No saved settings found": "Išsaugotų nustatymų nerasta",
+    "No stream meets the quality limits":
+        "Nė vienas srautas neatitinka kokybės apribojimų",
     "No supported system language. Choose a language.":
         "Nepalaikoma sistemos kalba. Pasirinkite kalbą.",
     "Not configured": "Nesukonfigūruota",
@@ -869,6 +875,7 @@ var keyStrings = {
         "Nepavyko paleisti saugios nuotolinės įvesties. Naudokite ekraninę klaviatūrą.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Šiame įrenginyje saugi nuotolinė įvestis nepasiekiama. Naudokite ekrano klaviatūrą.",
+    "Select a live channel first": "Pirmiausia pasirinkite tiesioginį kanalą",
     "Select a stream type:<br>%1": "Pasirinkite srauto tipą:<br>%1",
     "Select category to add channel": "Pasirinkite kategoriją kanalui pridėti",
     "Select color": "Pasirinkti spalvą",
@@ -887,6 +894,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Siųskite šį kodą iš tarpinio serverio antraštėje Authorization: Bearer.",
     "Send to TV": "Siųsti į televizorių",
+    Series: "Serialai",
     Server: "Serveris",
     "Server address": "Serverio adresas",
     "Server address (for example 192.168.1.20:8081)":

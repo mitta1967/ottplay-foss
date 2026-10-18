@@ -101,6 +101,7 @@ var keyStrings = {
     "Background color": "Боја позадине",
     "Background color of selected item": "Боја позадине изабране ставке",
     "Backup state changed": "Стање резервне копије је промењено",
+    "Backup streams": "Резервни токови",
     "Balance, $": "Стање, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -618,6 +619,8 @@ var keyStrings = {
     "Manage lists": "Управљајте листама",
     "Manage settings": "Управљајте подешавањима",
     "Manual setup": "Ручно подешавање",
+    "Maximum stream bitrate": "Максимална брзина протока",
+    "Maximum video height": "Максимална висина видеа",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV подешавања",
     Media: "Медији",
@@ -630,6 +633,7 @@ var keyStrings = {
     "Move category up": "Померите категорију нагоре",
     "Move channel down": "Померите канал надоле",
     "Move channel up": "Помери канал горе",
+    Movies: "Филмови",
     "m3u-m3u8 playlists": "M3U / М3У8 плејлисте",
     medium: "Средње",
     min: "мин",
@@ -649,6 +653,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Ниједан програм се не подудара са каналима и датумима плејлисте. Проверите извор и сат уређаја.",
     "No saved settings found": "Нису пронађена сачувана подешавања",
+    "No stream meets the quality limits":
+        "Ниједан ток не испуњава ограничења квалитета",
     "No supported system language. Choose a language.":
         "Нема подржаног системског језика. Изаберите језик.",
     "Not configured": "Није подешено",
@@ -871,6 +877,7 @@ var keyStrings = {
         "Безбедни даљински унос није могао да се покрене. Користите тастатуру на екрану.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Безбедан даљински унос није доступан на овом уређају. Користите тастатуру на екрану.",
+    "Select a live channel first": "Прво изаберите канал уживо",
     "Select a stream type:<br>%1": "Изаберите тип тока:<br>%1",
     "Select category to add channel":
         "Изаберите категорију да бисте додали канал",
@@ -890,6 +897,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Пошаљите овај код са свог прокси сервера у заглављу Authorization: Bearer.",
     "Send to TV": "Пошаљи на ТВ",
+    Series: "Серије",
     Server: "Сервер",
     "Server address": "Адреса сервера",
     "Server address (for example 192.168.1.20:8081)":

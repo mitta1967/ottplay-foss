@@ -59,6 +59,7 @@ export interface Channel {
     description?: string | (() => string);
     epg?: string | number;
     epg_external?: boolean;
+    epg_manual?: boolean;
     epg_src?: string;
     epg_url?: string | number;
     icon?: string;
@@ -1201,7 +1202,9 @@ export function fetchChannelGuide(
                 var xmltvUrls = channelXmltvUrls(ch);
                 (window as any).Capacitor.Plugins.MobileXmltvEpg.getEpg({
                     archive_hours: archiveHours,
-                    ch: ch?.channel_name || ch?.name || "",
+                    ch: ch?.epg_manual
+                        ? ""
+                        : ch?.channel_name || ch?.name || "",
                     channel_id: String(channelId),
                     hash: hash,
                     time_shift_hours: timeShiftHours,
@@ -1238,7 +1241,10 @@ export function fetchChannelGuide(
                 usesNativeXmltv(channels[channelId])
             ) {
                 var ch = channels[channelId];
-                var channelName = (ch && (ch.channel_name || ch.name)) || "";
+                var channelName =
+                    ch && ch.epg_manual
+                        ? ""
+                        : (ch && (ch.channel_name || ch.name)) || "";
                 var hash =
                     ch && (ch as any).epg_url != null
                         ? String((ch as any).epg_url)
@@ -3819,7 +3825,7 @@ export function parentControlSetup(): void {
      */
     function saveSettings(): void {
         if (!editor.active()) return;
-        function finish(pin: string): void {
+        function finish(pin: string, current?: () => boolean): void {
             var enabling = editor.get("parentPin") === "*" && pin !== "*";
             if (
                 !editor.active() ||
@@ -3827,7 +3833,8 @@ export function parentControlSetup(): void {
                 !editor.save()
             )
                 return;
-            if (enabling) setParentAccess(true, function () {});
+            if (enabling && current && current() && window.parentPIN === pin)
+                setParentAccess(true, function () {});
             if (typeof window.showShift === "function")
                 window.showShift(window._("Settings saved"));
             if (typeof window.closeList === "function") window.closeList();
@@ -3853,8 +3860,43 @@ export function parentControlSetup(): void {
                 window._("Repeat parental code"),
                 function (repeat: string) {
                     if (!editor.active() || !repeat) return;
-                    if (repeat === first) finish(first);
-                    else if (typeof window.showShift === "function")
+                    if (repeat === first) {
+                        var security = (window as any).__ottPinSecurity;
+                        if (!security) return;
+                        var unchanged = (
+                            window as any
+                        ).__ottParental.checkpoint();
+                        var previous = window.parentPIN;
+                        var current = function (): boolean {
+                            return (
+                                editor.active() &&
+                                unchanged() &&
+                                window.parentPIN === previous &&
+                                editor.get("parentPin") === pin &&
+                                !!rows.filter(function (row: any) {
+                                    return (
+                                        row.editorAction === "parentalEnabled"
+                                    );
+                                })[0].val
+                            );
+                        };
+                        if (typeof window.showShift === "function")
+                            window.showShift(
+                                window._("Loading. Please wait...")
+                            );
+                        security.create(
+                            first,
+                            current,
+                            function (encoded: string | null) {
+                                if (!current()) return;
+                                if (encoded) finish(encoded, unchanged);
+                                else if (typeof window.showShift === "function")
+                                    window.showShift(
+                                        window._("Settings could not be saved")
+                                    );
+                            }
+                        );
+                    } else if (typeof window.showShift === "function")
                         window.showShift(window._("Wrong parental code !!!"));
                 }
             );

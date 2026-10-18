@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color of selected item":
         "Culoarea de fundal a elementului selectat",
     "Backup state changed": "Starea copiei de rezervă sa schimbat",
+    "Backup streams": "Fluxuri de rezervă",
     "Balance, $": "Sold, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -628,6 +629,8 @@ var keyStrings = {
     "Manage lists": "Gestionează listele",
     "Manage settings": "Gestionează setările",
     "Manual setup": "Configurare manuală",
+    "Maximum stream bitrate": "Rata de biți maximă a fluxului",
+    "Maximum video height": "Înălțimea maximă a videoclipului",
     MaxTV: "MaxTV",
     "MaxTV settings": "Setări MaxTV",
     Media: "Media",
@@ -641,6 +644,7 @@ var keyStrings = {
     "Move category up": "Mută categoria în sus",
     "Move channel down": "Mută canalul în jos",
     "Move channel up": "Mută canalul în sus",
+    Movies: "Filme",
     "m3u-m3u8 playlists": "Playlisturi m3u-m3u8",
     medium: "mediu",
     min: "min",
@@ -660,6 +664,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Niciun program nu se potrivea cu canalele și datele listei de redare. Verificați sursa și ceasul dispozitivului.",
     "No saved settings found": "Nu au fost găsite setări salvate",
+    "No stream meets the quality limits":
+        "Niciun flux nu respectă limitele de calitate",
     "No supported system language. Choose a language.":
         "Nicio limbă de sistem acceptată. Alegeți o limbă.",
     "Not configured": "Neconfigurat",
@@ -888,6 +894,7 @@ var keyStrings = {
         "Intrarea securizată de la distanță nu a putut porni. Vă rugăm să utilizați tastatura de pe ecran.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Intrarea securizată de la distanță nu este disponibilă pe acest dispozitiv. Utilizați tastatura de pe ecran.",
+    "Select a live channel first": "Selectați mai întâi un canal în direct",
     "Select a stream type:<br>%1": "Alegeți tipul de flux:<br>%1",
     "Select category to add channel":
         "Selectați categoria pentru a adăuga canalul",
@@ -907,6 +914,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Trimite acest cod din proxy în antetul Authorization: Bearer.",
     "Send to TV": "Trimite la TV",
+    Series: "Seriale",
     Server: "Server",
     "Server address": "Adresa serverului",
     "Server address (for example 192.168.1.20:8081)":

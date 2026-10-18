@@ -198,6 +198,7 @@ function fixture(options = {}) {
             timeouts.set(++timer, { callback, delay });
             return timer;
         },
+        showShift() {},
         XMLHttpRequest() {
             throw new Error("Native transport must not issue upstream XHRs");
         },

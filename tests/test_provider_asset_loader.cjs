@@ -74,7 +74,6 @@ test("eager and unknown kinds stay synchronous without network", () => {
     let completed = 0;
     for (const kind of [
         "demo",
-        "xtream",
         "operator",
         "xtream-fallback",
         "named-playlist",
@@ -84,7 +83,7 @@ test("eager and unknown kinds stay synchronous without network", () => {
     ]) {
         f.ensure(kind, lifetime, () => completed++);
     }
-    assert.equal(completed, 8);
+    assert.equal(completed, 7);
     assert.equal(f.requests.length, 0);
     assert.equal(lifetime.cleanups, 0);
 });
@@ -100,13 +99,14 @@ test("every complete preloaded family stays synchronous", () => {
         "plex",
         "stalker",
         "vportal",
+        "xtream",
     ]);
     let completed = 0;
     for (const kind of kinds) {
         f.publish(kind);
         f.ensure(kind, owner(), () => completed++);
     }
-    assert.equal(completed, 7);
+    assert.equal(completed, 8);
     assert.equal(f.requests.length, 0);
 });
 

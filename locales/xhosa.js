@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "Umbala wemvelaphi",
     "Background color of selected item": "Umbala wemvelaphi yento ekhethiweyo",
     "Backup state changed": "Imeko yogcino itshintshile",
+    "Backup streams": "Imijelo yogcino",
     "Balance, $": "Imali eseleyo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -633,6 +634,8 @@ var keyStrings = {
     "Manage lists": "Lawula izintlu",
     "Manage settings": "Lawula iisetingi",
     "Manual setup": "Lungiselela ngesandla",
+    "Maximum stream bitrate": "Isantya esiphezulu sebhithi yomjelo",
+    "Maximum video height": "Ubude obuphezulu bevidiyo",
     MaxTV: "MaxTV",
     "MaxTV settings": "Iisetingi ze-MaxTV",
     Media: "Imidhiya",
@@ -645,6 +648,7 @@ var keyStrings = {
     "Move category up": "Hambisa udidi phezulu",
     "Move channel down": "Hambisa ijelo ezantsi",
     "Move channel up": "Hambisa ijelo phezulu",
+    Movies: "Iimuvi",
     "m3u-m3u8 playlists": "Izintlu zokudlala ze-M3U / M3U8",
     medium: "ephakathi",
     min: "imizuzu",
@@ -664,6 +668,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Akukho nkqubo zihambelana namajelo nemihla yoluhlu lokudlala. Jonga umthombo newotshi yesixhobo.",
     "No saved settings found": "Akukho zisetingi zigciniweyo zifunyenweyo",
+    "No stream meets the quality limits":
+        "Akukho mjelo uhlangabezana nemida yomgangatho",
     "No supported system language. Choose a language.":
         "Akukho lwimi lwenkqubo oluxhaswayo. Khetha ulwimi.",
     "Not configured": "Ayikalungiselelwa",
@@ -889,6 +895,7 @@ var keyStrings = {
         "Ukufaka okukude okukhuselekileyo akukwazanga ukuqala. Nceda usebenzise ibhodi yezitshixo esesikrinini.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Ukufaka okukude okukhuselekileyo akufumaneki kwesi sixhobo. Sebenzisa ibhodi yezitshixo esesikrinini.",
+    "Select a live channel first": "Qala ukhethe isitishi esisasaza ngqo",
     "Select a stream type:<br>%1": "Khetha uhlobo losasazo:<br>%1",
     "Select category to add channel": "Khetha udidi oza kongeza kulo ijelo",
     "Select color": "Khetha umbala",
@@ -907,6 +914,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Thumela le khowudi kwiproksi yakho kwisihloko esithi Authorization: Bearer.",
     "Send to TV": "Thumela kumabonakude",
+    Series: "Uthotho",
     Server: "Iseva",
     "Server address": "Idilesi yeseva",
     "Server address (for example 192.168.1.20:8081)":

@@ -100,6 +100,7 @@ var keyStrings = {
     "Background color": "Barva pozadí",
     "Background color of selected item": "Barva pozadí vybrané položky",
     "Backup state changed": "Stav zálohy se změnil",
+    "Backup streams": "Záložní streamy",
     "Balance, $": "Zůstatek, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -609,6 +610,8 @@ var keyStrings = {
     "Manage lists": "Spravovat seznamy",
     "Manage settings": "Spravovat nastavení",
     "Manual setup": "Ruční nastavení",
+    "Maximum stream bitrate": "Maximální datový tok streamu",
+    "Maximum video height": "Maximální výška videa",
     MaxTV: "MaxTV",
     "MaxTV settings": "Nastavení MaxTV",
     Media: "Média",
@@ -621,6 +624,7 @@ var keyStrings = {
     "Move category up": "Posunout kategorii nahoru",
     "Move channel down": "Posunout kanál dolů",
     "Move channel up": "Posunout kanál nahoru",
+    Movies: "Filmy",
     "m3u-m3u8 playlists": "Playlisty M3U / M3U8",
     medium: "střední",
     min: "min",
@@ -640,6 +644,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Žádné programy neodpovídají kanálům a datům seznamu stop. Zkontrolujte zdroj a hodiny zařízení.",
     "No saved settings found": "Uložená nastavení nebyla nalezena",
+    "No stream meets the quality limits":
+        "Žádný stream nesplňuje omezení kvality",
     "No supported system language. Choose a language.":
         "Žádný podporovaný systémový jazyk. Vyberte jazyk.",
     "Not configured": "Nenastaveno",
@@ -862,6 +868,7 @@ var keyStrings = {
         "Zabezpečený vzdálený vstup nelze spustit. Použijte prosím klávesnici na obrazovce.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Na tomto zařízení není k dispozici zabezpečený vzdálený vstup. Použijte klávesnici na obrazovce.",
+    "Select a live channel first": "Nejprve vyberte živý kanál",
     "Select a stream type:<br>%1": "Vyberte typ streamu:<br>%1",
     "Select category to add channel": "Vyberte kategorii pro přidání kanálu",
     "Select color": "Vyberte barvu",
@@ -880,6 +887,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Odesílejte tento kód z proxy v hlavičce Authorization: Bearer.",
     "Send to TV": "Odeslat do TV",
+    Series: "Seriály",
     Server: "Server",
     "Server address": "Adresa serveru",
     "Server address (for example 192.168.1.20:8081)":

@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "Ранги замина",
     "Background color of selected item": "Ранги заминаи сатри интихобшуда",
     "Backup state changed": "Ҳолати нусхабардорӣ тағйир ёфт",
+    "Backup streams": "Ҷараёнҳои эҳтиётӣ",
     "Balance, $": "Бақия, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -619,6 +620,8 @@ var keyStrings = {
     "Manage lists": "Идораи рӯйхатҳо",
     "Manage settings": "Идораи танзимот",
     "Manual setup": "Танзими дастӣ",
+    "Maximum stream bitrate": "Суръати ҳадди аксари битҳои ҷараён",
+    "Maximum video height": "Баландии ҳадди аксари видео",
     MaxTV: "MaxTV",
     "MaxTV settings": "Танзимоти MaxTV",
     Media: "Медиа",
@@ -631,6 +634,7 @@ var keyStrings = {
     "Move category up": "Гурӯҳро боло баред",
     "Move channel down": "Каналро поён баред",
     "Move channel up": "Каналро боло баред",
+    Movies: "Филмҳо",
     "m3u-m3u8 playlists": "Рӯйхатҳои пахши M3U / M3U8",
     medium: "миёна",
     min: "дақ",
@@ -650,6 +654,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Ягон барнома ба каналҳо ва санаҳои рӯйхати пахш мувофиқ наомад. Манбаъ ва соати дастгоҳро санҷед.",
     "No saved settings found": "Танзимоти захирашуда ёфт нашуданд",
+    "No stream meets the quality limits":
+        "Ҳеҷ як ҷараён ба маҳдудиятҳои сифат мувофиқ нест",
     "No supported system language. Choose a language.":
         "Ягон забони системавӣ дастгирӣ намешавад. Забонеро интихоб кунед.",
     "Not configured": "Танзим нашудааст",
@@ -873,6 +879,8 @@ var keyStrings = {
         "Вуруди дурдасти бехатар оғоз нашуд. Лутфан клавиатураи экранро истифода баред.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Вуруди дурдасти бехатар дар ин дастгоҳ дастрас нест. Клавиатураи экранро истифода баред.",
+    "Select a live channel first":
+        "Аввал канали пахши мустақимро интихоб кунед",
     "Select a stream type:<br>%1": "Навъи пахшро интихоб кунед:<br>%1",
     "Select category to add channel":
         "Барои илова кардани канал гурӯҳро интихоб кунед",
@@ -892,6 +900,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Ин рамзро аз прокси дар сарлавҳаи Authorization: Bearer фиристед.",
     "Send to TV": "Ба телевизион фиристед",
+    Series: "Сериалҳо",
     Server: "Сервер",
     "Server address": "Суроғаи сервер",
     "Server address (for example 192.168.1.20:8081)":

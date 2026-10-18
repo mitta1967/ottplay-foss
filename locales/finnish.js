@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Taustaväri",
     "Background color of selected item": "Valitun kohteen taustaväri",
     "Backup state changed": "Varmuuskopiointitila muutettu",
+    "Backup streams": "Varavirrat",
     "Balance, $": "Saldo, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -616,6 +617,8 @@ var keyStrings = {
     "Manage lists": "Hallitse luetteloita",
     "Manage settings": "Hallinnoi asetuksia",
     "Manual setup": "Manuaalinen asetus",
+    "Maximum stream bitrate": "Suoratoiston enimmäisbittinopeus",
+    "Maximum video height": "Videon enimmäiskorkeus",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV asetukset",
     Media: "Media",
@@ -628,6 +631,7 @@ var keyStrings = {
     "Move category up": "Siirrä luokkaa ylöspäin",
     "Move channel down": "Siirrä kanavaa alaspäin",
     "Move channel up": "Siirrä kanavaa ylöspäin",
+    Movies: "Elokuvat",
     "m3u-m3u8 playlists": "M3U / M3U8-soittolistat",
     medium: "Keskikokoinen",
     min: "min",
@@ -647,6 +651,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Yksikään ohjelma ei vastannut soittolistan kanavia ja päivämääriä. Tarkista lähde ja laitteen kello.",
     "No saved settings found": "Tallennettuja asetuksia ei löytynyt",
+    "No stream meets the quality limits":
+        "Mikään suoratoisto ei täytä laaturajoja",
     "No supported system language. Choose a language.":
         "Ei tuettua järjestelmäkieltä. Valitse kieli.",
     "Not configured": "Ei määritetty",
@@ -870,6 +876,7 @@ var keyStrings = {
         "Suojattu etäsyöttö ei voinut käynnistyä. Käytä näyttönäppäimistöä.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Suojattu etäsyöttö ei ole käytettävissä tällä laitteella. Käytä näyttönäppäimistöä.",
+    "Select a live channel first": "Valitse ensin suora kanava",
     "Select a stream type:<br>%1": "Valitse streamin tyyppi:<br>%1",
     "Select category to add channel": "Valitse luokka lisätäksesi kanavan",
     "Select color": "Valitse väri",
@@ -888,6 +895,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Lähetä tämä koodi välityspalvelimeltasi Authorization: Bearer -otsakkeessa.",
     "Send to TV": "Lähetä televisioon",
+    Series: "Sarjat",
     Server: "Palvelin",
     "Server address": "Palvelimen osoite",
     "Server address (for example 192.168.1.20:8081)":

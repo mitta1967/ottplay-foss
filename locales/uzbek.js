@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "Fon rangi",
     "Background color of selected item": "Tanlangan elementning fon rangi",
     "Backup state changed": "Zaxira holati o'zgartirildi",
+    "Backup streams": "Zaxira oqimlar",
     "Balance, $": "Balans, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -624,6 +625,8 @@ var keyStrings = {
     "Manage lists": "Roʻyxatlarni boshqarish",
     "Manage settings": "Sozlamalarni boshqarish",
     "Manual setup": "Qoʻlda sozlash",
+    "Maximum stream bitrate": "Oqimning eng yuqori bit tezligi",
+    "Maximum video height": "Videoning eng katta balandligi",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV sozlamalari",
     Media: "Media",
@@ -636,6 +639,7 @@ var keyStrings = {
     "Move category up": "Turkumni yuqoriga koʻchirish",
     "Move channel down": "Kanalni pastga siljitish",
     "Move channel up": "Kanalni yuqoriga siljitish",
+    Movies: "Filmlar",
     "m3u-m3u8 playlists": "m3u-m3u8 playlistlar",
     medium: "oʻrta",
     min: "daq",
@@ -655,6 +659,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Hech bir ko‘rsatuv pleylist kanallari va sanalariga mos kelmadi. Manbani va qurilma soatini tekshiring.",
     "No saved settings found": "Saqlangan sozlamalar topilmadi",
+    "No stream meets the quality limits":
+        "Hech bir oqim sifat cheklovlariga mos kelmaydi",
     "No supported system language. Choose a language.":
         "Qo'llab-quvvatlanadigan tizim tili yo'q. Til tanlang.",
     "Not configured": "Sozlanmagan",
@@ -879,6 +885,7 @@ var keyStrings = {
         "Xavfsiz masofaviy kiritishni ishga tushirib bo'lmadi. Iltimos, ekran klaviaturasidan foydalaning.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Ushbu qurilmada xavfsiz masofaviy kiritish mavjud emas. Ekrandagi klaviaturadan foydalaning.",
+    "Select a live channel first": "Avval jonli kanalni tanlang",
     "Select a stream type:<br>%1": "Oqim turini tanlang:<br>%1",
     "Select category to add channel":
         "Kanal qo'shish uchun kategoriyani tanlang",
@@ -898,6 +905,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Bu kodni proksidan Authorization: Bearer sarlavhasida yuboring.",
     "Send to TV": "Televizorga yuboring",
+    Series: "Seriallar",
     Server: "Server",
     "Server address": "Server manzili",
     "Server address (for example 192.168.1.20:8081)":

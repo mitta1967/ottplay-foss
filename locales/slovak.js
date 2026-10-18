@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "Farba pozadia",
     "Background color of selected item": "Farba pozadia vybranej položky",
     "Backup state changed": "Stav zálohy sa zmenil",
+    "Backup streams": "Záložné streamy",
     "Balance, $": "Zostatok, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -622,6 +623,8 @@ var keyStrings = {
     "Manage lists": "Spravovať zoznamy",
     "Manage settings": "Spravovať nastavenia",
     "Manual setup": "Manuálne nastavenie",
+    "Maximum stream bitrate": "Maximálny dátový tok streamu",
+    "Maximum video height": "Maximálna výška videa",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV nastavenia",
     Media: "Médiá",
@@ -635,6 +638,7 @@ var keyStrings = {
     "Move category up": "Posunúť kategóriu nahor",
     "Move channel down": "Presuňte kanál nadol",
     "Move channel up": "Presuňte kanál nahor",
+    Movies: "Filmy",
     "m3u-m3u8 playlists": "M3U / zoznamy skladieb M3U8",
     medium: "Stredné",
     min: "min",
@@ -654,6 +658,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Kanálom a dátumom zoznamu videí nezodpovedajú žiadne programy. Skontrolujte zdroj a hodiny zariadenia.",
     "No saved settings found": "Nenašli sa žiadne uložené nastavenia",
+    "No stream meets the quality limits":
+        "Žiadny stream nespĺňa obmedzenia kvality",
     "No supported system language. Choose a language.":
         "Žiadny podporovaný systémový jazyk. Vyberte jazyk.",
     "Not configured": "Nenakonfigurované",
@@ -882,6 +888,7 @@ var keyStrings = {
         "Zabezpečený vzdialený vstup sa nepodarilo spustiť. Použite klávesnicu na obrazovke.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Zabezpečený vzdialený vstup nie je na tomto zariadení k dispozícii. Použite klávesnicu na obrazovke.",
+    "Select a live channel first": "Najprv vyberte živý kanál",
     "Select a stream type:<br>%1": "Vyberte typ streamu:<br>%1",
     "Select category to add channel": "Vyberte kategóriu na pridanie kanála",
     "Select color": "Vyberte farbu",
@@ -900,6 +907,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Odošlite tento kód zo svojho proxy servera v hlavičke Authorization: Bearer.",
     "Send to TV": "Odoslať do TV",
+    Series: "Seriály",
     Server: "Server",
     "Server address": "Adresa servera",
     "Server address (for example 192.168.1.20:8081)":

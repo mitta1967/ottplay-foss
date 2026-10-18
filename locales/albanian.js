@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color of selected item":
         "Ngjyra e sfondit të artikullit të zgjedhur",
     "Backup state changed": "Gjendja e rezervimit ndryshoi",
+    "Backup streams": "Transmetime rezervë",
     "Balance, $": "Bilanci, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -627,6 +628,8 @@ var keyStrings = {
     "Manage lists": "Menaxho listat",
     "Manage settings": "Menaxho cilësimet",
     "Manual setup": "Konfigurimi manual",
+    "Maximum stream bitrate": "Shpejtësia maksimale e biteve të transmetimit",
+    "Maximum video height": "Lartësia maksimale e videos",
     MaxTV: "MaxTV",
     "MaxTV settings": "Cilësimet MaxTV",
     Media: "Media",
@@ -639,6 +642,7 @@ var keyStrings = {
     "Move category up": "Zhvendos kategorinë lart",
     "Move channel down": "Zhvendosni kanalin poshtë",
     "Move channel up": "Zhvendosni kanalin lart",
+    Movies: "Filma",
     "m3u-m3u8 playlists": "Listat e luajtjes M3U / M3U8",
     medium: "e mesme",
     min: "min",
@@ -658,6 +662,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "Asnjë program nuk përputhej me kanalet dhe datat e listës së luajtjes. Kontrolloni burimin dhe orën e pajisjes.",
     "No saved settings found": "Nuk u gjetën cilësime të ruajtura",
+    "No stream meets the quality limits":
+        "Asnjë transmetim nuk plotëson kufijtë e cilësisë",
     "No supported system language. Choose a language.":
         "Nuk ka gjuhë të mbështetur të sistemit. Zgjidhni një gjuhë.",
     "Not configured": "Nuk është konfiguruar",
@@ -885,6 +891,8 @@ var keyStrings = {
         "Hyrja e sigurt në distancë nuk mund të nisej. Ju lutemi përdorni tastierën në ekran.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "Hyrja e sigurt në distancë nuk ofrohet në këtë pajisje. Përdorni tastierën në ekran.",
+    "Select a live channel first":
+        "Zgjidhni fillimisht një kanal drejtpërdrejt",
     "Select a stream type:<br>%1": "Zgjidhni një lloj transmetimi:<br>%1",
     "Select category to add channel":
         "Zgjidhni një kategori për të shtuar kanalin",
@@ -904,6 +912,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "Dërgoni këtë kod nga serveri juaj proksi në fushën e kreut Authorization: Bearer.",
     "Send to TV": "Dërgo në TV",
+    Series: "Seriale",
     Server: "Serveri",
     "Server address": "Adresa e serverit",
     "Server address (for example 192.168.1.20:8081)":

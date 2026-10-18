@@ -106,7 +106,9 @@ for (const profile of ["typescript", "static-core"]) {
                 assert.equal(c.__ottCommandServer.status().enabled, false);
                 stored.clear();
             },
+            stbDelItem: (key) => stored.delete(key),
             stbGetAllItems: () => Object.fromEntries(stored),
+            stbGetItem: (key) => stored.get(key) ?? null,
             stbSetItem: (key, value) => stored.set(key, String(value)),
             URL,
         });
@@ -214,8 +216,11 @@ for (const profile of ["typescript", "static-core"]) {
         assert.equal(stored.get("stb_settings_backup"), undefined);
         assert.equal(stored.get("m3u:m3uArr"), providerPayload);
         assert.equal(stored.get("ordinary"), "restored");
-        assert.equal(stored.has("ottplayStorageFallback"), false);
-        assert.equal(stored.has("ottplayStorageFallback.0"), false);
+        assert.equal(stored.get("ottplayStorageFallback"), "pending");
+        assert.equal(
+            stored.get("ottplayStorageFallback.0"),
+            "internal-marker-part"
+        );
         if (profile === "static-core") {
             stored.set("stb_settings_backup", "{}");
             const before = JSON.stringify([...stored]);

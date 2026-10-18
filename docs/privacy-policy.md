@@ -1,6 +1,6 @@
 # Privacy Policy — OTT-play FOSS
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-16
 
 Published by **alvit**. For privacy or support questions, contact [alvit.work@gmail.com](mailto:alvit.work@gmail.com).
 
@@ -8,11 +8,11 @@ This policy describes **OTT-play FOSS** (`play.ott.foss.play`, Android Play dist
 
 ## About this app
 
-OTT-play FOSS is an open-source player for playlists, media streams and programme guides that you configure. The project does not operate an IPTV subscription service. We publish an original synthetic video test pattern on here.now for the optional Demo mode; we do not host the television or provider content you configure.
+OTT-play FOSS is an open-source player for playlists, media streams and programme guides that you configure. The project does not operate an IPTV subscription service. We publish original synthetic video fixtures on here.now for the optional Demo mode and audio/video check; we do not host the television or provider content you configure.
 
 Project source and support: [OTT-play FOSS](https://github.com/open-ott-play/ottplay-foss), [support issues](https://github.com/open-ott-play/ottplay-foss/issues).
 
-Connections use your configured services or the optional hosted Demo described below. The Play distribution has no bundled commercial provider catalog, dealer activation, or automatic fallback XMLTV service. Full retains provider integrations and a fallback guide source; selecting an integration can contact that provider's services, and using the default guide can contact its operator. Those services have their own policies.
+Connections use your configured services or the optional hosted Demo and audio/video check described below. The Play distribution has no bundled commercial provider catalog, dealer activation, or automatic fallback XMLTV service. Full retains provider integrations and a fallback guide source; selecting an integration can contact that provider's services, and using the default guide can contact its operator. Those services have their own policies.
 
 ## Information used by the app
 
@@ -42,6 +42,16 @@ Selecting **Try demo** loads our synthetic MP4 or HLS test video from `https://l
 
 The hosting service receives the requesting IP address, requested file, request time, and normal HTTP connection headers such as User-Agent. The demo adapter does not attach your IPTV credentials, playlists, account identifiers, or the player's generated device ID to these requests. Requests use HTTPS. Hosting infrastructure may keep operational/security logs under its own policies; the app does not control their retention. Contact the publisher for demo privacy or deletion inquiries. Choosing Manual setup instead avoids the demo media service.
 
+## Optional hosted audio/video check
+
+Choosing **Information → Audio → Play** loads the synthetic sound-and-picture
+fixture from `https://mantra-basin-76mq.here.now/diagnostics/av-v1.mp4` over HTTPS.
+It is requested only for this explicit action, never during player startup.
+The hosting service receives the requesting IP, file path and normal HTTP
+headers, and may retain operational logs under its own policies. This request
+does not include provider credentials, playlists or the generated device ID.
+An internet connection is required; declining the check avoids this request.
+
 ## Network security
 
 The Android Play distribution requires HTTPS for remote media and provider requests; an unsupported HTTP source produces an error rather than silently sending credentials over that connection. The hosted demo uses HTTPS. Full and other distributions can support user-configured HTTP sources: HTTP does not encrypt requests, credentials or returned media. Enter credentials and private text only for services you trust. The player does not guarantee the retention practices of a service you configure.
@@ -63,7 +73,7 @@ Android uses network access, a media-playback foreground service and a wake lock
 - **Content / IPTV operators and optional remote-service operators** you configure — see above.
 - **Apple App Store / Google Play** — subject to their own privacy policies when you download or update the app through those stores.
 - **GitHub** (source, issues, releases) — subject to GitHub's privacy policy if you interact with the project there.
-- **here.now** — hosts the optional synthetic demo media, receiving the connection data described above.
+- **here.now** — hosts the optional synthetic demo media and audio/video diagnostic fixture, receiving the connection data described above.
 
 ## Your choices
 

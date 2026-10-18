@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "پسمنظر جو رنگ",
     "Background color of selected item": "چونڊيل شيءِ جي پسمنظر جو رنگ",
     "Backup state changed": "بيڪ اپ اسٽيٽ تبديل ٿي وئي",
+    "Backup streams": "متبادل اسٽريم",
     "Balance, $": "بيلنس، $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -603,6 +604,8 @@ var keyStrings = {
     "Manage lists": "فهرستون سنڀاليو",
     "Manage settings": "سيٽنگون سنڀاليو",
     "Manual setup": "هٿ سان سيٽ اپ",
+    "Maximum stream bitrate": "اسٽريم جي وڌ ۾ وڌ بٽ شرح",
+    "Maximum video height": "وڊيو جي وڌ ۾ وڌ اوچائي",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV جون سيٽنگون",
     Media: "ميڊيا",
@@ -615,6 +618,7 @@ var keyStrings = {
     "Move category up": "زمرو مٿي ڪريو",
     "Move channel down": "چينل هيٺ ڪريو",
     "Move channel up": "چينل مٿي ڪريو",
+    Movies: "فلمون",
     "m3u-m3u8 playlists": "M3U / M3U8 پلي لسٽون",
     medium: "وچولو",
     min: "منٽ",
@@ -634,6 +638,8 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "ڪو پروگرام پلي لسٽ جي چينلن ۽ تاريخن سان نه مليو. ذريعو ۽ ڊوائيس جي گهڙي جاچيو.",
     "No saved settings found": "محفوظ ٿيل سيٽنگون نه مليون",
+    "No stream meets the quality limits":
+        "ڪو به اسٽريم معيار جي حدن تي پورو نٿو لهي",
     "No supported system language. Choose a language.":
         "ڪا به سپورٽ ٿيل سسٽم ٻولي ناهي. ٻولي چونڊيو.",
     "Not configured": "ترتيب نه ڏنل",
@@ -858,6 +864,7 @@ var keyStrings = {
         "محفوظ پري کان ان پٽ شروع نه ٿيو. اسڪرين وارو ڪي بورڊ استعمال ڪريو.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "هن ڊوائيس تي محفوظ پري کان ان پٽ موجود ناهي. اسڪرين وارو ڪي بورڊ استعمال ڪريو.",
+    "Select a live channel first": "پهرين سڌي نشريات وارو چينل چونڊيو",
     "Select a stream type:<br>%1": "اسٽريم جو قسم چونڊيو:<br>%1",
     "Select category to add channel": "چينل شامل ڪرڻ لاءِ زمرو چونڊيو",
     "Select color": "رنگ چونڊيو",
@@ -876,6 +883,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "پنهنجي پراڪسي مان هي ڪوڊ Authorization: Bearer هيڊر ۾ موڪليو.",
     "Send to TV": "ٽي وي ڏانهن موڪليو",
+    Series: "سيريل",
     Server: "سرور",
     "Server address": "سرور جو پتو",
     "Server address (for example 192.168.1.20:8081)":

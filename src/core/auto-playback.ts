@@ -14,7 +14,7 @@ export function watchAutoNativePlayback(
         monitorDroppedFrames?: boolean;
         restore: () => void;
     }
-): (restoreNative?: boolean) => void {
+): ((restoreNative?: boolean) => void) & { pending: () => boolean } {
     var disposed = false;
     var decided = false;
     var probing = false;
@@ -231,7 +231,11 @@ export function watchAutoNativePlayback(
     // metadata or failed. Inspect that state as well as subsequent events.
     onNativeError();
     inspect();
-    return cancel;
+    var watcher = cancel as typeof cancel & { pending: () => boolean };
+    watcher.pending = function (): boolean {
+        return !disposed && (probing || actionTimer !== null);
+    };
+    return watcher;
 }
 
 /** Detect sustained decoder failure, never infer failure from a low frame rate. */

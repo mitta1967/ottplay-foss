@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "පසුබිම් වර්ණය",
     "Background color of selected item": "තෝරාගත් අයිතමයේ පසුබිම් වර්ණය",
     "Backup state changed": "උපස්ථ තත්ත්වය වෙනස් විය",
+    "Backup streams": "විකල්ප ප්‍රවාහ",
     "Balance, $": "ශේෂය, $",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -601,6 +602,8 @@ var keyStrings = {
     "Manage lists": "ලැයිස්තු කළමනාකරණය කරන්න",
     "Manage settings": "සැකසුම් කළමනාකරණය කරන්න",
     "Manual setup": "අතින් සැකසුම",
+    "Maximum stream bitrate": "ප්‍රවාහයේ උපරිම බිට් අනුපාතය",
+    "Maximum video height": "වීඩියෝවේ උපරිම උස",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV සැකසුම්",
     Media: "මාධ්‍ය",
@@ -613,6 +616,7 @@ var keyStrings = {
     "Move category up": "කාණ්ඩය ඉහළට ගෙන යන්න",
     "Move channel down": "නාලිකාව පහළට ගෙන යන්න",
     "Move channel up": "නාලිකාව ඉහළට ගෙන යන්න",
+    Movies: "චිත්‍රපට",
     "m3u-m3u8 playlists": "M3U / M3U8 ධාවන ලැයිස්තු",
     medium: "මධ්‍යම",
     min: "මිනිත්තු",
@@ -632,6 +636,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "ධාවන ලැයිස්තු නාලිකා සහ දිනයන් සමඟ කිසිදු වැඩසටහනක් නොගැලපේ. මූලාශ්රය සහ උපාංග ඔරලෝසුව පරීක්ෂා කරන්න.",
     "No saved settings found": "සුරැකි සැකසුම් කිසිවක් හමු නොවිණි",
+    "No stream meets the quality limits": "කිසිදු ප්‍රවාහයක් ගුණාත්මක සීමාවලට නොගැළපේ",
     "No supported system language. Choose a language.":
         "සහය දක්වන පද්ධති භාෂාවක් නොමැත. භාෂාවක් තෝරන්න.",
     "Not configured": "වින්‍යාස කර නැත",
@@ -850,6 +855,7 @@ var keyStrings = {
         "ආරක්ෂිත දුරස්ථ ආදානය ආරම්භ කළ නොහැක. කරුණාකර තිරයේ යතුරු පුවරුව භාවිතා කරන්න.",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "මෙම උපාංගයේ ආරක්ෂිත දුරස්ථ ආදානය නොමැත. තිරයේ යතුරු පුවරුව භාවිතා කරන්න.",
+    "Select a live channel first": "පළමුව සජීවී නාලිකාවක් තෝරන්න",
     "Select a stream type:<br>%1": "ප්‍රවාහ වර්ගයක් තෝරන්න:<br>%1",
     "Select category to add channel": "නාලිකාව එක් කිරීමට ප්‍රවර්ගයක් තෝරන්න",
     "Select color": "වර්ණය තෝරන්න",
@@ -867,6 +873,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "මෙම කේතය ඔබේ ප්‍රොක්සියෙන් Authorization: Bearer ශීර්ෂයෙන් යවන්න.",
     "Send to TV": "රූපවාහිනියට යවන්න",
+    Series: "කතාමාලා",
     Server: "සේවාදායකය",
     "Server address": "සේවාදායක ලිපිනය",
     "Server address (for example 192.168.1.20:8081)":

@@ -99,6 +99,7 @@ var keyStrings = {
     "Background color": "背景颜色",
     "Background color of selected item": "所选项目的背景颜色",
     "Backup state changed": "备份状态已更改",
+    "Backup streams": "备用流",
     "Balance, $": "余额，$",
     "BEST LiST IPTV [HLS Playlist]": "BEST LiST IPTV [HLS Playlist]",
     "BEST LiST IPTV [HLS Playlist] settings":
@@ -582,6 +583,8 @@ var keyStrings = {
     "Manage lists": "管理列表",
     "Manage settings": "管理设置",
     "Manual setup": "手动设置",
+    "Maximum stream bitrate": "流的最大码率",
+    "Maximum video height": "视频最大高度",
     MaxTV: "MaxTV",
     "MaxTV settings": "MaxTV设定",
     Media: "媒体",
@@ -594,6 +597,7 @@ var keyStrings = {
     "Move category up": "上移类别",
     "Move channel down": "向下移动频道",
     "Move channel up": "上移频道",
+    Movies: "电影",
     "m3u-m3u8 playlists": "M3U / M3U8 播放列表",
     medium: "中型",
     min: "分钟",
@@ -613,6 +617,7 @@ var keyStrings = {
     "No programmes matched the playlist channels and dates. Check the source and device clock.":
         "没有与播放列表频道和日期匹配的节目。检查源和设备时钟。",
     "No saved settings found": "未找到已保存的设置",
+    "No stream meets the quality limits": "没有符合画质限制的流",
     "No supported system language. Choose a language.":
         "不支持的系统语言。选择一种语言。",
     "Not configured": "未配置",
@@ -825,6 +830,7 @@ var keyStrings = {
         "安全远程输入无法启动。请使用屏幕键盘。",
     "Secure remote input is unavailable on this device. Use the on-screen keyboard.":
         "安全远程输入在此设备上不可用。使用屏幕键盘。",
+    "Select a live channel first": "请先选择直播频道",
     "Select a stream type:<br>%1": "选择码流类型：<br>%1",
     "Select category to add channel": "选择类别以添加频道",
     "Select color": "选择颜色",
@@ -842,6 +848,7 @@ var keyStrings = {
     "Send this code from your proxy in the Authorization: Bearer header.":
         "从您的代理在Authorization: Bearer 标头中发送此代码。",
     "Send to TV": "发送到电视",
+    Series: "剧集",
     Server: "服务器",
     "Server address": "服务器地址",
     "Server address (for example 192.168.1.20:8081)":

@@ -120,6 +120,14 @@ An automatic tree-shaker over all legacy globals would discard supported hooks.
 
 ## Build validation and size budgets
 
+Release source identity has a measured compression cost. On Node 22.23.3, 68
+different 40-hex revision values add at most 40 gzip bytes to the same payload.
+The native entry grows from 263,566 bytes with an empty revision to at most
+263,606; its seven providers still contribute 43,074 bytes. The entry and total
+gzip budgets each include a 64-byte allowance for the required metadata and
+compression variation. This metadata allowance leaves raw limits and the
+complete staged-asset inventory unchanged.
+
 Normal builds audit the complete media runtime before reuse. The audit checks
 input fingerprints, all asset hashes, licenses, bootstrap URLs, ES5 grammar and
 the worker prelude. Missing or stale assets trigger regeneration and another
@@ -133,15 +141,51 @@ manifest hash together cannot authorize another import or a removed guard.
 The loader recipe lives in the already-fingerprinted builder. Both runtime and
 worker remain staged together, with their licenses, in every web/native root.
 
-Each final classic entry bundle is limited to 848,400 UTF-8 bytes and 263,600
-bytes compressed with gzip level 9. The entry plus all seven provider families
-must also fit within 964,900 bytes and 306,550 gzip bytes, summed per file.
+Each final classic entry bundle is limited to 897,023 UTF-8 bytes and 278,582
+bytes compressed with gzip level 9. The entry plus all eight provider families
+must also fit within 1,017,923 bytes and 323,482 gzip bytes, summed per file.
 Both limits apply independently to server, Tauri and Capacitor artifacts.
 Native transformations are measured after staging.
 `npm run check:size` reads the actual artifacts; it does not trust a prior report.
 These budgets cover `player.js`, not external media libraries or the complete
 application download. Raise a budget only with a reviewed feature/size tradeoff.
 The authoritative limits and measurement history are in `scripts/classic-size.cjs`.
+
+Debug-v3 attempt history adds 1,867 raw and 564 gzip bytes over `1e8973`,
+measured with Node 22.23.3 / zlib 1.3.1-e00f703, the production compiler and
+optimizer, the same 1.1.56 version and a nonempty 40-hex source identity.
+The baseline is 894,773 / 277,766 raw/gzip bytes for web and
+894,731 / 277,823 for native. The optimized implementation is
+896,640 / 278,330 for web and 896,598 / 278,387 for native.
+The entry and total budgets each add exactly that feature cost, retaining the
+previous 383-byte raw and 195-byte worst-native gzip reserve. All eight provider
+bundles remain unchanged. This preserves strict validation, bounded counters,
+EOF retention, and the exact legacy debug-v1/v2 payloads.
+
+Deduplicating counter snapshots and validation saves 397 raw bytes and 67 web /
+71 native gzip bytes versus the initial diagnostic implementation. Brotli at
+quality 11 is a separate observation: web grows by 43 bytes (225,242 to
+225,285), while native shrinks by 151 (225,216 to 225,065). The baseline Brotli
+sizes are 224,579 web and 224,606 native; there is no claim that every compressor
+improves. Version projections using the same optimized source and full identity
+measure 896,661 / 278,350 web and 896,619 / 278,405 native for `1.1.56-beta.1`;
+`1.1.56-rc.1` measures 896,655 / 278,345 and 896,613 / 278,402 respectively.
+The existing source-identity reserve remains in place; release builds still
+measure the actual committed identity and all final staged outputs.
+
+Attached-engine diagnostics add 868 raw bytes and at most 233 gzip bytes on
+Node 22.23.3, comparing the same beta.10 and final-base versions before and after
+the feature. All seven provider bundles remain byte-identical. A 900-byte raw
+and 256-byte gzip allowance covers this feature once in the entry and complete
+payload, preserving the existing reserve. The comparison uses the production
+linker, optimizer and native icon transformation; complete frozen release builds
+still enforce every final artifact limit.
+
+Explicit debug-v2 negotiation preserves legacy version 1 payloads. On the same
+Node 22.23.3 beta.10 and final-base inputs, it adds 235 raw bytes and at most
+108 gzip bytes to each entry; all seven providers remain byte-identical. The
+existing raw limits fit. An additional 128 gzip bytes in both the entry and
+complete-payload limits covers this protocol cost and bounded version variation.
 
 The cancellable Plex arrow wait, buffered HLS resume and bounded read retries add
 1,282 raw / at most 366 gzip entry bytes and 1,670 raw / at most 488 gzip
