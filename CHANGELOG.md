@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [1.1.57] - 2026-10-18
+
+- Keep the blank video poster explicit in both main and picture-in-picture players.
+- Remove the duplicate NAS settings entry while retaining NAS access from the source popup.
+- Refresh the verified shared-core receipt and safe frontend/build dependencies.
+- Update pinned CI tooling and check the updater dependency graph on each desktop target.
+- Disable the unused ZIP updater archive feature on Windows to remove vulnerable ZIP code from shipped runtime dependency graphs. Raw MSI/EXE installers remain supported; legacy ZIP-wrapped Windows updater payloads are no longer supported. Linux/macOS archive support is unchanged.
+
 ## [1.1.56] - Development line
 
 ### Changes
