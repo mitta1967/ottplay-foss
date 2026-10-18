@@ -143,3 +143,16 @@ records all available target/feature combinations. Consequently lockfile-only
 No ignore list or advisory suppression is added. Do not enable the updater ZIP
 feature on Windows until upstream supports a fixed ZIP release and that path
 has been reviewed. The archived source-lockfile findings above are unchanged.
+
+The same 2026-10-18 audit also reports new unmaintained-package advisories
+[RUSTSEC-2026-0371](https://rustsec.org/advisories/RUSTSEC-2026-0371.html),
+[2026-0370](https://rustsec.org/advisories/RUSTSEC-2026-0370.html), and
+[2026-0372](https://rustsec.org/advisories/RUSTSEC-2026-0372.html) for
+`zbus_names` 2.6.1, `zvariant` 3.15.2, and `zvariant_derive` 3.15.2. The
+Linux runtime selects them through the existing `souvlaki` 0.8.3 / `zbus`
+3.15.2 media-control integration. Their upstream APIs moved into Zbus 6;
+this requires the same separately tested MPRIS migration as the older
+`derivative` and `instant` warnings, rather than a compatible leaf update.
+The current application audit therefore retains six unmaintained warnings,
+the fixed-source GLib warning, and the three optional-lockfile ZIP records.
+These findings remain visible; no additional warning is suppressed.
