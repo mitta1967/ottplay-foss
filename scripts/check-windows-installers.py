@@ -42,8 +42,8 @@ def payload_references(raw, cli_version):
     require(cli_version == SUPPORTED_CLI, "Review bundle transformation for this CLI version")
     require(raw.startswith(b"MZ"), "Expected the raw Windows executable")
     require(raw.count(BUNDLE_MARKER) == 1, "Missing or ambiguous raw bundle marker")
-    require(all(marker not in raw for marker in BUNDLE_MARKERS.values()),
-            "Raw executable already contains a patched bundle marker")
+    # tauri-utils also embeds NSS/MSI literals in its runtime match table.
+    # Only the unique UNK value is patched; comparison constants stay intact.
     offset = raw.index(BUNDLE_MARKER)
     references = {}
     for kind, marker in BUNDLE_MARKERS.items():
@@ -54,6 +54,21 @@ def payload_references(raw, cli_version):
     return {"cli_version": cli_version, "source": BUNDLER_SOURCE,
             "raw_sha256": hashlib.sha256(raw).hexdigest(), "size": len(raw),
             "marker_offset": offset, "formats": references}
+
+
+def retain_payload_references(output, raw, cli, locked_cli, report):
+    """Preserve the actual build and diagnostics even if derivation rejects it."""
+    (output / "raw-build.exe").write_bytes(raw)
+    report["raw_build"] = {"sha256": hashlib.sha256(raw).hexdigest(), "size": len(raw),
+                           "marker_counts": {name: raw.count(marker) for name, marker in
+                                             {"unknown": BUNDLE_MARKER, **BUNDLE_MARKERS}.items()}}
+    try:
+        require(cli == locked_cli, "Installed CLI differs from the lockfile")
+        return payload_references(raw, cli)
+    except Exception as error:
+        report["error"] = str(error)
+        (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
+        raise
 
 
 def nsis_command(executable, directory=None):
@@ -209,16 +224,14 @@ def main():
     require(binary.is_file(), "Locally built application missing")
     cli = json.loads((root / "node_modules/@tauri-apps/cli/package.json").read_text())["version"]
     locked_cli = json.loads((root / "package-lock.json").read_text())["packages"]["node_modules/@tauri-apps/cli"]["version"]
-    require(cli == locked_cli, "Installed CLI differs from the lockfile")
     raw = binary.read_bytes()
-    references = payload_references(raw, cli)
-    (output / "raw-build.exe").write_bytes(raw)
+    report = {"schema": 1, "source_sha": os.environ["GITHUB_SHA"], "version": version,
+              "product": product, "status": "failed", "installers": []}
+    references = retain_payload_references(output, raw, cli, locked_cli, report)
+    report["payload_references"] = references
     temp_base = Path(os.environ["RUNNER_TEMP"]).resolve(strict=True)
     temporary = Path(tempfile.mkdtemp(prefix="ottplay-installers-", dir=temp_base)).resolve()
     require(temporary.parent == temp_base, "Temporary directory escaped runner temp")
-    report = {"schema": 1, "source_sha": os.environ["GITHUB_SHA"], "version": version,
-              "product": product, "status": "failed", "installers": [],
-              "payload_references": references}
     try:
         for kind, paths in installers.items():
             exercise(kind, paths[0], temporary / (kind + " install with spaces"),

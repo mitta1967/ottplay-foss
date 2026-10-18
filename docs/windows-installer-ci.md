@@ -25,12 +25,16 @@ The portable guard tests run with `python tests/test_windows_installers.py`.
 Tauri CLI 2.12.3 stamps `__TAURI_BUNDLE_TYPE_VAR_UNK` as `NSS` for NSIS or
 `MSI` for MSI, then restores the original raw executable after each package.
 The harness binds that behavior to the installed and locked CLI version. It
-requires one unpatched marker and no already-patched markers, then derives the
-full expected SHA-256 separately for each format. It never normalizes installed
+requires exactly one unpatched `UNK` target, then derives the full expected
+SHA-256 separately for each format. The pinned `tauri-utils` 2.10.1 runtime also
+contains ordinary `NSS` and `MSI` comparison strings; those remain unchanged.
+It never normalizes installed
 bytes. An unrecognized CLI version or marker layout fails before installation.
 The artifact retains the raw build and both successfully verified installed
 executables, allowing independent byte-for-byte reproduction of the comparison;
 per-file observed hashes are recorded even when identity checking fails.
+The raw executable, marker counts and failed receipt are also retained if
+reference derivation or the installed/locked CLI comparison rejects the build.
 
 The exact transformation and restoration are in the reviewed upstream
 [Tauri bundler source](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/crates/tauri-bundler/src/bundle.rs).
