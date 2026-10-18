@@ -40,6 +40,47 @@ class InstallerChecks(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 checks.installed_identity(directory, entries, "1.2.3", "0" * 64)
 
+    def test_full_per_format_references_match_the_reviewed_forward_transform(self):
+        raw = b"MZheader" + checks.BUNDLE_MARKER + b"unchanged payload"
+        refs = checks.payload_references(raw, "2.12.3")
+        self.assertEqual(refs["raw_sha256"], hashlib.sha256(raw).hexdigest())
+        self.assertEqual(refs["marker_offset"], len(b"MZheader"))
+        self.assertEqual(refs["size"], len(raw))
+        for kind, marker in checks.BUNDLE_MARKERS.items():
+            expected = raw.replace(checks.BUNDLE_MARKER, marker)
+            self.assertEqual(refs["formats"][kind]["sha256"], hashlib.sha256(expected).hexdigest())
+            self.assertNotEqual(refs["formats"][kind]["sha256"], refs["raw_sha256"])
+        self.assertNotEqual(refs["formats"]["nsis"]["sha256"], refs["formats"]["msi"]["sha256"])
+
+    def test_reference_derivation_rejects_unknown_or_ambiguous_inputs(self):
+        for raw in (b"MZmissing", b"MZ" + checks.BUNDLE_MARKER * 2,
+                    checks.BUNDLE_MARKER, b"MZ" + checks.BUNDLE_MARKER + checks.BUNDLE_MARKERS["nsis"],
+                    b"MZ" + checks.BUNDLE_MARKER + checks.BUNDLE_MARKERS["msi"]):
+            with self.subTest(raw=raw), self.assertRaises(RuntimeError):
+                checks.payload_references(raw, "2.12.3")
+        for version in ("2.12.2", "2.12.4", ""):
+            with self.subTest(version=version), self.assertRaises(RuntimeError):
+                checks.payload_references(b"MZ" + checks.BUNDLE_MARKER, version)
+
+    def test_installed_bytes_are_never_normalized_and_failed_hashes_are_recorded(self):
+        raw = b"MZheader" + checks.BUNDLE_MARKER + b"whole payload"
+        refs = checks.payload_references(raw, "2.12.3")
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            exe = directory / "player.exe"
+            entries = [{"version": "1.2.3", "location": folder}]
+            nsis = raw.replace(checks.BUNDLE_MARKER, checks.BUNDLE_MARKERS["nsis"])
+            exe.write_bytes(nsis)
+            checks.installed_identity(directory, entries, "1.2.3", refs["formats"]["nsis"]["sha256"])
+            for candidate in (raw, raw.replace(checks.BUNDLE_MARKER, checks.BUNDLE_MARKERS["msi"]),
+                              nsis[:-1] + b"X"):
+                exe.write_bytes(candidate)
+                observed = {}
+                with self.subTest(candidate=candidate), self.assertRaises(RuntimeError):
+                    checks.installed_identity(directory, entries, "1.2.3",
+                                              refs["formats"]["nsis"]["sha256"], observed)
+                self.assertEqual(observed, {"player.exe": hashlib.sha256(candidate).hexdigest()})
+
     def test_uninstall_requires_both_files_and_registration_removed(self):
         with tempfile.TemporaryDirectory() as folder:
             directory = Path(folder) / "install"
@@ -108,15 +149,19 @@ class InstallerChecks(unittest.TestCase):
                 if label == "nsis-install":
                     directory.mkdir()
                     (directory / "uninstall.exe").write_bytes(b"uninstaller")
+                    (directory / "player.exe").write_bytes(b"payload")
                 if label == "nsis-cleanup":
                     raise RuntimeError("cleanup failed")
 
             # Simulate a late leftover appearing after wait_removed observed success.
             with patch.object(checks, "run", side_effect=run), patch.object(
                     checks, "registrations", return_value=[]), patch.object(
-                    checks, "wait_removed"), patch.object(checks, "installed_identity", return_value={}):
+                    checks, "wait_removed"), patch.object(checks, "installed_identity", return_value={
+                        "executable": str(directory / "player.exe"),
+                        "sha256": hashlib.sha256(b"payload").hexdigest()}):
                 with self.assertRaisesRegex(RuntimeError, "cleanup failed after qualification"):
-                    checks.exercise("nsis", installer, directory, "Product", "1.2.3", "0" * 64, report, base)
+                    checks.exercise("nsis", installer, directory, "Product", "1.2.3",
+                                    hashlib.sha256(b"payload").hexdigest(), report, base)
             self.assertEqual(report["installers"][0]["status"], "failed")
 
     def test_installer_nonzero_is_not_acceptance(self):

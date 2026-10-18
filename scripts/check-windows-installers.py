@@ -24,6 +24,38 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+SUPPORTED_CLI = "2.12.3"
+BUNDLE_MARKER = b"__TAURI_BUNDLE_TYPE_VAR_UNK"
+BUNDLE_MARKERS = {"nsis": b"__TAURI_BUNDLE_TYPE_VAR_NSS",
+                  "msi": b"__TAURI_BUNDLE_TYPE_VAR_MSI"}
+BUNDLER_SOURCE = ("https://github.com/tauri-apps/tauri/blob/"
+                  "59b63ab500da9859f12d8888c3298bc29bba0b92/"
+                  "crates/tauri-bundler/src/bundle.rs")
+
+
+def payload_references(raw, cli_version):
+    """Derive exact unsigned package bytes using the reviewed bundler transform.
+
+    CLI 2.12.3 patches the unique marker for each format, then restores the raw
+    executable. Never normalize or mutate installed bytes for comparison.
+    """
+    require(cli_version == SUPPORTED_CLI, "Review bundle transformation for this CLI version")
+    require(raw.startswith(b"MZ"), "Expected the raw Windows executable")
+    require(raw.count(BUNDLE_MARKER) == 1, "Missing or ambiguous raw bundle marker")
+    require(all(marker not in raw for marker in BUNDLE_MARKERS.values()),
+            "Raw executable already contains a patched bundle marker")
+    offset = raw.index(BUNDLE_MARKER)
+    references = {}
+    for kind, marker in BUNDLE_MARKERS.items():
+        require(len(marker) == len(BUNDLE_MARKER), "Bundle marker length changed")
+        expected = raw[:offset] + marker + raw[offset + len(BUNDLE_MARKER):]
+        references[kind] = {"sha256": hashlib.sha256(expected).hexdigest(),
+                            "marker": marker.decode("ascii")}
+    return {"cli_version": cli_version, "source": BUNDLER_SOURCE,
+            "raw_sha256": hashlib.sha256(raw).hexdigest(), "size": len(raw),
+            "marker_offset": offset, "formats": references}
+
+
 def nsis_command(executable, directory=None):
     # NSIS requires /D last and unquoted, even for a path containing spaces.
     # This is a CreateProcess command line, never a shell command.
@@ -96,21 +128,25 @@ def wait_removed(directory, product, timeout=60):
         time.sleep(0.5)
 
 
-def installed_identity(directory, entries, version, expected_hash):
+def installed_identity(directory, entries, version, expected_hash, observed=None):
+    files = {str(p.relative_to(directory)): digest(p) for p in directory.rglob("*.exe")}
+    if observed is not None:
+        observed.update(files)
     require(len(entries) == 1, "Expected exactly one installed product registration")
     entry = entries[0]
     require(entry["version"] == version, "Installed version differs from source")
     require(isinstance(entry["location"], str)
             and Path(entry["location"].strip('"')).resolve() == directory.resolve(),
             "Installer ignored the owned temporary install directory")
-    matches = [p for p in directory.rglob("*.exe") if digest(p) == expected_hash]
+    matches = [directory / name for name, sha in files.items() if sha == expected_hash]
     require(len(matches) == 1, "Installed executable differs from locally built application")
     return {"registration": entry, "executable": str(matches[0]), "sha256": expected_hash}
 
 
 def exercise(kind, installer, directory, product, version, expected_hash, report, output):
     row = {"format": kind, "installer": str(installer), "sha256": digest(installer),
-           "status": "failed", "commands": []}
+           "status": "failed", "commands": [], "expected_sha256": expected_hash,
+           "observed_executables": {}}
     report["installers"].append(row)
     require(not directory.exists() and not registrations(product), "Pre-existing installation")
     started = False
@@ -134,7 +170,12 @@ def exercise(kind, installer, directory, product, version, expected_hash, report
             run(["msiexec.exe", "/i", str(installer), "/qn", "/norestart",
                  "REBOOT=ReallySuppress", "INSTALLDIR=" + str(directory),
                  "/L*V", str(output / "msi-install.log")], row, "msi-install")
-        row["installed"] = installed_identity(directory, registrations(product), version, expected_hash)
+        row["installed"] = installed_identity(directory, registrations(product), version, expected_hash,
+                                              row["observed_executables"])
+        retained = output / ("installed-" + kind + ".exe")
+        shutil.copy2(row["installed"]["executable"], retained)
+        require(digest(retained) == expected_hash, "Retained installed executable differs")
+        row["installed"]["retained_file"] = retained.name
         uninstall(kind + "-uninstall")
         row.update(status="passed", install_directory_removed=True, registration_removed=True)
     finally:
@@ -166,15 +207,22 @@ def main():
     require(all(len(paths) == 1 for paths in installers.values()), "Expected one NSIS and one MSI")
     binary = root / "target/release/ottplay-tauri.exe"
     require(binary.is_file(), "Locally built application missing")
+    cli = json.loads((root / "node_modules/@tauri-apps/cli/package.json").read_text())["version"]
+    locked_cli = json.loads((root / "package-lock.json").read_text())["packages"]["node_modules/@tauri-apps/cli"]["version"]
+    require(cli == locked_cli, "Installed CLI differs from the lockfile")
+    raw = binary.read_bytes()
+    references = payload_references(raw, cli)
+    (output / "raw-build.exe").write_bytes(raw)
     temp_base = Path(os.environ["RUNNER_TEMP"]).resolve(strict=True)
     temporary = Path(tempfile.mkdtemp(prefix="ottplay-installers-", dir=temp_base)).resolve()
     require(temporary.parent == temp_base, "Temporary directory escaped runner temp")
     report = {"schema": 1, "source_sha": os.environ["GITHUB_SHA"], "version": version,
-              "product": product, "status": "failed", "installers": []}
+              "product": product, "status": "failed", "installers": [],
+              "payload_references": references}
     try:
         for kind, paths in installers.items():
             exercise(kind, paths[0], temporary / (kind + " install with spaces"),
-                     product, version, digest(binary), report, output)
+                     product, version, references["formats"][kind]["sha256"], report, output)
         report["status"] = "passed"
     except Exception as error:
         report["error"] = str(error)

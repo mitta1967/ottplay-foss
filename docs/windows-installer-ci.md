@@ -7,8 +7,8 @@ package in a unique runner-temporary directory whose name contains spaces.
 
 `scripts/check-windows-installers.py` requires a disposable GitHub-hosted Windows
 runner and refuses a pre-existing product registration. For both NSIS and MSI,
-it checks the registered version and install location, compares the installed
-executable with the locally built executable, invokes the normal uninstaller,
+it checks the registered version and install location, compares the entire installed executable with its format-specific reference
+derived from the local build, invokes the normal uninstaller,
 and waits for both product registration and the install directory to disappear.
 The receipt and MSI logs are uploaded even when a later check fails. Cleanup
 retries the normal uninstaller after a failed check and removes only the unique
@@ -21,3 +21,17 @@ acceptance. Existing release and playback gates remain separate.
 The invocation rules follow the [NSIS command-line documentation](https://nsis.sourceforge.io/Docs/Chapter3.html)
 and [Microsoft's msiexec documentation](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/msiexec).
 The portable guard tests run with `python tests/test_windows_installers.py`.
+
+Tauri CLI 2.12.3 stamps `__TAURI_BUNDLE_TYPE_VAR_UNK` as `NSS` for NSIS or
+`MSI` for MSI, then restores the original raw executable after each package.
+The harness binds that behavior to the installed and locked CLI version. It
+requires one unpatched marker and no already-patched markers, then derives the
+full expected SHA-256 separately for each format. It never normalizes installed
+bytes. An unrecognized CLI version or marker layout fails before installation.
+The artifact retains the raw build and both successfully verified installed
+executables, allowing independent byte-for-byte reproduction of the comparison;
+per-file observed hashes are recorded even when identity checking fails.
+
+The exact transformation and restoration are in the reviewed upstream
+[Tauri bundler source](https://github.com/tauri-apps/tauri/blob/59b63ab500da9859f12d8888c3298bc29bba0b92/crates/tauri-bundler/src/bundle.rs).
+A future CLI update requires checking that contract before changing the guard.
