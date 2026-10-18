@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+"""Exercise locally built installers only on a disposable GitHub-hosted Windows VM.
+
+Use the normal NSIS and MSI silent interfaces, not extracted payloads. No signing
+secret, publication, registry deletion, or application launch is involved.
+"""
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def nsis_command(executable, directory=None):
+    # NSIS requires /D last and unquoted, even for a path containing spaces.
+    # This is a CreateProcess command line, never a shell command.
+    command = subprocess.list2cmdline([str(executable), "/S"])
+    if directory is not None:
+        directory = str(directory)
+        require(not any(c in directory for c in ('"', '\r', '\n', '\0')),
+                "Invalid NSIS directory")
+        command += " /D=" + directory
+    return command
+
+
+def run(command, report, label, timeout=180):
+    row = {"operation": label, "command": command}
+    report["commands"].append(row)
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               text=True, errors="replace")
+    try:
+        output, _ = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # Only this still-owned process tree, never an image-name/global kill.
+        row["timeout"] = True
+        try:
+            subprocess.run(["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+                           check=False, capture_output=True, timeout=30)
+        except (OSError, subprocess.SubprocessError) as error:
+            row["tree_cleanup_error"] = str(error)
+        finally:
+            if process.poll() is None:
+                process.kill()
+        output, _ = process.communicate(timeout=30)
+        row["output"] = output[-20000:]
+        raise RuntimeError(label + " timed out")
+    row.update(exit_code=process.returncode, output=output[-20000:])
+    require(process.returncode == 0, label + " failed: " + str(process.returncode))
+
+
+def registrations(product):
+    import winreg
+    result = []
+    base = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+    for hive_name, hive in (("HKCU", winreg.HKEY_CURRENT_USER), ("HKLM", winreg.HKEY_LOCAL_MACHINE)):
+        for view in (winreg.KEY_WOW64_32KEY, winreg.KEY_WOW64_64KEY):
+            try:
+                parent = winreg.OpenKey(hive, base, 0, winreg.KEY_READ | view)
+            except FileNotFoundError:
+                continue
+            with parent:
+                for index in range(winreg.QueryInfoKey(parent)[0]):
+                    name = winreg.EnumKey(parent, index)
+                    with winreg.OpenKey(parent, name) as key:
+                        def value(field):
+                            try:
+                                return winreg.QueryValueEx(key, field)[0]
+                            except FileNotFoundError:
+                                return None
+                        if value("DisplayName") == product:
+                            result.append({"hive": hive_name, "view": view, "key": name,
+                                           "version": value("DisplayVersion"),
+                                           "location": value("InstallLocation")})
+    # HKCU's shared 32/64 view can expose the same entry twice.
+    return list({(r["hive"], r["key"], r["version"], r["location"]): r
+                 for r in result}.values())
+
+
+def wait_removed(directory, product, timeout=60):
+    deadline = time.monotonic() + timeout
+    while directory.exists() or registrations(product):
+        require(time.monotonic() < deadline, "Uninstaller left files or product registration")
+        time.sleep(0.5)
+
+
+def installed_identity(directory, entries, version, expected_hash):
+    require(len(entries) == 1, "Expected exactly one installed product registration")
+    entry = entries[0]
+    require(entry["version"] == version, "Installed version differs from source")
+    require(isinstance(entry["location"], str)
+            and Path(entry["location"].strip('"')).resolve() == directory.resolve(),
+            "Installer ignored the owned temporary install directory")
+    matches = [p for p in directory.rglob("*.exe") if digest(p) == expected_hash]
+    require(len(matches) == 1, "Installed executable differs from locally built application")
+    return {"registration": entry, "executable": str(matches[0]), "sha256": expected_hash}
+
+
+def exercise(kind, installer, directory, product, version, expected_hash, report, output):
+    row = {"format": kind, "installer": str(installer), "sha256": digest(installer),
+           "status": "failed", "commands": []}
+    report["installers"].append(row)
+    require(not directory.exists() and not registrations(product), "Pre-existing installation")
+    started = False
+
+    def uninstall(label):
+        if kind == "nsis":
+            executable = directory / "uninstall.exe"
+            require(executable.is_file(), "NSIS uninstaller missing")
+            run(nsis_command(executable), row, label)
+        else:
+            run(["msiexec.exe", "/x", str(installer), "/qn", "/norestart",
+                 "/L*V", str(output / (label + ".log"))], row, label)
+        # NSIS normally forks a temporary uninstaller. Process exit alone is not proof.
+        wait_removed(directory, product)
+
+    try:
+        started = True
+        if kind == "nsis":
+            run(nsis_command(installer, directory), row, "nsis-install")
+        else:
+            run(["msiexec.exe", "/i", str(installer), "/qn", "/norestart",
+                 "REBOOT=ReallySuppress", "INSTALLDIR=" + str(directory),
+                 "/L*V", str(output / "msi-install.log")], row, "msi-install")
+        row["installed"] = installed_identity(directory, registrations(product), version, expected_hash)
+        uninstall(kind + "-uninstall")
+        row.update(status="passed", install_directory_removed=True, registration_removed=True)
+    finally:
+        # Attempt the normal uninstaller even after an install/assertion failure.
+        # Never turn a failed qualification into a pass by manually deleting files.
+        if started and (directory.exists() or registrations(product)):
+            try:
+                uninstall(kind + "-cleanup")
+            except Exception as error:
+                row["cleanup_error"] = str(error)
+                row["status"] = "failed"
+    require(row["status"] == "passed", "Installer cleanup failed after qualification")
+
+
+def main():
+    require(sys.platform == "win32" and os.environ.get("GITHUB_ACTIONS") == "true"
+            and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted",
+            "Installer execution is restricted to disposable GitHub-hosted Windows runners")
+    root = Path(__file__).resolve().parents[1]
+    require(root == Path(os.environ["GITHUB_WORKSPACE"]).resolve(), "Wrong checkout")
+    output = root / "build/windows-installer-report"
+    output.mkdir(parents=True, exist_ok=False)
+    config = json.loads((root / "src-tauri/tauri.conf.json").read_text())
+    product, version = config["productName"], config["version"]
+    require(not registrations(product), "Refusing to modify a pre-existing product")
+    bundle = root / "target/release/bundle"
+    installers = {kind: list((bundle / kind).glob(pattern))
+                  for kind, pattern in (("nsis", "*-setup.exe"), ("msi", "*.msi"))}
+    require(all(len(paths) == 1 for paths in installers.values()), "Expected one NSIS and one MSI")
+    binary = root / "target/release/ottplay-tauri.exe"
+    require(binary.is_file(), "Locally built application missing")
+    temp_base = Path(os.environ["RUNNER_TEMP"]).resolve(strict=True)
+    temporary = Path(tempfile.mkdtemp(prefix="ottplay-installers-", dir=temp_base)).resolve()
+    require(temporary.parent == temp_base, "Temporary directory escaped runner temp")
+    report = {"schema": 1, "source_sha": os.environ["GITHUB_SHA"], "version": version,
+              "product": product, "status": "failed", "installers": []}
+    try:
+        for kind, paths in installers.items():
+            exercise(kind, paths[0], temporary / (kind + " install with spaces"),
+                     product, version, digest(binary), report, output)
+        report["status"] = "passed"
+    except Exception as error:
+        report["error"] = str(error)
+        raise
+    finally:
+        # The unique harness directory is the only manually removed path.
+        # Any unsuccessful uninstaller remains a failed result in the receipt.
+        try:
+            shutil.rmtree(temporary)
+            report["temporary_directory_removed"] = True
+        except OSError as error:
+            report["temporary_cleanup_error"] = str(error)
+            report["status"] = "failed"
+        (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
+    require(report["status"] == "passed", "Installer cleanup failed")
+    print("PASS: native NSIS and MSI installation, binary identity and uninstallation")
+
+
+if __name__ == "__main__":
+    main()
