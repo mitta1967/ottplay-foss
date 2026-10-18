@@ -1,5 +1,11 @@
 # OTT-play FOSS
 
+[![OTT-play FOSS channel browser in a perspective view](docs/images/hero.png)](docs/images/studio-2026-default.png)
+
+*Existing Studio 2026 interface screenshot with synthetic channel and programme fixtures.
+Open the image for the original, flat view; this is not a capture of a live subscription.
+[Image source and regeneration](docs/images/README.md).*
+
 [Русское руководство](README.ru.md) · [Quick starts in 88 languages](docs/readme/README.md) · [Documentation wiki](docs/wiki/Home.md)
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15593/badge)](https://www.bestpractices.dev/projects/15593)
@@ -40,8 +46,11 @@ and HLS test channels are hosted on here.now and shared by the web player, Tauri
 Capacitor and OTT Server. Existing provider settings are preserved when switching.
 For a separate **picture-and-sound check**, open **Information → Audio →
 Play** on the managed HTML5 engine while idle or watching live TV. This uses the
-audible `av-v1.mp4` fixture hosted on here.now and requires an internet connection. VOD, archive and
-optional native engines are excluded; see [audio/video check](docs/audio-video-check.md).
+audible `av-v1.mp4` fixture hosted on here.now and requires an internet connection.
+The clip is absent from player packages and is never fetched at startup.
+VOD, archive and device engine overrides (including PC2/Video.js and native
+engines) are excluded; see the
+[steps, expected tones and hosting diagram](docs/audio-video-check.md).
 
 Installed desktop browser windows support **Window Controls Overlay**: Chrome can
 hide the separate title bar while retaining its window buttons and app menu over

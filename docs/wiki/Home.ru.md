@@ -39,7 +39,10 @@ review. Отдельная [GitHub Wiki](https://github.com/open-ott-play/ottpla
 - [Ручная XMLTV-привязка и доступность классического интерфейса](../guide-binding-accessibility.ru.md)
   ([English](../guide-binding-accessibility.md)).
 - [Проверка изображения и звука с here.now](../audio-video-check.ru.md)
-  ([English](../audio-video-check.md)). Онлайн-демо с движущейся таблицей беззвучно.
+  ([English](../audio-video-check.md)): **Информация → Звук → Воспроизвести**,
+  ожидаемые тоны, схема хостинга и возврат к эфиру. Ролик загружается по запросу,
+  требует интернета и отсутствует в пакетах плеера. Отдельное онлайн-демо
+  с движущейся таблицей беззвучно.
 - [Каталог фильмов и сериалов Xtream](../xtream-media.ru.md) ([English](../xtream-media.md)).
 - [Handoff между плеерами одного источника](../remote-handoff.ru.md) ([English](../remote-handoff.md)).
 - [Журнал настроек и восстановление](../settings-recovery.ru.md) ([English](../settings-recovery.md)).

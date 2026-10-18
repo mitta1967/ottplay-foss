@@ -6,7 +6,10 @@ This report records the implementation and hardening process, not a release
 announcement. The measured player snapshot is `652726f8`; the separately built
 native Android snapshot is `be0d800`. CI, merge and release promotion remain
 separate gates. Later documentation or test-only commits do not turn a local
-check into proof that an installed device has been updated.
+check into proof that an installed device has been updated. Gate states below
+belong to those historical snapshots; they are not a live release tracker.
+See [GitHub Releases](https://github.com/open-ott-play/ottplay-foss/releases)
+for published builds.
 
 ![Implementation process and its acceptance gates](diagrams/implementation-process.svg)
 
@@ -90,15 +93,21 @@ separately. The diagram leaves the overall player CI/release gate pending.
 The complete web JavaScript total changed from **964,459 / 305,344** raw/gzip
 bytes to **995,858 / 315,207**: **+31,399 / +9,863 bytes** (about 3.26% / 3.23%).
 The feature candidate was 995,587 / 315,103; subsequent hardening added 271 / 104.
-The final main entry is 875,197 / 270,425. See the
+The final main entry in that snapshot is 875,197 / 270,425. See the
 [baseline measurement](evidence/roadmap-size-20261015.json),
 [final artifact measurement](evidence/roadmap-final-size-20261015.json) and
 [measurement method](roadmap-size.md).
 
-These are byte costs, **not measured speed improvements**. Totals exclude media
-engines, dictionaries, CSS, images and video. The measured snapshot included
-464,652 packaged A/V bytes; the [subsequent hosting change](audio-video-check.md)
-removes the clip from packages and requires internet for the explicit check. Startup time, frame pacing, memory use,
+These are historical JavaScript byte costs, **not measured speed improvements**.
+Totals exclude media engines, dictionaries, CSS, images and video. The player
+packages for that snapshot separately carried the 464,652-byte A/V clip.
+After the [hosting change](audio-video-check.md), `diagnostics/av-v1.mp4` remains
+in the repository with its generator and verifier for reproducibility, but is
+excluded from Web/OTTPlay Server, Tauri, Capacitor and Docker packages. The player
+fetches it from here.now only for the explicit A/V check, which requires internet;
+startup playback does not fetch it. Removing 464,652 raw media bytes does not
+establish the size saving in compressed installers or change the historical
+JavaScript measurements. Startup time, frame pacing, memory use,
 screen-reader experience, real HDMI audio and provider behavior require their
 own measurements on target devices. No new physical-device result or beta
 release is asserted by this report. The [physical acceptance list](roadmap-delivery.md#physical-acceptance-before-promotion)
