@@ -20,6 +20,11 @@ acceptance. Existing release and playback gates remain separate.
 
 The invocation rules follow the [NSIS command-line documentation](https://nsis.sourceforge.io/Docs/Chapter3.html)
 and [Microsoft's msiexec documentation](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/msiexec).
+MSI commands are passed directly to CreateProcess without a shell. The
+`INSTALLDIR` value is quoted separately from its property name, following
+[Microsoft's property syntax](https://learn.microsoft.com/en-us/windows/win32/msi/setting-public-property-values-on-the-command-line).
+Both MSI operations must produce a nonempty verbose log, whose size and hash
+are retained in the receipt. The 180-second process limit remains unchanged.
 The portable guard tests run with `python tests/test_windows_installers.py`.
 
 Tauri CLI 2.12.3 stamps `__TAURI_BUNDLE_TYPE_VAR_UNK` as `NSS` for NSIS or

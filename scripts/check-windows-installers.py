@@ -83,11 +83,35 @@ def nsis_command(executable, directory=None):
     return command
 
 
+def msi_command(installer, log, directory=None):
+    # msiexec has its own parser: quote the property VALUE, not the assignment.
+    # See Microsoft's "Setting Public Property Values on the Command Line".
+    def quoted(path):
+        value = str(path)
+        require(value and not any(c in value for c in ('"', '\r', '\n', '\0')),
+                "Invalid MSI path")
+        return '"' + value + '"'
+
+    command = 'msiexec.exe ' + ('/i ' if directory is not None else '/x ')
+    command += quoted(installer) + ' /qn /norestart REBOOT=ReallySuppress'
+    if directory is not None:
+        command += ' INSTALLDIR=' + quoted(directory)
+    return command + ' /L*V ' + quoted(log)
+
+
+def run_msi(installer, log, report, label, directory=None):
+    run(msi_command(installer, log, directory), report, label)
+    require(log.is_file() and log.stat().st_size > 0, "MSI verbose log missing or empty")
+    report["commands"][-1]["log"] = {"file": log.name, "size": log.stat().st_size,
+                                    "sha256": digest(log)}
+
+
 def run(command, report, label, timeout=180):
     row = {"operation": label, "command": command}
     report["commands"].append(row)
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                               text=True, errors="replace")
+                               text=True, errors="replace", shell=False)
+    row["pid"] = process.pid
     try:
         output, _ = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -172,8 +196,7 @@ def exercise(kind, installer, directory, product, version, expected_hash, report
             require(executable.is_file(), "NSIS uninstaller missing")
             run(nsis_command(executable), row, label)
         else:
-            run(["msiexec.exe", "/x", str(installer), "/qn", "/norestart",
-                 "/L*V", str(output / (label + ".log"))], row, label)
+            run_msi(installer, output / (label + ".log"), row, label)
         # NSIS normally forks a temporary uninstaller. Process exit alone is not proof.
         wait_removed(directory, product)
 
@@ -182,9 +205,7 @@ def exercise(kind, installer, directory, product, version, expected_hash, report
         if kind == "nsis":
             run(nsis_command(installer, directory), row, "nsis-install")
         else:
-            run(["msiexec.exe", "/i", str(installer), "/qn", "/norestart",
-                 "REBOOT=ReallySuppress", "INSTALLDIR=" + str(directory),
-                 "/L*V", str(output / "msi-install.log")], row, "msi-install")
+            run_msi(installer, output / "msi-install.log", row, "msi-install", directory)
         row["installed"] = installed_identity(directory, registrations(product), version, expected_hash,
                                               row["observed_executables"])
         retained = output / ("installed-" + kind + ".exe")

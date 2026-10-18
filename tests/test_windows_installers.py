@@ -27,6 +27,48 @@ class InstallerChecks(unittest.TestCase):
             with self.subTest(suffix=suffix), self.assertRaises(RuntimeError):
                 checks.nsis_command("setup.exe", "C:\\install" + suffix)
 
+    def test_msi_quotes_property_value_without_quoting_assignment(self):
+        command = checks.msi_command(r"C:\build dir\app.msi", r"C:\logs dir\install.log",
+                                     r"C:\owned temp\msi install with spaces")
+        self.assertEqual(command, 'msiexec.exe /i "C:\\build dir\\app.msi" /qn /norestart '
+                         'REBOOT=ReallySuppress INSTALLDIR="C:\\owned temp\\msi install with spaces" '
+                         '/L*V "C:\\logs dir\\install.log"')
+        old = checks.subprocess.list2cmdline(
+            ["INSTALLDIR=" + r"C:\owned temp\msi install with spaces"])
+        self.assertNotIn(old, command)
+
+    def test_msi_uninstall_is_silent_and_logged_without_install_property(self):
+        self.assertEqual(checks.msi_command(r"C:\build dir\app.msi", r"C:\logs\uninstall.log"),
+                         'msiexec.exe /x "C:\\build dir\\app.msi" /qn /norestart '
+                         'REBOOT=ReallySuppress /L*V "C:\\logs\\uninstall.log"')
+
+    def test_msi_rejects_argument_breakout_in_every_path(self):
+        for index in range(3):
+            for suffix in ('"', '\n', '\r', '\0'):
+                paths = [r"C:\app.msi", r"C:\install.log", r"C:\owned temp"]
+                paths[index] += suffix
+                with self.subTest(index=index, suffix=suffix), self.assertRaises(RuntimeError):
+                    checks.msi_command(*paths)
+
+    def test_msi_requires_and_binds_nonempty_verbose_log(self):
+        with tempfile.TemporaryDirectory() as folder:
+            log = Path(folder) / "msi-install.log"
+            report = {"commands": []}
+
+            def success(command, report, label):
+                report["commands"].append({"command": command, "operation": label, "exit_code": 0})
+
+            with patch.object(checks, "run", side_effect=success):
+                for content in (None, b""):
+                    if content is not None:
+                        log.write_bytes(content)
+                    with self.subTest(content=content), self.assertRaisesRegex(RuntimeError, "log missing"):
+                        checks.run_msi(Path(folder) / "app.msi", log, report, "msi-install", Path(folder))
+                log.write_bytes(b"actual verbose log")
+                checks.run_msi(Path(folder) / "app.msi", log, report, "msi-install", Path(folder))
+            self.assertEqual(report["commands"][-1]["log"],
+                             {"file": log.name, "size": log.stat().st_size, "sha256": checks.digest(log)})
+
     def test_installed_payload_and_version(self):
         with tempfile.TemporaryDirectory() as folder:
             directory = Path(folder)
@@ -201,10 +243,11 @@ class InstallerChecks(unittest.TestCase):
         process = Mock(returncode=3010)
         process.communicate.return_value = ("restart requested", None)
         report = {"commands": []}
-        with patch.object(checks.subprocess, "Popen", return_value=process):
+        with patch.object(checks.subprocess, "Popen", return_value=process) as popen:
             with self.assertRaisesRegex(RuntimeError, "3010"):
                 checks.run(["msiexec.exe"], report, "install")
         self.assertEqual(report["commands"][0]["exit_code"], 3010)
+        self.assertIs(popen.call_args.kwargs["shell"], False)
 
 
 if __name__ == "__main__":
