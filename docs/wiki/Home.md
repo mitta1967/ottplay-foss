@@ -39,7 +39,10 @@ See the [publishing instructions](../wiki-publishing.md).
 - [Manual XMLTV binding and classic accessibility](../guide-binding-accessibility.md)
   ([Русский](../guide-binding-accessibility.ru.md)).
 - [Hosted picture-and-sound check](../audio-video-check.md)
-  ([Русский](../audio-video-check.ru.md)). The online moving-pattern demo is silent.
+  ([Русский](../audio-video-check.ru.md)): **Information → Audio → Play**,
+  expected tones, hosting diagram and return to live TV. The clip is fetched
+  on demand, requires internet and is absent from player packages.
+  The separate online moving-pattern demo is silent.
 - [Xtream movie/series library](../xtream-media.md) ([Русский](../xtream-media.ru.md)).
 - [Same-source player handoff](../remote-handoff.md) ([Русский](../remote-handoff.ru.md)).
 - [Local settings journal and recovery](../settings-recovery.md) ([Русский](../settings-recovery.ru.md)).

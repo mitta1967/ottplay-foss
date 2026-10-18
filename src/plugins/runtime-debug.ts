@@ -25,6 +25,31 @@ function finite(value: any, max = DEBUG_MAX): boolean {
         value <= max
     );
 }
+function debugInteger(value: any): boolean {
+    return finite(value) && Math.floor(value) === value;
+}
+function playbackAttempt(value: any, retired = false): any {
+    if (!value) return null;
+    var result: any = {};
+    var valid =
+        "attachment engineStarts fatalErrors nativeFallbacks streamRetries"
+            .split(" ")
+            .every(function (key) {
+                result[key] = value[key];
+                return debugInteger(value[key]);
+            });
+    if (retired) {
+        result.handleId = value.handleId;
+        result.generation = value.generation;
+        result.reason = value.reason;
+        valid =
+            valid &&
+            debugInteger(value.handleId) &&
+            (value.generation === null || debugInteger(value.generation)) &&
+            ["ended", "disposed", "suspended"].indexOf(value.reason) >= 0;
+    }
+    return valid ? result : null;
+}
 function versionToken(value: any): string | null {
     var match =
         typeof value === "string" && value.match(/^[A-Za-z0-9_.+\-]{1,64}$/);
@@ -294,6 +319,8 @@ export function installRuntimeDebug(w: any, deps: DebugDependencies): any {
             var generation: number | null = null;
             var handleId: number | null = null;
             var engine: string | null = null;
+            var attempt: any = null;
+            var lastAttempt: any = null;
             try {
                 var playback =
                     w.__ottClassicPlayback && w.__ottClassicPlayback.snapshot();
@@ -323,6 +350,14 @@ export function installRuntimeDebug(w: any, deps: DebugDependencies): any {
                     attached === "html5"
                 )
                     engine = attached;
+                if (version === 3 && handle && handle.diagnosticAttempt) {
+                    attempt = playbackAttempt(handle.diagnosticAttempt());
+                }
+                if (version === 3 && backend && backend.lastAttempt)
+                    lastAttempt = playbackAttempt(
+                        backend.lastAttempt(lane),
+                        true
+                    );
             } catch (_) {
                 /* A missing owner does not prevent element observations. */
             }
@@ -381,7 +416,11 @@ export function installRuntimeDebug(w: any, deps: DebugDependencies): any {
                 lane: lane,
                 metrics: metrics,
             };
-            if (version === 2) observation.engine = engine;
+            if (version >= 2) observation.engine = engine;
+            if (version === 3) {
+                observation.attempt = attempt;
+                observation.lastAttempt = lastAttempt;
+            }
             result.push(observation);
         });
         return result;
@@ -459,7 +498,7 @@ export function installRuntimeDebug(w: any, deps: DebugDependencies): any {
         };
     }
     function snapshot(version = 1): Promise<any> {
-        if (version !== 1 && version !== 2)
+        if (version !== 1 && version !== 2 && version !== 3)
             return Promise.reject(new Error("invalid_request"));
         if (!sync() || suspended)
             return Promise.reject(new Error("unavailable"));

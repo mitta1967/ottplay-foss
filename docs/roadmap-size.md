@@ -4,8 +4,11 @@
 
 ![Same-toolchain comparison of all player JavaScript](diagrams/roadmap-size.svg)
 
-The implementation adds **31,128 raw bytes / 9,759 gzip bytes** to the main entry
-plus every optional provider family: about **3.23% / 3.20%**. It is a feature-cost
+This page preserves the JavaScript measurements from the source snapshots below.
+They do not measure the current revision, installation packages or network traffic.
+
+In the initial comparison, the main entry plus every optional provider family
+grew by **31,128 raw bytes / 9,759 gzip bytes**: about **3.23% / 3.20%**. It is a feature-cost
 increase, not a claimed size or execution-speed improvement. Xtream remains lazy;
 moving it out of the entry does not remove it from the total.
 
@@ -21,7 +24,9 @@ source identity. Gzip level 9 is applied separately to each emitted asset.
 - Optional M3U grows 184 raw / 82 gzip bytes; new Xtream is 4,110 / 1,748.
   The other six optional families are byte-identical.
 
-A later rooted A/V asset URL adds one raw byte. The bounded HLS parse-retry
+Before the clip moved to here.now, changing its URL to the rooted local path
+added one raw JavaScript byte in this historical sequence. That is not a
+measurement of the later hosted URL. The bounded HLS parse-retry
 fix adds 37 raw / 36 gzip bytes in an isolated same-snapshot comparison
 ([evidence](evidence/parse-recovery-size-20261015.json)). The native Auto handoff ownership fix adds another 101 raw / 39 gzip bytes
 ([evidence](evidence/auto-recovery-size-20261015.json)). The resulting full raw
@@ -48,8 +53,8 @@ same Node 26.8.2, Rollup 4.64.5 and Terser 5.51.2:
 - Complete web payload increase: **35,512 / 11,148 bytes (3.68% / 3.65%)**.
 
 The baseline counts seven provider families; the integration counts eight,
-including lazy Xtream. Current entry caps are 879,900 / 273,000; total caps are
-1,000,800 / 317,800, preserving room for native, Node and release identity.
+including lazy Xtream. That snapshot's entry caps were 879,900 / 273,000;
+total caps were 1,000,800 / 317,800, preserving room for native, Node and release identity.
 Both local production builds regenerate five tracked runtime files and omit
 the clean-source revision claim. These are reproduced local artifacts, not
 the published beta binaries. Tool versions, hashes and that limitation are
@@ -58,12 +63,22 @@ and [integration evidence](evidence/post-beta-candidate-size-20261015.json).
 The [implementation report](implementation-report.md#post-beta-integration-and-review)
 explains the fixes and validation.
 
-**Scope:** these totals exclude external media engines, language dictionaries,
-CSS, images and video. The measured snapshot included a **464,652-byte A/V clip**. The clip is now
-[hosted on here.now](audio-video-check.md), excluded from all player packages
-and requested only for the explicit diagnostic action. This removes 464,652
-raw asset bytes; compressed package savings depend on the archive format.
-The historical JavaScript measurements above are unchanged.
+**Scope:** these JavaScript totals exclude external media engines, language
+dictionaries, CSS, images and video. The historical player packages also carried
+a **464,652-byte A/V clip**, outside the totals above. Its current delivery is
+separate from those measurements:
+
+- **Repository:** `diagnostics/av-v1.mp4` remains with its generator and verifier
+  for reproducibility. Keeping a source file does not include it in a package.
+- **Packages:** Web/OTTPlay Server, Tauri, Capacitor and Docker exclude the clip.
+  This removes 464,652 raw media-asset bytes, not a measured 464,652-byte reduction
+  in a compressed installer. Archive format and other build changes affect that size.
+- **Network:** the player fetches the clip from here.now only when the user starts
+  the [A/V check](audio-video-check.md). The check requires internet access; the
+  clip is not fetched for startup playback.
+
+The historical JavaScript measurements above remain unchanged. Measuring the
+hosted URL's effect on JavaScript or a current installer requires a new comparison.
 The 88 localized README files are repository documentation, not player payload.
 No startup-time, frame-rate, memory or catalogue-scale performance claim follows
 from this byte comparison. Those require separate measurements on target devices.
