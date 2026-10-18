@@ -152,6 +152,12 @@ function fixture(options = {}) {
             ? { core: { invoke: options.invoke } }
             : undefined,
         $: (selector) => ({
+            attr(name, value) {
+                assert.equal(selector, "video");
+                for (const element of [w.video, w.videoPip])
+                    element[name] = value;
+                return this;
+            },
             css() {},
             hide() {},
             html(value) {
@@ -537,6 +543,8 @@ test("native seek events reset the baseline even between footer ticks", () => {
     for (const tickDuringSeek of [false, true]) {
         const f = fixture();
         f.w.stbInit();
+        assert.match(f.w.video.poster, /^data:image\/gif;base64,/);
+        assert.equal(f.w.videoPip.poster, f.w.video.poster);
         f.w.setPlayerMode(0);
         f.w.stbPlay("native.mp4");
         f.ready();

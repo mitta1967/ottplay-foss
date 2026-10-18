@@ -95,7 +95,7 @@ assert.deepEqual(
 assert.deepEqual(
     npm.ignore.find((entry) => entry["dependency-name"] === "ultracite")
         ?.versions,
-    [">=7.10.3 <=8.0.0"],
+    [">=7.10.3 <=8.0.1"],
     "Exclude only known vulnerable releases; review future fixes normally"
 );
 assert.deepEqual(

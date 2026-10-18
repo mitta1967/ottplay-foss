@@ -163,7 +163,7 @@ jobs:
         node-version: '22'
         cache: npm
     - name: Install Rust stable
-      uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
       with:
         toolchain: stable
     - name: Install Rust target
@@ -578,7 +578,8 @@ jobs:
       browser-extended: ${{ inputs.channel == 'rc' || inputs.channel == 'stable' }}
       browser-evidence-prefix: browser-release
       browser-prepare-command: |
-        npm ci --omit=dev --ignore-scripts
+        # Synthetic HLS media requires the locked mux.js dev dependency.
+        npm ci --include=dev --ignore-scripts
         PYTHON=python3
         if ! "$PYTHON" -c 'import sys; assert sys.version_info >= (3, 8)' 2>/dev/null; then PYTHON=python; fi
         "$PYTHON" scripts/prepare_browser_candidate.py browser-candidate browser-candidate-web --release
