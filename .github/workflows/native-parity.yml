@@ -28,6 +28,50 @@ jobs:
       - name: Exercise shared guide through the actual native engine
         run: cargo test --locked -p ottplay-core -p ottplay-server
 
+  windows-installers:
+    name: Windows installer lifecycle
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: windows-installer-lifecycle
+      - run: npm ci --ignore-scripts
+      - name: Check installer harness and native dependency constraints
+        run: |
+          python tests/test_windows_installers.py
+          python scripts/check-updater-features.py
+      - name: Bundle MSI and NSIS without signing or publishing
+        working-directory: src-tauri
+        run: npx --no-install tauri build --ci --bundles "nsis,msi" -- --locked
+      - name: Install, verify and uninstall both native packages
+        run: python scripts/check-windows-installers.py
+      - name: Preserve installer lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-installer-lifecycle-${{ github.sha }}
+          path: build/windows-installer-report/
+          if-no-files-found: warn
+          retention-days: 14
+
   android:
     name: Android native plugins
     runs-on: ubuntu-latest
