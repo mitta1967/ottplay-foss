@@ -303,7 +303,7 @@ export function installLocalMedia(w: any): any {
         panel!.setAttribute("role", "dialog");
         panel!.setAttribute("aria-label", title());
         panel!.style.cssText =
-            "position:fixed;inset:0;z-index:2147483000;overflow:auto;padding:4vh 5vw;background:#101b2b;color:#eef4ff;font:20px sans-serif";
+            "position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;overflow:auto;padding:4vh 5vw;background:#101b2b;color:#eef4ff;font:20px sans-serif";
         panel!.addEventListener("click", function (event) {
             event.stopPropagation();
         });
