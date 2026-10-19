@@ -411,3 +411,84 @@ test("progress callback cancels background enumeration after provider replacemen
     finish({ cancelled: true, items: [] });
     await Promise.resolve();
 });
+
+test("legacy selected index starts once that row arrives without waiting for full scan", async () => {
+    const f = integrationFixture("offline", { offlineprimaryIndex: "1" });
+    let progress, finish;
+    f.host.clearBootHide = () => {};
+    f.host.__ottLocalMedia = {
+        list: (callback) => {
+            progress = callback;
+            return new Promise((resolve) => {
+                finish = resolve;
+            });
+        },
+    };
+    f.host.loadProv();
+    const first = { id: "first", name: "First.mp4", url: "blob:first" };
+    const selected = {
+        id: "selected",
+        name: "Selected.mp4",
+        url: "blob:selected",
+    };
+    progress({ items: [first] });
+    assert.equal(f.completed, 0);
+    progress({ items: [first, selected] });
+    assert.equal(f.completed, 1);
+    assert.equal(f.host.primaryIndex, 1);
+    assert.equal(f.host.cList[f.host.primaryIndex], "local-selected");
+    finish({ items: [first, selected] });
+    await Promise.resolve();
+    assert.equal(f.completed, 1);
+});
+
+test("invalid or out-of-range legacy selection waits for final catalog", async () => {
+    for (const value of ["-1", "1.5", "invalid", "99999"]) {
+        const f = integrationFixture("offline", { offlineprimaryIndex: value });
+        let progress, finish;
+        f.host.clearBootHide = () => {};
+        f.host.__ottLocalMedia = {
+            list: (callback) => {
+                progress = callback;
+                return new Promise((resolve) => {
+                    finish = resolve;
+                });
+            },
+        };
+        f.host.loadProv();
+        const catalog = {
+            items: [{ id: "first", name: "First.mp4", url: "blob:first" }],
+        };
+        progress(catalog);
+        assert.equal(f.completed, 0, value);
+        finish(catalog);
+        await Promise.resolve();
+        assert.equal(f.completed, 1, value);
+    }
+});
+
+test("missing legacy index allows the first playable batch", async () => {
+    const f = fixture();
+    const get = f.host.stbGetItem;
+    f.host.stbGetItem = (key) =>
+        key === "offlineprimaryIndex" ? undefined : get(key);
+    let progress,
+        finish,
+        completed = 0;
+    f.host.__ottLocalMedia = {
+        list: (callback) => {
+            progress = callback;
+            return new Promise((resolve) => {
+                finish = resolve;
+            });
+        },
+    };
+    f.mount("offline").load(() => completed++);
+    const catalog = {
+        items: [{ id: "first", name: "First.mp4", url: "blob:first" }],
+    };
+    progress(catalog);
+    assert.equal(completed, 1);
+    finish(catalog);
+    await Promise.resolve();
+});

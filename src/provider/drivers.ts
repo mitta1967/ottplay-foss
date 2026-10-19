@@ -247,6 +247,7 @@ function createOfflineDriver(
             var started = false;
             var wanted = "";
             var waitForFinal = false;
+            var legacyIndex = 0;
             try {
                 var host = window as any;
                 var source =
@@ -261,9 +262,17 @@ function createOfflineDriver(
                         ""
                     );
                     if (wanted.indexOf("local-") !== 0) waitForFinal = true;
-                } else
+                } else {
+                    var savedIndex = ports.storage.get("primaryIndex");
+                    legacyIndex =
+                        savedIndex == null || savedIndex === ""
+                            ? 0
+                            : Number(savedIndex);
                     waitForFinal =
-                        Number(ports.storage.get("primaryIndex")) > 0;
+                        !isFinite(legacyIndex) ||
+                        legacyIndex < 0 ||
+                        Math.floor(legacyIndex) !== legacyIndex;
+                }
             } catch (_) {
                 waitForFinal = true;
             }
@@ -324,6 +333,7 @@ function createOfflineDriver(
                     !final &&
                     (!catalog.ids.length ||
                         waitForFinal ||
+                        catalog.ids.length <= legacyIndex ||
                         (wanted && !catalog.channels[wanted]))
                 )
                     return true;
