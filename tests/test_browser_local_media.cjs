@@ -1030,6 +1030,13 @@ async function builtUi(devicePath) {
         // browser catalog's final result remains pending, then append the rest
         // without restarting or unpausing the same video element.
         await page.evaluate(async () => {
+            // A disk-backed source can report duration only after the legacy
+            // two-second probe. Exercise normal channel playback in that state,
+            // rather than the Local videos manager's separate Play action.
+            Object.defineProperty(document.querySelector("video"), "duration", {
+                configurable: true,
+                get: () => NaN,
+            });
             const api = window.__ottBrowserLocalMedia;
             const original = api.list;
             const catalog = await original.call(api);
@@ -1071,6 +1078,17 @@ async function builtUi(devicePath) {
                     document.querySelector("video").currentTime > 0.1 &&
                     !document.querySelector("video").paused
             );
+            await page.waitForTimeout(2200);
+            assert.equal(
+                await page.evaluate(
+                    () => window.__ottClassicPlayback.snapshot().target.kind
+                ),
+                "vod",
+                "normal offline channels are seekable even when metadata misses the probe"
+            );
+            await page.evaluate(() => {
+                delete document.querySelector("video").duration;
+            });
             const firstBatch = await page.evaluate(() => {
                 const video = document.querySelector("video");
                 video.pause();
@@ -1099,6 +1117,34 @@ async function builtUi(devicePath) {
                     !video.seeking &&
                     Math.abs(video.currentTime - 8) < 0.1
                 );
+            });
+            await page.evaluate(() => {
+                const video = document.querySelector("video");
+                video.tabIndex = 0;
+                video.focus();
+            });
+            await page.keyboard.press("Alt+ArrowRight");
+            await page.waitForFunction(() => {
+                const video = document.querySelector("video");
+                return (
+                    !video.seeking && Math.abs(video.currentTime - 18) < 0.25
+                );
+            });
+            await page.waitForFunction(() => {
+                const video = document.querySelector("video");
+                const progress = parseFloat(
+                    document.querySelector("#progress").style.width
+                );
+                return (
+                    Math.abs(
+                        progress - (video.currentTime / video.duration) * 100
+                    ) < 1
+                );
+            });
+            await page.keyboard.press("Alt+ArrowLeft");
+            await page.waitForFunction(() => {
+                const video = document.querySelector("video");
+                return !video.seeking && Math.abs(video.currentTime - 8) < 0.25;
             });
             await page.evaluate(() => window.__finishProgressiveCatalog());
             await page.waitForFunction(
@@ -1144,6 +1190,7 @@ async function builtUi(devicePath) {
             );
         } finally {
             await page.evaluate(() => {
+                delete document.querySelector("video").duration;
                 const fixture = window.__progressiveCatalogFixture;
                 fixture.api.list = fixture.original;
                 delete window.__progressiveCatalogFixture;

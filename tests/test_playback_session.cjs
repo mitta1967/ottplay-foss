@@ -184,6 +184,61 @@ function include(c, file, names) {
 // Local/finite channel files seek as media without borrowing the channel archive.
 {
     const c = fixture();
+    c.__ottActiveProviderDriver = { id: "offline" };
+    c.stbGetLen = () => NaN; // Metadata arrived after the one-shot probe.
+    let position = 125;
+    c.stbGetPosTime = () => position;
+    c.stbSetPosTime = (value) => {
+        position = value;
+        c.effects.push(["seek", value]);
+    };
+    c.__ottClassicPlayback.command({ channelId: 101, type: "live" });
+    c.__ottClassicPlayback.command({ type: "playing" });
+    const generation = c.__ottClassicPlayback.snapshot().generation;
+    assert.equal(c.__ottClassicPlayback.snapshot().target.kind, "vod");
+    assert.equal(c.__ottClassicPlayback.snapshot().historyTarget.kind, "live");
+    c.__ottClassicPlayback.shift(10);
+    c.flush();
+    assert.equal(position, 135);
+    assert.equal(c.__ottClassicPlayback.snapshot().phase, "playing");
+    c.__ottClassicPlayback.command({ type: "pause" });
+    c.stbGetLen = () => 600;
+    c.__ottClassicPlayback.shift(-10);
+    c.flush();
+    assert.equal(position, 125);
+    c.__ottClassicPlayback.shift(-1000);
+    c.flush();
+    assert.equal(position, 0);
+    c.__ottClassicPlayback.shift(1000);
+    c.flush();
+    assert.equal(
+        position,
+        0,
+        "an out-of-range seek does not restart the media"
+    );
+    assert.equal(c.__ottClassicPlayback.snapshot().phase, "paused");
+    assert.equal(c.__ottClassicPlayback.snapshot().generation, generation);
+    assert.equal(
+        c.effects.some((row) =>
+            ["archive", "timeshift", "live"].includes(row[0])
+        ),
+        false,
+        "offline channels never restart or request IPTV catch-up while seeking"
+    );
+}
+
+// Other providers retain live-stream behavior even with a finite decoder length.
+{
+    const c = fixture();
+    c.__ottActiveProviderDriver = { id: "m3u" };
+    c.__ottClassicPlayback.command({ channelId: 303, type: "live" });
+    assert.equal(c.__ottClassicPlayback.snapshot().target.kind, "live");
+    assert.equal(c.playType, 0);
+}
+
+// Explicit finite detection remains available to non-local channel adapters.
+{
+    const c = fixture();
     c.p_pref = "offline";
     c.channels[101].rec = 0;
     c.__ottClassicPlayback.command({ channelId: 101, type: "live" });
