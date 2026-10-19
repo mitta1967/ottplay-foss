@@ -5,6 +5,7 @@
 - Remove VPortal setup, catalog loading and remote settings from M3U profiles. Use the standalone VPortal provider for selected portal sections; stored legacy device values are preserved but inactive. M3U remote metadata and settings comparisons now cover only TV settings.
 
 - Project selected Plex folders and standalone VPortal sections into the standard channel playlist. Start from the first usable batch, append remaining videos without restarting playback, and ignore results from cancelled loads.
+- Update an already open channel list as background batches arrive, preserving the focused item and any active dialog or search.
 - Resolve channel-backed media with the existing loading dialog, authentication and watch history. Keep file navigation aligned with the current channel order, including after shuffle or background additions.
 - Keep VPortal direct-file identities stable when signed URLs rotate, and refresh the playback URL before selection or repeat.
 - Put media playlist repeat in channel-list Actions; reuse existing search, Shuffle and Reset order instead of a separate media browser during normal playback.

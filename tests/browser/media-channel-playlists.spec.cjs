@@ -221,6 +221,9 @@ for (const provider of ["plex", "vportal"]) {
                 selected: window.curList[window.primaryIndex],
             }));
             await expect(page.locator("#dialogbox")).toBeHidden();
+            await page.evaluate(() => window.popMedia());
+            await expect(page.locator("#list")).toContainText("Film 1");
+            await expect(page.locator("#list")).not.toContainText("Film 2");
             await catalog(second.shift(), 2);
             await expect
                 .poll(() => page.evaluate(() => window.cList.length))
@@ -232,7 +235,6 @@ for (const provider of ["plex", "vportal"]) {
                     selected: window.curList[window.primaryIndex],
                 }))
             ).toEqual(playing);
-            await page.evaluate(() => window.popMedia());
             await expect(page.locator("#list")).toContainText("Film 1");
             await expect(page.locator("#list")).toContainText("Film 2");
             await expect(page.locator("#mediaPlaybackControls")).toHaveCount(0);
