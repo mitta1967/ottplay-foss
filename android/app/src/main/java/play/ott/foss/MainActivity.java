@@ -37,6 +37,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MobileNativeMediaPlugin.class);
         registerPlugin(MobileXmltvEpgPlugin.class);
         registerPlugin(M3UProxyPlugin.class);
+        registerPlugin(LocalMediaPlugin.class);
         registerPlugin(StalkerPortalPlugin.class);
         registerPlugin(MobileCommandQueuePlugin.class);
         registerPlugin(DashExoPlayerPlugin.class);

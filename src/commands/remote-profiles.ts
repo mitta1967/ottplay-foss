@@ -144,7 +144,32 @@ export function handleRemoteProfiles(
         done(compareRemoteSettings(window, request.params));
         return true;
     }
-    if (["profiles", "profile", "profile_settings"].indexOf(action) < 0)
+    var offline = (window as any).__ottOfflineProfiles;
+    if (
+        offline &&
+        (window as any).__ottActiveProviderDriver &&
+        (window as any).__ottActiveProviderDriver.id === "offline" &&
+        [
+            "profiles",
+            "profile",
+            "profile_save",
+            "profile_export",
+            "profile_import",
+        ].indexOf(action) >= 0
+    ) {
+        offline.request(request).then(done);
+        return true;
+    }
+    if (
+        [
+            "profiles",
+            "profile",
+            "profile_settings",
+            "profile_save",
+            "profile_export",
+            "profile_import",
+        ].indexOf(action) < 0
+    )
         return false;
     function rejected(message: string): any {
         return { data: { error: message }, status: "rejected" };

@@ -14,6 +14,7 @@ interface DriverCatalog {
     groupOrder: string[];
     groups: { [name: string]: Array<string | number> };
     ids: Array<string | number>;
+    incremental?: boolean;
 }
 interface DriverHttpRequest {
     contentType?: string;
@@ -192,6 +193,296 @@ function createDriverRegistry() {
             factories[id] = factory;
         },
     };
+}
+
+function createOfflineDriver(
+    ports: ProviderDriverPorts,
+    owner: DriverLifetime
+): ProviderDriver {
+    var disposed = false;
+    var catalog = emptyDriverCatalog();
+    var revision = 0;
+    var loadTimer: any = null;
+    function clearLoadTimer(): void {
+        if (
+            loadTimer !== null &&
+            typeof (window as any).clearTimeout === "function"
+        )
+            (window as any).clearTimeout(loadTimer);
+        loadTimer = null;
+    }
+    function active(): boolean {
+        return !disposed && owner.active();
+    }
+    var driver: ProviderDriver = {
+        archive: function () {
+            return "";
+        },
+        capabilities: {
+            archive: false,
+            guide: false,
+            media: false,
+            settings: false,
+        },
+        credentials: function () {
+            return { password: "", server: "", username: "" };
+        },
+        dispose: function () {
+            disposed = true;
+            revision++;
+            clearLoadTimer();
+        },
+        guide: function (_, done) {
+            if (active()) done([]);
+        },
+        id: "offline",
+        load: function (done) {
+            var request = ++revision;
+            clearLoadTimer();
+            var media = (window as any).__ottLocalMedia;
+            if (!media) {
+                done(emptyDriverCatalog(), "Local media is unavailable");
+                return;
+            }
+            var profiles = (window as any).__ottOfflineProfiles;
+            var profileBefore = "";
+            try {
+                profileBefore = profiles ? JSON.stringify(profiles.read()) : "";
+            } catch (_) {
+                done(
+                    emptyDriverCatalog(),
+                    "Local profile configuration is unavailable"
+                );
+                return;
+            }
+            var started = false;
+            var progressStamp = "";
+            var wanted = "";
+            var waitForFinal = false;
+            var legacyIndex = 0;
+            try {
+                var host = window as any;
+                var source =
+                    host.__ottSourceIdentity &&
+                    host.__ottSourceIdentity.current(host);
+                var saved = JSON.parse(
+                    ports.storage.get("channelLibrary:" + source) || "null"
+                );
+                var profileSelection = profiles ? profiles.selection() : null;
+                if (profileSelection !== null) {
+                    wanted = profileSelection || "local-profile-unbound";
+                } else if (saved && saved.selected && saved.selected.itemId) {
+                    wanted = String(saved.selected.itemId).replace(
+                        /^channel:/,
+                        ""
+                    );
+                    if (wanted.indexOf("local-") !== 0) waitForFinal = true;
+                } else {
+                    var savedIndex = ports.storage.get("primaryIndex");
+                    legacyIndex =
+                        savedIndex == null || savedIndex === ""
+                            ? 0
+                            : Number(savedIndex);
+                    waitForFinal =
+                        !isFinite(legacyIndex) ||
+                        legacyIndex < 0 ||
+                        Math.floor(legacyIndex) !== legacyIndex;
+                }
+            } catch (_) {
+                waitForFinal = true;
+            }
+            catalog = emptyDriverCatalog();
+            function current(): boolean {
+                return active() && request === revision;
+            }
+            function recover(error: string): void {
+                if (!current()) return;
+                clearLoadTimer();
+                revision++;
+                if (!started) {
+                    done(emptyDriverCatalog(), error);
+                    if (
+                        active() &&
+                        request + 1 === revision &&
+                        typeof media.resume === "function"
+                    )
+                        media.resume(true);
+                }
+            }
+            function heartbeat(): void {
+                clearLoadTimer();
+                if (typeof (window as any).setTimeout === "function")
+                    loadTimer = (window as any).setTimeout(function () {
+                        recover("Local source did not respond");
+                    }, 60000);
+            }
+            function publish(value: any, final: boolean): boolean {
+                if (!current()) return false;
+                if (value.cancelled) {
+                    clearLoadTimer();
+                    revision++;
+                    return false;
+                }
+                try {
+                    if (profiles) {
+                        if (JSON.stringify(profiles.read()) !== profileBefore) {
+                            recover("Local profile changed while loading");
+                            return false;
+                        }
+                        value = profiles.filter(value);
+                    }
+                } catch (_) {
+                    recover("Local profile configuration is unavailable");
+                    return false;
+                }
+                var stamp = [
+                    value.scanned || 0,
+                    (value.items || []).length,
+                    value.phase || "",
+                    !!value.scanning,
+                ].join(":");
+                // Polling the same stalled native scan is not progress.
+                if (stamp !== progressStamp) {
+                    progressStamp = stamp;
+                    heartbeat();
+                }
+                (value.items || []).forEach(function (item: any) {
+                    if (item.available === false || !item.url) return;
+                    var id = "local-" + item.id;
+                    if (catalog.channels[id]) return;
+                    catalog.ids.push(id);
+                    catalog.channels[id] = {
+                        category: {
+                            class: 2,
+                            name: ports.translate("Local videos"),
+                        },
+                        channel_name: item.name,
+                        logo: "",
+                        rec: 0,
+                        time: 0,
+                        time_to: 0,
+                        url: item.url,
+                    };
+                });
+                if (
+                    !started &&
+                    typeof document !== "undefined" &&
+                    document.createElement
+                ) {
+                    var panel = document.getElementById("dialogbox");
+                    if (panel && panel.querySelector(".ott-spinner")) {
+                        var progress = panel.querySelector(
+                            "[data-local-scanned]"
+                        );
+                        if (!progress) {
+                            progress = document.createElement("div");
+                            panel.appendChild(progress);
+                        }
+                        var scanned = Math.max(
+                            0,
+                            Math.floor(Number(value.scanned) || 0)
+                        );
+                        if (!isFinite(scanned)) scanned = 0;
+                        var total = Number(value.total);
+                        var knownTotal =
+                            value.total != null &&
+                            isFinite(total) &&
+                            total >= scanned &&
+                            Math.floor(total) === total;
+                        var waiting = waitForFinal
+                            ? "invalid-index"
+                            : wanted && !catalog.channels[wanted]
+                              ? "saved-id"
+                              : catalog.ids.length <= legacyIndex &&
+                                  legacyIndex > 0
+                                ? "legacy-index"
+                                : !catalog.ids.length
+                                  ? "no-items"
+                                  : "ready";
+                        progress.setAttribute(
+                            "data-local-scanned",
+                            String(scanned)
+                        );
+                        progress.setAttribute(
+                            "data-local-items",
+                            String(catalog.ids.length)
+                        );
+                        progress.setAttribute("data-local-waiting", waiting);
+                        progress.setAttribute(
+                            "data-local-phase",
+                            value.phase || "files"
+                        );
+                        progress.textContent =
+                            ports.translate("Loading. Please wait...") +
+                            " (" +
+                            scanned +
+                            (knownTotal ? " / " + total : "") +
+                            ") · " +
+                            ports.translate("Local videos") +
+                            ": " +
+                            catalog.ids.length;
+                    }
+                }
+                if (final) clearLoadTimer();
+                if (
+                    !started &&
+                    !final &&
+                    (!catalog.ids.length ||
+                        waitForFinal ||
+                        catalog.ids.length <= legacyIndex ||
+                        (wanted && !catalog.channels[wanted]))
+                )
+                    return true;
+                var incremental = started;
+                started = true;
+                var snapshot = driverCatalogSnapshot(catalog);
+                snapshot.incremental = incremental;
+                done(snapshot, undefined, incremental);
+                if (!current()) return false;
+                if (
+                    final &&
+                    !catalog.ids.length &&
+                    typeof media.open === "function"
+                ) {
+                    if (
+                        value.sources &&
+                        value.sources.length &&
+                        typeof media.resume === "function"
+                    )
+                        media.resume(true);
+                    else media.open();
+                }
+                return true;
+            }
+            heartbeat();
+            media
+                .list(
+                    function (value: any) {
+                        return publish(value, false);
+                    },
+                    wanted.indexOf("local-") === 0 ? wanted.slice(6) : undefined
+                )
+                .then(
+                    function (value: any) {
+                        publish(value, true);
+                    },
+                    function (error: any) {
+                        recover(String(error.message || error));
+                    }
+                );
+        },
+        logo: function () {
+            return "";
+        },
+        saveCredentials: function () {},
+        stream: function (id) {
+            return active() && catalog.channels[id]
+                ? catalog.channels[id].url
+                : "";
+        },
+    };
+    owner.own(driver.dispose);
+    return driver;
 }
 
 function createDemoDriver(
@@ -1124,71 +1415,77 @@ var providerDriverRegistry = createDriverRegistry();
 providerDriverProfiles.forEach(function (profile) {
     providerDriverRegistry.register(
         profile.id,
-        profile.kind === "demo"
-            ? createDemoDriver
-            : profile.kind === "xtream"
-              ? createXtreamDriver
-              : function (ports, owner) {
-                    var helpers = {
-                        emptyCatalog: emptyDriverCatalog,
-                        media: (window as any).__ottMediaCatalog.create,
-                        snapshot: driverCatalogSnapshot,
-                        transport: createDriverTransport,
-                    };
-                    if (profile.kind === "stalker")
-                        return (window as any).__ottStalkerDriver.create(
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "m3u")
-                        return (window as any).__ottM3uDriver.create(
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "plex" || profile.kind === "vportal")
-                        return (window as any)[
-                            profile.kind === "plex"
-                                ? "__ottPlexDriver"
-                                : "__ottVPortalDriver"
-                        ].create(ports, owner, {
-                            credentials: createCredentialOperations,
-                            emptyCatalog: emptyDriverCatalog,
-                        });
-                    // OTTPLAY_FULL_ONLY_BEGIN
-                    if (profile.kind === "catalog")
-                        return (window as any).__ottCatalogDrivers.create(
-                            profile.id,
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "playlist")
-                        return (window as any).__ottPlaylistDrivers.create(
-                            profile.id,
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "edem")
-                        return (window as any).__ottEdemDriver.create(
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "named-playlist")
-                        return createNamedPlaylistDriver(profile, ports, owner);
-                    if (
-                        profile.kind === "operator" ||
-                        profile.kind === "xtream-fallback"
-                    )
-                        return createOperatorDriver(profile, ports, owner);
-                    // OTTPLAY_FULL_ONLY_END
-                    throw new Error(
-                        "Unsupported provider kind: " + profile.kind
-                    );
-                }
+        profile.kind === "offline"
+            ? createOfflineDriver
+            : profile.kind === "demo"
+              ? createDemoDriver
+              : profile.kind === "xtream"
+                ? createXtreamDriver
+                : function (ports, owner) {
+                      var helpers = {
+                          emptyCatalog: emptyDriverCatalog,
+                          media: (window as any).__ottMediaCatalog.create,
+                          snapshot: driverCatalogSnapshot,
+                          transport: createDriverTransport,
+                      };
+                      if (profile.kind === "stalker")
+                          return (window as any).__ottStalkerDriver.create(
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "m3u")
+                          return (window as any).__ottM3uDriver.create(
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "plex" || profile.kind === "vportal")
+                          return (window as any)[
+                              profile.kind === "plex"
+                                  ? "__ottPlexDriver"
+                                  : "__ottVPortalDriver"
+                          ].create(ports, owner, {
+                              credentials: createCredentialOperations,
+                              emptyCatalog: emptyDriverCatalog,
+                          });
+                      // OTTPLAY_FULL_ONLY_BEGIN
+                      if (profile.kind === "catalog")
+                          return (window as any).__ottCatalogDrivers.create(
+                              profile.id,
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "playlist")
+                          return (window as any).__ottPlaylistDrivers.create(
+                              profile.id,
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "edem")
+                          return (window as any).__ottEdemDriver.create(
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "named-playlist")
+                          return createNamedPlaylistDriver(
+                              profile,
+                              ports,
+                              owner
+                          );
+                      if (
+                          profile.kind === "operator" ||
+                          profile.kind === "xtream-fallback"
+                      )
+                          return createOperatorDriver(profile, ports, owner);
+                      // OTTPLAY_FULL_ONLY_END
+                      throw new Error(
+                          "Unsupported provider kind: " + profile.kind
+                      );
+                  }
     );
 });
 
@@ -2046,6 +2343,25 @@ function mountProviderDriver(
                 host._("Loading channels from Xtream API...")
             );
         driver.load(function (catalog, error, pending) {
+            if (owner.active() && catalog && catalog.incremental) {
+                var added: any[] = [];
+                catalog.ids.forEach(function (key) {
+                    if (
+                        Object.prototype.hasOwnProperty.call(host.channels, key)
+                    )
+                        return;
+                    host.channels[key] = catalog.channels[key];
+                    host.cList.push(key);
+                    added.push(key);
+                });
+                if (
+                    added.length &&
+                    host.__ottChannels &&
+                    host.__ottChannels.append
+                )
+                    host.__ottChannels.append(added);
+                return;
+            }
             if (owner.active() && !pending && settled) settled();
             if (!owner.active()) return;
             if (id === "xtream" && catalog)

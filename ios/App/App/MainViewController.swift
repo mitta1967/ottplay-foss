@@ -57,6 +57,7 @@ class MainViewController: CAPBridgeViewController {
         }
         bridge?.registerPluginInstance(MobileCommandQueue())
         bridge?.registerPluginInstance(M3UProxyPlugin())
+        bridge?.registerPluginInstance(LocalMedia())
         bridge?.registerPluginInstance(MobileXmltvEpg())
         bridge?.registerPluginInstance(MobileNativeMedia())
         bridge?.registerPluginInstance(DashExoPlayer())

@@ -383,3 +383,209 @@ console.log(
         cases.map((item) => item.name).join(", ") +
         ")"
 );
+
+// Real DOM delivery: native video can stop bubble handlers, while the admitted
+// shortcut must still seek exactly once and leave editors/menu navigation alone.
+const shortcutCases = [{ code: typedHandlers, name: "source" }];
+if (process.argv.includes("--bundle"))
+    shortcutCases.push({
+        code: read("dist/player.js"),
+        name: "classic bundle",
+    });
+for (const testCase of shortcutCases) {
+    const dom = new JSDOM(
+        '<body><video id="video" tabindex="0"></video><input id="input"><textarea></textarea><select><option>A</option></select><div contenteditable="true"><span id="nested">Text</span></div><div contenteditable=""><span id="empty-editable">Text</span></div></body>',
+        { runScripts: "outside-only" }
+    );
+    const w = dom.window;
+    const seeks = [];
+    const normal = [];
+    const volumes = [];
+    let screen = null;
+    let hasTarget = true;
+    let phase = "playing";
+    let sleepResets = 0;
+    try {
+        Object.assign(w, {
+            __ottClassicPlayback: {
+                snapshot: () =>
+                    hasTarget ? { phase, target: { kind: "vod" } } : null,
+            },
+            __ottClassicScreenPort: {
+                dispatch: (code) => normal.push(code),
+                reconcile() {},
+                screens: { current: () => screen },
+            },
+            $: () => ({ is: () => false }),
+            changeVolume: (delta) => volumes.push(delta),
+            keys: { LEFT: 37, RIGHT: 39 },
+            nativeListInertia: null,
+            setSleepTimeout: () => sleepResets++,
+            shiftArchive: (delta) => seeks.push(delta),
+            stbEventToKeyCode: (event) => event.keyCode || 0,
+            sVolumeStep: 5,
+        });
+        w.eval(
+            declarations(
+                testCase.code,
+                [
+                    "tryKeyboardSeek",
+                    "installKeyboardSeek",
+                    "cancelNativeListInertia",
+                    "keyHandler",
+                ],
+                testCase.name
+            )
+        );
+        w.addEventListener("keydown", w.keyHandler);
+        w.installKeyboardSeek();
+        w.installKeyboardSeek();
+        const video = w.document.querySelector("video");
+        video.addEventListener("keydown", (event) => event.stopPropagation());
+        function send(init, target = video) {
+            const before = seeks.length;
+            const event = new w.KeyboardEvent("keydown", {
+                bubbles: true,
+                cancelable: true,
+                ...init,
+            });
+            target.dispatchEvent(event);
+            return { delta: seeks.slice(before), event };
+        }
+        for (const modifier of ["altKey", "ctrlKey", "metaKey"]) {
+            for (const [key, direction] of [
+                ["ArrowLeft", -1],
+                ["ArrowRight", 1],
+            ]) {
+                for (const repeat of [false, true]) {
+                    const result = send({ key, [modifier]: true, repeat });
+                    assert.deepEqual(result.delta, [direction * 10]);
+                    assert.equal(result.event.defaultPrevented, true);
+                }
+            }
+        }
+        assert.deepEqual(
+            normal,
+            [],
+            "captured shortcuts never double-dispatch"
+        );
+        assert.deepEqual(
+            send({ altKey: true, code: "ArrowLeft" }).delta,
+            [-10]
+        );
+        assert.deepEqual(send({ keyCode: 39, metaKey: true }).delta, [10]);
+        w.__ottTauriNativeFs = true;
+        assert.deepEqual(
+            send({ key: "ArrowLeft", metaKey: true }).delta,
+            [-10]
+        );
+        const shortcut = { altKey: true, key: "ArrowRight" };
+        for (const selector of [
+            "input",
+            "textarea",
+            "select",
+            "#nested",
+            "#empty-editable",
+        ]) {
+            const result = send(shortcut, w.document.querySelector(selector));
+            assert.deepEqual(result.delta, [], "editable target " + selector);
+        }
+        const input = w.document.querySelector("input");
+        input.focus();
+        assert.deepEqual(send(shortcut).delta, [], "active native editor wins");
+        input.blur();
+        for (const extra of [
+            { isComposing: true },
+            { keyCode: 229 },
+            { ctrlKey: true },
+            { shiftKey: true },
+            { metaKey: true },
+        ]) {
+            const result = send({ ...shortcut, ...extra });
+            assert.deepEqual(result.delta, []);
+            assert.equal(result.event.defaultPrevented, false);
+        }
+        for (const kind of ["list", "editor", "dialog", "about"]) {
+            screen = { kind };
+            assert.deepEqual(send(shortcut).delta, [], "screen owns " + kind);
+        }
+        screen = null;
+        hasTarget = false;
+        assert.deepEqual(send(shortcut).delta, [], "no active playback target");
+        hasTarget = true;
+        for (const inactive of ["stopped", "idle", "loading", "error"]) {
+            phase = inactive;
+            const result = send(shortcut);
+            assert.deepEqual(result.delta, [], "inactive phase " + inactive);
+            assert.equal(result.event.defaultPrevented, false);
+        }
+        phase = "paused";
+        assert.deepEqual(send(shortcut).delta, [10], "paused media can seek");
+        phase = "playing";
+        for (const mode of ["strict", "locked"]) {
+            w.__ottKiosk = {
+                [mode]: () => true,
+                strictKey() {},
+            };
+            assert.deepEqual(send(shortcut).delta, [], "kiosk " + mode);
+        }
+        delete w.__ottKiosk;
+        assert.equal(
+            sleepResets,
+            seeks.length,
+            "accepted seeks reset sleep once"
+        );
+        const plain = send({ key: "ArrowLeft", keyCode: 37 }, w.document.body);
+        assert.deepEqual(plain.delta, []);
+        assert.deepEqual(
+            normal.slice(-1),
+            [37],
+            "plain arrows keep navigation"
+        );
+        w.ott_device = "pc";
+        for (const platform of ["pc", "pc2"]) {
+            w.ott_device = platform;
+            for (const [key, direction] of [
+                ["ArrowLeft", -1],
+                ["ArrowRight", 1],
+            ]) {
+                const result = send({ key });
+                assert.deepEqual(
+                    result.delta,
+                    [],
+                    "plain desktop arrow never seeks"
+                );
+                assert.equal(result.event.defaultPrevented, true);
+                assert.equal(volumes[volumes.length - 1], direction * 5);
+            }
+        }
+        screen = { kind: "list" };
+        const beforeVolumes = volumes.length;
+        assert.equal(send({ key: "ArrowRight" }).event.defaultPrevented, false);
+        assert.equal(
+            volumes.length,
+            beforeVolumes,
+            "menus retain their arrows"
+        );
+        screen = null;
+        // Programmatic/legacy dispatch shares the same shortcut admission.
+        const direct = new w.KeyboardEvent("keydown", {
+            ...shortcut,
+            cancelable: true,
+        });
+        const before = seeks.length;
+        const beforeSleep = sleepResets;
+        w.keyHandler(direct);
+        assert.deepEqual(seeks.slice(before), [10]);
+        assert.equal(
+            sleepResets - beforeSleep,
+            1,
+            "direct seek resets sleep once"
+        );
+    } finally {
+        w.close();
+    }
+}
+console.log(
+    "Modifier seek: capture delivery, native video, repeats, editors, screens and kiosk passed"
+);

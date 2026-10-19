@@ -21,6 +21,8 @@ const modules = {
 const wrappers = [
     "searchChannel",
     "showActionsDialog",
+    "shuffleChannelList",
+    "channelsKeyHandler",
     "hasParentalLock",
     "ifParentalAccess",
     "ifParentalAccessChId",
@@ -532,6 +534,45 @@ for (const [profile, code] of profiles) {
             }
         });
     }
+    check(
+        "Actions shuffle persists order and keeps the playing item",
+        async (f) => {
+            const before = Array.from(f.host.listArray);
+            const selected = before[f.host.selIndex];
+            const playing = f.host.curList[f.host.primaryIndex];
+            const savedRandom = f.host.Math;
+            f.host.Math = Object.create(Math);
+            f.host.Math.random = () => 0;
+            f.host.renderButtonHint = (key, icon, label) => label;
+            f.host.showActionsDialog();
+            const dialog = f.port.owner("dialog");
+            assert.match(
+                f.element("dialogbox").innerHTML ||
+                    f.element("dialogbox").html ||
+                    "",
+                /Shuffle/
+            );
+            f.key("N2");
+            assert.deepEqual(
+                Array.from(f.host.listArray).sort(),
+                before.slice().sort()
+            );
+            assert.notDeepEqual(Array.from(f.host.listArray), before);
+            assert.equal(f.host.listArray[f.host.selIndex], selected);
+            assert.equal(f.host.curList[f.host.primaryIndex], playing);
+            assert.equal(dialog.active(), false);
+            f.host.showActionsDialog();
+            f.key("N5");
+            assert.deepEqual(Array.from(f.host.listArray), before);
+            f.element("listPopUp").visible = true;
+            f.host.channelsKeyHandler(f.host.keys.N2);
+            assert.notDeepEqual(Array.from(f.host.listArray), before);
+            f.host.channelsKeyHandler(f.host.keys.N5);
+            assert.deepEqual(Array.from(f.host.listArray), before);
+            assert.equal(f.host.curList[f.host.primaryIndex], playing);
+            f.host.Math = savedRandom;
+        }
+    );
     for (const [locale, title, query] of [
         ["_eng", "Café", "Cafe\u0301"],
         ["_ben", "ড় TV", "ড়"],

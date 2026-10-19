@@ -181,6 +181,90 @@ function include(c, file, names) {
     assert.equal(c.stored.medHistory, undefined);
 }
 
+// Local/finite channel files seek as media without borrowing the channel archive.
+{
+    const c = fixture();
+    c.__ottActiveProviderDriver = { id: "offline" };
+    c.stbGetLen = () => NaN; // Metadata arrived after the one-shot probe.
+    let position = 125;
+    c.stbGetPosTime = () => position;
+    c.stbSetPosTime = (value) => {
+        position = value;
+        c.effects.push(["seek", value]);
+    };
+    c.__ottClassicPlayback.command({ channelId: 101, type: "live" });
+    c.__ottClassicPlayback.command({ type: "playing" });
+    const generation = c.__ottClassicPlayback.snapshot().generation;
+    assert.equal(c.__ottClassicPlayback.snapshot().target.kind, "vod");
+    assert.equal(c.__ottClassicPlayback.snapshot().historyTarget.kind, "live");
+    c.__ottClassicPlayback.shift(10);
+    c.flush();
+    assert.equal(position, 135);
+    assert.equal(c.__ottClassicPlayback.snapshot().phase, "playing");
+    c.__ottClassicPlayback.command({ type: "pause" });
+    c.stbGetLen = () => 600;
+    c.__ottClassicPlayback.shift(-10);
+    c.flush();
+    assert.equal(position, 125);
+    c.__ottClassicPlayback.shift(-1000);
+    c.flush();
+    assert.equal(position, 0);
+    c.__ottClassicPlayback.shift(1000);
+    c.flush();
+    assert.equal(
+        position,
+        0,
+        "an out-of-range seek does not restart the media"
+    );
+    assert.equal(c.__ottClassicPlayback.snapshot().phase, "paused");
+    assert.equal(c.__ottClassicPlayback.snapshot().generation, generation);
+    assert.equal(
+        c.effects.some((row) =>
+            ["archive", "timeshift", "live"].includes(row[0])
+        ),
+        false,
+        "offline channels never restart or request IPTV catch-up while seeking"
+    );
+}
+
+// Other providers retain live-stream behavior even with a finite decoder length.
+{
+    const c = fixture();
+    c.__ottActiveProviderDriver = { id: "m3u" };
+    c.__ottClassicPlayback.command({ channelId: 303, type: "live" });
+    assert.equal(c.__ottClassicPlayback.snapshot().target.kind, "live");
+    assert.equal(c.playType, 0);
+}
+
+// Explicit finite detection remains available to non-local channel adapters.
+{
+    const c = fixture();
+    c.p_pref = "offline";
+    c.channels[101].rec = 0;
+    c.__ottClassicPlayback.command({ channelId: 101, type: "live" });
+    c.__ottClassicPlayback.command({ duration: 600, type: "finite-channel" });
+    c.__ottClassicPlayback.command({
+        duration: 600,
+        position: 125.9,
+        type: "position",
+    });
+    c.__ottClassicPlayback.shift(10);
+    c.flush();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "seek"),
+        [["seek", 135.9]]
+    );
+    assert.equal(c.__ottClassicPlayback.snapshot().target.kind, "vod");
+    assert.equal(c.__ottClassicPlayback.snapshot().historyTarget.kind, "live");
+    assert.equal(
+        c.effects.some((row) =>
+            ["archive", "timeshift", "live"].includes(row[0])
+        ),
+        false,
+        "A local file never asks a TV provider for catch-up"
+    );
+}
+
 // Archive history stores an absolute resume time and preserves old input objects.
 {
     const c = fixture();
@@ -248,6 +332,45 @@ function include(c, file, names) {
     c.__ottClassicPlayback.shift(200);
     c.flush();
     assert(c.effects.some((row) => row[0] === "live"));
+}
+
+// Plain live TV has no synthetic seek, and archive bounds keep their epoch semantics.
+{
+    const c = fixture();
+    c.primaryIndex = 2; // This channel advertises no archive.
+    c.__ottClassicPlayback.shift(-10);
+    c.flush();
+    assert.equal(
+        c.effects.some((row) =>
+            ["seek", "archive", "timeshift", "live"].includes(row[0])
+        ),
+        false
+    );
+}
+{
+    const c = fixture();
+    c.playType = 999900;
+    c.playTime = 90;
+    c.__ottClassicPlayback.shift(10); // Exactly now, not ten seconds into a file.
+    c.flush();
+    assert(c.effects.some((row) => row[0] === "live"));
+    assert.equal(
+        c.effects.some((row) => row[0] === "seek"),
+        false
+    );
+}
+{
+    const c = fixture();
+    c.channels[101].rec = 1; // Earliest retained epoch is 996400.
+    c.playType = 996405;
+    c.playTime = 0;
+    c.__ottClassicPlayback.shift(-10);
+    c.flush();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "archive"),
+        [["archive", 996400]],
+        "Archive rewind stops at the earliest retained broadcast instant"
+    );
 }
 
 // Delayed callbacks cannot survive cancellation even if a timer fires after clearTimeout.

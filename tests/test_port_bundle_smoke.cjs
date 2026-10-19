@@ -615,10 +615,10 @@ function assertPrivateRuntime(w, profile) {
         assert.equal(w.__ottEdemDriver, undefined);
         assert.deepEqual(
             Array.from(w.__ottProviderDrivers.registry.ids()).sort(),
-            ["demo", "m3u", "plex", "stalker", "vportal", "xtream"]
+            ["demo", "m3u", "offline", "plex", "stalker", "vportal", "xtream"]
         );
     } else {
-        assert.equal(w.__ottProviderDrivers.registry.ids().length, 50);
+        assert.equal(w.__ottProviderDrivers.registry.ids().length, 51);
     }
     assert(Array.isArray(w.__ottProviderDriverProfiles));
     assert.deepEqual(

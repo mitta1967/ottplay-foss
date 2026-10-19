@@ -243,7 +243,29 @@ const { gzipSync } = require("node:zlib");
 // Add exactly +1867 raw/+564 gzip once, preserving the existing 383-byte raw
 // and 195-byte worst-native gzip reserve. Beta.1 projects to 896661/278350
 // web and 896619/278405 native; no provider or artifact is excluded.
-const BUDGET = Object.freeze({ bytes: 897023, gzipBytes: 278582 });
+// Local media library adds bounded 16KB raw / 5KB gzip to the entry.
+// Offline profile storage, import/export boundaries and local binding UI:
+// same-version Node 26 baseline c98c115d entry 912941/282340 vs 928115/286930.
+// Allocate the measured +15174/+4590 with bounded release/native room.
+// Upstream loading spinner adds 459 raw bytes; count its 512-byte allowance once.
+// Upstream desktop volume capture and Ctrl seek add 155 raw bytes; allow 256 once.
+// Retain the existing gzip cap and all native/provider artifact checks.
+// Desktop volume capture and Ctrl seek add 155 raw bytes; allow 256 once.
+// Nonblocking local startup and bounded source recovery add 454 raw bytes.
+// Progressive 10k-file scanning, preferred resume and append-only catalogs add
+// 3322 raw bytes and ~1.2 KB gzip; reserve 3584/1536 for this feature
+// while retaining prior Node/zlib compression headroom.
+// Legacy bookmark readiness and scan counters consume the remaining raw headroom;
+// allow another 512 bytes while retaining the gzip cap.
+// Initial scan phases and metadata progress need 60 more bytes; reserve 256.
+// Native progressive polling, bounded requests and first-item playback measure
+// 920867 raw / 284799 gzip on Node 26. Use prior headroom plus 2304/768 bytes;
+// native artifacts and optional providers remain included in the same gates.
+// Reversible list shuffle and stable favorites backup add 4304 raw bytes.
+// Allocate 4608/1024 once, plus the 16 KiB / 5 KiB profile allowance.
+// Profile persistence and non-scanning snapshots add 15790 raw bytes over
+// the progressive native baseline. All provider/native artifacts stay gated.
+const BUDGET = Object.freeze({ bytes: 941951, gzipBytes: 292030 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -367,7 +389,14 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Combine both reviewed deltas over the common 964900 / 306550 baseline.
 // Count the same +1867/+564 debug-v3 feature cost once; all eight provider
 // bundles are unchanged and remain inside the complete-payload measurement.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1017923, gzipBytes: 323482 });
+// Count the same 512-byte loading-spinner allowance once in the full payload.
+// Include the same 256-byte desktop input allowance once.
+// Count the 512-byte local startup allowance once; gzip limits stay fixed.
+// Include the same progressive-catalog allowance once in the full payload.
+// Count the 512-byte readiness/counter allowance once in the payload.
+// Include the same 256-byte initial progress allowance once.
+// Count the same shuffle and profile deltas once across shipped artifacts.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1062851, gzipBytes: 336930 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

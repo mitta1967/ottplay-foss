@@ -34,6 +34,7 @@ import {
     renameFavoritesList,
     saveFavoritesLists,
     setActiveFavoritesList,
+    shuffleFavoritesList,
     syncFavoritesArrayFromActive,
 } from "./favorites-lists";
 
@@ -1502,6 +1503,18 @@ export function onChannelsLoaded(): void {
                 loadFavoritesLists();
                 (window as any).__ottChannels.mount(window);
                 (window as any).__ottClassicPlayback.hydrate();
+                var localProfiles = (window as any).__ottOfflineProfiles;
+                if (driver && driver.id === "offline" && localProfiles) {
+                    var selectedLocal = localProfiles.selection();
+                    if (selectedLocal !== null) {
+                        var localIndex = cList.indexOf(selectedLocal);
+                        if (localIndex < 0) {
+                            (window as any).__ottLocalMedia.resume();
+                            return;
+                        }
+                        window.setCurrent(0, localIndex);
+                    }
+                }
                 // Start playback: restore continue-watching bookmark if available.
                 // If no archive bookmark is offered, fall back to the normal
                 // live playChannel path (live bookmarks are already encoded in
@@ -1533,16 +1546,24 @@ export function onChannelsLoaded(): void {
         } else {
             // Empty channel list — show popup so user can configure provider (e.g., enter playlist URL)
             window.playType = 0;
-            setCurrent(sFavorites ? 1 : 0, 0);
+            // A local source may only be waiting for renewed browser permission.
+            // Selecting a nonexistent first channel would overwrite the saved
+            // selection before access is restored and the catalog is reloaded.
+            if (!driver || driver.id !== "offline")
+                setCurrent(sFavorites ? 1 : 0, 0);
             var launchEl = document.getElementById("launch");
-            if (launchEl)
+            if (launchEl && (!driver || driver.id !== "offline"))
                 launchEl.innerHTML += "<br/>Channel list not received !!!";
             // Reset pending provider so user can retry without hitting savedProvId === id
             window._pendingProvId = "";
             window.launch_id = "#launch";
-            // Show popup list so user can select 'Select playlist' to configure provider
+            // The offline driver owns source recovery; only remote providers
+            // need the generic playlist configuration popup here.
             try {
-                if (typeof window.popupList === "function") {
+                if (
+                    (!driver || driver.id !== "offline") &&
+                    typeof window.popupList === "function"
+                ) {
                     var pActions = window.popupActions;
                     if (pActions && pActions.length) {
                         window.popupList();
@@ -3141,6 +3162,38 @@ export function searchChannel(): void {
  * Side effects: writes innerHTML to #dialogbox, shows it, installs
  * window.dialogBoxKeyHandler, hides it on RETURN.
  */
+export function shuffleChannelList(reset = false): void {
+    var w = window as any;
+    if (
+        w.listArray === w.catsArray ||
+        !w.listArray ||
+        w.listArray.length < 2 ||
+        (w.__ottKiosk && w.__ottKiosk.locked())
+    )
+        return;
+    var selected = w.listArray[w.selIndex];
+    var playing = w.curList && w.curList[w.primaryIndex];
+    var group = w.__ottChannels.group(w.listCatIndex);
+    if (group === "system:favorites") {
+        if (!shuffleFavoritesList(reset)) return;
+        w.__ottChannels.refresh();
+    } else if (
+        !group ||
+        !w.__ottChannels.change(reset ? "resetShuffle" : "shuffle", group)
+    )
+        return;
+    w.sSortAbc = 0;
+    if (typeof w.sortChannels === "function") w.sortChannels(0);
+    if (typeof w.providerSetItem === "function")
+        w.providerSetItem("sSortAbc", 0);
+    w.listArray = w.cats[w.catsArray[w.listCatIndex]] || [];
+    w.listDataArray = w.listArray;
+    w.selIndex = Math.max(0, w.listArray.indexOf(selected));
+    var at = w.curList ? w.curList.indexOf(playing) : -1;
+    if (at >= 0) w.primaryIndex = at;
+    if (typeof w.showPage === "function") w.showPage();
+}
+
 export function showActionsDialog(): void {
     var w = window as any;
     var t =
@@ -3216,10 +3269,24 @@ export function showActionsDialog(): void {
             : "") +
         (typeof w.renderButtonHint === "function"
             ? w.renderButtonHint(w.keys.YELLOW, "", "Search", w.strTools)
+            : "") +
+        (w.listArray !== w.catsArray &&
+        w.listArray &&
+        w.listArray.length > 1 &&
+        !(w.__ottKiosk && w.__ottKiosk.locked()) &&
+        typeof w.renderButtonHint === "function"
+            ? w.renderButtonHint(w.keys.N2, "2", "Shuffle") +
+              w.renderButtonHint(w.keys.N5, "5", "Reset order")
             : "");
     $(dialog!).show();
     w.dialogBoxKeyHandler = function (ev: number): boolean {
         switch (ev) {
+            case w.keys.N2:
+            case w.keys.N5:
+                $(dialog!).hide();
+                w.__ottClassicScreenPort.close("dialog");
+                shuffleChannelList(ev === w.keys.N5);
+                return true;
             case w.keys.ENTER:
                 $(dialog!).hide();
                 if (typeof w.addChannel2bucket === "function")
@@ -3450,6 +3517,13 @@ export function saveChannelPreference(
 export function channelsKeyHandler(keyCode: number): boolean {
     var keys = window.keys;
     if (!keys) return false;
+    if (
+        (keyCode === keys.N2 || keyCode === keys.N5) &&
+        $("#listPopUp").is(":visible")
+    ) {
+        shuffleChannelList(keyCode === keys.N5);
+        return true;
+    }
 
     switch (keyCode) {
         case keys.RETURN:

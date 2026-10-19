@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+## [1.1.58] - 2026-10-19
+
+### Changes
+
+- Add Shuffle and Reset order to channel-list Actions and the numeric popup. Keep the current video and cursor, preserve the pre-shuffle order across restart, and retain newly discovered files when resetting.
+- Play local videos from browser folder handles, Android document sources, iOS bookmarks, and desktop file references without creating another media copy. Retain the original source and selected video across restart; sources that need permission offer explicit recovery.
+- Stream large browser-folder catalogs in batches, resume the saved file directly, and append remaining entries without restarting playback. Avoid repeated metadata scans on Android; skip unreadable children without losing the source.
+- Scan Tauri folders in the background and start playback from the first eligible result. Show processed entries and playable videos in the standard loading dialog; omit unknown totals and stop waiting on stalled scans.
+- Use the standard player settings and loading dialog for local media. Open the player before scanning a saved folder, and offer recovery when a source fails or stops responding.
+- On PC, plain Left/Right adjusts volume even with fullscreen video focus. Alt/Option, Ctrl, or Command with Left/Right seeks by ten seconds in local video, VOD, and supported channel archives.
+- Treat Local videos as finite media from playback start, including when a slow source reports its duration late. Seeking keeps the same video and pause state instead of restarting it; the timeline updates when duration becomes available.
+- Serve the offline worker and hosted runtime assets from the local server, and use content-hashed bootstrap URLs to refresh same-version hosted bundles.
+
+- Add 15 Local videos (`offline`) profile slots with remote save/load/export/import,
+  source-subset isolation and saved-file restoration. Portable profiles carry
+  descriptions only; browser handles and native grants/bookmarks stay local.
+  Foreign imports require an explicit local binding, and generic settings/cloud
+  restores preserve rather than replace the installation's private bindings.
+- Synchronize the standalone fuzz lockfile with the existing Local videos core
+  dependencies so baseline regression-corpus checks work with `--locked`.
+
+### Upgrade
+
+- Saved folder references are device-specific. Reconnect moved/removable sources and grant filesystem access when the operating system or browser asks. Access to a server library requires a network connection.
+- Existing imported media copies remain readable. Connecting a new direct source does not automatically remove old copies.
+
+### Security
+
+- Keep source media read-only when disconnecting a linked folder. Validate media/source IDs and restrict HTTP imports to generated identifiers and supported extensions; add adversarial path and deletion regression tests.
+
 ## [1.1.57] - 2026-10-18
 
 ### Changes

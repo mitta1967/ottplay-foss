@@ -1217,7 +1217,12 @@ function startCoreEngine(
                 position,
                 session,
                 url,
-                transient || plexHint === "file",
+                transient ||
+                    plexHint === "file" ||
+                    !!(
+                        (window as any).__ottLocalMedia &&
+                        (window as any).__ottLocalMedia.isPlaybackUrl(url)
+                    ),
                 !transient && plexHint === "mse"
             );
         };
@@ -2300,8 +2305,12 @@ function startCorePipEngine(url: string): void {
     corePipNativeAttached = false;
     videoPip!.loop = (window as any).ottplayDemoActive === true;
     var demoMp4 =
-        (window as any).ottplayDemoActive === true &&
-        /\/demo\/pattern\.mp4(?:[?#]|$)/i.test(url);
+        ((window as any).ottplayDemoActive === true &&
+            /\/demo\/pattern\.mp4(?:[?#]|$)/i.test(url)) ||
+        !!(
+            (window as any).__ottLocalMedia &&
+            (window as any).__ottLocalMedia.isPlaybackUrl(url)
+        );
     var session = ++_corePipSession;
     if (_corePipAutoCancel) _corePipAutoCancel();
     _corePipAutoCancel = null;

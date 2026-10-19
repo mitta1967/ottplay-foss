@@ -1074,13 +1074,14 @@ test("Plex boots as a nested library, plays direct HLS and keeps access URLs out
     expect(state.journals.length).toBeGreaterThan(0);
     expect(JSON.stringify(state.journals)).not.toContain(token);
     expect(requests).toContain("/video/:/transcode/universal/decision");
-    // LG sends 37/39. Even saved volume bindings must yield to full-screen
-    // Plex seeking; exercise the real DOM router and decoded 60-second HLS.
-    const arrow = (key, keyCode) =>
+    // Desktop modifier arrows seek even with saved volume bindings; plain
+    // arrows remain available to menus and dialogs. Exercise the real router.
+    const arrow = (key, keyCode, altKey = false) =>
         page.evaluate(
-            ({ key, keyCode }) =>
+            ({ key, keyCode, altKey }) =>
                 document.dispatchEvent(
                     new KeyboardEvent("keydown", {
+                        altKey,
                         bubbles: true,
                         cancelable: true,
                         code: key,
@@ -1089,7 +1090,7 @@ test("Plex boots as a nested library, plays direct HLS and keeps access URLs out
                         which: keyCode,
                     })
                 ),
-            { key, keyCode }
+            { altKey, key, keyCode }
         );
     const playbackIdentity = () =>
         page.evaluate(() => ({
@@ -1123,7 +1124,7 @@ test("Plex boots as a nested library, plays direct HLS and keeps access URLs out
             const video = document.querySelector("video");
             return !video.seeking && Math.abs(video.currentTime - 25) < 0.05;
         });
-        await arrow(key, keyCode);
+        await arrow(key, keyCode, true);
         expect(await playbackIdentity()).toEqual(beforeSeek);
         await page.waitForFunction((position) => {
             const video = document.querySelector("video");

@@ -84,7 +84,8 @@ export function isProviderAllowed(id: string): boolean {
         id === "xtream" ||
         id === "plex" ||
         id === "vportal" ||
-        id === "demo"
+        id === "demo" ||
+        id === "offline"
     );
 }
 
@@ -96,6 +97,7 @@ export var providerIds = [
     "vportal",
     "",
     "demo",
+    "offline",
     // OTTPLAY_FULL_ONLY_BEGIN
     "ottclub",
     "edem",
@@ -423,6 +425,17 @@ function setPopupChannels(): void {
         );
     }
     $("#listPopUp").append("<br/>" + renderButtonHint(keys.N6, "6", "Search"));
+    if (
+        listArray &&
+        listArray.length > 1 &&
+        !((window as any).__ottKiosk && (window as any).__ottKiosk.locked())
+    )
+        $("#listPopUp").append(
+            "<br/>" +
+                renderButtonHint(keys.N2, "2", "Shuffle") +
+                "<br/>" +
+                renderButtonHint(keys.N5, "5", "Reset order")
+        );
 }
 declare var sPreview: number;
 declare var previewChan: any;
@@ -599,6 +612,11 @@ export function optionsList(fn?: () => void): void {
         }
     }
     var viewOptions = optionsArr.slice();
+    if ((window as any).__ottLocalMedia)
+        viewOptions.unshift({
+            action: (window as any).popLocalMedia,
+            name: (window as any).__ottLocalMedia.title(),
+        });
     listDataArray = [];
     viewOptions.forEach(function (opt: any) {
         listDataArray.push(_(opt.name || ""));
@@ -1306,6 +1324,10 @@ export function loadChannels(): void {
     var driver = (window as any).__ottActiveProviderDriver;
     var driverOwned = !!driver;
     var libraryOnly = !!(driver && driver.capabilities.libraryOnly);
+    // A restored local folder can take time to enumerate. Its catalog still
+    // produces channels, but boot must reveal the normal loading UI before
+    // waiting for filesystem access, just as for a remote media library.
+    var libraryLoading = libraryOnly || !!(driver && driver.id === "offline");
     var catalogSession = (
         window as any
     ).__ottProviderRuntime.classic.beginCatalog(driverOwned);
@@ -1313,7 +1335,7 @@ export function loadChannels(): void {
     (window as any).__ottCommandChannelLoad = commandLoad;
     (window as any).commandChannelsReady = false;
     var idMigration = beginPortChannelIdMigration();
-    if (libraryOnly || !$("#launch").is(":visible")) {
+    if (libraryLoading || !$("#launch").is(":visible")) {
         if (stbIsPlaying()) stbStop();
         $("#dialogbox")
             .html(
@@ -1322,7 +1344,7 @@ export function loadChannels(): void {
             .show();
         launch_id = "#dialogbox";
         closeList();
-        if (libraryOnly) {
+        if (libraryLoading) {
             $("#launch").hide();
             if (typeof (window as any).clearBootHide === "function")
                 (window as any).clearBootHide();
@@ -1358,7 +1380,7 @@ export function loadChannels(): void {
     if (typeof setPlayer === "function") setPlayer();
 
     $(launch_id).append(
-        libraryOnly
+        libraryLoading
             ? "<br/>" + _("Loading. Please wait...") + "<br/>"
             : "<br/>Loading channel list..."
     );
@@ -1473,6 +1495,7 @@ export function showProviderSelection(): void {
             "vportal",
             "",
             "demo",
+            "offline",
         ];
         providerLabels = null;
     }
@@ -1489,6 +1512,7 @@ export function showProviderSelection(): void {
             "VPortal",
             "",
             _("Demo — moving test pattern"),
+            _("Local videos"),
             // OTTPLAY_FULL_ONLY_BEGIN
             "OTTCLUB",
             "Эдем / iLookTV",
@@ -1577,6 +1601,11 @@ export function showProviderSelection(): void {
         if ((window as any).__ottKiosk && (window as any).__ottKiosk.enabled())
             return;
         if (!id || !isProviderAllowed(id)) return;
+        var localMedia = (window as any).__ottLocalMedia;
+        if (id === "offline" && localMedia) {
+            localMedia.open();
+            return;
+        }
         if (savedProvId === id) {
             var edit = (window as any).__ottEditProvider;
             if (
