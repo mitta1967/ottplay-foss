@@ -1163,7 +1163,7 @@ demonstration recordings. The helper keeps all generated media outside Git.
 
 ## Plex media library
 
-Each player can connect to a Plex account or Plex Media Server using the **Plex** provider. The integration uses Plex; Synology is one possible host for the media server. It opens a hierarchical library with folders, search and playback history, without configuring Plex on the OTT server. See [Plex sign-in and direct playback](docs/plex-provider.md).
+Each player can connect to a Plex account or Plex Media Server using the **Plex** provider. The integration uses Plex; Synology is one possible host for the media server. Select folders in the profile to populate the ordinary channel list. Playback starts from the first usable batch, with background loading, standard search and Actions for shuffle/repeat, without configuring Plex on the OTT server. See [Plex sign-in and direct playback](docs/plex-provider.md).
 
 ![Plex loading, file navigation and shutdown lifecycle](docs/images/plex-playback-lifecycle.svg)
 

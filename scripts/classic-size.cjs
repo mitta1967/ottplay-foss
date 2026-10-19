@@ -267,7 +267,13 @@ const { gzipSync } = require("node:zlib");
 // the progressive native baseline. All provider/native artifacts stay gated.
 // Restored profile ownership/atomic recovery and browser/native inactivity
 // bounds add 2058 raw bytes to the final integrated entry. Reserve 2304/768.
-const BUDGET = Object.freeze({ bytes: 944255, gzipBytes: 292798 });
+// Selected Plex/VPortal sources, progressive channel playlists and owned file
+// playback add 10941 raw / at most 3105 gzip entry bytes over 4f9aea8a on
+// Node 26.8.2: web 952023/293798, native 951981/293855. Allocate 11000/3150
+// while retaining the previous native, Node 22 and release-suffix allowance.
+// Combined with PR818 recovery guards: 954096/294386 web, 954054/294444
+// native on Node 26.8.2; retain both independently measured allowances.
+const BUDGET = Object.freeze({ bytes: 955255, gzipBytes: 295948 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -399,7 +405,10 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Include the same 256-byte initial progress allowance once.
 // Count the same shuffle and profile deltas once across shipped artifacts.
 // Count the restored recovery/ownership boundary once across all artifacts.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1065155, gzipBytes: 337698 });
+// Count the channel-playlist entry and both optional provider scanners once.
+// The complete payload adds 23671 raw / at most 6957 gzip bytes over 4f9aea8a;
+// allocate 23700/7000, preserving the existing complete-payload headroom.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1088855, gzipBytes: 344698 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

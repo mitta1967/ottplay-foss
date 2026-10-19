@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Project selected Plex folders and standalone VPortal sections into the standard channel playlist. Start from the first usable batch, append remaining videos without restarting playback, and ignore results from cancelled loads.
+- Resolve channel-backed media with the existing loading dialog, authentication and watch history. Keep file navigation aligned with the current channel order, including after shuffle or background additions.
+- Put media playlist repeat in channel-list Actions; reuse existing search, Shuffle and Reset order instead of a separate media browser during normal playback.
+
 ## [1.1.58] - 2026-10-19
 
 ### Changes

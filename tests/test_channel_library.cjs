@@ -666,6 +666,65 @@ for (let slot = 0; slot < 15; slot++) {
     assert.equal(incremental.itemId(99), "stream:99");
 }
 {
+    const host = vm.createContext({ window: {} });
+    const storage = new Map();
+    for (const file of [
+        "src/channels/library.ts",
+        "src/provider/source-identity.ts",
+        "src/channels/classic-library.ts",
+    ])
+        runtime(host, file);
+    const w = host.window;
+    Object.assign(w, {
+        _: (label) => label,
+        channels: {
+            11: { adult: 1, channel_name: "Unlocked file" },
+            12: { channel_name: "Selected file" },
+            13: { channel_name: "Other file" },
+            14: { adult: 1, channel_name: "Late adult file" },
+            15: {
+                category: { name: "Adults" },
+                channel_name: "Late protected category",
+            },
+        },
+        cList: [11, 12, 13],
+        p_pref: "append-protection",
+        parental: /^Adults$/,
+        providerGetItem: (key) => storage.get(key) ?? null,
+        providerSetItem: (key, value) => storage.set(key, value),
+    });
+    const adapter = w.__ottChannels;
+    adapter.mount(w);
+    assert.deepEqual(plain(w.parentalArray), [11]);
+    assert(adapter.change("lock", 11, false));
+    assert(adapter.select(0, 12));
+    vm.runInContext("Math.random = function () { return 0; };", host);
+    assert(adapter.change("shuffle", "system:all"));
+    const before = plain(adapter.document());
+    assert.deepEqual(plain(w.curList), [12, 13, 11]);
+
+    // On the next progressive load, the explicitly unlocked file also arrives
+    // late. Neither its missing first batch nor a repeated row may re-lock it.
+    w.cList = [12, 13];
+    adapter.mount(w);
+    w.cList.push(11, 14, 15);
+    adapter.append([11, 14, 15, 14]);
+    assert.deepEqual(
+        plain(w.parentalArray),
+        [14, 15],
+        "appended adult metadata and category rules both protect new files"
+    );
+    assert.deepEqual(plain(adapter.document().unlocks), ["channel:11"]);
+    assert.deepEqual(plain(adapter.document().selected), before.selected);
+    assert.deepEqual(plain(adapter.document().groups), before.groups);
+    assert.deepEqual(plain(w.curList), [12, 13, 11, 14, 15]);
+    assert.equal(w.curList[w.primaryIndex], 12);
+    assert(adapter.change("resetShuffle", "system:all"));
+    assert.deepEqual(plain(w.curList), [11, 12, 13, 14, 15]);
+    assert.equal(w.curList[w.primaryIndex], 12);
+    assert.deepEqual(plain(w.parentalArray), [14, 15]);
+}
+{
     source = "shuffle-test";
     const shuffled = library();
     shuffled.select("system:all", 12);

@@ -1243,6 +1243,285 @@ for (const response of [
     assert.equal(latest.items.length, 0);
 }
 
+{
+    const f = fixture();
+    let sections;
+    f.client.sections((value) => (sections = value));
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "films" }, title: "Films", type: "category" },
+            { request: { cmd: "series" }, title: "Series", type: "category" },
+        ],
+        type: "videoportal",
+    });
+    assert.equal(sections.items.length, 2);
+    assert.equal(
+        f.requests.length,
+        1,
+        "section picker does not scan descendants"
+    );
+    assert.equal(
+        f.dom["#dialogbox"],
+        undefined,
+        "catalog fetching does not steal playback dialog"
+    );
+}
+{
+    const f = fixture({}, { sourceId: "owned" });
+    const batches = [];
+    f.client.playlist(
+        [{ request: { cmd: "chosen" }, title: "Chosen" }],
+        (items, complete, error) => batches.push({ complete, error, items })
+    );
+    assert.equal(JSON.parse(f.requests[0].options.data).params.cmd, "chosen");
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "play", id: 1 }, title: "First", type: "stream" },
+            {
+                request: { cmd: "season" },
+                title: "Season",
+                type: "multistream",
+            },
+            { request: { offset: 2 }, type: "next" },
+        ],
+        type: "category",
+    });
+    assert.equal(batches.length, 1);
+    assert.equal(batches[0].items.length, 1);
+    assert.equal(
+        batches[0].complete,
+        false,
+        "first playable is available before the season scan"
+    );
+    assert.equal(batches[0].items[0].vportalSource, "owned");
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 2 },
+                title: "Episode",
+                type: "stream",
+            },
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Duplicate",
+                type: "stream",
+            },
+        ],
+        title: "Season",
+        type: "multistream",
+    });
+    f.requests[2].receive({
+        items: [
+            {
+                title: "Last",
+                type: "stream",
+                url: "https://stream.example/last.mp4",
+            },
+        ],
+        type: "category",
+    });
+    assert.equal(batches.at(-1).complete, true);
+    assert.deepEqual(
+        Array.from(batches.at(-1).items, (x) => x.title),
+        ["First", "Season - Episode", "Last"]
+    );
+    assert.equal(
+        f.requests.length,
+        3,
+        "only the selected section and its children are fetched"
+    );
+    assert.equal(f.alerts.length, 0);
+}
+{
+    const f = fixture();
+    const batches = [];
+    const cancel = f.client.playlist(
+        [{ request: { cmd: "chosen" }, title: "Chosen" }],
+        (items, complete, error) => batches.push({ complete, error, items })
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "play", id: 1 }, title: "First", type: "stream" },
+            { request: { cmd: "slow" }, title: "Slow", type: "category" },
+        ],
+        type: "category",
+    });
+    cancel();
+    assert.equal(f.requests[1].aborted, true);
+    f.requests[1].receive({
+        items: [{ request: { id: 2 }, title: "Late", type: "stream" }],
+        type: "category",
+    });
+    assert.equal(batches.length, 1);
+}
+{
+    const f = fixture();
+    const batches = [];
+    f.client.playlist(
+        [{ request: { cmd: "chosen" }, title: "Chosen" }],
+        (items, complete, error) => batches.push({ complete, error, items })
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "play", id: 1 }, title: "First", type: "stream" },
+            { request: { cmd: "fail" }, title: "Fail", type: "category" },
+        ],
+        type: "category",
+    });
+    f.requests[1].fail();
+    assert.equal(
+        batches.at(-1).items.length,
+        1,
+        "failure keeps the usable partial catalog"
+    );
+    assert.equal(batches.at(-1).complete, true);
+    assert(batches.at(-1).error);
+    assert(!JSON.stringify(batches).includes("fixture-private-key"));
+}
+{
+    const f = fixture();
+    let finished = 0;
+    f.client.playlist(
+        [{ request: { cmd: "chosen" }, title: "Chosen" }],
+        () => finished++
+    );
+    f.client.dispose();
+    assert.equal(f.requests[0].aborted, true);
+    f.requests[0].receive({ items: [], type: "category" });
+    assert.equal(finished, 0);
+}
+
+{
+    const f = fixture();
+    const batches = [];
+    f.client.playlist(
+        [
+            { request: { cmd: "chosen", id: 1 }, title: "First" },
+            { request: { cmd: "chosen", id: 1 }, title: "Duplicate root" },
+        ],
+        (items, complete) => batches.push({ complete, items })
+    );
+    f.requests[0].receive({
+        items: [
+            {
+                request: { cmd: "chosen", id: 1 },
+                title: "Self",
+                type: "category",
+            },
+            { request: { cmd: "play", id: 1 }, title: "One", type: "stream" },
+        ],
+        type: "category",
+    });
+    assert.equal(
+        f.requests.length,
+        1,
+        "overlapping selections and folder cycles are deduplicated"
+    );
+    assert.equal(batches.at(-1).complete, true);
+    assert.equal(batches.at(-1).items.length, 1);
+}
+{
+    const f = fixture();
+    f.client.playlist([{ request: { cmd: "old" }, title: "Old" }], () =>
+        assert.fail("stale callback")
+    );
+    const old = f.requests[0];
+    const abort = old.abort.bind(old);
+    let latest;
+    old.abort = () => {
+        abort();
+        f.client.playlist(
+            [{ request: { cmd: "latest" }, title: "Latest" }],
+            (items) => (latest = items)
+        );
+    };
+    f.client.playlist(
+        [{ request: { cmd: "interrupted" }, title: "Interrupted" }],
+        () => assert.fail("reentrant superseded callback")
+    );
+    assert.equal(f.requests.length, 2);
+    assert.equal(JSON.parse(f.requests[1].options.data).params.cmd, "latest");
+    f.requests[1].receive({ items: [], type: "category" });
+    assert.equal(latest.length, 0);
+}
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ request: { cmd: "broken", offset: 1 }, title: "Broken" }],
+        (items, complete, error) => (result = { complete, error, items })
+    );
+    f.requests[0].receive({
+        items: [{ request: { offset: 1 }, type: "next" }],
+        type: "category",
+    });
+    assert.equal(result.complete, true);
+    assert(
+        result.error,
+        "non-advancing pagination is never silently treated as complete"
+    );
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [
+            {
+                adult: true,
+                request: { cmd: "series" },
+                sequence: true,
+                title: "Selected series",
+            },
+        ],
+        (items, complete, error) => (result = { complete, error, items })
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "season" }, title: "Season", type: "category" },
+        ],
+        type: "category",
+    });
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Episode",
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    assert.equal(result.complete, true);
+    assert.equal(
+        result.items[0].adult,
+        1,
+        "selected root adult flag survives absent child metadata"
+    );
+    assert.equal(result.items[0].__ottMediaSequence, true);
+    assert.equal(result.items[0].title, "Selected series - Season - Episode");
+}
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ request: { cmd: "chosen" }, title: "Chosen" }],
+        (items, complete, error) => (result = { complete, error, items })
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "outside-selection", offset: 1 }, type: "next" },
+        ],
+        type: "category",
+    });
+    assert.equal(result.complete, true);
+    assert(
+        result.error,
+        "pagination cannot switch into an unselected collection"
+    );
+    assert.equal(f.requests.length, 1);
+}
+
 console.log(
     "PASS VPortal parser, browser/native JSON transport, catalogue controls and paging, asynchronous lifecycle, quality and secret-safe failures"
 );

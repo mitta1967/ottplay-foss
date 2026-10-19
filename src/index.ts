@@ -2625,7 +2625,9 @@ function _playChannel(
     catIdx: number,
     chIdx: number,
     fullscreen?: boolean,
-    admit?: () => boolean
+    admit?: () => boolean,
+    background = false,
+    fromStart = false
 ): boolean | void {
     var w = window as any;
     if (admit && !admit()) return false;
@@ -2681,7 +2683,14 @@ function _playChannel(
             var list = cats[requestedCategory];
             var index = list ? list.indexOf(requestedId) : -1;
             if (category >= 0 && index >= 0)
-                playChannel(category, index, fullscreen);
+                playChannel(
+                    category,
+                    index,
+                    fullscreen,
+                    undefined,
+                    background,
+                    fromStart
+                );
         })
     ) {
         console.log("[playChannel] blocked by parental");
@@ -2700,6 +2709,34 @@ function _playChannel(
     if (admit && !admit()) return false;
     setCurrent(catIdx, chIdx);
     var channelId = curList[primaryIndex];
+    var mediaItem =
+        channels[channelId] && (channels[channelId] as any).__ottMediaItem;
+    if (mediaItem && w.__ottMedia && w.__ottMedia.playChannel) {
+        var selectedDriver = w.__ottActiveProviderDriver;
+        var selectedLoad = w.__ottCommandChannelLoad;
+        var selectedRow = channels[channelId];
+        clearTimeout(w.previewTimer);
+        w.previewChan = null;
+        if (w.isListVisible && !background) closeList();
+        if (
+            selectedDriver !== w.__ottActiveProviderDriver ||
+            selectedLoad !== w.__ottCommandChannelLoad ||
+            selectedRow !== channels[channelId]
+        )
+            return false;
+        return w.__ottMedia.playChannel(
+            mediaItem,
+            channelId,
+            undefined,
+            background,
+            fromStart
+                ? "start"
+                : w.commandChannelsReady === false ||
+                    (kiosk && kiosk.locked() && kiosk.allowed(channelId))
+                  ? "resume"
+                  : "prompt"
+        );
+    }
     console.log(
         "[playChannel] channelId=" +
             channelId +
@@ -2727,14 +2764,19 @@ function _playChannel(
 /** Start a resolved MediaRef and render its metadata. The owned media journal chooses resume. */
 function _playMedia(item: MediaHistoryEntry, automatic = false): void {
     var kiosk = (window as any).__ottKiosk;
+    var channelLaunch =
+        (window as any).__ottMedia &&
+        (window as any).__ottMedia.channelLaunch &&
+        (window as any).__ottMedia.channelLaunch(item);
     if (
         kiosk &&
         kiosk.enabled() &&
         !(
-            automatic &&
-            kiosk.locked() &&
-            typeof kiosk.allowedMedia === "function" &&
-            kiosk.allowedMedia(item && (item as any).__ottMediaRef)
+            (channelLaunch != null && kiosk.allowed(channelLaunch)) ||
+            (automatic &&
+                kiosk.locked() &&
+                typeof kiosk.allowedMedia === "function" &&
+                kiosk.allowedMedia(item && (item as any).__ottMediaRef))
         )
     )
         return;
@@ -2759,7 +2801,7 @@ function _playMedia(item: MediaHistoryEntry, automatic = false): void {
     // A delayed live-channel probe must not relabel the newly selected VOD item.
     clearTimeout((window as any)._tmedia);
     clearTimeout(mediaCheckTimer);
-    setCurrent(catIndex, -1);
+    if (channelLaunch == null) setCurrent(catIndex, -1);
     var media = (window as any).__ottMedia.prepare(item, streamUrl);
     if (!media) return;
     item = media.item;
@@ -2792,6 +2834,7 @@ function _playMedia(item: MediaHistoryEntry, automatic = false): void {
     )
         (window as any).__ottClassicPlayback.command({
             channelId: media.ref.itemId,
+            channelSelection: media.channel && media.channel.id,
             item: item,
             position: startupPosition,
             sourceId: media.ref.sourceId,

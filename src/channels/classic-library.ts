@@ -138,7 +138,10 @@ function appendChannelLibrary(host: any, ids: any[]): void {
                 id: id,
                 itemId: String(channel.itemId || "channel:" + id),
                 label: String(channel.channel_name || ""),
-                locked: false,
+                locked: !!(
+                    channel.adult ||
+                    (host.parental && host.parental.test(category.name || ""))
+                ),
             };
         })
     );

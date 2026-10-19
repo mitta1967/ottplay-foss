@@ -4,9 +4,11 @@
 
 Choose **VPortal** beside Plex in **Change provider** to use the media library
 without a TV playlist. **VPortal profiles** contains 15 independently named
-slots. Enter the complete cabinet link and select **Save and open library**.
+slots. Enter the complete cabinet link, open **Category selection**, mark the sections to include, and save the profile. Only those sections and their descendants form one flat channel playlist. Existing profiles without a selection open setup instead of scanning every section.
 Links are masked in summaries. These slots use their own storage; existing
 VPortal links in M3U profiles are preserved and do not change with these slots.
+
+The standard channel list provides search, favorites, ordering and Actions. Videos can start from the first usable batch while the rest of the selected sections load in the background. Selecting a file shows an owned loading dialog; Back cancels it. **Actions → Repeat** controls All / One / Off; **Shuffle / Reset order** uses the existing channel-list actions. See the [shared playlist flow](plex-provider.md).
 
 The current provider determines which profiles the remote CLI manages:
 
@@ -23,18 +25,17 @@ slot numbers and configuration flags; they never return the cabinet link/key.
 
 ### VPortal kiosk
 
-Start a film, series or remote VPortal queue, then run `ott a1 kiosk on` without
-a channel query. The kiosk locks that video's existing episode queue, repeats
-it, blocks local navigation/settings and preserves the current episode and
-position across player reloads. Media addresses are resolved from the saved
+Run `ott a1 kiosk on "VIDEO TITLE"` (or a channel number) to pin an entry from the profile’s channel list. Without a channel argument, `ott a1 kiosk on` arms the next channel selection. An explicitly started remote VPortal search queue remains a media queue; `kiosk on` without a channel argument captures that active queue. The kiosk repeats the pinned selection, blocks local navigation/settings and restores it across player reloads. Media addresses are resolved from the saved
 provider requests on recovery; signed stream URLs are not kept in the policy.
 The policy is bound to the exact VPortal profile/account, including after a
 reload. Switching to another profile cannot play identically numbered videos.
 
-VPortal gets a 60-second startup allowance for slow devices; after playback
-starts, ten seconds without progress triggers recovery. `ott a1 kiosk off`
-releases the lock. To replace the selection, unlock, choose the next film or
-queue, then lock again. `kiosk set CHANNEL` remains the live-TV command.
+VPortal gets a 60-second allowance for initial playback, loop transitions and
+recovery attempts on slow devices. After playback starts, ten seconds without
+progress triggers recovery. `ott a1 kiosk off`
+releases the lock. Use `ott a1 kiosk set "VIDEO TITLE"` to replace a pinned
+channel-list entry. To replace a remote search queue, unlock, start the next
+queue, then lock again.
 This requires the updated player and CLI. Actual provider access and device
 codec support remain separate from profile/kiosk configuration.
 
@@ -61,8 +62,9 @@ Legacy wrappers that intercept touch without forwarding timeline gestures
 retain a read-only footer, even with an updated web player. See
 [kiosk mode](remote-command-server.md#kiosk-mode) for input and Android
 limitations. `vp` collects matching titles into a queue, subject to catalog
-limits; the first-match rule of `kiosk on/set CHANNEL` applies only to live TV,
-not VPortal search.
+limits; the first-match rule of `kiosk on/set CHANNEL` applies to the normal
+channel list, including the selected VPortal sections. It does not perform
+VPortal search.
 
 ## VPortal alongside television
 
