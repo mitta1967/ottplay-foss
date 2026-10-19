@@ -1,5 +1,13 @@
 # Local videos and offline playback
 
+The canonical hosted player is [player.ottplay.here.now](https://player.ottplay.here.now/).
+Deploy this player to the existing `liminal-sketch-vv8r` site in the `ottplay`
+workspace; do not substitute a preview URL for the normal player address.
+Preserve its `.herenow` proxy/data configuration, `local/hosted.js`, remote-input
+configuration, demo/MSX assets and content-addressed hosted runtimes when staging
+a web update. Refresh `build-info.json` and the offline shell after assembling
+the production directory.
+
 **Local videos** plays files from connected local sources without making an
 additional OTT copy. Open **Settings → Local videos**, or select **Local videos**
 from the provider list. Its controls use the player's normal settings list:
