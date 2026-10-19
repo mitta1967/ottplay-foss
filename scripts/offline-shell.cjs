@@ -62,11 +62,11 @@ function stageOfflineShell(directory) {
         `  var request = event.request, url = new URL(request.url), index = new URL('index.html', BASE).href;\n` +
         `  if (request.method !== 'GET' || url.origin !== self.location.origin) return;\n` +
         `  if (request.mode === 'navigate' && (url.pathname === new URL(BASE).pathname || url.pathname === new URL(index).pathname || url.pathname.indexOf(new URL(BASE).pathname + 'f/') === 0)) {\n` +
-        `    event.respondWith(fetch(request).catch(function () { return caches.open(CACHE).then(function (cache) { return cache.match(index); }); })); return;\n` +
+        `    event.respondWith(fetch(new Request(request, { cache: 'no-cache' })).catch(function () { return caches.open(CACHE).then(function (cache) { return cache.match(index); }); })); return;\n` +
         `  }\n` +
         `  url.search = ''; url.hash = '';\n` +
         `  if (URLS.indexOf(url.href) === -1) return;\n` +
-        `  event.respondWith(fetch(request).catch(function () { return caches.open(CACHE).then(function (cache) { return cache.match(url.href); }); }));\n` +
+        `  event.respondWith(fetch(new Request(request, { cache: 'no-cache' })).catch(function () { return caches.open(CACHE).then(function (cache) { return cache.match(url.href); }); }));\n` +
         `});\n`;
     fs.writeFileSync(path.join(directory, "offline-worker.js"), worker);
     return { assets: unique, version };

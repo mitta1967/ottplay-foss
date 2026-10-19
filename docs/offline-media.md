@@ -36,6 +36,8 @@ imported files while open, but cannot promise an offline cold start. An OS or
 browser that lacks IndexedDB, service workers or the required codecs does not
 become offline capable merely because the website supports this feature.
 
+The worker revalidates public assets online even when hosting sets a long HTTP cache lifetime, and falls back to its installed assets when offline. After upgrading from the first preview, use a hard refresh (Cmd+Shift+R in Chrome on macOS) once to replace the old worker behavior without clearing local videos.
+
 The worker caches a finite list of public player assets. It does not cache
 playlists, live streams, credentials, command traffic or arbitrary requests.
 Imported videos are separate from profile backups. Loading Home or another

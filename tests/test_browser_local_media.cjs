@@ -62,6 +62,8 @@ async function main() {
                 res.end();
                 return;
             }
+            if (url.pathname === "/js/version.js")
+                res.setHeader("Cache-Control", "public, max-age=3600");
             res.setHeader(
                 "Content-Type",
                 file.endsWith(".js") ? "text/javascript" : "text/html"
@@ -140,10 +142,17 @@ async function main() {
                     !url.includes("private")
             )
         );
+        assert.equal(
+            await page.evaluate(() =>
+                fetch("/js/version.js").then((r) => r.text())
+            ),
+            "old-version",
+            "prime the browser HTTP cache with a long-lived static asset"
+        );
         fs.writeFileSync(path.join(folder, "js/version.js"), "new-version");
         assert.equal(
             await page.evaluate(() =>
-                fetch("/js/version.js?version=new").then((r) => r.text())
+                fetch("/js/version.js").then((r) => r.text())
             ),
             "new-version",
             "online app must never be stuck on old assets"
