@@ -187,6 +187,62 @@ async function flush() {
     for (let index = 0; index < 12; index++) await Promise.resolve();
 }
 (async () => {
+    // Native bridge reads can complete out of order without knowing about the
+    // provider's lifetime. An independent manager refresh must retire the old
+    // provider result even though the provider/profile itself did not change.
+    const provider =
+        require("./helpers/provider-driver-fixture.cjs").integrationFixture(
+            "offline"
+        );
+    provider.host.clearBootHide = () => {};
+    provider.host.Capacitor = { isNativePlatform: () => true };
+    const reads = [];
+    const native = {
+        list: () => new Promise((resolve) => reads.push(resolve)),
+    };
+    const module = { exports: {} };
+    vm.runInNewContext(source, {
+        clearTimeout,
+        exports: module.exports,
+        require(name) {
+            if (name.includes("browser-local-media"))
+                return {
+                    installBrowserLocalMedia: () => ({}),
+                    installOfflineShell() {},
+                };
+            if (name.includes("offline/profiles"))
+                return { installOfflineProfiles() {} };
+            if (name.includes("local-media-progress"))
+                return helperModule.exports;
+            return { resolveNativePlugin: () => native };
+        },
+        setTimeout,
+        URL,
+    });
+    const nativeApi = module.exports.installLocalMedia(provider.host);
+    provider.host.loadProv();
+    await flush();
+    const refresh = nativeApi.list();
+    await flush();
+    assert.equal(reads.length, 2);
+    reads[1]({
+        items: [{ id: "new", name: "New", url: "http://localhost/new" }],
+    });
+    await refresh;
+    reads[0]({
+        items: [{ id: "stale", name: "Stale", url: "http://localhost/stale" }],
+    });
+    await flush();
+    assert.equal(
+        provider.host.channels["local-stale"],
+        undefined,
+        "old native result cannot publish through the still-active provider"
+    );
+    assert.deepEqual(
+        Array.from((await nativeApi.snapshot()).items, (item) => item.id),
+        ["new"],
+        "the newer completed catalog remains cached"
+    );
     let finishEndpoint;
     let endpointReady = false;
     const discovery = fixture([catalog(1, 1, false)], {

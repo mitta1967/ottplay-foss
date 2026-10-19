@@ -212,7 +212,9 @@ export function installLocalMedia(w: any): any {
         return pending.then(function (value: any) {
             if (!value || !Array.isArray(value.items))
                 throw new Error("Invalid local media catalog");
-            if (request === catalogRevision) last = value;
+            if (request !== catalogRevision)
+                return { ...value, cancelled: true };
+            last = value;
             return value;
         });
     }

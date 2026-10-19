@@ -1026,10 +1026,70 @@ async function builtUi(devicePath) {
             2,
             "permission recovery retains both linked sources"
         );
+        const portableProfile = await page.evaluate(async () => {
+            if (typeof window.loadChannels !== "function")
+                throw new Error("Generic catalogue loader is missing");
+            const profiles = window.__ottOfflineProfiles;
+            const saved = await profiles.request({
+                action: "profile_save",
+                params: { name: "Browser fixture", number: 1 },
+            });
+            if (saved.status !== "ok") throw new Error(JSON.stringify(saved));
+            return (
+                await profiles.request({
+                    action: "profile_export",
+                    params: { number: 1 },
+                })
+            ).data.profile;
+        });
+        await page.evaluate(() => window.playChannel(window.catIndex, 0, true));
+        await page.waitForFunction(() => window.primaryIndex === 0);
+        const loadedProfile = await page.evaluate(async (profile) => {
+            const profiles = window.__ottOfflineProfiles;
+            const imported = await profiles.request({
+                action: "profile_import",
+                params: { number: 2, profile },
+            });
+            if (imported.status !== "ok")
+                throw new Error(JSON.stringify(imported));
+            return profiles.request({
+                action: "profile",
+                params: { number: 2 },
+            });
+        }, portableProfile);
+        assert.equal(loadedProfile.status, "ok");
+        assert.equal(loadedProfile.data.binding_required, false);
+        await page.waitForFunction(
+            (id) =>
+                window.commandChannelsReady &&
+                window.curList[window.primaryIndex] === id,
+            selectedChannel
+        );
+        await page.waitForFunction(() =>
+            Array.from(document.querySelectorAll("video")).some(
+                (v) => v.currentTime > 0.1 && !v.error
+            )
+        );
+        await reopenPlayer();
+        await page.waitForFunction(
+            (id) =>
+                window.commandChannelsReady &&
+                window.curList[window.primaryIndex] === id,
+            selectedChannel
+        );
+        await page.waitForFunction(() =>
+            Array.from(document.querySelectorAll("video")).some(
+                (v) => v.currentSrc && !v.error
+            )
+        );
         // Exercise the real driver/mount path: play an initial batch while the
         // browser catalog's final result remains pending, then append the rest
         // without restarting or unpausing the same video element.
         await page.evaluate(async () => {
+            if (window.__ottOfflineProfiles.read().active !== 1)
+                throw new Error(
+                    "The partial scan must exercise the loaded profile"
+                );
             // A disk-backed source can report duration only after the legacy
             // two-second probe. Exercise normal channel playback in that state,
             // rather than the Local videos manager's separate Play action.
@@ -1052,7 +1112,9 @@ async function builtUi(devicePath) {
                 first,
                 original,
             };
+            window.__progressiveListCalls = 0;
             api.list = function (onProgress, preferredId) {
+                window.__progressiveListCalls++;
                 if (typeof onProgress !== "function")
                     return original.call(api, onProgress, preferredId);
                 return new Promise((resolve) => {
@@ -1118,6 +1180,35 @@ async function builtUi(devicePath) {
                     Math.abs(video.currentTime - 8) < 0.1
                 );
             });
+            const inactiveImport = await page.evaluate(async () => {
+                const profiles = window.__ottOfflineProfiles;
+                const exported = await profiles.request({
+                    action: "profile_export",
+                    params: { number: 2 },
+                });
+                return profiles.request({
+                    action: "profile_import",
+                    params: { number: 4, profile: exported.data.profile },
+                });
+            });
+            assert.equal(
+                inactiveImport.status,
+                "ok",
+                "inactive profile import stays available during the active scan"
+            );
+            const rejectedSave = await page.evaluate(() =>
+                window.__ottOfflineProfiles.request({
+                    action: "profile_save",
+                    params: { name: "Incomplete scan", number: 3 },
+                })
+            );
+            assert.equal(rejectedSave.status, "rejected");
+            assert.match(rejectedSave.data.error, /scan to finish/);
+            assert.equal(
+                await page.evaluate(() => window.__progressiveListCalls),
+                1,
+                "partial profile save does not restart or duplicate enumeration"
+            );
             await page.evaluate(() => {
                 const video = document.querySelector("video");
                 video.tabIndex = 0;
@@ -1151,6 +1242,52 @@ async function builtUi(devicePath) {
                 () =>
                     window.cList.length ===
                     window.__progressiveCatalogFixture.catalog.items.length
+            );
+            const completeSave = await page.evaluate(async () => {
+                const profiles = window.__ottOfflineProfiles;
+                const saved = await profiles.request({
+                    action: "profile_save",
+                    params: { name: "Complete progressive catalog", number: 3 },
+                });
+                const exported = await profiles.request({
+                    action: "profile_export",
+                    params: { number: 3 },
+                });
+                const fixture = window.__progressiveCatalogFixture;
+                return {
+                    calls: window.__progressiveListCalls,
+                    count: fixture.catalog.items.length,
+                    profile: exported.data.profile,
+                    saved,
+                    selected: fixture.first.name,
+                    sources: fixture.catalog.sources.map((source) => ({
+                        kind: source.kind,
+                        name: source.name,
+                    })),
+                };
+            });
+            assert.equal(completeSave.saved.status, "ok");
+            assert.equal(completeSave.sources.length, 2);
+            assert.equal(completeSave.count, 2);
+            assert.equal(
+                completeSave.saved.data.profile.source_count,
+                completeSave.sources.length
+            );
+            assert.deepEqual(
+                completeSave.profile.sources.map(({ kind, name }) => ({
+                    kind,
+                    name,
+                })),
+                completeSave.sources
+            );
+            assert.equal(
+                completeSave.profile.selected.name,
+                completeSave.selected
+            );
+            assert.equal(
+                completeSave.calls,
+                1,
+                "saving the complete profile reuses its current catalog"
             );
             const appended = await page.evaluate(() => {
                 const video = document.querySelector("video");
@@ -1197,64 +1334,9 @@ async function builtUi(devicePath) {
                 delete window.__finishProgressiveCatalog;
                 delete window.__progressiveVideo;
                 delete window.__progressiveMediaEvents;
+                delete window.__progressiveListCalls;
             });
         }
-        const portableProfile = await page.evaluate(async () => {
-            if (typeof window.loadChannels !== "function")
-                throw new Error("Generic catalogue loader is missing");
-            const profiles = window.__ottOfflineProfiles;
-            const saved = await profiles.request({
-                action: "profile_save",
-                params: { name: "Browser fixture", number: 1 },
-            });
-            if (saved.status !== "ok") throw new Error(JSON.stringify(saved));
-            return (
-                await profiles.request({
-                    action: "profile_export",
-                    params: { number: 1 },
-                })
-            ).data.profile;
-        });
-        await page.evaluate(() => window.playChannel(window.catIndex, 0, true));
-        await page.waitForFunction(() => window.primaryIndex === 0);
-        const loadedProfile = await page.evaluate(async (profile) => {
-            const profiles = window.__ottOfflineProfiles;
-            const imported = await profiles.request({
-                action: "profile_import",
-                params: { number: 2, profile },
-            });
-            if (imported.status !== "ok")
-                throw new Error(JSON.stringify(imported));
-            return profiles.request({
-                action: "profile",
-                params: { number: 2 },
-            });
-        }, portableProfile);
-        assert.equal(loadedProfile.status, "ok");
-        assert.equal(loadedProfile.data.binding_required, false);
-        await page.waitForFunction(
-            (id) =>
-                window.commandChannelsReady &&
-                window.curList[window.primaryIndex] === id,
-            selectedChannel
-        );
-        await page.waitForFunction(() =>
-            Array.from(document.querySelectorAll("video")).some(
-                (v) => v.currentTime > 0.1 && !v.error
-            )
-        );
-        await reopenPlayer();
-        await page.waitForFunction(
-            (id) =>
-                window.commandChannelsReady &&
-                window.curList[window.primaryIndex] === id,
-            selectedChannel
-        );
-        await page.waitForFunction(() =>
-            Array.from(document.querySelectorAll("video")).some(
-                (v) => v.currentSrc && !v.error
-            )
-        );
         await page.evaluate(async () => {
             const api = window.__ottBrowserLocalMedia;
             const original = api.list;

@@ -266,7 +266,7 @@ const { gzipSync } = require("node:zlib");
 // Profile persistence and non-scanning snapshots add 15790 raw bytes over
 // the progressive native baseline. All provider/native artifacts stay gated.
 // Restored profile ownership/atomic recovery and browser/native inactivity
-// bounds add 2019 raw bytes to the final integrated entry. Reserve 2304/768.
+// bounds add 2058 raw bytes to the final integrated entry. Reserve 2304/768.
 const BUDGET = Object.freeze({ bytes: 944255, gzipBytes: 292798 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
