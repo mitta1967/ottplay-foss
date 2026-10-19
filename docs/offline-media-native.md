@@ -77,6 +77,12 @@ reconnect through the native picker when necessary.
 
 ## Native rollout and verification
 
+Native catalogs currently use one completed snapshot per request. Unlike the
+browser-local implementation, Android, iOS and Tauri do not yet emit incremental
+catalogs or resolve the last selected item before a full scan. The shared
+in-player spinner does not imply background scanning or first-batch playback.
+Large catalogs can reach the shared provider's 60-second inactivity timeout.
+
 New native code requires an APK/IPA/Tauri application update. Updating only the
 hosted page does not install a native picker or permission implementation. The
 native UI assets must be bundled locally for a cold start without a network.

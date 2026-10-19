@@ -42,6 +42,15 @@ then remove the old imported copy.
 
 ## Platform behavior
 
+Progressive catalog loading currently applies only to browser-local folders,
+including here.now and the browser UI served by OTT Server. Tauri, Capacitor
+Android/iOS and the optional server library currently return a complete catalog
+before playback starts. They share the standard in-player loading dialog, but
+do not yet provide first-batch playback or background catalog appends. A large
+native/server catalog can reach the provider's 60-second inactivity timeout;
+the timeout is a recovery path, not evidence that scanning finished. Installing
+version 1.1.58 does not remove this native/server limitation.
+
 - **Capacitor Android:** Android's Storage Access Framework grants read access to
   selected documents/folders. OTT persists the document URIs and reads the
   original through a private loopback streaming server. This includes the
