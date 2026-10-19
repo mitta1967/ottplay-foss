@@ -390,6 +390,20 @@ async fn prepare_artwork(app: &AppHandle, state: &MediaSessionState, work: &ottp
     Ok(Some(local))
 }
 
+fn publish_media_generation<T>(
+    generation: &AtomicU64,
+    expected: u64,
+    work: &ottplay_core::background_work::WorkLease,
+    publish: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    work.publish(|| {
+        if generation.load(Ordering::SeqCst) != expected {
+            return Err("Media session superseded".into());
+        }
+        publish()
+    }).map_err(str::to_string)?
+}
+
 fn meta_args(
     title: Option<String>,
     artist: Option<String>,
@@ -425,16 +439,18 @@ pub async fn start_media_session(
     if let Err(e) = ensure_controls(&app, &state) {
         return Ok(err(e));
     }
-    match work.publish(|| apply_metadata(
-        &state,
-        &title,
-        &artist,
-        artwork.as_deref(),
-        durationSec,
-        positionSec,
-        seekable,
-        true,
-    )).map_err(str::to_string)? {
+    match publish_media_generation(&state.generation, generation, &work, || {
+        apply_metadata(
+            &state,
+            &title,
+            &artist,
+            artwork.as_deref(),
+            durationSec,
+            positionSec,
+            seekable,
+            true,
+        )
+    }) {
         Ok(()) => Ok(ok()),
         Err(e) => Ok(err(e)),
     }
@@ -489,16 +505,18 @@ pub async fn resume_media_session(
     if state.generation.load(Ordering::SeqCst) != generation { return Err("Media session superseded".into()) }
     let (title, artist) = meta_args(title, artist);
     let seekable = seekable.unwrap_or(false);
-    match work.publish(|| apply_metadata(
-        &state,
-        &title,
-        &artist,
-        artwork.as_deref(),
-        durationSec,
-        positionSec,
-        seekable,
-        true,
-    )).map_err(str::to_string)? {
+    match publish_media_generation(&state.generation, generation, &work, || {
+        apply_metadata(
+            &state,
+            &title,
+            &artist,
+            artwork.as_deref(),
+            durationSec,
+            positionSec,
+            seekable,
+            true,
+        )
+    }) {
         Ok(()) => Ok(ok()),
         Err(e) => Ok(err(e)),
     }
@@ -539,16 +557,18 @@ pub async fn update_media_session(
     if state.generation.load(Ordering::SeqCst) != generation { return Err("Media session superseded".into()) }
     let (title, artist) = meta_args(title, artist);
     let seekable = seekable.unwrap_or(false);
-    match work.publish(|| apply_metadata(
-        &state,
-        &title,
-        &artist,
-        artwork.as_deref(),
-        durationSec,
-        positionSec,
-        seekable,
-        true,
-    )).map_err(str::to_string)? {
+    match publish_media_generation(&state.generation, generation, &work, || {
+        apply_metadata(
+            &state,
+            &title,
+            &artist,
+            artwork.as_deref(),
+            durationSec,
+            positionSec,
+            seekable,
+            true,
+        )
+    }) {
         Ok(()) => Ok(ok()),
         Err(e) => Ok(err(e)),
     }
@@ -575,6 +595,37 @@ pub async fn stop_media_session(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn queued_metadata_rechecks_generation_inside_publication_lock() {
+        let background = ottplay_core::background_work::BackgroundWork::default();
+        let work = background.enter().unwrap();
+        let blocked = Arc::new(std::sync::Barrier::new(2));
+        let release = Arc::new(std::sync::Barrier::new(2));
+        let holder = {
+            let work = work.clone();
+            let blocked = blocked.clone();
+            let release = release.clone();
+            std::thread::spawn(move || work.publish(|| { blocked.wait(); release.wait(); }).unwrap())
+        };
+        blocked.wait();
+        let generation = Arc::new(AtomicU64::new(1));
+        let (started, ready) = std::sync::mpsc::channel();
+        let old = {
+            let generation = generation.clone();
+            std::thread::spawn(move || {
+                assert_eq!(generation.load(Ordering::SeqCst), 1);
+                started.send(()).unwrap();
+                publish_media_generation(&generation, 1, &work, || panic!("stale metadata published"))
+            })
+        };
+        ready.recv().unwrap();
+        generation.store(2, Ordering::SeqCst);
+        release.wait();
+        holder.join().unwrap();
+        let result: Result<(), String> = old.join().unwrap();
+        assert_eq!(result.unwrap_err(), "Media session superseded");
+    }
 
     #[tokio::test]
     async fn standby_cancels_artwork_before_os_delivery() {
