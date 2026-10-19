@@ -32,6 +32,7 @@ module.exports = defineConfig({
         "remote-plex.spec.cjs",
         "remote-favorites.spec.cjs",
         "remote-doctor.spec.cjs",
+        "standby-native.spec.cjs",
     ],
     timeout: 30000,
     use: {
