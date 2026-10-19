@@ -246,8 +246,18 @@ function createOfflineDriver(
             }
             var profiles = (window as any).__ottOfflineProfiles;
             var profileBefore = "";
+            var profileCurrent: (() => boolean) | null = null;
             try {
                 profileBefore = profiles ? JSON.stringify(profiles.read()) : "";
+                if (profiles)
+                    profileCurrent = profiles.catalogGuard
+                        ? profiles.catalogGuard()
+                        : function () {
+                              return (
+                                  JSON.stringify(profiles.read()) ===
+                                  profileBefore
+                              );
+                          };
             } catch (_) {
                 done(
                     emptyDriverCatalog(),
@@ -268,7 +278,10 @@ function createOfflineDriver(
                 var saved = JSON.parse(
                     ports.storage.get("channelLibrary:" + source) || "null"
                 );
-                var profileSelection = profiles ? profiles.selection() : null;
+                var profileSelection =
+                    profiles && profiles.selection
+                        ? profiles.selection()
+                        : null;
                 if (profileSelection !== null) {
                     wanted = profileSelection || "local-profile-unbound";
                 } else if (saved && saved.selected && saved.selected.itemId) {
@@ -295,13 +308,14 @@ function createOfflineDriver(
             function current(): boolean {
                 return active() && request === revision;
             }
-            function recover(error: string): void {
+            function recover(error: string, offerRecovery = true): void {
                 if (!current()) return;
                 clearLoadTimer();
                 revision++;
                 if (!started) {
                     done(emptyDriverCatalog(), error);
                     if (
+                        offerRecovery &&
                         active() &&
                         request + 1 === revision &&
                         typeof media.resume === "function"
@@ -318,21 +332,34 @@ function createOfflineDriver(
             }
             function publish(value: any, final: boolean): boolean {
                 if (!current()) return false;
+                if (!value || !Array.isArray(value.items)) {
+                    recover("Invalid local media catalog", false);
+                    return false;
+                }
                 if (value.cancelled) {
-                    clearLoadTimer();
-                    revision++;
+                    recover("Local catalog scan was cancelled", false);
                     return false;
                 }
                 try {
                     if (profiles) {
-                        if (JSON.stringify(profiles.read()) !== profileBefore) {
-                            recover("Local profile changed while loading");
+                        if (profileCurrent && !profileCurrent()) {
+                            recover(
+                                "Local profile changed while loading",
+                                false
+                            );
                             return false;
                         }
                         value = profiles.filter(value);
                     }
                 } catch (_) {
-                    recover("Local profile configuration is unavailable");
+                    recover(
+                        "Local profile configuration is unavailable",
+                        false
+                    );
+                    return false;
+                }
+                if (final && value.scanning) {
+                    recover("Local catalog scan is incomplete", false);
                     return false;
                 }
                 var stamp = [
@@ -439,6 +466,18 @@ function createOfflineDriver(
                 snapshot.incremental = incremental;
                 done(snapshot, undefined, incremental);
                 if (!current()) return false;
+                try {
+                    if (profileCurrent && !profileCurrent()) {
+                        recover("Local profile changed while loading", false);
+                        return false;
+                    }
+                } catch (_) {
+                    recover(
+                        "Local profile configuration is unavailable",
+                        false
+                    );
+                    return false;
+                }
                 if (
                     final &&
                     !catalog.ids.length &&
@@ -455,21 +494,27 @@ function createOfflineDriver(
                 return true;
             }
             heartbeat();
-            media
-                .list(
-                    function (value: any) {
-                        return publish(value, false);
-                    },
-                    wanted.indexOf("local-") === 0 ? wanted.slice(6) : undefined
-                )
-                .then(
-                    function (value: any) {
-                        publish(value, true);
-                    },
-                    function (error: any) {
-                        recover(String(error.message || error));
-                    }
-                );
+            try {
+                media
+                    .list(
+                        function (value: any) {
+                            return publish(value, false);
+                        },
+                        wanted.indexOf("local-") === 0
+                            ? wanted.slice(6)
+                            : undefined
+                    )
+                    .then(
+                        function (value: any) {
+                            publish(value, true);
+                        },
+                        function (error: any) {
+                            recover(String(error.message || error));
+                        }
+                    );
+            } catch (_) {
+                recover("Local catalog could not be read");
+            }
         },
         logo: function () {
             return "";

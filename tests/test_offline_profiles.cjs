@@ -475,3 +475,60 @@ test("save and bind reject partial or cancelled catalogs without launching anoth
         await assert.rejects(f.api.bindCurrent(), /scan to finish/);
     }
 });
+
+test("save and binding reject partial or cancelled catalogs before granting source access", async () => {
+    for (const flags of [{ scanning: true }, { cancelled: true }]) {
+        const profile = await saved(fixture());
+        const f = fixture();
+        await f.call("profile_import", { number: 1, profile });
+        await f.call("profile", { number: 1 });
+        const before = Array.from(f.data.entries());
+        f.setCatalog({ ...f.catalog(), ...flags });
+        assert.throws(() => f.api.bind(f.catalog()), /scan to finish/);
+        await assert.rejects(f.api.bindCurrent(), /scan to finish/);
+        assert.deepEqual(Array.from(f.data.entries()), before);
+        assert.equal(f.data.has("offlineProfileBindings"), false);
+        const fresh = fixture();
+        fresh.host.curList = [];
+        fresh.setCatalog({ ...fresh.catalog(), ...flags });
+        const result = await fresh.call("profile_save", { number: 1 });
+        assert.equal(result.status, "rejected");
+        assert.match(result.data.error, /scan to finish/);
+        assert.equal(fresh.data.size, 0);
+    }
+});
+
+test("profile catalog ownership ignores other slots but retains active binding and endpoint guards", async () => {
+    const f = fixture();
+    const profile = await saved(f);
+    await f.call("profile", { number: 1 });
+    const guard = f.api.catalogGuard();
+    assert.equal(guard(), true);
+    assert.equal(
+        (await f.call("profile_import", { number: 2, profile })).status,
+        "ok"
+    );
+    assert.equal(
+        guard(),
+        true,
+        "inactive import must not truncate the active scan"
+    );
+    const before = f.data.get("offlineProfileBindings");
+    const bindings = JSON.parse(before);
+    bindings["11111111-1111-4111-8111-111111111111"] = clone(
+        bindings[profile.binding_id]
+    );
+    f.data.set("offlineProfileBindings", JSON.stringify(bindings));
+    assert.equal(
+        guard(),
+        true,
+        "unrelated binding must not truncate the active scan"
+    );
+    bindings[profile.binding_id].selected = "OTHER-ITEM";
+    f.data.set("offlineProfileBindings", JSON.stringify(bindings));
+    assert.equal(guard(), false);
+    f.data.set("offlineProfileBindings", before);
+    assert.equal(guard(), true);
+    f.media.libraryIdentity = () => "browser:https://different.invalid/library";
+    assert.equal(guard(), false);
+});

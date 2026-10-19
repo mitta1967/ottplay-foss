@@ -33,6 +33,12 @@ file; import saves it into an inactive slot without starting playback. Loading
 reloads the local catalogue and restores the saved file when it is available.
 The dispatch receipt is not confirmation that a decoder is playing.
 
+An unavailable selected file opens recovery after startup overlays have closed.
+JSON settings restore can switch the active local profile and restores its channel
+and favorites documents in the same transaction; private file bindings remain
+on this installation. A changed active binding or library retires the previous
+catalog scan, while edits to an inactive profile leave current playback intact.
+
 `ott d1 stop` stops playback while retaining remote control. `ott d1 start`
 runs the player's configured startup flow. Profile operations do not grant
 file access or bypass kiosk/parental restrictions. Profile listing is available

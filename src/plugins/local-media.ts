@@ -131,15 +131,84 @@ export function installLocalMedia(w: any): any {
             return !onProgress || onProgress(value) !== false;
         }
         var pending = isNative()
-            ? native.list()
-            : getEndpoint().then(function (base) {
+            ? boundedLocalRead(function () {
+                  return native.list();
+              })
+            : boundedLocalRead(function () {
+                  return getEndpoint();
+              }).then(function (base) {
                   return base
                       ? pollCatalog(base, request, accept, !!onProgress)
-                      : browser.list(
-                            onProgress ? accept : undefined,
-                            preferredId
-                        );
+                      : boundedLocalRead(function (progress) {
+                            return browser.list(progress, preferredId);
+                        });
               });
+        // Native bridges and browser filesystem reads cannot always be aborted.
+        // Retire their ownership on inactivity so late results cannot populate
+        // a completed snapshot or revive a closed loading dialog.
+        function boundedLocalRead(
+            start: (progress: (value: any) => boolean) => Promise<any>
+        ): Promise<any> {
+            return new Promise(function (resolve, reject) {
+                var timer: any = null;
+                var settled = false;
+                var signature = "";
+                function clear(): void {
+                    if (timer !== null) clearTimeout(timer);
+                    timer = null;
+                }
+                function heartbeat(): void {
+                    clear();
+                    timer = setTimeout(function () {
+                        if (settled) return;
+                        settled = true;
+                        timer = null;
+                        if (request === catalogRevision) {
+                            catalogRevision++;
+                            last = null;
+                        }
+                        reject(new Error("Local source did not respond"));
+                    }, 60000);
+                }
+                function finish(error: any, value?: any): void {
+                    if (settled) return;
+                    settled = true;
+                    clear();
+                    if (error) reject(error);
+                    else resolve(value);
+                }
+                heartbeat();
+                try {
+                    start(function (value) {
+                        if (settled || request !== catalogRevision)
+                            return false;
+                        var admitted = accept(value);
+                        var next = JSON.stringify([
+                            value.scanned,
+                            value.total,
+                            value.items.length,
+                            value.sources && value.sources.length,
+                            value.phase,
+                            value.scanning,
+                        ]);
+                        if (next !== signature) {
+                            signature = next;
+                            heartbeat();
+                        }
+                        return admitted;
+                    }).then(
+                        function (value) {
+                            finish(null, value);
+                        },
+                        function (error) {
+                            finish(error);
+                        }
+                    );
+                } catch (error) {
+                    finish(error);
+                }
+            });
+        }
         return pending.then(function (value: any) {
             if (!value || !Array.isArray(value.items))
                 throw new Error("Invalid local media catalog");

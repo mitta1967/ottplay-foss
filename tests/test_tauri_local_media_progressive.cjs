@@ -112,6 +112,11 @@ function fixture(snapshots, options = {}) {
         stbSetItem() {},
     };
     if (options.fetch) w.fetch = options.fetch;
+    if (options.mode) {
+        delete w.__TAURI__;
+        if (options.mode === "native")
+            w.Capacitor = { isNativePlatform: () => true };
+    }
     if (options.abortable !== false)
         w.AbortController = class {
             signal = {};
@@ -129,7 +134,7 @@ function fixture(snapshots, options = {}) {
         require(name) {
             if (name.includes("browser-local-media"))
                 return {
-                    installBrowserLocalMedia: () => ({}),
+                    installBrowserLocalMedia: () => ({ list: options.read }),
                     installOfflineShell() {},
                 };
             if (name.includes("offline/profiles"))
@@ -137,9 +142,11 @@ function fixture(snapshots, options = {}) {
             if (name.includes("local-media-progress"))
                 return helperModule.exports;
             return {
-                resolveNativePlugin: () => ({}),
+                resolveNativePlugin: () => ({ list: options.read }),
                 tauriInvoke: async (name, args) => {
                     commands.push({ args, name });
+                    if (name === "offline_media_endpoint" && options.endpoint)
+                        return options.endpoint();
                     return name === "offline_media_endpoint"
                         ? { endpoint: "http://localhost/catalog" }
                         : options.pickerCancelled
@@ -172,6 +179,7 @@ function fixture(snapshots, options = {}) {
             callback.fn();
             await flush();
         },
+        timer: () => scheduled[0],
         w,
     };
 }
@@ -179,6 +187,103 @@ async function flush() {
     for (let index = 0; index < 12; index++) await Promise.resolve();
 }
 (async () => {
+    let finishEndpoint;
+    let endpointReady = false;
+    const discovery = fixture([catalog(1, 1, false)], {
+        endpoint: () =>
+            endpointReady
+                ? Promise.resolve({ endpoint: "http://localhost/catalog" })
+                : new Promise((resolve) => {
+                      finishEndpoint = resolve;
+                  }),
+    });
+    const missingEndpoint = discovery.api.list().then(
+        () => assert.fail("stalled endpoint discovery must fail"),
+        (error) => error
+    );
+    await flush();
+    await discovery.tick(60000);
+    assert.match((await missingEndpoint).message, /did not respond/);
+    finishEndpoint({ endpoint: "http://localhost/catalog" });
+    await flush();
+    assert.equal(
+        discovery.reads(),
+        0,
+        "late endpoint discovery cannot start catalog requests"
+    );
+    await assert.rejects(discovery.api.snapshot(), /scan to finish/);
+    endpointReady = true;
+    assert.equal((await discovery.api.list()).items.length, 1);
+    assert.equal(discovery.queued(), 0);
+    for (const mode of ["browser", "native"]) {
+        let finish, progress;
+        let answer = null;
+        const pending = fixture([], {
+            mode,
+            read(callback) {
+                progress = callback;
+                return answer
+                    ? Promise.resolve(answer)
+                    : new Promise((resolve) => {
+                          finish = resolve;
+                      });
+            },
+        });
+        const expired = pending.api.list().then(
+            () => assert.fail("stalled source must fail"),
+            (error) => error
+        );
+        await flush();
+        if (mode === "browser") {
+            const initial = pending.timer();
+            assert.equal(typeof progress, "function");
+            progress(catalog(1, 1));
+            assert.notEqual(
+                pending.timer(),
+                initial,
+                "real scan progress extends the deadline"
+            );
+            const unchanged = pending.timer();
+            progress(catalog(1, 1));
+            assert.equal(
+                pending.timer(),
+                unchanged,
+                "repeated snapshots do not extend the deadline"
+            );
+        }
+        await pending.tick(60000);
+        assert.match((await expired).message, /did not respond/);
+        assert.equal(pending.queued(), 0);
+        if (progress)
+            assert.equal(
+                progress(catalog(2, 2, false)),
+                false,
+                "expired scan no longer owns progress"
+            );
+        finish(catalog(2, 2, false));
+        await flush();
+        await assert.rejects(pending.api.snapshot(), /scan to finish/);
+        answer = catalog(3, 3, false);
+        assert.equal((await pending.api.list()).items.length, 3);
+        assert.equal((await pending.api.snapshot()).items.length, 3);
+        assert.equal(
+            pending.queued(),
+            0,
+            "success clears the new source deadline"
+        );
+        const broken = fixture([], {
+            mode,
+            read() {
+                throw new Error("Source denied");
+            },
+        });
+        await assert.rejects(broken.api.list(), /Source denied/);
+        assert.equal(
+            broken.queued(),
+            0,
+            "synchronous errors release the deadline"
+        );
+    }
     const f = fixture([
         catalog(0, 0),
         catalog(1, 1),

@@ -1255,6 +1255,33 @@ async function builtUi(devicePath) {
                 (v) => v.currentSrc && !v.error
             )
         );
+        await page.evaluate(async () => {
+            const api = window.__ottBrowserLocalMedia;
+            const original = api.list;
+            const catalog = await original.call(api);
+            const selected = window.__ottOfflineProfiles
+                .selection()
+                .replace(/^local-/, "");
+            window.__missingProfileCatalog = { api, original };
+            api.list = async () => ({
+                ...catalog,
+                items: catalog.items.filter((item) => item.id !== selected),
+                scanning: false,
+            });
+            window.loadProv();
+        });
+        try {
+            await action("resume").waitFor({ state: "visible" });
+            assert.equal(await page.locator("#launch").isVisible(), false);
+            assert.equal(await page.locator("#buffering").isVisible(), false);
+            assert.equal(await page.evaluate(() => window.isListVisible), true);
+        } finally {
+            await page.evaluate(() => {
+                const fixture = window.__missingProfileCatalog;
+                fixture.api.list = fixture.original;
+                delete window.__missingProfileCatalog;
+            });
+        }
         assert.deepEqual(errors, []);
         console.log(
             "PASS built UI " +
