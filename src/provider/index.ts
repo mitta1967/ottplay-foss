@@ -879,6 +879,7 @@ declare var confirmBox: (
  * The stored "noProvParam" flag hides provider settings in popup arrays.
  */
 export function loadProv(providerId?: string): void {
+    if ((window as any).__ottStandby?.blocked()) return;
     var kiosk = (window as any).__ottKiosk;
     if (kiosk && kiosk.enabled()) {
         if ((window as any).__ottActiveProviderDriver) return;
@@ -1316,6 +1317,7 @@ export function loadProv(providerId?: string): void {
  * Edge case: Stops any active playback before loading.
  */
 export function loadChannels(): void {
+    if ((window as any).__ottStandby?.blocked()) return;
     if ((window as any).__ottClassicScreenPort)
         (window as any).__ottClassicScreenPort.invalidate();
     if ((window as any).__ottClassicPlayback)

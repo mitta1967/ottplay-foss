@@ -290,6 +290,7 @@ export function createKiosk(w: any): any {
             w.__ottMedia.cancelRequest();
     }
     function play(): void {
+        if (w.__ottStandby?.blocked()) return;
         if (!locked() || w.commandChannelsReady !== true) return;
         if (!screenAwake) {
             deferredPolicy = policy;
@@ -332,6 +333,7 @@ export function createKiosk(w: any): any {
         w.playChannel(indices[0], indices[1]);
     }
     function restartPlayer(): boolean {
+        if (w.__ottStandby?.blocked()) return false;
         try {
             if (
                 typeof w.restart !== "function" ||
@@ -361,6 +363,7 @@ export function createKiosk(w: any): any {
         }
     }
     function tick(): void {
+        if (w.__ottStandby?.blocked()) return;
         if (!locked()) return;
         var time = now();
         if (time < lastProgress) lastProgress = time;

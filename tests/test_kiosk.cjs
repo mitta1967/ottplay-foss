@@ -2077,3 +2077,22 @@ testScreenBridge().catch((error) => {
     console.error(error);
     process.exitCode = 1;
 });
+{
+    const r = rig();
+    r.request({ mode: "on" });
+    r.w.playChannel(0, 1);
+    const started = r.played.length;
+    r.w.__ottStandby = { blocked: () => true };
+    r.w.restart = () => assert.fail("standby watchdog must not reload");
+    r.play(false);
+    r.advance(120);
+    r.kiosk.restoreMedia();
+    assert.equal(
+        r.played.length,
+        started,
+        "manual standby suppresses watchdog and restore playback"
+    );
+    r.w.__ottStandby.blocked = () => false;
+    r.advance(10);
+    assert(r.played.length > started, "wake restores normal kiosk recovery");
+}

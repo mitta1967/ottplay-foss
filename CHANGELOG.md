@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Make remote standby/go suspend playback, provider requests, local scans and EPG work while keeping control connected. Persist the device-local state across reload, block late playback and kiosk watchdog recovery until go, and expose actual background drain status. Allow authenticated standby/go with kiosk/settings locks while retaining other lifecycle restrictions.
+
 - Resume the exact selected Local videos file at its saved playback position after Q, page closure, or native app exit. Capture the decoder clock before exit/stop; keep completed files and explicit channel changes starting at zero.
 
 ## [1.1.58] - 2026-10-19

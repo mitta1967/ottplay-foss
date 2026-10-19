@@ -270,7 +270,14 @@ const { gzipSync } = require("node:zlib");
 // Exact local-file startup resume and pre-Q checkpointing measure 944712 raw;
 // use remaining headroom plus 512 raw bytes, without raising the gzip cap.
 // Profile journal isolation measures 944824 raw (+112); reserve 256 once.
-const BUDGET = Object.freeze({ bytes: 945023, gzipBytes: 292798 });
+// Standby work admission, tracked transport cancellation and native drain fencing
+// also account for native bootstrap probing, updater/script downloads and
+// asynchronous decoder/filesystem drain. Measure on Node 22.23.3 with
+// zlib 1.3.1-e00f703; compressor output varies across Node versions.
+// Final web is 955901/296236, native 955859/296301; complete web is
+// 1076756/341129 and native 1076714/341194 (raw/gzip bytes).
+// Reserve the measured feature cost plus bounded native/release headroom.
+const BUDGET = Object.freeze({ bytes: 956287, gzipBytes: 296510 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -403,7 +410,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count the same shuffle and profile deltas once across shipped artifacts.
 // Count the restored recovery/ownership boundary once across all artifacts.
 // Count the same 512-byte local resume/exit allowance once in the full payload.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1065923, gzipBytes: 337698 });
+// Count the same standby increment once; optional providers retain their limits.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1077187, gzipBytes: 341410 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
