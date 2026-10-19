@@ -1630,7 +1630,7 @@ export function onChannelsLoaded(): void {
         mediaRecovery === (window as any).__ottActiveProviderDriver &&
         !(window as any).__ottKiosk?.locked()
     ) {
-        window.channelsList(0, 0);
+        window.channelsList(sFavorites ? 1 : 0, 0);
         window.infoBox(window._("Channel is not available!!!"));
     }
 }

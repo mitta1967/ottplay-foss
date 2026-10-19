@@ -1677,6 +1677,20 @@ function classicMediaRuntime(): any {
                 );
             }
             if (!valid()) return false;
+            var playback = mediaClassicPlayback;
+            if (
+                background &&
+                playback &&
+                playback.runtime === api &&
+                playback.ended
+            )
+                // Reuse natural-completion admission when Repeat changes while
+                // this channel is still resolving. Its old callbacks stay stale.
+                completionRequest = {
+                    generation: generation,
+                    playback: playback,
+                    valid: valid,
+                };
             authorize(item, function () {
                 if (!valid()) return;
                 loading = background ? null : beginManualLoading(item, true);

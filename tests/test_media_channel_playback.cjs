@@ -287,6 +287,87 @@ for (const provider of ["plex", "vportal"]) {
     );
 }
 
+for (const provider of ["plex", "vportal"]) {
+    for (const mode of ["all", "one", "off"]) {
+        const { c, pending, resolve, end } = setup(provider);
+        while (c.__ottMedia.repeatMode() !== mode) c.__ottMedia.cycleRepeat();
+        c._playChannel(0, mode === "one" ? 2 : 0);
+        resolve();
+        c.isListVisible = true;
+        const handler = () => {};
+        const owner = c.__ottClassicScreenPort.setOwnedCallback(
+            "dialog",
+            handler
+        ).owner;
+        const ownedHandler = c.dialogBoxKeyHandler;
+        c.$("#dialogbox").html("Actions").show();
+        const closes = c.calls.filter(([kind]) => kind === "close").length;
+        end();
+        assert.equal(pending.length, 2);
+        c.__ottMedia.cycleRepeat();
+        assert.equal(
+            pending.length,
+            mode === "one" ? 2 : 3,
+            "Repeat restarts pending EOS with its new mode, except Off at the final file"
+        );
+        resolve(1);
+        assert.equal(
+            c.calls.filter(([kind]) => kind === "play").length,
+            1,
+            "The cancelled pre-change resolver cannot start its old choice"
+        );
+        if (mode !== "one") {
+            assert.equal(pending[2].item.id, mode === "all" ? 101 : 102);
+            resolve(2);
+            assert.equal(c.calls.filter(([kind]) => kind === "play").length, 2);
+            assert.equal(
+                c.__ottMedia.current().payload.id,
+                mode === "all" ? 101 : 102
+            );
+        } else assert.equal(c.__ottClassicPlayback.snapshot().phase, "stopped");
+        assert(
+            owner.active() && owner.foreground(),
+            "Actions keeps screen ownership"
+        );
+        assert.equal(c.dialogBoxKeyHandler, ownedHandler);
+        assert.equal(c.elements["#dialogbox"].innerHTML, "Actions");
+        assert.equal(
+            c.calls.filter(([kind]) => kind === "close").length,
+            closes
+        );
+    }
+    console.log(
+        "PASS " +
+            provider +
+            " repeat changes re-admit pending channel EOS without replacing Actions"
+    );
+}
+for (const retire of ["cancel", "source", "manual"]) {
+    const { c, pending, resolve, end } = setup();
+    c._playChannel(0, 0);
+    resolve();
+    end();
+    if (retire === "cancel") c.__ottMedia.cancelAuto();
+    else if (retire === "manual") c._playChannel(0, 2);
+    else
+        c.providerMediaClient.cancelAutomatic = () => {
+            c.p_pref = "changed";
+            c.__ottActiveProviderDriver = { capabilities: {}, id: "changed" };
+        };
+    const count = pending.length;
+    c.__ottMedia.cycleRepeat();
+    assert.equal(
+        pending.length,
+        count,
+        "A repeat change cannot re-admit a cancelled, replaced or foreign-source transition"
+    );
+    for (let index = 1; index < pending.length; index++) resolve(index);
+    assert.equal(c.calls.filter(([kind]) => kind === "play").length, 1);
+}
+console.log(
+    "PASS repeat changes preserve cancellation, source and manual-selection ownership"
+);
+
 {
     const { c, pending, resolve } = setup();
     c._playChannel(0, 0);

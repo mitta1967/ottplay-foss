@@ -139,7 +139,7 @@ function plexPath(value: any): string {
 /** Only selected library or folder roots may enter a profile playlist. */
 function plexFolderPath(value: any): string {
     var path = plexPath(value);
-    return /^\/library\/(?:sections\/[1-9][0-9]{0,19}\/(?:all(?:\?type=[134])?|folder(?:\?parent=[0-9]{1,20})?)|metadata\/[1-9][0-9]{0,19}\/children)$/.test(
+    return /^\/library\/(?:sections\/[1-9][0-9]{0,19}\/(?:all(?:\?type=(?:[134]|10))?|folder(?:\?parent=[0-9]{1,20})?)|metadata\/[1-9][0-9]{0,19}\/children)$/.test(
         path
     )
         ? path
@@ -1714,7 +1714,7 @@ function createPlexClient(
                                         ? "4"
                                         : matches[0] &&
                                             matches[0].type === "artist"
-                                          ? "3"
+                                          ? "10"
                                           : "1");
                                 browse = target(
                                     "/library/sections/" +

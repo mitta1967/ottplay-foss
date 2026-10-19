@@ -10,6 +10,9 @@
 - Keep VPortal direct-file identities stable when signed URLs rotate, and refresh the playback URL before selection or repeat.
 - Close the owned loading dialog after a VPortal resolution failure so the same item can be retried; ignore cancelled and superseded replies.
 - Put media playlist repeat in channel-list Actions; reuse existing search, Shuffle and Reset order instead of a separate media browser during normal playback.
+- Apply repeat changes to a pending next-file transition without leaving playback stopped, and open All rather than an empty Favorites category when the saved media file is missing.
+- Include tracks from selected Plex music libraries in the standard playlist.
+- Keep Local videos Up/Down mapped to previous/next file after finite-media detection, while respecting custom key mappings and open menus.
 - Resume the exact selected Local videos file at its saved playback position after Q, page closure, or native app exit. Capture the decoder clock before exit/stop; keep completed files and explicit channel changes starting at zero.
 
 ## [1.1.58] - 2026-10-19

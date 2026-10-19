@@ -1912,6 +1912,8 @@ test("profile folders reject unsafe roots and normalize duplicate selections", (
         "https://other.invalid/x",
         "/library/parts/1/file",
         "/library/sections/1/all?X-Plex-Token=secret",
+        "/library/sections/1/all?type=11",
+        "/library/sections/1/all?type=100",
         "/library/sections/1/folder?parent=../2",
         "/library/metadata/4",
     ]) {
@@ -1931,6 +1933,16 @@ test("profile folders reject unsafe roots and normalize duplicate selections", (
     assert.deepEqual(JSON.parse(JSON.stringify(normalized.folders)), [
         { ...root, title: "A B" },
     ]);
+    for (const type of [1, 3, 4, 10]) {
+        const path = "/library/sections/1/all?type=" + type;
+        assert.equal(
+            f.api.normalizePlexConfig({
+                ...base,
+                folders: [{ path, title: "Selected" }],
+            }).folders[0].path,
+            path
+        );
+    }
     assert.equal(f.api.normalizePlexConfig({ ...base, folders: "all" }), null);
 });
 
@@ -2139,6 +2151,59 @@ test("profile folder picker separates selecting a library from browsing its file
         2,
         "search is supplied by the standard channel Actions menu"
     );
+});
+
+test("selecting an artist library saves a track root and scans playable tracks in JSON and XML", () => {
+    for (const response of [
+        {
+            MediaContainer: {
+                Metadata: [{ ratingKey: "42", title: "Song", type: "track" }],
+                size: 1,
+                totalSize: 1,
+            },
+        },
+        '<MediaContainer size="1" totalSize="1"><Track ratingKey="42" title="Song" type="track"/></MediaContainer>',
+    ]) {
+        const f = fixture();
+        const libraries = {
+            MediaContainer: {
+                Directory: [{ key: "3", title: "Music", type: "artist" }],
+            },
+        };
+        f.client.connect(() => {});
+        last(f).reply(libraries);
+        let choice;
+        f.client.folderChoices(null, (result) => (choice = result.items[0]));
+        if (!choice) last(f).reply(libraries);
+        assert.equal(choice.path, "/library/sections/3/all?type=10");
+        assert.equal(choice.browse.path, "/library/sections/3/folder");
+        const config = f.api.normalizePlexConfig({
+            address: "https://plex.invalid",
+            folders: [choice],
+            token,
+        });
+        assert(
+            config,
+            "a selected music library must survive profile validation"
+        );
+        const tracks = [],
+            completions = [];
+        f.client.scanFolders(
+            config.folders,
+            (rows) => tracks.push(...rows),
+            (error) => completions.push(error)
+        );
+        assert.equal(parsed(f).pathname, "/library/sections/3/all");
+        assert.equal(parsed(f).searchParams.get("type"), "10");
+        last(f).reply(response);
+        f.tick(5000);
+        assert.deepEqual(completions, [undefined]);
+        assert.equal(tracks.length, 1);
+        assert.equal(tracks[0].request.path, "/library/metadata/42");
+        assert.equal(tracks[0].stream_url, "plex:request");
+        assert.equal(tracks[0].__ottMediaSequence, true);
+        assert.equal(tracks[0].title, "Song");
+    }
 });
 
 test("profile scan follows capped short pages without totals until an empty terminal page", () => {
