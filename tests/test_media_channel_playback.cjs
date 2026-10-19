@@ -319,6 +319,52 @@ for (const provider of ["plex", "vportal"]) {
         manual.c.calls.filter(([kind]) => kind === "play").at(-1)[2],
         0
     );
+
+    for (const natural of [true, false]) {
+        const locked = setup(provider);
+        Object.assign(locked.c.stored, seed.c.stored);
+        locked.c.commandChannelsReady = false;
+        locked.c._playChannel(0, 0);
+        locked.resolve();
+        locked.c.commandChannelsReady = true;
+        locked.c.isListVisible = true;
+        let unlock;
+        locked.c.ifParentalAccessChId = (_id, next) => {
+            unlock = next;
+            return true;
+        };
+        const closes = locked.c.calls.filter(
+            ([kind]) => kind === "close"
+        ).length;
+        if (natural) locked.end();
+        else locked.c.__ottMedia.skip(1);
+        assert.equal(locked.pending.length, 1, "PIN defers the next file");
+        assert.equal(typeof unlock, "function");
+        locked.c.ifParentalAccessChId = () => false;
+        unlock();
+        assert.equal(locked.pending.at(-1).item.id, 102);
+        locked.resolve();
+        assert.equal(
+            locked.c.calls.filter(([kind]) => kind === "play").at(-1)[2],
+            0,
+            "PIN continuation preserves start-at-zero for the next file"
+        );
+        assert.equal(
+            locked.c.calls.filter(([kind]) => kind === "confirm").length,
+            0,
+            "PIN continuation must not turn an advance into a resume prompt"
+        );
+        const after = locked.c.calls.filter(
+            ([kind]) => kind === "close"
+        ).length;
+        if (natural)
+            assert.equal(
+                after,
+                closes,
+                "background advance keeps the list open after PIN"
+            );
+        else assert(after > closes, "arrow advance opens fullscreen after PIN");
+    }
     console.log(
         "PASS " +
             provider +

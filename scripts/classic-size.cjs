@@ -273,7 +273,9 @@ const { gzipSync } = require("node:zlib");
 // while retaining the previous native, Node 22 and release-suffix allowance.
 // Combined with PR818 recovery guards: 954096/294386 web, 954054/294444
 // native on Node 26.8.2; retain both independently measured allowances.
-const BUDGET = Object.freeze({ bytes: 955255, gzipBytes: 295948 });
+// PR820 local resume/exit and per-profile journal isolation reserve another
+// 512 + 256 raw bytes in the entry, with no increase to its gzip allowance.
+const BUDGET = Object.freeze({ bytes: 956023, gzipBytes: 295948 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -408,7 +410,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count the channel-playlist entry and both optional provider scanners once.
 // The complete payload adds 23671 raw / at most 6957 gzip bytes over 4f9aea8a;
 // allocate 23700/7000, preserving the existing complete-payload headroom.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1088855, gzipBytes: 344698 });
+// Count PR820's 768-byte local resume/journal allowance once in the payload.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1089623, gzipBytes: 344698 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

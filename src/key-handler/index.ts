@@ -472,6 +472,11 @@ function handleMainKey(keyCode: number, event: KeyboardEvent): void {
         },
         play: toggleMainPlayback,
         power: function () {
+            try {
+                call("body_onUnload");
+            } catch (_) {
+                // Persistence must not prevent the user's explicit exit.
+            }
             call("stbExit");
             call("toggleStandby");
         },

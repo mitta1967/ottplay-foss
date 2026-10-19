@@ -1015,7 +1015,15 @@ function classicMediaRuntime(): any {
         next = ((next % members.length) + members.length) % members.length;
         var category = channel.list.category();
         if (category < 0) return;
-        w.playChannel(category, next, !natural, undefined, natural, true);
+        w.playChannel(
+            category,
+            next,
+            !natural,
+            undefined,
+            undefined,
+            natural,
+            true
+        );
     }
     function resolve(
         item: MediaLibraryItem,

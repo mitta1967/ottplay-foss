@@ -33,6 +33,21 @@ large folder. Later batches do not restart playback or reset the selection. If a
 playback** without immediately repeating the stalled scan. Menu navigation and
 saved source/video selection remain available; retrying does not copy media.
 
+Closing the page, pressing **Q** on a PC, or exiting the native app saves the
+current video position before stopping playback. On the next start, the exact
+selected file resumes from that position, including when a saved Local videos
+profile is active. This applies to here.now/browser, OTT Server, Tauri, and
+Capacitor players. Each saved profile keeps its own position; switching profiles
+does not overwrite another profile's or the unprofiled library's resume journal.
+The original source must still be present and permitted;
+missing files or revoked access open recovery instead of playing a different file.
+Local positions do not have the seven-day expiry used for TV archives.
+
+A completed video starts from the beginning. Manually selecting a channel or
+file also starts it from the beginning; automatic position restoration applies
+to player startup. Closing while a slow file is still opening retains its pending
+resume position.
+
 Libraries made by the earlier copy-based version remain readable. Their entries
 are marked as imported copies and expose **Remove copy**. This deletes OTT's
 stored copy, not the original file selected during the old import. OTT cannot
