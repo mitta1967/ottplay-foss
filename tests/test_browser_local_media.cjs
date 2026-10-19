@@ -75,6 +75,7 @@ async function main() {
         browser = await chromium.launch({ headless: true });
         const context = await browser.newContext({ serviceWorkers: "allow" });
         const page = await context.newPage();
+        page.setDefaultTimeout(10000);
         await page.goto(origin);
         await page.evaluate(() => navigator.serviceWorker.ready);
         await page.waitForFunction(() => navigator.serviceWorker.controller);
@@ -87,9 +88,26 @@ async function main() {
         );
         const result = await page.evaluate(async () => {
             const api = window.__ottBrowserLocalMedia;
-            const first = await api.importFiles([
-                new File(["fixture-video"], "clip.mp4", { type: "video/mp4" }),
-            ]);
+            // Backward compatibility: old copied libraries remain readable,
+            // but new selection must never create another media copy.
+            await new Promise((resolve, reject) => {
+                const request = indexedDB.open("ott-local-media", 1);
+                request.onsuccess = () => {
+                    const tx = request.result.transaction("files", "readwrite");
+                    tx.objectStore("files").put({
+                        blob: new File(["fixture-video"], "clip.mp4", {
+                            type: "video/mp4",
+                        }),
+                        created: 1,
+                        id: "legacy-fixture",
+                        name: "clip.mp4",
+                    });
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                };
+                request.onerror = () => reject(request.error);
+            });
+            const first = await api.list();
             const repeated = await api.list();
             return {
                 data: await (await fetch(first.items[0].url)).text(),
@@ -115,7 +133,7 @@ async function main() {
                         (e) => e.message
                     )
             ),
-            "Choose supported video or audio files"
+            "Direct sources require the file picker; media copying is disabled"
         );
         assert.equal(
             await page.evaluate(
@@ -198,7 +216,7 @@ async function main() {
         );
         assert.equal(missing.available, false);
         console.log(
-            "PASS browser local media: IndexedDB import, stable playback URL, validation, persistence, offline cold reload, no private cache, delete, unsupported browser"
+            "PASS browser local media: legacy IndexedDB reads, stable playback URL, validation, persistence, offline cold reload, no private cache, delete, unsupported browser"
         );
     } finally {
         if (browser) await browser.close();
@@ -244,6 +262,18 @@ async function builtUi() {
     fs.writeFileSync(path.join(mediaFolder, "notes.txt"), "not a video");
     const server = http.createServer((req, res) => {
         const url = new URL(req.url, "http://localhost");
+        if (url.pathname === "/test-local-library") {
+            res.setHeader("Content-Type", "application/json");
+            res.end(
+                JSON.stringify({
+                    available: true,
+                    items: [],
+                    sources: [],
+                    storage: "server",
+                })
+            );
+            return;
+        }
         const relative =
             url.pathname === "/" || url.pathname.startsWith("/f/")
                 ? "index.html"
@@ -275,6 +305,7 @@ async function builtUi() {
     try {
         const context = await browser.newContext({ serviceWorkers: "allow" });
         const page = await context.newPage();
+        page.setDefaultTimeout(10000);
         const errors = [];
         page.on("pageerror", (e) => errors.push(e.message));
         await page.addInitScript(() => {
@@ -290,7 +321,24 @@ async function builtUi() {
                 window.__ottLocalMedia &&
                 !document.body.classList.contains("booting")
         );
-        async function chooseLocalProvider(empty = true) {
+        const action = (name) =>
+            page.locator('[data-local-media-action="' + name + '"]');
+        async function selectAction(name) {
+            const index = await page.evaluate(
+                (id) => window.listArray.findIndex((row) => row.id === id),
+                name
+            );
+            assert.ok(index >= 0, "Missing local media action: " + name);
+            for (let step = 0; step < 30; step++) {
+                const current = await page.evaluate(() => window.selIndex);
+                if (current === index) break;
+                await page.keyboard.press(
+                    current < index ? "ArrowDown" : "ArrowUp"
+                );
+            }
+            await page.keyboard.press("Enter");
+        }
+        async function chooseLocalProvider() {
             await page.evaluate(() => {
                 window.stbStop();
                 window.showProviderSelection();
@@ -305,95 +353,115 @@ async function builtUi() {
                 await page.keyboard.press("ArrowDown");
             }
             await page.keyboard.press("Enter");
-            await page.getByRole("dialog", { name: "Local videos" }).waitFor();
-            if (empty)
-                await page
-                    .getByText("No local videos yet.", { exact: false })
-                    .waitFor();
+            await action("add-folder").waitFor();
         }
         await chooseLocalProvider();
+        await selectAction("play");
         await page
-            .getByRole("dialog", { name: "Local videos" })
-            .getByRole("button", { exact: true, name: "Close" })
-            .click();
+            .getByText(
+                "No playable local videos. Add a folder or grant access to a connected source.",
+                { exact: true }
+            )
+            .waitFor();
+        assert.notEqual(
+            await page.evaluate(() => window.stbGetItem("ottplayprov")),
+            "offline",
+            "empty Play must not activate an empty provider"
+        );
+        await selectAction("close");
         await chooseLocalProvider();
-        assert.equal(
-            await page
-                .getByRole("button", { exact: true, name: "Play local videos" })
-                .isDisabled(),
-            true,
-            "empty library must offer import instead of activating an empty channel list"
+        await page.screenshot({ path: "/tmp/ott-local-standard-ui.png" });
+        await selectAction("server-library");
+        await page.locator("#editvar").fill(origin + "/test-local-library");
+        await page.keyboard.press("Enter");
+        await page.waitForFunction(() =>
+            window
+                .stbGetItem("localMediaEndpoint")
+                .endsWith("/test-local-library")
         );
         await page
-            .getByText("This library belongs to this website", { exact: false })
+            .getByText(
+                "A server library is selected. Clear its URL to use files on this device.",
+                { exact: true }
+            )
             .waitFor();
-        assert.equal(
-            await page.evaluate(() => document.activeElement.textContent),
-            "Add files",
-            "fresh library focuses import after asynchronous catalog rendering"
+        await selectAction("server-library");
+        await page.locator("#editvar").fill("");
+        await page.keyboard.press("Enter");
+        await page.waitForFunction(
+            () => !window.stbGetItem("localMediaEndpoint")
         );
+        await action("add-folder").waitFor();
+        // Start at the first row to verify normal remote navigation.
+        while (await page.evaluate(() => window.selIndex > 0))
+            await page.keyboard.press("ArrowUp");
         await page.keyboard.press("ArrowDown");
         assert.equal(
-            await page.evaluate(() => document.activeElement.textContent),
-            "Add folder"
+            await page.evaluate(() => window.listArray[window.selIndex].id),
+            "add-files",
+            "standard remote list navigation handles local manager rows"
         );
-        await page.keyboard.press("ArrowDown");
-        assert.equal(
-            await page.evaluate(() => document.activeElement.textContent),
-            "Refresh",
-            "remote navigation skips disabled Play on an empty library"
+        // Real filesystem handles, not uploaded File/Blob copies. The native
+        // picker is replaced only to make the user-selection step deterministic.
+        await page.evaluate(async (bytes) => {
+            const root = await navigator.storage.getDirectory();
+            const folder = await root.getDirectoryHandle("selected-folder", {
+                create: true,
+            });
+            const nested = await folder.getDirectoryHandle("nested", {
+                create: true,
+            });
+            async function write(parent, name, data) {
+                const handle = await parent.getFileHandle(name, {
+                    create: true,
+                });
+                const output = await handle.createWritable();
+                await output.write(data);
+                await output.close();
+                return handle;
+            }
+            const file = await write(
+                root,
+                "offline-fixture.mp4",
+                new Uint8Array(bytes)
+            );
+            await write(nested, "folder-video.mp4", new Uint8Array(bytes));
+            await write(folder, "notes.txt", "not a video");
+            window.showOpenFilePicker = () => Promise.resolve([file]);
+            window.showDirectoryPicker = () => Promise.resolve(folder);
+        }, Array.from(movie));
+        await selectAction("add-files");
+        await page.waitForFunction(
+            () =>
+                document.querySelectorAll(
+                    '[data-local-media-action="disconnect-source"]'
+                ).length === 1
         );
-        const chooserPromise = page.waitForEvent("filechooser");
-        await page
-            .getByRole("button", { exact: true, name: "Add files" })
-            .click();
-        await (await chooserPromise).setFiles({
-            buffer: movie,
-            mimeType: "video/mp4",
-            name: "offline-fixture.mp4",
-        });
-        await page
-            .getByText("offline-fixture.mp4 —", { exact: false })
-            .waitFor();
-        const folderChooser = page.waitForEvent("filechooser");
-        await page
-            .getByRole("button", { exact: true, name: "Add folder" })
-            .click();
-        await (await folderChooser).setFiles(mediaFolder);
-        await page
-            .getByText("nested/folder-video.mp4", { exact: false })
-            .waitFor();
+        await selectAction("add-folder");
+        await page.waitForFunction(
+            () =>
+                document.querySelectorAll(
+                    '[data-local-media-action="disconnect-source"]'
+                ).length === 2
+        );
         assert.equal(
             await page.evaluate(
                 async () => (await window.__ottLocalMedia.list()).items.length
             ),
             2,
-            "folder imports nested media and skips text files"
+            "linked folder lists nested media and skips text files"
         );
-        await page
-            .getByRole("dialog", { name: "Local videos" })
-            .getByRole("button", { exact: true, name: "Close" })
-            .click();
-        await chooseLocalProvider(false);
-        await page
-            .getByRole("button", { exact: true, name: "Play local videos" })
-            .click();
+        await selectAction("close");
+        await chooseLocalProvider();
+        await selectAction("play");
         await page.waitForFunction(() =>
             Array.from(document.querySelectorAll("video")).some(
                 (v) => v.currentTime > 0.1 && !v.error
             )
         );
-        await chooseLocalProvider(false);
-        assert.equal(
-            await page
-                .getByRole("button", { exact: true, name: "Play local videos" })
-                .isEnabled(),
-            true,
-            "selecting an already active, populated local provider opens management"
-        );
-        await page
-            .getByRole("button", { exact: true, name: "Play local videos" })
-            .click();
+        await chooseLocalProvider();
+        await action("play").waitFor();
+        await selectAction("play");
         await page.waitForFunction(() =>
             Array.from(document.querySelectorAll("video")).some(
                 (v) => v.currentTime > 0.1 && !v.error
@@ -470,7 +538,7 @@ async function builtUi() {
         );
         assert.deepEqual(errors, []);
         console.log(
-            "PASS built UI: file and nested-folder import, non-media filtering, always-open Local videos manager, real MP4 decoding, stable IDs and playback after offline cold reload (with a user gesture when browser autoplay policy requires it)"
+            "PASS built UI: file and nested-folder links, non-media filtering, always-open Local videos manager, real MP4 decoding, stable IDs and playback after offline cold reload (with a user gesture when browser autoplay policy requires it)"
         );
     } finally {
         await browser.close();

@@ -1,27 +1,27 @@
-//! Desktop media lives in this instance's private application-data directory.
+//! Native-picked local sources, served directly through a private loopback endpoint.
 use serde::Serialize;
 use tauri::{AppHandle, State};
+use tauri_plugin_dialog::DialogExt;
 use tokio::sync::Mutex;
 
+#[derive(Clone)]
+struct Runtime {
+    endpoint: String,
+    library: ottplay_core::offline_media::Library,
+}
 #[derive(Default)]
-pub struct OfflineMediaState(Mutex<Option<String>>);
+pub struct OfflineMediaState(Mutex<Option<Runtime>>);
 #[derive(Serialize)]
 pub struct Endpoint {
     endpoint: String,
 }
 
-#[tauri::command]
-pub async fn offline_media_endpoint(
-    app: AppHandle,
-    state: State<'_, OfflineMediaState>,
-) -> Result<Endpoint, String> {
-    let mut endpoint = state.0.lock().await;
-    if let Some(value) = endpoint.as_ref() {
-        return Ok(Endpoint {
-            endpoint: value.clone(),
-        });
+async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, String> {
+    let mut current = state.0.lock().await;
+    if let Some(value) = current.as_ref() {
+        return Ok(value.clone());
     }
-    let root = crate::instance::app_data_dir(&app)?.join("offline-media");
+    let root = crate::instance::app_data_dir(app)?.join("offline-media");
     let token = format!(
         "{}{}",
         uuid::Uuid::new_v4().simple(),
@@ -36,12 +36,101 @@ pub async fn offline_media_endpoint(
     let address = listener
         .local_addr()
         .map_err(|_| "Local media listener unavailable")?;
-    let value = format!("http://{address}{}", library.endpoint());
+    let endpoint = format!("http://{address}{}", library.endpoint());
+    let server = library.clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(error) = axum::serve(listener, library.routes()).await {
+        if let Err(error) = axum::serve(listener, server.routes()).await {
             tracing::warn!(%error, "Offline media listener stopped");
         }
     });
-    *endpoint = Some(value.clone());
-    Ok(Endpoint { endpoint: value })
+    let result = Runtime { endpoint, library };
+    *current = Some(result.clone());
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn offline_media_endpoint(
+    app: AppHandle,
+    state: State<'_, OfflineMediaState>,
+) -> Result<Endpoint, String> {
+    let current = runtime(&app, &state).await?;
+    current.library.refresh_sources().await;
+    Ok(Endpoint {
+        endpoint: current.endpoint,
+    })
+}
+
+#[tauri::command]
+pub async fn offline_media_import_files(
+    app: AppHandle,
+    state: State<'_, OfflineMediaState>,
+) -> Result<Endpoint, String> {
+    let current = runtime(&app, &state).await?;
+    let selected = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .add_filter("Media", &["mp4", "m4v", "webm", "ogv", "mp3", "m4a", "ogg"])
+            .blocking_pick_files()
+    })
+    .await
+    .map_err(|_| "File picker unavailable")?;
+    if let Some(files) = selected {
+        let paths = files
+            .into_iter()
+            .map(|file| {
+                file.into_path()
+                    .map_err(|_| "Select a local filesystem file")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        current
+            .library
+            .link_paths(paths, false)
+            .await
+            .map_err(|_| "Unable to link selected files; no files were copied")?;
+    }
+    Ok(Endpoint {
+        endpoint: current.endpoint,
+    })
+}
+
+#[tauri::command]
+pub async fn offline_media_import_folder(
+    app: AppHandle,
+    state: State<'_, OfflineMediaState>,
+) -> Result<Endpoint, String> {
+    let current = runtime(&app, &state).await?;
+    let selected =
+        tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
+            .await
+            .map_err(|_| "Folder picker unavailable")?;
+    if let Some(folder) = selected {
+        let path = folder
+            .into_path()
+            .map_err(|_| "Select a local filesystem folder")?;
+        current
+            .library
+            .link_paths(vec![path], true)
+            .await
+            .map_err(|_| "Unable to link selected folder; no files were copied")?;
+    }
+    Ok(Endpoint {
+        endpoint: current.endpoint,
+    })
+}
+
+#[tauri::command]
+pub async fn offline_media_remove_source(
+    app: AppHandle,
+    state: State<'_, OfflineMediaState>,
+    id: String,
+) -> Result<Endpoint, String> {
+    let current = runtime(&app, &state).await?;
+    current
+        .library
+        .disconnect_source(&id)
+        .await
+        .map_err(|_| "Unable to disconnect local source")?;
+    Ok(Endpoint {
+        endpoint: current.endpoint,
+    })
 }

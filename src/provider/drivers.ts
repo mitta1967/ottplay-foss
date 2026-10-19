@@ -237,6 +237,7 @@ function createOfflineDriver(
                     if (!active() || request !== revision) return;
                     catalog = emptyDriverCatalog();
                     value.items.forEach(function (item: any) {
+                        if (item.available === false || !item.url) return;
                         var id = "local-" + item.id;
                         catalog.ids.push(id);
                         catalog.channels[id] = {

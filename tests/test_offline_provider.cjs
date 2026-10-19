@@ -89,3 +89,35 @@ test("empty catalog callback cannot reopen import after provider replacement", a
     await Promise.resolve();
     assert.equal(opened, false);
 });
+
+test("unavailable source entries never become playable channels", async () => {
+    const f = fixture();
+    f.host.__ottLocalMedia = {
+        list: async () => ({
+            items: [
+                {
+                    available: false,
+                    id: "missing",
+                    name: "Missing.mp4",
+                    url: "",
+                },
+                {
+                    available: false,
+                    id: "denied",
+                    name: "Denied.mp4",
+                    url: "blob:stale",
+                },
+                {
+                    available: true,
+                    id: "ready",
+                    name: "Ready.mp4",
+                    url: "blob:ready",
+                },
+            ],
+        }),
+    };
+    const driver = f.mount("offline");
+    const catalog = await new Promise((resolve) => driver.load(resolve));
+    assert.deepEqual(Array.from(catalog.ids), ["local-ready"]);
+    assert.equal(driver.stream("local-denied"), "");
+});

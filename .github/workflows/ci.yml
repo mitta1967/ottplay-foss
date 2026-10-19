@@ -227,7 +227,9 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
 
       - name: Test local browser media and offline app shell
-        run: node tests/test_browser_local_media.cjs --built-ui
+        run: |
+          node tests/test_browser_direct_media.cjs
+          node tests/test_browser_local_media.cjs --built-ui
 
       - name: Test hosted EPG worker and persistent cache
         run: npm run test:hosted:browser

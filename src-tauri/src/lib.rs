@@ -32,6 +32,7 @@ pub fn run() {
     // No listener starts at launch; settings explicitly configure optional HTTP.
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .plugin({
             // Persist main window position/size across launches (Mode B frameless).
             // SIZE|POSITION|VISIBLE only — never FULLSCREEN/MAXIMIZED/DECORATIONS so
@@ -66,6 +67,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::tauri_commands::ping,
             commands::offline_media::offline_media_endpoint,
+            commands::offline_media::offline_media_import_files,
+            commands::offline_media::offline_media_import_folder,
+            commands::offline_media::offline_media_remove_source,
             commands::runtime_diagnostics::runtime_diagnostics,
             commands::tauri_commands::get_epg,
             commands::m3u::match_channels,

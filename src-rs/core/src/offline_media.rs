@@ -1,4 +1,4 @@
-//! Private, persistent local media with streaming imports and byte-range playback.
+//! Local media: private server imports and native-picked, read-only source references.
 //! Requests can select opaque IDs only, never filesystem paths.
 use axum::{
     body::{Body, Bytes},
@@ -48,6 +48,25 @@ struct Record {
     size: u64,
     mime: String,
     extension: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    linked_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_id: Option<String>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+struct SourceRecord {
+    id: String,
+    name: String,
+    kind: String,
+    path: PathBuf,
+}
+#[derive(Serialize)]
+pub struct Source {
+    id: String,
+    name: String,
+    kind: String,
+    available: bool,
+    access: &'static str,
 }
 #[derive(Serialize)]
 pub struct Item {
@@ -56,6 +75,10 @@ pub struct Item {
     pub size: u64,
     pub mime: String,
     pub url: String,
+    pub available: bool,
+    pub source: &'static str,
+    #[serde(rename = "sourceId")]
+    pub source_id: String,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,6 +88,8 @@ pub struct Catalog {
     pub storage: String,
     pub persistent: bool,
     pub upload_url: String,
+    pub direct_sources: bool,
+    pub sources: Vec<Source>,
 }
 #[derive(Deserialize)]
 struct ImportQuery {
@@ -99,6 +124,10 @@ impl Library {
             .route(
                 "/offline-media/:token/import",
                 post(import).options(preflight),
+            )
+            .route(
+                "/offline-media/:token/sources/:id",
+                axum::routing::delete(remove_source).options(preflight),
             )
             .route(
                 "/offline-media/:token/:id",
@@ -154,7 +183,7 @@ impl Library {
             if let Ok(record) = serde_json::from_slice::<Record>(&bytes) {
                 if valid_id(&record.id)
                     && media_type(&record.extension) == Some(record.mime.as_str())
-                    && self.path(&record).await.is_ok()
+                    && (record.linked_path.is_some() || self.path(&record).await.is_ok())
                 {
                     out.push(record);
                 }
@@ -169,9 +198,15 @@ impl Library {
         Ok(out)
     }
     async fn path(&self, record: &Record) -> Result<PathBuf, Failure> {
-        let path = self
-            .root
-            .join(format!("{}.{}", record.id, record.extension));
+        let path = record.linked_path.clone().unwrap_or_else(|| {
+            self.root
+                .join(format!("{}.{}", record.id, record.extension))
+        });
+        if record.linked_path.is_some()
+            && fs::canonicalize(&path).await.ok().as_ref() != Some(&path)
+        {
+            return Err((StatusCode::GONE, "Original source unavailable"));
+        }
         let metadata = fs::symlink_metadata(&path)
             .await
             .map_err(|_| (StatusCode::NOT_FOUND, "Media not found"))?;
@@ -190,26 +225,252 @@ impl Library {
             .find(|r| r.id == id)
             .ok_or((StatusCode::NOT_FOUND, "Media not found"))
     }
-    async fn catalog(&self) -> Result<Catalog, Failure> {
-        let base = self.endpoint();
-        let items = self
+    async fn source_records(&self) -> Result<Vec<SourceRecord>, Failure> {
+        let folder = self.root.join("sources");
+        fs::create_dir_all(&folder).await.map_err(storage_error)?;
+        let mut entries = fs::read_dir(folder).await.map_err(storage_error)?;
+        let mut sources = Vec::new();
+        while let Some(entry) = entries.next_entry().await.map_err(storage_error)? {
+            if !entry.file_type().await.map_err(storage_error)?.is_file()
+                || entry.path().extension().and_then(|x| x.to_str()) != Some("json")
+            {
+                continue;
+            }
+            if entry.metadata().await.map_err(storage_error)?.len() > 16384 {
+                continue;
+            }
+            if let Ok(bytes) = fs::read(entry.path()).await {
+                if let Ok(source) = serde_json::from_slice::<SourceRecord>(&bytes) {
+                    if valid_id(&source.id) {
+                        sources.push(source);
+                    }
+                }
+            }
+        }
+        Ok(sources)
+    }
+
+    /// Called only with paths returned by an OS-native picker, never HTTP input.
+    /// Stores names and original paths; no source media is copied or deleted.
+    pub async fn link_paths(&self, paths: Vec<PathBuf>, folder: bool) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.storage == "device",
+            "Native sources are unavailable on this server"
+        );
+        let _lock = self.mutation.lock().await;
+        let mut records = self
             .records()
-            .await?
-            .into_iter()
-            .map(|r| Item {
+            .await
+            .map_err(|_| anyhow::anyhow!("Cannot read media metadata"))?;
+        let sources = self
+            .source_records()
+            .await
+            .map_err(|_| anyhow::anyhow!("Cannot read media sources"))?;
+        for picked in paths {
+            let root = fs::canonicalize(&picked).await?;
+            let metadata = fs::metadata(&root).await?;
+            anyhow::ensure!(
+                if folder {
+                    metadata.is_dir()
+                } else {
+                    metadata.is_file()
+                },
+                "Invalid selected source"
+            );
+            let id = sources
+                .iter()
+                .find(|s| s.path == root)
+                .map(|s| s.id.clone())
+                .unwrap_or_else(|| uuid::Uuid::new_v4().simple().to_string());
+            let name = root
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Local media")
+                .to_string();
+            let source = SourceRecord {
+                id: id.clone(),
+                name,
+                kind: if folder { "folder" } else { "file" }.into(),
+                path: root.clone(),
+            };
+            let mut pending = vec![root];
+            let mut count = 0;
+            while let Some(path) = pending.pop() {
+                count += 1;
+                anyhow::ensure!(count <= 20000, "Selected source contains too many entries");
+                let metadata = fs::symlink_metadata(&path).await?;
+                // Do not traverse symlinks out of the user's selected tree.
+                if metadata.file_type().is_symlink() {
+                    continue;
+                }
+                if metadata.is_dir() {
+                    let mut children = fs::read_dir(path).await?;
+                    while let Some(entry) = children.next_entry().await? {
+                        pending.push(entry.path());
+                    }
+                    continue;
+                }
+                if !metadata.is_file() {
+                    continue;
+                }
+                let extension = path
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_ascii_lowercase();
+                let Some(mime) = media_type(&extension) else {
+                    continue;
+                };
+                if records
+                    .iter()
+                    .any(|r| r.linked_path.as_ref() == Some(&path))
+                {
+                    continue;
+                }
+                let record = Record {
+                    id: uuid::Uuid::new_v4().simple().to_string(),
+                    name: path
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("Local media")
+                        .into(),
+                    size: metadata.len(),
+                    mime: mime.into(),
+                    extension,
+                    linked_path: Some(path),
+                    source_id: Some(id.clone()),
+                };
+                let destination = self.root.join(format!("{}.json", record.id));
+                let temporary = destination.with_extension("part");
+                fs::write(&temporary, serde_json::to_vec(&record)?).await?;
+                fs::rename(temporary, destination).await?;
+                records.push(record);
+            }
+            let destination = self.root.join("sources").join(format!("{id}.json"));
+            let temporary = destination.with_extension("part");
+            fs::write(&temporary, serde_json::to_vec(&source)?).await?;
+            fs::rename(temporary, destination).await?;
+        }
+        Ok(())
+    }
+
+    /// Refresh existing folder grants without dropping missing files or changing stable IDs.
+    pub async fn refresh_sources(&self) {
+        if self.storage != "device" {
+            return;
+        }
+        let Ok(sources) = self.source_records().await else {
+            return;
+        };
+        for source in sources {
+            if source.kind != "folder" {
+                continue;
+            }
+            // Unmounted, moved or denied sources remain visible for reconnection.
+            if let Err(_error) = self.link_paths(vec![source.path], true).await {
+                tracing::debug!("Local source currently unavailable during refresh");
+            }
+        }
+    }
+
+    pub async fn disconnect_source(&self, id: &str) -> anyhow::Result<()> {
+        anyhow::ensure!(valid_id(id), "Invalid source ID");
+        let _lock = self.mutation.lock().await;
+        for record in self
+            .records()
+            .await
+            .map_err(|_| anyhow::anyhow!("Cannot read media metadata"))?
+        {
+            if record.source_id.as_deref().unwrap_or(&record.id) != id {
+                continue;
+            }
+            if record.linked_path.is_none() {
+                if let Ok(path) = self.path(&record).await {
+                    fs::remove_file(path).await?;
+                }
+            }
+            fs::remove_file(self.root.join(format!("{}.json", record.id))).await?;
+        }
+        let path = self.root.join("sources").join(format!("{id}.json"));
+        if fs::try_exists(&path).await? {
+            fs::remove_file(path).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn catalog(&self) -> Result<Catalog, Failure> {
+        let base = self.endpoint();
+        let records = self.records().await?;
+        let mut items = Vec::new();
+        for r in records {
+            let available = self.path(&r).await.is_ok();
+            let size = match self.path(&r).await {
+                Ok(path) => fs::metadata(path).await.map(|m| m.len()).unwrap_or(r.size),
+                Err(_) => r.size,
+            };
+            items.push(Item {
                 id: r.id.clone(),
                 name: r.name,
-                size: r.size,
+                size,
                 mime: r.mime,
-                url: format!("{base}/{}", r.id),
-            })
-            .collect();
+                url: if available {
+                    format!("{base}/{}", r.id)
+                } else {
+                    String::new()
+                },
+                available,
+                source: if r.linked_path.is_some() {
+                    "linked"
+                } else {
+                    "imported"
+                },
+                source_id: r.source_id.unwrap_or(r.id),
+            });
+        }
+        let mut sources = Vec::new();
+        for source in self.source_records().await? {
+            let available = fs::symlink_metadata(&source.path)
+                .await
+                .map(|m| {
+                    !m.file_type().is_symlink()
+                        && if source.kind == "folder" {
+                            m.is_dir()
+                        } else {
+                            m.is_file()
+                        }
+                })
+                .unwrap_or(false);
+            sources.push(Source {
+                id: source.id,
+                name: source.name,
+                kind: source.kind,
+                available,
+                access: if available { "granted" } else { "unavailable" },
+            });
+        }
+        for item in &items {
+            if !sources.iter().any(|s| s.id == item.source_id) {
+                sources.push(Source {
+                    id: item.source_id.clone(),
+                    name: item.name.clone(),
+                    kind: "file".into(),
+                    available: item.available,
+                    access: if item.available {
+                        "granted"
+                    } else {
+                        "unavailable"
+                    },
+                });
+            }
+        }
         Ok(Catalog {
             available: true,
             items,
             storage: self.storage.clone(),
             persistent: true,
             upload_url: format!("{base}/import"),
+            direct_sources: self.storage == "device",
+            sources,
         })
     }
 }
@@ -385,6 +646,8 @@ async fn import_inner(
         size,
         mime: mime.into(),
         extension,
+        linked_path: None,
+        source_id: None,
     };
     let encoded = serde_json::to_vec(&record).map_err(storage_error)?;
     if let Err(e) = fs::write(l.root.join(format!("{id}.json")), encoded).await {
@@ -398,9 +661,11 @@ async fn remove(State(l): State<Library>, Path((token, id)): Path<(String, Strin
         l.authorize(&token)?;
         let _lock = l.mutation.lock().await;
         let record = l.record(&id).await?;
-        fs::remove_file(l.path(&record).await?)
-            .await
-            .map_err(storage_error)?;
+        if record.linked_path.is_none() {
+            fs::remove_file(l.path(&record).await?)
+                .await
+                .map_err(storage_error)?;
+        }
         fs::remove_file(l.root.join(format!("{id}.json")))
             .await
             .map_err(storage_error)?;
@@ -414,6 +679,24 @@ async fn remove(State(l): State<Library>, Path((token, id)): Path<(String, Strin
     cors(&mut r);
     r
 }
+async fn remove_source(
+    State(l): State<Library>,
+    Path((token, id)): Path<(String, String)>,
+) -> Response {
+    let result = async {
+        l.authorize(&token)?;
+        l.disconnect_source(&id).await.map_err(storage_error)?;
+        l.catalog().await
+    }
+    .await;
+    let mut response = match result {
+        Ok(catalog) => Json(catalog).into_response(),
+        Err(error) => error.into_response(),
+    };
+    cors(&mut response);
+    response
+}
+
 fn byte_range(value: Option<&str>, size: u64) -> Result<Option<(u64, u64)>, Failure> {
     let Some(value) = value else { return Ok(None) };
     let fail = || (StatusCode::RANGE_NOT_SATISFIABLE, "Invalid byte range");
@@ -521,6 +804,114 @@ async fn media(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn native_sources_stream_originals_persist_and_disconnect_without_deleting() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = root.with_extension("originals");
+        fs::create_dir_all(originals.join("subfolder"))
+            .await
+            .unwrap();
+        let movie = originals.join("subfolder").join("movie.mp4");
+        fs::write(&movie, "0123456789").await.unwrap();
+        fs::write(originals.join("notes.txt"), "keep this")
+            .await
+            .unwrap();
+        let library = Library::new(root.clone(), "g".repeat(32), "device")
+            .await
+            .unwrap();
+        library
+            .link_paths(vec![originals.clone()], true)
+            .await
+            .unwrap();
+        let catalog = library.catalog().await.unwrap();
+        assert_eq!(catalog.items.len(), 1);
+        assert_eq!(catalog.sources.len(), 1);
+        assert_eq!(catalog.items[0].source, "linked");
+        assert_eq!(catalog.items[0].source_id, catalog.sources[0].id);
+        // App data contains metadata only, never an mp4 copy.
+        assert!(!root.join(format!("{}.mp4", catalog.items[0].id)).exists());
+        let original_id = catalog.items[0].id.clone();
+        fs::write(originals.join("new.mp4"), "new content")
+            .await
+            .unwrap();
+        library.refresh_sources().await;
+        let refreshed = library.catalog().await.unwrap();
+        assert_eq!(refreshed.items.len(), 2);
+        assert!(refreshed.items.iter().any(|item| item.id == original_id));
+        library.refresh_sources().await;
+        assert_eq!(library.catalog().await.unwrap().items.len(), 2);
+        let reopened = Library::new(root.clone(), "h".repeat(32), "device")
+            .await
+            .unwrap();
+        assert_eq!(reopened.catalog().await.unwrap().items.len(), 2);
+        let mut headers = HeaderMap::new();
+        headers.insert("range", "bytes=2-5".parse().unwrap());
+        let response = media(
+            State(reopened.clone()),
+            Path(("h".repeat(32), catalog.items[0].id.clone())),
+            headers,
+            Method::GET,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(
+            axum::body::to_bytes(response.into_body(), 1024)
+                .await
+                .unwrap(),
+            "2345"
+        );
+        // Missing original stays visible but cannot be played.
+        fs::rename(&movie, movie.with_extension("moved"))
+            .await
+            .unwrap();
+        reopened.refresh_sources().await;
+        let missing = reopened.catalog().await.unwrap();
+        let missing_original = missing
+            .items
+            .iter()
+            .find(|item| item.id == original_id)
+            .unwrap();
+        assert!(!missing_original.available);
+        assert!(missing_original.url.is_empty());
+        reopened
+            .disconnect_source(&catalog.sources[0].id)
+            .await
+            .unwrap();
+        assert!(reopened.catalog().await.unwrap().items.is_empty());
+        assert_eq!(
+            fs::read(movie.with_extension("moved")).await.unwrap(),
+            b"0123456789"
+        );
+        assert_eq!(
+            fs::read(originals.join("notes.txt")).await.unwrap(),
+            b"keep this"
+        );
+        fs::remove_dir_all(root).await.unwrap();
+        fs::remove_dir_all(originals).await.unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn native_folder_does_not_follow_external_symlinks() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = root.with_extension("originals");
+        let secret = root.with_extension("secret.mp4");
+        fs::create_dir_all(&originals).await.unwrap();
+        fs::write(&secret, "private").await.unwrap();
+        std::os::unix::fs::symlink(&secret, originals.join("escape.mp4")).unwrap();
+        let library = Library::new(root.clone(), "i".repeat(32), "device")
+            .await
+            .unwrap();
+        library
+            .link_paths(vec![originals.clone()], true)
+            .await
+            .unwrap();
+        assert!(library.catalog().await.unwrap().items.is_empty());
+        fs::remove_dir_all(root).await.unwrap();
+        fs::remove_dir_all(originals).await.unwrap();
+        fs::remove_file(secret).await.unwrap();
+    }
+
     #[test]
     fn ranges() {
         assert_eq!(byte_range(Some("bytes=2-4"), 10).unwrap(), Some((2, 4)));

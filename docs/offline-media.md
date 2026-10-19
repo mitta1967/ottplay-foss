@@ -1,50 +1,80 @@
 # Local videos and offline playback
 
-The **Local videos** library imports media files and exposes them as the
-`offline` provider. Open **Settings → Local videos**, choose **Add files** or **Add folder** (Chrome/desktop), then
-**Play local videos**. You can also select **Local videos** from the provider
-list. When the library is empty, selecting this provider opens the import screen instead of an empty channel list. The player does not scan the computer: select files with **Add files** first. Chrome profiles, separate site addresses, and native apps have separate libraries. Channel identity is derived from the stored file ID; playback URLs are
-refreshed every time the catalog loads. Existing channel selection, favourites
-and kiosk rules apply to these entries.
+**Local videos** plays files from connected local sources without making an
+additional OTT copy. Open **Settings → Local videos**, or select **Local videos**
+from the provider list. Its controls use the player's normal settings list:
+**Add folder**, **Add files**, **Grant access** when needed, **Refresh**,
+**Play local videos**, and **Disconnect** for each source. There is no separate
+file-manager dialog. The operating system's file/folder picker still appears to
+let you choose what OTT may read.
 
-Selecting **Local videos** always opens its management window. **Add folder** imports supported media from that folder and its subfolders, skips non-media files, and preserves relative names in browser storage. This copies a snapshot into the library; it does not mount or continuously watch the original folder. Native mobile apps currently use **Add files**.
+Choose a folder or files, then choose **Play local videos** to open the channel
+list. OTT saves references and small metadata records, not a second copy of the
+movies. The original disk, SD card, or directory must remain accessible. Moving
+or deleting originals, removing an SD card, or revoking access can make entries
+unavailable. Reconnect the source or grant access again; an unavailable source
+is not silently copied or substituted. **Disconnect** removes the library
+reference and leaves the original media untouched.
 
-Files are imported explicitly. This feature does not download IPTV channels,
-copy Plex libraries, transcode video, or import multi-file HLS packages. Start
-with H.264/AAC in an MP4 container for older Fire tablets. Supported codecs still
-depend on the platform. Keep your original files as a backup. Browser autoplay rules may require pressing Play or Space after an offline reload.
+Libraries made by the earlier copy-based version remain readable. Their entries
+are marked as imported copies and expose **Remove copy**. This deletes OTT's
+stored copy, not the original file selected during the old import. OTT cannot
+infer the old source location or automatically convert such copies into links.
+To reclaim duplicate storage, connect the original first, verify playback, and
+then remove the old imported copy.
 
-## Where files live
+## Platform behavior
 
-- **Capacitor Android / iOS:** copied into application-private storage. The UI is
-  bundled in the application. Playing imported files needs no Internet or NAS.
-  Installing a native application build containing the new plugin is required;
-  updating JavaScript alone cannot add it. See [native details](offline-media-native.md).
-- **Tauri desktop:** copied through a streaming upload to the application-data
-  library. A private loopback server serves only library IDs, supports byte
-  ranges, and binds to `127.0.0.1`. Port and token change after application restart.
-- **Browser / here.now / server-hosted player:** copied into IndexedDB for the
-  current origin. The videos stay on the device; importing does not upload them
-  to here.now. The browser may evict unprotected storage or the user may clear
-  site data. The UI reports whether persistent storage was granted.
-- **Optional Rust server library:** files live on the server disk. A remote
-  player still needs a connection to this server. Use browser/device import for
-  playback when the client must be completely disconnected.
+- **Capacitor Android:** Android's Storage Access Framework grants read access to
+  selected documents/folders. OTT persists the document URIs and reads the
+  original through a private loopback streaming server. This includes the
+  API 22 Fire variant, subject to the device providing a working document picker.
+  Sources must support seeking; unseekable provider streams are rejected without
+  falling back to a copy. **Refresh** rescans connected folders for additions.
+  See [Android sources](android-local-media-sources.md).
+- **Capacitor iOS:** the Files picker selects files/folders in place. OTT stores
+  document bookmarks, keeps scoped read access active for playback, and rescans
+  connected directories on refresh. See [iOS sources](offline-media-ios-direct.md).
+- **Tauri desktop:** a native picker selects files/folders. OTT retains paths and
+  metadata, and a private loopback server reads the originals with byte-range
+  support. **Refresh** rescans connected folders for additions. It does not
+  upload selected files into
+  application storage. OS privacy permissions and drive availability still apply.
+- **Browser / here.now / server-hosted player:** supported browsers retain
+  File System Access handles in IndexedDB and create playback URLs from the
+  original files. Refresh rescans linked directories. Browser permission may
+  need **Grant access** after restart. Chrome/Edge desktop support this mode;
+  unsupported browsers display an explicit error and do not use a hidden
+  copy-based fallback. Use the native Android app on older Fire tablets.
+- **Optional remote server library:** media lives on the server. Its existing
+  authenticated upload API is still an explicit copy to server disk. Selecting
+  that library is not direct access to a folder on the client. The local-source
+  controls do not silently upload browser-selected files to it.
 
-A hosted browser needs HTTPS or localhost for its service worker. After the
-first online app download completes and **Offline restart** is ready, keep the
-same origin and test a reload with the network off. HTTP LAN pages can play
-imported files while open, but cannot promise an offline cold start. An OS or
-browser that lacks IndexedDB, service workers or the required codecs does not
-become offline capable merely because the website supports this feature.
+A cloud provider can download/cache a selected file itself. Connecting a cloud
+placeholder does not make it offline. Select files physically available on the
+device for playback without any network. The feature does not download IPTV
+channels, mirror Plex libraries, transcode media, or import multi-file HLS
+packages. H.264/AAC in MP4 is a useful starting format for old Fire devices, but
+codec support still depends on the installed player/WebView.
 
-The worker revalidates public assets online even when hosting sets a long HTTP cache lifetime, and falls back to its installed assets when offline. After upgrading from the first preview, use a hard refresh (Cmd+Shift+R in Chrome on macOS) once to replace the old worker behavior without clearing local videos.
+## Offline application startup
 
-The worker caches a finite list of public player assets. It does not cache
-playlists, live streams, credentials, command traffic or arbitrary requests.
-Imported videos are separate from profile backups. Loading Home or another
-preset does not copy or distribute the files to another device. Changing the
-site origin creates a different browser library.
+Bundled native applications can start without a website connection. A hosted
+browser also needs its application shell installed for offline startup: use
+HTTPS or localhost, load the site online once, and wait until **Offline restart**
+is ready. Keep the same site address and verify a reload with the network off.
+An HTTP LAN page can play already accessible files while open, but cannot
+promise an offline cold start. Browser autoplay rules may require pressing Play
+or Space after reload.
+
+The service worker caches a finite list of public player assets and revalidates
+them online. It does not cache live streams, playlists, credentials, command
+traffic, or arbitrary requests. Source handles and old imported copies are
+separate from the application shell and profile backups. Loading Home does not
+transfer a library to another device. Different browser profiles and site
+origins have separate grants and libraries. Clearing site/application data loses
+references and old private copies; it does not delete linked originals.
 
 ## Optional server library
 
@@ -57,38 +87,42 @@ export OTT_OFFLINE_MEDIA_TOKEN=YOUR_PRIVATE_RANDOM_TOKEN
 ```
 
 In **Local videos → Server library…**, enter
-`https://your-server/offline-media/YOUR_PRIVATE_RANDOM_TOKEN`.
-Leave this setting empty to return to browser-local storage. Treat the full
-URL as a credential: anyone holding it can list, import, play and delete library
-files. Use HTTPS for remote access; do not publish this URL or include it in
-public screenshots. A native Tauri client provisions its own loopback token
-automatically and does not need these server variables.
+`https://your-server/offline-media/YOUR_PRIVATE_RANDOM_TOKEN` using the player's
+normal text editor. Clear the setting to return to browser-local sources.
+A remote library needs a network connection even if its files were originally
+uploaded from this client. A Tauri application configures its own loopback
+endpoint automatically and does not use these remote-server variables.
 
-The authenticated endpoint supports `GET` catalog, `POST /import?name=Film.mp4`
-with raw file bytes, `GET /FILE_ID` with `Range`, and `DELETE /FILE_ID`. Imports
-stream to disk instead of buffering an entire movie in memory. Server imports
-accept MP4, M4V, WebM, OGV, MP3, M4A and OGG and are limited to 16 GiB per file; native mobile imports to 8 GiB. A server upload stalled for 60 seconds is cancelled. These limits are
-not free-space guarantees. Files are addressed by opaque IDs; request URLs
-cannot select arbitrary filesystem paths.
+Treat the entire remote URL as a credential: anyone holding it can list, import,
+play and delete that server library's files. Use HTTPS for remote access and keep
+the URL out of public screenshots. The API supports `GET` catalog,
+`POST /import?name=Film.mp4` with raw bytes, `GET /FILE_ID` with `Range`, and
+`DELETE /FILE_ID`. Uploads stream to disk, accept MP4, M4V, WebM, OGV, MP3, M4A and
+OGG, and are limited to 16 GiB per file. A 60-second stalled upload is cancelled.
+These limits do not guarantee free disk space. The remote API cannot register
+arbitrary client/server paths as native picker grants.
 
 ## Kiosk and updates
 
-Select the offline provider, choose the required title, then apply the existing
-kiosk command through the authorized command server. The persisted channel ID
-survives a restart; the temporary playback URL is resolved again. Files must be
-imported on every target device. Kiosk mode prevents changes through the local
-library UI. Existing screen-off handling still governs playback while asleep.
+Select Local videos, choose a playable title, then apply the existing kiosk
+command through the authorized command server. Stable entry IDs identify the
+saved selection; temporary playback URLs are regenerated. Connect the source
+separately on each target device. Kiosk/settings locks prevent local library
+changes. Existing screen-off handling continues to govern playback while asleep.
 
-Native code ships through APK/IPA/Tauri application updates. Browser UI changes
-ship through the site; service-worker activation may require closing old tabs.
-Neither type of update intentionally removes the library, but uninstalling,
-clearing application data or clearing the site's storage does.
+Android, iOS and Tauri native changes require an updated APK, IPA or desktop
+application; a hosted JavaScript update cannot add OS picker/bookmark support.
+Browser changes arrive through the site and service worker. The files remaining
+on a source do not guarantee OTT has permission to access them after an update;
+check the actual device and grant access if requested.
 
 ## Verification scope
 
-Automated tests cover browser import, stable identity, offline app-shell reload,
-actual media decoding, removal, provider replacement, and native HTTP range
-handling. Native build checks do not prove every tablet's codec behavior. For a
-new tablet validate: import MP4; play and seek; disable Wi-Fi; force-stop and
-restart the app; verify the same selected item; test screen-off/resume. Secure
-lock screens still require their configured authentication.
+Automated source/range tests and native builds check implementation behavior;
+they do not establish codec support or OS permission persistence on every device.
+Before claiming a tablet works offline: connect a local MP4/folder; check that
+only metadata was added to OTT storage; play and seek; disable the network;
+force-stop/restart and reboot; verify the same title; test screen-off/resume;
+disconnect the source and confirm the original remains. Also test an absent SD
+card or revoked grant and an old imported copy. Real hardware and signed release
+validation remain separate from simulator/JVM/browser tests.

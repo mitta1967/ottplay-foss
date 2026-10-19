@@ -12,7 +12,9 @@ export function installLocalMedia(w: any): any {
     var native = resolveNativePlugin<any>("LocalMedia", function () {
         return browser;
     });
-    var panel: HTMLElement | null = null;
+    var opened = false;
+    var revision = 0;
+    var handler: any = null;
     var last: any = null;
     var endpoint = "";
     function isNative(): boolean {
@@ -54,7 +56,7 @@ export function installLocalMedia(w: any): any {
             return response.json().then(function (value: any) {
                 if (value && Array.isArray(value.items))
                     value.items.forEach(function (item: any) {
-                        item.url = new URL(item.url, url).href;
+                        if (item.url) item.url = new URL(item.url, url).href;
                     });
                 if (value && value.uploadUrl)
                     value.uploadUrl = new URL(value.uploadUrl, url).href;
@@ -76,78 +78,68 @@ export function installLocalMedia(w: any): any {
             })
             .then(remember);
     }
-    function chooseFiles(directory = false): Promise<File[]> {
-        return new Promise(function (resolve) {
-            var input = w.document.createElement("input");
-            var done = false;
-            input.type = "file";
-            input.accept = "video/*,audio/*,.mp4,.m4v,.webm,.mp3,.m4a";
-            input.multiple = true;
-            if (directory) input.setAttribute("webkitdirectory", "");
-            input.style.display = "none";
-            function finish(): void {
-                if (done) return;
-                done = true;
-                w.removeEventListener("focus", focus);
-                if (input.parentNode) input.parentNode.removeChild(input);
-                resolve(Array.prototype.slice.call(input.files || []));
-            }
-            function focus(): void {
-                w.setTimeout(function () {
-                    if (!done && !input.files.length) finish();
-                }, 1000);
-            }
-            input.onchange = finish;
-            input.addEventListener("cancel", finish);
-            w.addEventListener("focus", focus);
-            w.document.body.appendChild(input);
-            input.click();
-        });
-    }
     function importFiles(folder = false): Promise<any> {
-        if (locked())
+        if (locked() || settingsLocked())
             return Promise.reject(
-                new Error("Unlock kiosk mode to change local files")
+                new Error(
+                    "Unlock settings and kiosk mode to change local sources"
+                )
             );
-        if (settingsLocked())
-            return Promise.reject(
-                new Error("Unlock settings to change local files")
+        if (isNative())
+            return (folder ? native.importFolder() : native.importFiles()).then(
+                remember
             );
-        if (isNative()) return native.importFiles().then(remember);
-        if (!isTauri() && !remoteEndpoint())
-            return (
-                folder ? browser.importFolder() : browser.importFiles()
-            ).then(remember);
-        return chooseFiles(folder).then(function (selected) {
-            var files = folder
-                ? selected.filter(function (file) {
-                      return (
-                          /^(video|audio)\//i.test(file.type || "") ||
-                          /\.(mp4|m4v|webm|ogv|mp3|m4a|ogg)$/i.test(file.name)
-                      );
-                  })
-                : selected;
-            if (selected.length && !files.length)
-                throw new Error(
-                    "The selected folder contains no supported video or audio files"
-                );
-            return getEndpoint().then(function (base) {
-                var queue = Promise.resolve(last);
-                files.forEach(function (file) {
-                    queue = queue.then(function () {
-                        return http(
-                            base +
-                                "/import?name=" +
-                                encodeURIComponent(file.name),
-                            { body: file, method: "POST" }
-                        );
-                    });
-                });
-                return queue.then(function () {
-                    return list();
-                });
+        if (isTauri())
+            return tauriInvoke<any>(
+                folder
+                    ? "offline_media_import_folder"
+                    : "offline_media_import_files",
+                {}
+            ).then(function () {
+                return list();
             });
-        });
+        if (remoteEndpoint())
+            return Promise.reject(
+                new Error(
+                    "Connect folders on the server itself, or select this device's library."
+                )
+            );
+        return (folder ? browser.importFolder() : browser.importFiles()).then(
+            remember
+        );
+    }
+    function removeSource(id: string): Promise<any> {
+        if (locked() || settingsLocked())
+            return Promise.reject(
+                new Error("Unlock settings to disconnect sources")
+            );
+        if (isNative()) return native.removeSource({ id: id }).then(remember);
+        if (isTauri())
+            return tauriInvoke<any>("offline_media_remove_source", {
+                id: id,
+            }).then(function () {
+                return list();
+            });
+        if (remoteEndpoint())
+            return Promise.reject(
+                new Error("Manage sources on the server itself.")
+            );
+        return browser.removeSource(id).then(remember);
+    }
+    function requestAccess(): Promise<any> {
+        if (locked() || settingsLocked())
+            return Promise.reject(new Error("Unlock settings to grant access"));
+        if (isNative()) return native.requestAccess().then(remember);
+        if (isTauri()) {
+            var missing =
+                last &&
+                (last.sources || []).filter(function (source: any) {
+                    return !source.available;
+                })[0];
+            return importFiles(!!missing && missing.kind === "folder");
+        }
+        if (remoteEndpoint()) return list();
+        return browser.requestAccess().then(remember);
     }
     function remove(id: string): Promise<any> {
         if (locked())
@@ -178,194 +170,219 @@ export function installLocalMedia(w: any): any {
     function settingsLocked(): boolean {
         return !!(w.__ottParental && w.__ottParental.needs("settings"));
     }
-    function stopKey(event: KeyboardEvent): void {
-        if (panel) event.stopImmediatePropagation();
+    function text(value: any): string {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+    function current(): boolean {
+        return opened && (!handler || w.listKeyHandler === handler);
     }
     function close(): void {
-        if (panel) panel.remove();
-        panel = null;
-        w.document.removeEventListener("keydown", onKey, true);
-        w.document.removeEventListener("keyup", stopKey, true);
+        opened = false;
+        revision++;
+        if (typeof w.optionsList === "function") w.optionsList(w.popLocalMedia);
+        else if (typeof w.closeList === "function") w.closeList();
     }
-    function onKey(event: KeyboardEvent): void {
-        if (!panel) return;
-        if (locked()) {
-            close();
-            return;
-        }
-        if (
-            event.key === "Escape" ||
-            event.keyCode === 10009 ||
-            event.keyCode === 461
-        ) {
-            event.preventDefault();
-            close();
-        }
-        if (
-            event.key === "ArrowDown" ||
-            event.key === "ArrowRight" ||
-            event.key === "ArrowUp" ||
-            event.key === "ArrowLeft"
-        ) {
-            var buttons = Array.prototype.slice.call(
-                panel.querySelectorAll("button:not(:disabled)")
-            );
-            var current = buttons.indexOf(w.document.activeElement);
-            var delta =
-                event.key === "ArrowDown" || event.key === "ArrowRight"
-                    ? 1
-                    : -1;
-            if (buttons.length)
-                buttons[
-                    (current + delta + buttons.length) % buttons.length
-                ].focus();
-            event.preventDefault();
-        }
-        event.stopImmediatePropagation();
+    function playable(): boolean {
+        return !!(
+            last &&
+            last.items.some(function (item: any) {
+                return item.available !== false && !!item.url;
+            })
+        );
     }
     function activate(): void {
         if (locked()) return;
-        if (!last || !last.items.length) {
+        if (!playable()) {
             open();
             return;
         }
-        close();
+        opened = false;
+        revision++;
+        if (typeof w.closeList === "function") w.closeList();
         w.stbSetItem("ottplayprov", "offline");
         w.loadProv("offline");
     }
-    function button(
-        parent: HTMLElement,
-        caption: string,
-        action: () => void
-    ): HTMLButtonElement {
-        var element = w.document.createElement("button");
-        element.textContent = caption;
-        element.style.cssText =
-            "padding:12px 18px;margin:6px;font:inherit;background:#24364e;color:white;border:1px solid #60748c;border-radius:8px;cursor:pointer";
-        element.onclick = action;
-        parent.appendChild(element);
-        return element;
+    function editServer(): void {
+        revision++;
+        w.editCaption = w._("Server library URL");
+        w.editvar = remoteEndpoint();
+        w.setEdit = function () {
+            if (!current() || locked() || settingsLocked()) return;
+            var value = String(w.editvar || "")
+                .trim()
+                .replace(/\/+$/, "");
+            if (value && !/^https?:\/\//i.test(value)) {
+                render("Use an HTTP or HTTPS URL.");
+                return;
+            }
+            w.stbSetItem("localMediaEndpoint", value);
+            run(list);
+        };
+        w.showEditKey(null);
     }
     function render(message?: string): void {
-        if (!panel) return;
+        if (!current()) return;
         if (locked()) {
             close();
             return;
         }
-        var focusedCaption = panel.contains(w.document.activeElement)
-            ? w.document.activeElement.textContent
-            : "";
-        panel.textContent = "";
-        var heading = w.document.createElement("h2");
-        heading.textContent = title();
-        panel.appendChild(heading);
-        var note = w.document.createElement("p");
-        note.textContent =
-            message ||
-            (last && last.storage === "server"
-                ? "Files are stored on the server. A connection to that server is required."
-                : "Files are stored on this device. MP4 with H.264/AAC is recommended.");
-        panel.appendChild(note);
-        if (last && !last.items.length) {
-            var empty = w.document.createElement("p");
-            empty.setAttribute("role", "status");
-            empty.textContent =
-                "No local videos yet. Choose Add files to import videos, then choose Play local videos.";
-            panel.appendChild(empty);
-        }
-        if (last && last.storage === "browser") {
-            var scope = w.document.createElement("p");
-            scope.textContent =
-                "This library belongs to this website and browser profile. Videos on your computer, other devices, or another website are not added automatically.";
-            panel.appendChild(scope);
-        }
-        button(panel, "Add files", function () {
-            run(function () {
-                return importFiles();
+        var selected = w.selIndex || 0;
+        var rows: any[] = [];
+        function row(
+            id: string,
+            name: string,
+            description: string,
+            action: () => void
+        ): void {
+            rows.push({
+                action: action,
+                description: description,
+                id: id,
+                name: name,
             });
-        });
-        if (
-            !isNative() &&
-            "webkitdirectory" in w.document.createElement("input")
-        ) {
-            button(panel, "Add folder", function () {
+        }
+        row(
+            "add-folder",
+            "Add folder",
+            "Play files directly from the selected folder without copying them.",
+            function () {
                 run(function () {
                     return importFiles(true);
                 });
-            });
-            var folderHelp = w.document.createElement("p");
-            folderHelp.textContent =
-                "Add folder imports videos from the selected folder and its subfolders. Files are copied into this library; the folder is not watched for changes.";
-            panel.appendChild(folderHelp);
-        }
-        var play = button(panel, "Play local videos", activate);
-        play.disabled = !last || !last.items.length;
-        if (play.disabled) {
-            play.style.opacity = "0.5";
-            play.style.cursor = "default";
-        }
-        button(panel, "Refresh", function () {
+            }
+        );
+        row(
+            "add-files",
+            "Add files",
+            "Play selected files directly without copying them.",
+            function () {
+                run(function () {
+                    return importFiles();
+                });
+            }
+        );
+        if (
+            last &&
+            (last.sources || []).some(function (source: any) {
+                return !source.available;
+            })
+        )
+            row(
+                "grant-access",
+                "Grant access",
+                "Allow access to previously connected sources.",
+                function () {
+                    run(requestAccess);
+                }
+            );
+        row("refresh", "Refresh", "Read connected folders again.", function () {
             run(list);
         });
-        button(panel, "Close", close);
-        if (last && last.storage === "browser" && !last.offlineReady) {
-            var ready = w.document.createElement("p");
-            ready.textContent =
-                "Offline restart is not ready. Keep this page open until the app download completes; HTTPS or localhost is required.";
-            panel.appendChild(ready);
-        }
-        if (last && last.storage === "browser" && !last.persistent) {
-            var warning = w.document.createElement("p");
-            warning.textContent =
-                "Browser storage is not protected from eviction. Keep a backup; clearing site data removes these files.";
-            panel.appendChild(warning);
-        }
-        if (!isNative() && !isTauri()) {
-            button(panel, "Server library…", function () {
-                var value = w.prompt(
-                    "Optional server library URL (leave empty for files on this device)",
-                    remoteEndpoint()
-                );
-                if (value === null) return;
-                value = value.trim().replace(/\/+$/, "");
-                if (value && !/^https?:\/\//i.test(value)) {
-                    render("Use an HTTP or HTTPS URL.");
-                    return;
+        row(
+            "play",
+            "Play local videos",
+            playable()
+                ? "Open the local video channel list."
+                : "No playable local videos. Add a folder or grant access to a connected source.",
+            function () {
+                if (playable()) activate();
+            }
+        );
+        ((last && last.sources) || []).forEach(function (source: any) {
+            row(
+                "disconnect-source",
+                "Disconnect: " + source.name,
+                (source.available ? "Connected. " : "Source unavailable. ") +
+                    "Disconnecting leaves the original files untouched.",
+                function () {
+                    run(function () {
+                        return removeSource(source.id);
+                    });
                 }
-                w.stbSetItem("localMediaEndpoint", value);
-                run(list);
-            });
-        }
+            );
+        });
         ((last && last.items) || []).forEach(function (item: any) {
-            var row = w.document.createElement("div");
-            row.style.cssText = "padding:8px;border-bottom:1px solid #334155";
-            var text = w.document.createElement("span");
-            text.textContent =
-                item.name + " — " + (item.size / 1048576).toFixed(1) + " MiB";
-            row.appendChild(text);
-            button(row, "Remove", function () {
-                if (w.confirm("Remove “" + item.name + "” from local storage?"))
+            if (item.source === "linked") return;
+            row(
+                "remove-copy",
+                "Remove copy: " + item.name,
+                "Remove this previously imported copy from the library.",
+                function () {
                     run(function () {
                         return remove(item.id);
                     });
-            });
-            panel!.appendChild(row);
+                }
+            );
         });
-        var enabled = panel.querySelectorAll("button:not(:disabled)");
-        var focusTarget = enabled[0] as HTMLElement;
-        for (var focusIndex = 0; focusIndex < enabled.length; focusIndex++)
-            if (enabled[focusIndex].textContent === focusedCaption)
-                focusTarget = enabled[focusIndex] as HTMLElement;
-        if (focusTarget) focusTarget.focus();
+        if (!isNative() && !isTauri())
+            row(
+                "server-library",
+                "Server library…",
+                remoteEndpoint()
+                    ? "A server library is selected. Clear its URL to use files on this device."
+                    : "Optional: connect a library stored on your server. Network access is required.",
+                editServer
+            );
+        row("close", "Close", "Return to player settings.", close);
+        w.listArray = rows;
+        w.listDataArray = rows;
+        w.selIndex = Math.min(selected, rows.length - 1);
+        w.getListItem = function (item: any) {
+            return (
+                '&nbsp;&nbsp;<span data-local-media-action="' +
+                item.id +
+                '">' +
+                text(w._ ? w._(item.name) : item.name) +
+                "</span>"
+            );
+        };
+        w.detailListAction = function () {
+            var item = rows[w.selIndex];
+            w.listDetail.innerHTML = text(
+                message || (item && item.description) || ""
+            );
+            w.listFooter.innerHTML =
+                w.renderButtonHint(w.keys.RETURN, w.strRETURN, "Close") +
+                w.renderButtonHint(w.keys.ENTER, w.strENTER, "Select");
+        };
+        handler = function (key: number) {
+            if (!current()) return false;
+            if (key === w.keys.RETURN) {
+                close();
+                return true;
+            }
+            if (key !== w.keys.ENTER) return false;
+            var item = rows[w.selIndex];
+            if (item) item.action();
+            return true;
+        };
+        w.listKeyHandler = handler;
+        w.listCaption.innerHTML = text(title());
+        w.$("#listPopUp").hide();
+        w.showPage();
     }
     function run(action: () => Promise<any>): void {
+        var request = ++revision;
+        // Start the picker inside the user gesture, before rendering or awaiting.
+        var pending: Promise<any>;
+        try {
+            pending = action();
+        } catch (error: any) {
+            render(error.message || String(error));
+            return;
+        }
         render("Working…");
-        action().then(
+        pending.then(
             function () {
-                render();
+                if (request === revision) render();
             },
             function (error) {
-                render(error.message || String(error));
+                if (request === revision)
+                    render(error.message || String(error));
             }
         );
     }
@@ -376,21 +393,11 @@ export function installLocalMedia(w: any): any {
                 w.enterPinAndSetAccess(open);
             return;
         }
-        close();
-        panel = w.document.createElement("section");
-        panel!.setAttribute("role", "dialog");
-        panel!.setAttribute("aria-label", title());
-        panel!.style.cssText =
-            "position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;overflow:auto;padding:4vh 5vw;background:#101b2b;color:#eef4ff;font:20px sans-serif";
-        panel!.addEventListener("click", function (event) {
-            event.stopPropagation();
-        });
-        w.document.body.appendChild(panel!);
-        w.document.addEventListener("keydown", onKey, true);
-        w.document.addEventListener("keyup", stopKey, true);
+        opened = true;
+        handler = null;
+        w.selIndex = 0;
+        render();
         run(list);
-        var first = panel!.querySelector("button");
-        if (first) first.focus();
     }
     var api = {
         activate: activate,

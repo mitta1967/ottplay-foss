@@ -1,53 +1,93 @@
-# Native offline media storage
+# Native local media sources
 
-Android and iOS expose the `LocalMedia` Capacitor plugin to the common offline
-library. `list()`, `importFiles()` and `remove({ id })` return:
+New native **Add files** and **Add folder** selections retain references to the
+original media. They do not copy the selected bytes into OTT storage. Existing
+private imports remain compatible and are labeled as copies. Direct playback
+requires the original file and its OS access permission to remain available.
+
+## Shared contract
+
+Android and iOS expose the `LocalMedia` Capacitor plugin. Tauri supplies the same
+catalog shape through its private loopback endpoint and native picker commands.
+The Capacitor methods `list()`, `importFiles()`, `importFolder()`,
+`requestAccess({ id? })`, `remove({ id })`, and `removeSource({ id })` return a
+snapshot. IDs are stable; playback URLs are regenerated after application launch.
 
 ```json
 {
   "available": true,
   "persistent": true,
   "storage": "device",
-  "items": [{ "id": "UUID", "name": "Film.mp4", "size": 12345,
-              "mime": "video/mp4", "url": "platform playback URL" }]
+  "sources": [{ "id": "source-id", "name": "Movies", "kind": "folder",
+                "available": true, "access": "granted" }],
+  "items": [{ "id": "item-id", "name": "Film.mp4", "size": 12345,
+              "mime": "video/mp4", "url": "platform playback URL",
+              "source": "linked", "sourceId": "source-id",
+              "available": true, "access": "granted" }]
 }
 ```
 
-Import opens the system document picker and copies selected audio/video files
-into application-private storage. The copy remains usable after the original
-file is removed or its document provider goes offline. No all-files permission
-or external-storage permission is requested. Import at most 128 files at once;
-each file is limited to 8 GiB. A failed batch rolls back its imported files.
-Interrupted private staging files are cleaned up on the next application launch.
-Symbolic links and paths outside the private media directory are not exposed.
-Uninstalling the application or clearing its data removes the library. The
-application's existing Android backup exclusions and iOS backup exclusion keep
-these potentially large video files out of cloud backups.
+Unavailable items use an empty URL and remain identifiable rather than silently
+becoming a copied file. Exact access-status strings depend on the platform.
+`removeSource` disconnects a source and its library entries, never its original
+files. `remove` on a linked entry removes/hides the reference; on a legacy
+imported entry it deletes OTT's own copy. Source and item metadata are excluded
+from media-content assumptions: a grant/bookmark is not an offline media backup.
 
-On Android (including API 22 Fire builds), the plugin serves only imported UUIDs
-from a loopback listener on `127.0.0.1`. The port and unguessable URL token are
-chosen per plugin lifetime. It supports GET, HEAD, single byte ranges, suffix
-ranges and CORS preflight. Four streaming connections and an 8 KiB header budget
-bound resource usage. It is not a LAN file share and cannot serve arbitrary
-filesystem paths. Call `list()` after every application launch; do not persist
-the ephemeral playback URLs as a replacement for item IDs.
+## Android
 
-On iOS, the plugin uses Capacitor's existing private-file URL handler, which
-supports media byte ranges. The filename extension is retained for MIME
-handling. Playback goes through the WebView media backend; these URLs are not
-remote HTTP sources. Rebuild the native application to install the plugin;
-updating a hosted HTML bundle alone cannot add native code.
+The Storage Access Framework uses `ACTION_OPEN_DOCUMENT` for files and
+`ACTION_OPEN_DOCUMENT_TREE` for folders with persisted read-only URI grants.
+No all-files permission is requested. The API 22 Fire build uses this same
+approach, but requires a functioning device document provider/picker.
 
-H.264 video with AAC audio in MP4 is the recommended portable format. Importing a
-file does not transcode it or add codecs to an old Fire WebView. Offline media
-files need no Wi-Fi, Plex, NAS or command server while playing. Native app assets
-must also be bundled locally; a remotely hosted UI is a separate offline-shell
-concern.
+The loopback listener binds to `127.0.0.1` and exposes opaque item IDs under a
+random per-process token. It supports GET, HEAD, single byte ranges, suffix
+ranges and CORS preflight, with four streaming connections and an 8 KiB request
+header budget. It opens original `ContentResolver` descriptors, honors asset
+start offsets and lengths, and requires seeking. A pipe/nonseekable provider is
+rejected rather than copied. Paths and document URIs are not accepted in media
+request URLs. **Refresh** rescans connected folders to discover new files.
+See [Android ownership and tests](android-local-media-sources.md).
 
-## Verification
+## iOS
 
-The Android unit suite exercises full, open, bounded, suffix, oversized and
-invalid byte ranges, including files larger than 4 GiB. Device acceptance must
-also cover importing a real MP4, seeking, force-stopping/relaunching with Wi-Fi
-off, and screen sleep/resume. Compilation or byte-range tests alone do not prove
-that every device's installed codecs can decode a selected file.
+The Files picker opens documents/directories with `asCopy: false`. OTT saves
+minimal bookmarks. After resolving a bookmark it keeps security-scoped access
+active while the playback URL can be used and releases that access on source
+disconnection or plugin destruction. Stale bookmarks are refreshed. Linked
+folders are scanned on refresh, with stable item IDs by relative path, a
+20,000-entry bound, and no symbolic-link traversal outside the source.
+
+Capacitor's existing file URL handler supplies WebKit playback from the original
+URL; it does not make a separate OTT media copy. Cloud providers may still
+materialize/cache files themselves. See [iOS limitations and acceptance](offline-media-ios-direct.md).
+
+## Tauri desktop
+
+The native dialog plugin chooses local paths; caller-supplied arbitrary paths
+are not exposed as a remote registration API. OTT stores source records and
+linked item paths, validates original files before serving them, and skips
+symlinks during folder enumeration. **Refresh** rescans connected folders to
+discover new media. A local loopback server
+streams byte ranges from those originals using a fresh runtime token/port.
+Disconnecting deletes metadata only. Existing private uploads remain readable.
+OS privacy prompts, file moves and removed drives can invalidate access;
+reconnect through the native picker when necessary.
+
+## Native rollout and verification
+
+New native code requires an APK/IPA/Tauri application update. Updating only the
+hosted page does not install a native picker or permission implementation. The
+native UI assets must be bundled locally for a cold start without a network.
+H.264/AAC in MP4 is a useful portable starting point; this feature adds no codecs
+and performs no transcoding.
+
+Android JVM tests cover full/partial reads, seeking, asset offsets, bounds and
+truncation of original sources. iOS syntax and simulator build checks verify API
+integration. Rust tests cover linked files and HTTP ranges. None substitutes for
+signed hardware acceptance: select a large local file; verify OTT gained only
+small metadata; play/seek; restart/reboot with networking disabled; disconnect
+and verify originals remain; test missing/revoked sources and legacy copies.
+Cloud-only files require a separate provider-cache test and cannot be assumed
+offline just because the picker returned a reference.
