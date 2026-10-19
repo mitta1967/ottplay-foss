@@ -4,10 +4,12 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const { createHash } = require("node:crypto");
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("../helpers/browser-test.cjs");
 
 const mediaRoot = path.resolve(__dirname, "../fixtures/media-runtime");
-const dist = path.resolve(__dirname, "../../dist");
+const dist = process.env.CI_BROWSER_WEB_ROOT
+    ? path.resolve(process.env.CI_BROWSER_WEB_ROOT, "dist")
+    : path.resolve(__dirname, "../../dist");
 const SECRET = "DOCTOR_FIXTURE_PRIVATE_VALUE";
 test.use({
     launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] },
@@ -476,22 +478,22 @@ test("standby drains background HTTP, survives reload and wakes a strict kiosk",
                 console.log(
                     "WAKE_DIAGNOSTIC",
                     await page.evaluate(() => ({
-                        standby: window.__ottStandby?.snapshot(),
-                        ready: window.commandChannelsReady,
+                        body: document.body.innerText.slice(0, 500),
                         kiosk: window.__ottKiosk?.snapshot(),
+                        launch: document.getElementById("launch")?.textContent,
                         playback: window.__ottClassicPlayback?.snapshot(),
+                        ready: window.commandChannelsReady,
+                        standby: window.__ottStandby?.snapshot(),
                         video: Array.from(
                             document.querySelectorAll("video")
                         ).map((v) => ({
-                            id: v.id,
-                            src: v.currentSrc,
-                            paused: v.paused,
-                            time: v.currentTime,
-                            ready: v.readyState,
                             error: v.error?.message,
+                            id: v.id,
+                            paused: v.paused,
+                            ready: v.readyState,
+                            src: v.currentSrc,
+                            time: v.currentTime,
                         })),
-                        launch: document.getElementById("launch")?.textContent,
-                        body: document.body.innerText.slice(0, 500),
                     }))
                 );
                 console.log(
