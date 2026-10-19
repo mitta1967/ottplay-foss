@@ -58,6 +58,8 @@ channels, mirror Plex libraries, transcode media, or import multi-file HLS
 packages. H.264/AAC in MP4 is a useful starting format for old Fire devices, but
 codec support still depends on the installed player/WebView.
 
+Chrome may ask **“Allow this site to view and copy files?”** after a folder is selected. This is its standard read-access prompt. OTT requests `mode: "read"`, stores handles and metadata, and plays the originals; it does not create a second video copy. The browser wording describes the permission granted, not an import or upload in progress. See the [Chromium permission strings](https://chromium.googlesource.com/chromium/src/+/5b8b36772fbb0a49fa285efe5fb585f4093c2cb3%5E%21/).
+
 ## Offline application startup
 
 Bundled native applications can start without a website connection. A hosted

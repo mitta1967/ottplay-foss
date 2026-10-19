@@ -15,6 +15,8 @@ export function installLocalMedia(w: any): any {
     var opened = false;
     var revision = 0;
     var handler: any = null;
+    var owner: any = null;
+    var catalogRevision = 0;
     var last: any = null;
     var endpoint = "";
     function isNative(): boolean {
@@ -64,19 +66,22 @@ export function installLocalMedia(w: any): any {
             });
         });
     }
-    function remember(value: any): any {
-        if (!value || !Array.isArray(value.items))
-            throw new Error("Invalid local media catalog");
-        last = value;
-        return value;
+    function remember(pending: Promise<any>): Promise<any> {
+        var request = ++catalogRevision;
+        return pending.then(function (value: any) {
+            if (!value || !Array.isArray(value.items))
+                throw new Error("Invalid local media catalog");
+            if (request === catalogRevision) last = value;
+            return value;
+        });
     }
     function list(): Promise<any> {
-        if (isNative()) return native.list().then(remember);
-        return getEndpoint()
-            .then(function (base) {
+        if (isNative()) return remember(native.list());
+        return remember(
+            getEndpoint().then(function (base) {
                 return base ? http(base) : browser.list();
             })
-            .then(remember);
+        );
     }
     function importFiles(folder = false): Promise<any> {
         if (locked() || settingsLocked())
@@ -86,8 +91,8 @@ export function installLocalMedia(w: any): any {
                 )
             );
         if (isNative())
-            return (folder ? native.importFolder() : native.importFiles()).then(
-                remember
+            return remember(
+                folder ? native.importFolder() : native.importFiles()
             );
         if (isTauri())
             return tauriInvoke<any>(
@@ -104,8 +109,8 @@ export function installLocalMedia(w: any): any {
                     "Connect folders on the server itself, or select this device's library."
                 )
             );
-        return (folder ? browser.importFolder() : browser.importFiles()).then(
-            remember
+        return remember(
+            folder ? browser.importFolder() : browser.importFiles()
         );
     }
     function removeSource(id: string): Promise<any> {
@@ -113,7 +118,7 @@ export function installLocalMedia(w: any): any {
             return Promise.reject(
                 new Error("Unlock settings to disconnect sources")
             );
-        if (isNative()) return native.removeSource({ id: id }).then(remember);
+        if (isNative()) return remember(native.removeSource({ id: id }));
         if (isTauri())
             return tauriInvoke<any>("offline_media_remove_source", {
                 id: id,
@@ -124,12 +129,12 @@ export function installLocalMedia(w: any): any {
             return Promise.reject(
                 new Error("Manage sources on the server itself.")
             );
-        return browser.removeSource(id).then(remember);
+        return remember(browser.removeSource(id));
     }
     function requestAccess(): Promise<any> {
         if (locked() || settingsLocked())
             return Promise.reject(new Error("Unlock settings to grant access"));
-        if (isNative()) return native.requestAccess().then(remember);
+        if (isNative()) return remember(native.requestAccess());
         if (isTauri()) {
             var missing =
                 last &&
@@ -139,7 +144,7 @@ export function installLocalMedia(w: any): any {
             return importFiles(!!missing && missing.kind === "folder");
         }
         if (remoteEndpoint()) return list();
-        return browser.requestAccess().then(remember);
+        return remember(browser.requestAccess());
     }
     function remove(id: string): Promise<any> {
         if (locked())
@@ -150,16 +155,16 @@ export function installLocalMedia(w: any): any {
             return Promise.reject(
                 new Error("Unlock settings to change local files")
             );
-        if (isNative()) return native.remove({ id: id }).then(remember);
-        return getEndpoint()
-            .then(function (base) {
+        if (isNative()) return remember(native.remove({ id: id }));
+        return remember(
+            getEndpoint().then(function (base) {
                 return base
                     ? http(base + "/" + encodeURIComponent(id), {
                           method: "DELETE",
                       })
                     : browser.remove(id);
             })
-            .then(remember);
+        );
     }
     function title(): string {
         return w._ ? w._("Local videos") : "Local videos";
@@ -178,12 +183,21 @@ export function installLocalMedia(w: any): any {
             .replace(/"/g, "&quot;");
     }
     function current(): boolean {
-        return opened && (!handler || w.listKeyHandler === handler);
+        return (
+            opened &&
+            (!handler || w.listKeyHandler === handler) &&
+            (!owner || owner.foreground())
+        );
     }
     function close(): void {
         opened = false;
         revision++;
-        if (typeof w.optionsList === "function") w.optionsList(w.popLocalMedia);
+        if (
+            !locked() &&
+            !settingsLocked() &&
+            typeof w.optionsList === "function"
+        )
+            w.optionsList(w.popLocalMedia);
         else if (typeof w.closeList === "function") w.closeList();
     }
     function playable(): boolean {
@@ -207,6 +221,7 @@ export function installLocalMedia(w: any): any {
         w.loadProv("offline");
     }
     function editServer(): void {
+        if (locked() || settingsLocked()) return;
         revision++;
         w.editCaption = w._("Server library URL");
         w.editvar = remoteEndpoint();
@@ -215,9 +230,15 @@ export function installLocalMedia(w: any): any {
             var value = String(w.editvar || "")
                 .trim()
                 .replace(/\/+$/, "");
-            if (value && !/^https?:\/\//i.test(value)) {
-                render("Use an HTTP or HTTPS URL.");
-                return;
+            if (value) {
+                try {
+                    var parsed = new URL(value);
+                    if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname)
+                        throw new Error("Invalid server URL");
+                } catch (_) {
+                    render("Use a complete HTTP or HTTPS URL.");
+                    return;
+                }
             }
             w.stbSetItem("localMediaEndpoint", value);
             run(list);
@@ -226,7 +247,7 @@ export function installLocalMedia(w: any): any {
     }
     function render(message?: string): void {
         if (!current()) return;
-        if (locked()) {
+        if (locked() || settingsLocked()) {
             close();
             return;
         }
@@ -248,7 +269,9 @@ export function installLocalMedia(w: any): any {
         row(
             "add-folder",
             "Add folder",
-            "Play files directly from the selected folder without copying them.",
+            !isNative() && !isTauri()
+                ? "Chrome may ask to view and copy files. This grants read access; OTT plays the originals without storing another media copy."
+                : "Play files directly from the selected folder without copying them.",
             function () {
                 run(function () {
                     return importFiles(true);
@@ -351,11 +374,15 @@ export function installLocalMedia(w: any): any {
         };
         handler = function (key: number) {
             if (!current()) return false;
-            if (key === w.keys.RETURN) {
+            if (key === w.keys.RETURN || key === w.keys.EXIT) {
                 close();
                 return true;
             }
             if (key !== w.keys.ENTER) return false;
+            if (locked() || settingsLocked()) {
+                close();
+                return true;
+            }
             var item = rows[w.selIndex];
             if (item) item.action();
             return true;
@@ -364,6 +391,9 @@ export function installLocalMedia(w: any): any {
         w.listCaption.innerHTML = text(title());
         w.$("#listPopUp").hide();
         w.showPage();
+        owner = w.__ottClassicScreenPort
+            ? w.__ottClassicScreenPort.listOwner()
+            : null;
     }
     function run(action: () => Promise<any>): void {
         var request = ++revision;
@@ -395,6 +425,7 @@ export function installLocalMedia(w: any): any {
         }
         opened = true;
         handler = null;
+        owner = null;
         w.selIndex = 0;
         render();
         run(list);

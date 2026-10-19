@@ -225,13 +225,18 @@ async function main() {
     }
 }
 main()
-    .then(() => (process.argv.includes("--built-ui") ? builtUi() : null))
+    .then(async () => {
+        if (process.argv.includes("--built-ui")) {
+            await builtUi("/f/pc/");
+            await builtUi("/f/");
+        }
+    })
     .catch((e) => {
         console.error(e);
         process.exitCode = 1;
     });
 
-async function builtUi() {
+async function builtUi(devicePath) {
     const root = path.resolve(__dirname, "..");
     const dist = path.join(root, "dist");
     if (!fs.existsSync(path.join(dist, "offline-worker.js")))
@@ -315,7 +320,7 @@ async function builtUi() {
             }
         });
         const origin = "http://127.0.0.1:" + server.address().port;
-        await page.goto(origin + "/f/pc/");
+        await page.goto(origin + devicePath);
         await page.waitForFunction(
             () =>
                 window.__ottLocalMedia &&
@@ -371,6 +376,76 @@ async function builtUi() {
         await selectAction("close");
         await chooseLocalProvider();
         await page.screenshot({ path: "/tmp/ott-local-standard-ui.png" });
+        // The library editor must remain escapable without changing its URL.
+        // Exercise both physical Escape and the player's own cancel/back hints.
+        for (const exitMethod of ["escape", "cancel-hint", "remote-back"]) {
+            await selectAction("server-library");
+            await page.locator("#listEdit").waitFor({ state: "visible" });
+            if (await page.locator("#editvar").count())
+                await page
+                    .locator("#editvar")
+                    .fill("https://discard.example/" + exitMethod);
+            if (exitMethod === "escape") await page.keyboard.press("Escape");
+            else if (exitMethod === "cancel-hint") {
+                const key = await page.evaluate(() => window.keys.EXIT);
+                await page
+                    .locator('#listEdit [data-ott-key="' + key + '"]')
+                    .click();
+            } else {
+                await page.evaluate(() => window.editKey(window.keys.RETURN));
+            }
+            await page.locator("#listEdit").waitFor({ state: "hidden" });
+            await action("server-library").waitFor({ state: "visible" });
+            assert.equal(
+                await page.evaluate(
+                    () => window.stbGetItem("localMediaEndpoint") || ""
+                ),
+                ""
+            );
+        }
+        // Completing an older refresh while the editor is open cannot steal
+        // its owner or leave a visible editor that no longer receives keys.
+        await page.evaluate(() => {
+            const api = window.__ottBrowserLocalMedia;
+            const original = api.list;
+            api.list = () => {
+                api.list = original;
+                return new Promise((resolve) => {
+                    window.__resolveRefresh = resolve;
+                });
+            };
+        });
+        await selectAction("refresh");
+        await page.waitForFunction(
+            () => typeof window.__resolveRefresh === "function"
+        );
+        await selectAction("server-library");
+        await page.evaluate(async () => {
+            window.__resolveRefresh({
+                available: true,
+                items: [],
+                sources: [],
+            });
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+        await page.locator("#editvar").fill("https://discard.example/pending");
+        await page.keyboard.press("Escape");
+        await page.locator("#listEdit").waitFor({ state: "hidden" });
+        await action("server-library").waitFor({ state: "visible" });
+        await selectAction("server-library");
+        await page.locator("#editvar").fill("not-a-server-url");
+        await page.keyboard.press("Enter");
+        await page.locator("#listEdit").waitFor({ state: "hidden" });
+        await page
+            .getByText("Use a complete HTTP or HTTPS URL.", { exact: true })
+            .waitFor();
+        assert.equal(
+            await page.evaluate(
+                () => window.stbGetItem("localMediaEndpoint") || ""
+            ),
+            ""
+        );
         await selectAction("server-library");
         await page.locator("#editvar").fill(origin + "/test-local-library");
         await page.keyboard.press("Enter");
@@ -379,6 +454,7 @@ async function builtUi() {
                 .stbGetItem("localMediaEndpoint")
                 .endsWith("/test-local-library")
         );
+        await page.locator("#listEdit").waitFor({ state: "hidden" });
         await page
             .getByText(
                 "A server library is selected. Clear its URL to use files on this device.",
@@ -391,6 +467,7 @@ async function builtUi() {
         await page.waitForFunction(
             () => !window.stbGetItem("localMediaEndpoint")
         );
+        await page.locator("#listEdit").waitFor({ state: "hidden" });
         await action("add-folder").waitFor();
         // Start at the first row to verify normal remote navigation.
         while (await page.evaluate(() => window.selIndex > 0))
@@ -401,6 +478,116 @@ async function builtUi() {
             "add-files",
             "standard remote list navigation handles local manager rows"
         );
+        for (const name of ["add-files", "add-folder"]) {
+            await page.evaluate((id) => {
+                window[
+                    id === "add-files"
+                        ? "showOpenFilePicker"
+                        : "showDirectoryPicker"
+                ] = () =>
+                    Promise.reject(
+                        new DOMException("Selection cancelled", "AbortError")
+                    );
+            }, name);
+            await selectAction(name);
+            await page.waitForFunction(
+                () =>
+                    !document
+                        .getElementById("listDetail")
+                        .textContent.includes("Working")
+            );
+            assert.equal(
+                await page.evaluate(
+                    async () =>
+                        (await window.__ottLocalMedia.list()).items.length
+                ),
+                0
+            );
+            await selectAction("close");
+            await chooseLocalProvider();
+        }
+        await page.evaluate(() => {
+            window.showDirectoryPicker = () =>
+                Promise.reject(new Error("Fixture permission denied"));
+        });
+        await selectAction("add-folder");
+        await page
+            .getByText("Fixture permission denied", { exact: true })
+            .waitFor();
+        await selectAction("close");
+        await chooseLocalProvider();
+        // A response from a dismissed manager must not replace a newly opened one.
+        await page.evaluate(() => {
+            const api = window.__ottBrowserLocalMedia;
+            const original = api.list;
+            api.list = () => {
+                api.list = original;
+                return new Promise((resolve) => {
+                    window.__resolveOldLocalList = resolve;
+                });
+            };
+            window.__ottLocalMedia.open();
+        });
+        await page.waitForFunction(
+            () => typeof window.__resolveOldLocalList === "function"
+        );
+        await selectAction("close");
+        await chooseLocalProvider();
+        await page.evaluate(() =>
+            window.__resolveOldLocalList({
+                available: true,
+                items: [],
+                sources: [
+                    {
+                        available: true,
+                        id: "obsolete",
+                        name: "Obsolete response",
+                    },
+                ],
+            })
+        );
+        await selectAction("refresh");
+        await page.waitForFunction(
+            () =>
+                !document
+                    .getElementById("listDetail")
+                    .textContent.includes("Working")
+        );
+        assert.equal(
+            await page
+                .getByText("Disconnect: Obsolete response", { exact: true })
+                .count(),
+            0
+        );
+        // Escape is also a back action for the manager itself, including when
+        // a refresh has not returned yet.
+        await page.evaluate(() => {
+            const api = window.__ottBrowserLocalMedia;
+            const original = api.list;
+            api.list = () => {
+                api.list = original;
+                return new Promise((resolve) => {
+                    window.__resolveClosedLocalList = resolve;
+                });
+            };
+        });
+        await selectAction("refresh");
+        await page.waitForFunction(
+            () => typeof window.__resolveClosedLocalList === "function"
+        );
+        await page.keyboard.press("Escape");
+        await action("add-folder").waitFor({ state: "hidden" });
+        await page.evaluate(async () => {
+            window.__resolveClosedLocalList({
+                available: true,
+                items: [],
+                sources: [],
+            });
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+        await action("add-folder").waitFor({ state: "hidden" });
+        await chooseLocalProvider();
         // Real filesystem handles, not uploaded File/Blob copies. The native
         // picker is replaced only to make the user-selection step deterministic.
         await page.evaluate(async (bytes) => {
@@ -538,7 +725,9 @@ async function builtUi() {
         );
         assert.deepEqual(errors, []);
         console.log(
-            "PASS built UI: file and nested-folder links, non-media filtering, always-open Local videos manager, real MP4 decoding, stable IDs and playback after offline cold reload (with a user gesture when browser autoplay policy requires it)"
+            "PASS built UI " +
+                devicePath +
+                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, playback and offline cold reload"
         );
     } finally {
         await browser.close();
