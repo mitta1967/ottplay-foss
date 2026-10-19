@@ -1007,6 +1007,7 @@ try {
         for (const name of [
             "loadSettings",
             "installSettingsFacade",
+            "installLocalMedia",
             "initUIReferences",
             "setTimezone",
             "setFontSize",
