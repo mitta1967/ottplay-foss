@@ -144,8 +144,10 @@ export function installLocalMedia(w: any): any {
                         });
               });
         // Native bridges and browser filesystem reads cannot always be aborted.
-        // Retire their ownership on inactivity so late results cannot populate
-        // a completed snapshot or revive a closed loading dialog.
+        // Android/iOS list has no progress events: its 60s response limit is a
+        // total deadline, matching provider startup. Browser progress resets it.
+        // Retire ownership on expiry so late results cannot populate a completed
+        // snapshot or revive a closed loading dialog.
         function boundedLocalRead(
             start: (progress: (value: any) => boolean) => Promise<any>
         ): Promise<any> {

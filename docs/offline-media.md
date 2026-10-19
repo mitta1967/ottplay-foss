@@ -52,9 +52,13 @@ work, not downloaded or copied video bytes.
 
 Capacitor Android/iOS and the optional server library still return a complete
 catalog before playback starts. They share the loading dialog, but do not yet
-provide first-batch playback or background catalog appends. A large catalog can
-reach the provider's 60-second inactivity timeout; the timeout is a recovery path,
-not evidence that scanning finished. Unchanged polling does not reset it. Check
+provide first-batch playback or background catalog appends. Android/iOS list calls
+have no progress events, so their 60-second response deadline is a total operation
+limit, including directory traversal. A valid large scan can exceed it and require
+a smaller source or a retry; it is not evidence that scanning finished. This
+matches the existing provider startup limit and also bounds the source manager.
+Browser/Tauri reads reset their inactivity deadline only on actual progress;
+unchanged polling does not reset it. Check
 the installed build's source revision: earlier 1.1.58 Tauri builds still have the
 one-shot scan.
 
