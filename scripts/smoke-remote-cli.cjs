@@ -793,7 +793,7 @@ function moduleOf(file, requireFn, window) {
                     host
                 ).installOfflineProfiles(host, {
                     libraryIdentity: () => "fixture-library-" + device,
-                    list: async () => clone(catalog),
+                    snapshot: async () => clone(catalog),
                 });
                 host.curList = catalog.items.map((item) => "local-" + item.id);
                 host.primaryIndex = initialIndex;
