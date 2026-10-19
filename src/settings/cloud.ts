@@ -36,11 +36,24 @@ var cloudSettingsTransfer = (function () {
             write = w.stbSetItem,
             remove = w.stbDelItem,
             dump = w.stbGetAllItems;
+        var offlineExpected: {
+            bytes: string | null;
+            selection: string;
+            source: string;
+        } | null = null;
         function sameSource(): boolean {
+            var currentSource = w.__ottSourceIdentity.current(w);
+            var currentSelection = selection();
+            var ownOfflineSelection =
+                committing &&
+                offlineExpected !== null &&
+                currentSource === offlineExpected.source &&
+                currentSelection === offlineExpected.selection &&
+                read.call(w, "offlineProfiles") === offlineExpected.bytes;
             return (
-                (committing || source === w.__ottSourceIdentity.current(w)) &&
+                (committing || source === currentSource) &&
                 driver === w.__ottActiveProviderDriver &&
-                selected === selection() &&
+                (selected === currentSelection || ownOfflineSelection) &&
                 providerRead === w.providerGetItem &&
                 providerWrite === w.providerSetItem &&
                 read === w.stbGetItem &&
@@ -212,6 +225,31 @@ var cloudSettingsTransfer = (function () {
             if (!before || typeof before !== "object" || Array.isArray(before))
                 throw new Error("Invalid storage");
             if (
+                driver &&
+                driver.id === "offline" &&
+                source === w.__ottSourceIdentity.legacy(w)
+            ) {
+                var localBytes = Object.prototype.hasOwnProperty.call(
+                    imported,
+                    "offlineProfiles"
+                )
+                    ? imported.offlineProfiles
+                    : null;
+                var localActive = localBytes
+                    ? JSON.parse(localBytes).active
+                    : -1;
+                var localSource =
+                    localActive < 0 ? "offline" : "offline:" + localActive;
+                offlineExpected = {
+                    bytes: localBytes,
+                    selection: JSON.stringify([
+                        localSource,
+                        JSON.parse(selected)[1],
+                    ]),
+                    source: localSource,
+                };
+            }
+            if (
                 !Object.prototype.hasOwnProperty.call(imported, "parentPIN") &&
                 Object.prototype.hasOwnProperty.call(before, "parentPIN")
             )
@@ -281,8 +319,12 @@ var cloudSettingsTransfer = (function () {
                     return intent === cloudSettingsIntent && sameSource();
                 });
                 source = w.__ottSourceIdentity.current(w);
+                selected = selection();
             } catch (_error) {
-                if (sameSource()) source = w.__ottSourceIdentity.current(w);
+                if (sameSource()) {
+                    source = w.__ottSourceIdentity.current(w);
+                    selected = selection();
+                }
                 committing = false;
                 fail("Settings could not be saved");
                 return;

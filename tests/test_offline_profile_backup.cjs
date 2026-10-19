@@ -103,12 +103,10 @@ function fixture() {
         w.cloudLoadSettings();
         requests.at(-1).success({ code: "fixture" });
         [...jobs.values()].find((job) => job.delay === 10000).fn();
-        requests
-            .at(-1)
-            .success({
-                data: w.__ottCloudSettingsCodec.write(items),
-                status: "success",
-            });
+        requests.at(-1).success({
+            data: w.__ottCloudSettingsCodec.write(items),
+            status: "success",
+        });
     }
     return { deliver, requests, restarts: () => restarts, stored, w, writes };
 }
@@ -216,4 +214,66 @@ test("old backups remain compatible and preserve the private binding map", () =>
     f.w.restoreLocalSettingsSnapshot({ ordinary: "after" });
     assert.equal(f.stored.get("ordinary"), "after");
     assert.equal(f.stored.get("offlineProfileBindings"), privateBindings);
+});
+
+function activeOfflineFixture() {
+    const f = fixture();
+    const document = JSON.parse(valid);
+    document.profiles[0] = {
+        binding_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        name: "Fixture",
+        provider: "offline",
+        selected: null,
+        sources: [],
+        version: 1,
+    };
+    document.active = 0;
+    const activeStore = JSON.stringify(document);
+    f.stored.set("offlineProfiles", activeStore);
+    f.w.__ottOfflineProfiles.validateStore = (value) =>
+        [valid, activeStore].includes(JSON.stringify(value));
+    f.w.__ottOfflineProfiles.namespace = () => {
+        const active = JSON.parse(
+            f.stored.get("offlineProfiles") || valid
+        ).active;
+        return active < 0 ? "offline" : "offline:" + active;
+    };
+    f.w.__ottActiveProviderDriver = { id: "offline" };
+    return f;
+}
+
+for (const next of [valid, undefined]) {
+    test(
+        "cloud restore may intentionally change the offline active slot: " +
+            String(next),
+        () => {
+            const f = activeOfflineFixture();
+            const imported = { ordinary: "after" };
+            if (next !== undefined) imported.offlineProfiles = next;
+            f.deliver(imported);
+            assert.equal(f.stored.get("offlineProfiles"), next);
+            assert.equal(f.stored.get("ordinary"), "after");
+            assert.equal(
+                f.stored.get("offlineProfileBindings"),
+                privateBindings
+            );
+            assert.equal(f.restarts(), 1);
+        }
+    );
+}
+
+test("own offline transition does not permit a concurrent provider replacement", () => {
+    const f = activeOfflineFixture();
+    const write = f.w.stbSetItem;
+    f.w.stbSetItem = (key, value) => {
+        write(key, value);
+        if (key === "offlineProfiles") {
+            f.w.p_pref = "m3u";
+            f.w.__ottActiveProviderDriver = { id: "m3u" };
+        }
+    };
+    f.deliver({ offlineProfiles: valid, ordinary: "after" });
+    assert.equal(f.restarts(), 0);
+    assert.equal(f.stored.get("offlineProfileBindings"), privateBindings);
+    assert.equal(f.w.__ottActiveProviderDriver.id, "m3u");
 });
