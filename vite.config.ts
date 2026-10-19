@@ -36,6 +36,9 @@ const { stageNativeRuntime } = classicRequire(
 const { stage: stageHostedEpg } = classicRequire(
     resolve(__dirname, "scripts/hosted-epg.cjs")
 );
+const { stageOfflineShell } = classicRequire(
+    resolve(__dirname, "scripts/offline-shell.cjs")
+);
 const { stageHostedSwop } = classicRequire(
     resolve(__dirname, "scripts/hosted-swop.cjs")
 );
@@ -583,6 +586,7 @@ export default defineConfig(({ mode }) => ({
                     );
                     return;
                 }
+                stageOfflineShell(outDir);
                 if (mode === "server") {
                     writeBundleReport(
                         __dirname,

@@ -49,6 +49,7 @@ pub fn run() {
             }
             ws.build()
         })
+        .manage(commands::offline_media::OfflineMediaState::default())
         .manage(commands::queue::QueueHttpRuntime::default())
         .manage(MediaSessionState::default())
         .manage(commands::native_hls::NativeHlsState::default())
@@ -64,6 +65,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::tauri_commands::ping,
+            commands::offline_media::offline_media_endpoint,
             commands::runtime_diagnostics::runtime_diagnostics,
             commands::tauri_commands::get_epg,
             commands::m3u::match_channels,

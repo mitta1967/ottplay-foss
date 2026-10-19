@@ -600,6 +600,7 @@ var keyStrings = {
     "Loading...": "Загрузка…",
     "Local HTTP remote control": "Локальный HTTP-пульт",
     "Local URL": "Локальный адрес",
+    "Local videos": "Локальные видео",
     Login: "Имя пользователя",
     lang: "Русский",
     large: "большой",

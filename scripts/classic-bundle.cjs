@@ -87,6 +87,8 @@ const CLASSIC_MODULES = [
     "build/provider/vportal-driver.js",
     "build/provider/xtream-media.js",
     "build/provider/drivers.js",
+    "build/offline/browser-local-media.js",
+    "build/plugins/local-media.js",
     "build/provider/assets.js",
     "build/provider/index.js",
     "build/commands/index.js",

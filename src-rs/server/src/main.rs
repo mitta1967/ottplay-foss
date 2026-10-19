@@ -323,9 +323,20 @@ async fn main() -> anyhow::Result<()> {
         // Installation-authenticated relay must not inherit permissive asset CORS.
         .merge(swop::routes_from_env()?)
         .merge(nas_library::routes_from_env()?)
-        .merge(control_discovery::routes());
+        .merge(control_discovery::routes())
+        .merge(offline_media_routes().await?);
 
     serve_listeners(listeners, app, tls_config).await
+}
+
+/// Media import is disabled unless an operator configures both storage and a secret.
+async fn offline_media_routes() -> anyhow::Result<Router> {
+    let Some(directory) = std::env::var_os("OTT_OFFLINE_MEDIA_DIR") else {
+        return Ok(Router::new());
+    };
+    let token = std::env::var("OTT_OFFLINE_MEDIA_TOKEN")
+        .map_err(|_| anyhow::anyhow!("OTT_OFFLINE_MEDIA_DIR requires OTT_OFFLINE_MEDIA_TOKEN"))?;
+    Ok(ottplay_core::offline_media::Library::new(directory.into(), token, "server").await?.routes())
 }
 
 async fn refresh_epg_snapshot(

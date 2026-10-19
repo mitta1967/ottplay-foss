@@ -13,3 +13,5 @@ pub mod queue;
 pub mod stalker;
 pub mod tauri_commands;
 pub mod tmdb;
+
+pub mod offline_media;

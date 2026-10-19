@@ -84,7 +84,8 @@ export function isProviderAllowed(id: string): boolean {
         id === "xtream" ||
         id === "plex" ||
         id === "vportal" ||
-        id === "demo"
+        id === "demo" ||
+        id === "offline"
     );
 }
 
@@ -96,6 +97,7 @@ export var providerIds = [
     "vportal",
     "",
     "demo",
+    "offline",
     // OTTPLAY_FULL_ONLY_BEGIN
     "ottclub",
     "edem",
@@ -599,6 +601,11 @@ export function optionsList(fn?: () => void): void {
         }
     }
     var viewOptions = optionsArr.slice();
+    if ((window as any).__ottLocalMedia)
+        viewOptions.unshift({
+            action: (window as any).popLocalMedia,
+            name: (window as any).__ottLocalMedia.title(),
+        });
     listDataArray = [];
     viewOptions.forEach(function (opt: any) {
         listDataArray.push(_(opt.name || ""));
@@ -1473,6 +1480,7 @@ export function showProviderSelection(): void {
             "vportal",
             "",
             "demo",
+            "offline",
         ];
         providerLabels = null;
     }
@@ -1489,6 +1497,7 @@ export function showProviderSelection(): void {
             "VPortal",
             "",
             _("Demo — moving test pattern"),
+            _("Local videos"),
             // OTTPLAY_FULL_ONLY_BEGIN
             "OTTCLUB",
             "Эдем / iLookTV",

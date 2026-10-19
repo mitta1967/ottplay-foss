@@ -1,5 +1,7 @@
 # OTT-play FOSS
 
+Local files without Internet: see [Local videos and offline playback](docs/offline-media.md).
+
 [![OTT-play FOSS channel browser in a perspective view](docs/images/hero.png)](docs/images/studio-2026-default.png)
 
 *Existing Studio 2026 interface screenshot with synthetic channel and programme fixtures.

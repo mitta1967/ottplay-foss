@@ -594,6 +594,7 @@ var keyStrings = {
     "Loading...": "Loading…",
     "Local HTTP remote control": "Local HTTP remote control",
     "Local URL": "Local URL",
+    "Local videos": "Local videos",
     Login: "Username",
     lang: "English",
     large: "large",

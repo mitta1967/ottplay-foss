@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-offline-media"
+description = "Allow the player to use its private offline media library"
+commands.allow = ["offline_media_endpoint"]

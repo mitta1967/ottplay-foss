@@ -243,7 +243,8 @@ const { gzipSync } = require("node:zlib");
 // Add exactly +1867 raw/+564 gzip once, preserving the existing 383-byte raw
 // and 195-byte worst-native gzip reserve. Beta.1 projects to 896661/278350
 // web and 896619/278405 native; no provider or artifact is excluded.
-const BUDGET = Object.freeze({ bytes: 897023, gzipBytes: 278582 });
+// Local media library adds bounded 16KB raw / 5KB gzip to the entry.
+const BUDGET = Object.freeze({ bytes: 913023, gzipBytes: 283582 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -367,7 +368,7 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Combine both reviewed deltas over the common 964900 / 306550 baseline.
 // Count the same +1867/+564 debug-v3 feature cost once; all eight provider
 // bundles are unchanged and remain inside the complete-payload measurement.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1017923, gzipBytes: 323482 });
+const TOTAL_BUDGET = Object.freeze({ bytes: 1033923, gzipBytes: 328482 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

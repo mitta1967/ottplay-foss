@@ -6,6 +6,7 @@ import {
     languageNames,
 } from "./localization/assets";
 import { accessMediaPlugin, prepareAccessMedia } from "./plugins/access-media";
+import { installLocalMedia } from "./plugins/local-media";
 import { createSettingsEditor } from "./settings/editor";
 import {
     editSettingsText,
@@ -2101,6 +2102,7 @@ function onStbReady(): void {
             (window as any).applyLocalSwopConfig();
         if ((window as any).__ottNasLibrary)
             (window as any).__ottNasLibrary.init();
+        installLocalMedia(window);
         initUIReferences();
 
         // Apply settings

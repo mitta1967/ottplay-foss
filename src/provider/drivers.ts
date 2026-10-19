@@ -194,6 +194,89 @@ function createDriverRegistry() {
     };
 }
 
+function createOfflineDriver(
+    ports: ProviderDriverPorts,
+    owner: DriverLifetime
+): ProviderDriver {
+    var disposed = false;
+    var catalog = emptyDriverCatalog();
+    var revision = 0;
+    function active(): boolean {
+        return !disposed && owner.active();
+    }
+    var driver: ProviderDriver = {
+        archive: function () {
+            return "";
+        },
+        capabilities: {
+            archive: false,
+            guide: false,
+            media: false,
+            settings: false,
+        },
+        credentials: function () {
+            return { password: "", server: "", username: "" };
+        },
+        dispose: function () {
+            disposed = true;
+            revision++;
+        },
+        guide: function (_, done) {
+            if (active()) done([]);
+        },
+        id: "offline",
+        load: function (done) {
+            var request = ++revision;
+            var media = (window as any).__ottLocalMedia;
+            if (!media) {
+                done(emptyDriverCatalog(), "Local media is unavailable");
+                return;
+            }
+            media.list().then(
+                function (value: any) {
+                    if (!active() || request !== revision) return;
+                    catalog = emptyDriverCatalog();
+                    value.items.forEach(function (item: any) {
+                        var id = "local-" + item.id;
+                        catalog.ids.push(id);
+                        catalog.channels[id] = {
+                            category: {
+                                class: 2,
+                                name: ports.translate("Local videos"),
+                            },
+                            channel_name: item.name,
+                            logo: "",
+                            rec: 0,
+                            time: 0,
+                            time_to: 0,
+                            url: item.url,
+                        };
+                    });
+                    done(driverCatalogSnapshot(catalog));
+                },
+                function (error: any) {
+                    if (active() && request === revision)
+                        done(
+                            emptyDriverCatalog(),
+                            String(error.message || error)
+                        );
+                }
+            );
+        },
+        logo: function () {
+            return "";
+        },
+        saveCredentials: function () {},
+        stream: function (id) {
+            return active() && catalog.channels[id]
+                ? catalog.channels[id].url
+                : "";
+        },
+    };
+    owner.own(driver.dispose);
+    return driver;
+}
+
 function createDemoDriver(
     ports: ProviderDriverPorts,
     owner: DriverLifetime
@@ -1124,71 +1207,77 @@ var providerDriverRegistry = createDriverRegistry();
 providerDriverProfiles.forEach(function (profile) {
     providerDriverRegistry.register(
         profile.id,
-        profile.kind === "demo"
-            ? createDemoDriver
-            : profile.kind === "xtream"
-              ? createXtreamDriver
-              : function (ports, owner) {
-                    var helpers = {
-                        emptyCatalog: emptyDriverCatalog,
-                        media: (window as any).__ottMediaCatalog.create,
-                        snapshot: driverCatalogSnapshot,
-                        transport: createDriverTransport,
-                    };
-                    if (profile.kind === "stalker")
-                        return (window as any).__ottStalkerDriver.create(
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "m3u")
-                        return (window as any).__ottM3uDriver.create(
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "plex" || profile.kind === "vportal")
-                        return (window as any)[
-                            profile.kind === "plex"
-                                ? "__ottPlexDriver"
-                                : "__ottVPortalDriver"
-                        ].create(ports, owner, {
-                            credentials: createCredentialOperations,
-                            emptyCatalog: emptyDriverCatalog,
-                        });
-                    // OTTPLAY_FULL_ONLY_BEGIN
-                    if (profile.kind === "catalog")
-                        return (window as any).__ottCatalogDrivers.create(
-                            profile.id,
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "playlist")
-                        return (window as any).__ottPlaylistDrivers.create(
-                            profile.id,
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "edem")
-                        return (window as any).__ottEdemDriver.create(
-                            ports,
-                            owner,
-                            helpers
-                        );
-                    if (profile.kind === "named-playlist")
-                        return createNamedPlaylistDriver(profile, ports, owner);
-                    if (
-                        profile.kind === "operator" ||
-                        profile.kind === "xtream-fallback"
-                    )
-                        return createOperatorDriver(profile, ports, owner);
-                    // OTTPLAY_FULL_ONLY_END
-                    throw new Error(
-                        "Unsupported provider kind: " + profile.kind
-                    );
-                }
+        profile.kind === "offline"
+            ? createOfflineDriver
+            : profile.kind === "demo"
+              ? createDemoDriver
+              : profile.kind === "xtream"
+                ? createXtreamDriver
+                : function (ports, owner) {
+                      var helpers = {
+                          emptyCatalog: emptyDriverCatalog,
+                          media: (window as any).__ottMediaCatalog.create,
+                          snapshot: driverCatalogSnapshot,
+                          transport: createDriverTransport,
+                      };
+                      if (profile.kind === "stalker")
+                          return (window as any).__ottStalkerDriver.create(
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "m3u")
+                          return (window as any).__ottM3uDriver.create(
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "plex" || profile.kind === "vportal")
+                          return (window as any)[
+                              profile.kind === "plex"
+                                  ? "__ottPlexDriver"
+                                  : "__ottVPortalDriver"
+                          ].create(ports, owner, {
+                              credentials: createCredentialOperations,
+                              emptyCatalog: emptyDriverCatalog,
+                          });
+                      // OTTPLAY_FULL_ONLY_BEGIN
+                      if (profile.kind === "catalog")
+                          return (window as any).__ottCatalogDrivers.create(
+                              profile.id,
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "playlist")
+                          return (window as any).__ottPlaylistDrivers.create(
+                              profile.id,
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "edem")
+                          return (window as any).__ottEdemDriver.create(
+                              ports,
+                              owner,
+                              helpers
+                          );
+                      if (profile.kind === "named-playlist")
+                          return createNamedPlaylistDriver(
+                              profile,
+                              ports,
+                              owner
+                          );
+                      if (
+                          profile.kind === "operator" ||
+                          profile.kind === "xtream-fallback"
+                      )
+                          return createOperatorDriver(profile, ports, owner);
+                      // OTTPLAY_FULL_ONLY_END
+                      throw new Error(
+                          "Unsupported provider kind: " + profile.kind
+                      );
+                  }
     );
 });
 

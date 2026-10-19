@@ -3365,6 +3365,7 @@ dependencies = [
  "axum",
  "chrono",
  "flate2",
+ "futures-util",
  "libc",
  "quick-xml",
  "reqwest 0.12.28",
@@ -3378,6 +3379,7 @@ dependencies = [
  "tokio",
  "tracing",
  "urlencoding",
+ "uuid",
  "winreg",
 ]
 
