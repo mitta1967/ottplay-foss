@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { execFileSync, execSync } from "child_process";
 import {
@@ -461,10 +462,17 @@ export default defineConfig(({ mode }) => ({
                 // Copy index.html with version substituted
                 const indexSrc = resolve(__dirname, "index.html");
                 if (existsSync(indexSrc)) {
-                    let html = readFileSync(indexSrc, "utf8").replace(
-                        /__OTTP_VERSION__/g,
-                        version
-                    );
+                    // Same-version beta deployments must not reuse a cached player URL.
+                    const assetVersion =
+                        version +
+                        "-" +
+                        createHash("sha256")
+                            .update(result.code)
+                            .digest("hex")
+                            .slice(0, 16);
+                    let html = readFileSync(indexSrc, "utf8")
+                        .replace(/__OTTP_ASSET_VERSION__/g, assetVersion)
+                        .replace(/__OTTP_VERSION__/g, version);
                     if (androidFlavor === "play") {
                         // The favicon is another copy of the excluded startup logo.
                         html = html.replace(

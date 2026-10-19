@@ -241,6 +241,17 @@ async function builtUi(devicePath) {
     const dist = path.join(root, "dist");
     if (!fs.existsSync(path.join(dist, "offline-worker.js")))
         throw new Error("Build the player before --built-ui");
+    const assetHash = require("node:crypto")
+        .createHash("sha256")
+        .update(fs.readFileSync(path.join(dist, "player.js")))
+        .digest("hex")
+        .slice(0, 16);
+    assert.ok(
+        fs
+            .readFileSync(path.join(dist, "index.html"), "utf8")
+            .includes("-" + assetHash + '"'),
+        "bootstrap asset URL changes with same-version player bytes"
+    );
     const muxjs = require("mux.js");
     // Repeat the two-second fixture with real increasing decode timestamps so
     // transport shortcuts exercise a seekable 40-second file, not a mocked
