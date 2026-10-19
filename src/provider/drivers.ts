@@ -253,6 +253,15 @@ function createOfflineDriver(
                         };
                     });
                     done(driverCatalogSnapshot(catalog));
+                    // An empty provider must offer import rather than strand the user
+                    // on a blank channel list. Recheck ownership after the callback.
+                    if (
+                        active() &&
+                        request === revision &&
+                        !catalog.ids.length &&
+                        typeof media.open === "function"
+                    )
+                        media.open();
                 },
                 function (error: any) {
                     if (active() && request === revision)

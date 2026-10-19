@@ -63,3 +63,29 @@ test("offline storage failure settles the catalog with an actionable error", asy
     assert.equal(result.error, "Storage unavailable");
     assert.equal(result.catalog.ids.length, 0);
 });
+
+test("empty offline provider opens import after settling the catalog", async () => {
+    const f = fixture();
+    const events = [];
+    f.host.__ottLocalMedia = {
+        list: async () => ({ items: [] }),
+        open: () => events.push("import"),
+    };
+    f.mount("offline").load(() => events.push("settled"));
+    await Promise.resolve();
+    assert.deepEqual(events, ["settled", "import"]);
+});
+
+test("empty catalog callback cannot reopen import after provider replacement", async () => {
+    const f = fixture();
+    let opened = false;
+    f.host.__ottLocalMedia = {
+        list: async () => ({ items: [] }),
+        open: () => {
+            opened = true;
+        },
+    };
+    f.mount("offline").load(() => f.mount("demo"));
+    await Promise.resolve();
+    assert.equal(opened, false);
+});

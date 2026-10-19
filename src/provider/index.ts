@@ -1587,6 +1587,11 @@ export function showProviderSelection(): void {
             return;
         if (!id || !isProviderAllowed(id)) return;
         if (savedProvId === id) {
+            var localMedia = (window as any).__ottLocalMedia;
+            if (id === "offline" && localMedia) {
+                localMedia.open();
+                return;
+            }
             var edit = (window as any).__ottEditProvider;
             if (
                 (id === "stalker" || id === "plex" || id === "vportal") &&

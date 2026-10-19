@@ -108,6 +108,10 @@ export function installLocalMedia(w: any): any {
             return Promise.reject(
                 new Error("Unlock kiosk mode to change local files")
             );
+        if (settingsLocked())
+            return Promise.reject(
+                new Error("Unlock settings to change local files")
+            );
         if (isNative()) return native.importFiles().then(remember);
         if (!isTauri() && !remoteEndpoint())
             return browser.importFiles().then(remember);
@@ -135,6 +139,10 @@ export function installLocalMedia(w: any): any {
             return Promise.reject(
                 new Error("Unlock kiosk mode to change local files")
             );
+        if (settingsLocked())
+            return Promise.reject(
+                new Error("Unlock settings to change local files")
+            );
         if (isNative()) return native.remove({ id: id }).then(remember);
         return getEndpoint()
             .then(function (base) {
@@ -151,6 +159,9 @@ export function installLocalMedia(w: any): any {
     }
     function locked(): boolean {
         return !!(w.__ottKiosk && w.__ottKiosk.locked());
+    }
+    function settingsLocked(): boolean {
+        return !!(w.__ottParental && w.__ottParental.needs("settings"));
     }
     function stopKey(event: KeyboardEvent): void {
         if (panel) event.stopImmediatePropagation();
@@ -182,7 +193,7 @@ export function installLocalMedia(w: any): any {
             event.key === "ArrowLeft"
         ) {
             var buttons = Array.prototype.slice.call(
-                panel.querySelectorAll("button")
+                panel.querySelectorAll("button:not(:disabled)")
             );
             var current = buttons.indexOf(w.document.activeElement);
             var delta =
@@ -199,6 +210,10 @@ export function installLocalMedia(w: any): any {
     }
     function activate(): void {
         if (locked()) return;
+        if (!last || !last.items.length) {
+            open();
+            return;
+        }
         close();
         w.stbSetItem("ottplayprov", "offline");
         w.loadProv("offline");
@@ -222,6 +237,9 @@ export function installLocalMedia(w: any): any {
             close();
             return;
         }
+        var focusedCaption = panel.contains(w.document.activeElement)
+            ? w.document.activeElement.textContent
+            : "";
         panel.textContent = "";
         var heading = w.document.createElement("h2");
         heading.textContent = title();
@@ -233,10 +251,28 @@ export function installLocalMedia(w: any): any {
                 ? "Files are stored on the server. A connection to that server is required."
                 : "Files are stored on this device. MP4 with H.264/AAC is recommended.");
         panel.appendChild(note);
+        if (last && !last.items.length) {
+            var empty = w.document.createElement("p");
+            empty.setAttribute("role", "status");
+            empty.textContent =
+                "No local videos yet. Choose Add files to import videos, then choose Play local videos.";
+            panel.appendChild(empty);
+        }
+        if (last && last.storage === "browser") {
+            var scope = w.document.createElement("p");
+            scope.textContent =
+                "This library belongs to this website and browser profile. Videos on your Mac, other devices, or another website are not added automatically.";
+            panel.appendChild(scope);
+        }
         button(panel, "Add files", function () {
             run(importFiles);
         });
-        button(panel, "Play local videos", activate);
+        var play = button(panel, "Play local videos", activate);
+        play.disabled = !last || !last.items.length;
+        if (play.disabled) {
+            play.style.opacity = "0.5";
+            play.style.cursor = "default";
+        }
         button(panel, "Refresh", function () {
             run(list);
         });
@@ -284,6 +320,12 @@ export function installLocalMedia(w: any): any {
             });
             panel!.appendChild(row);
         });
+        var enabled = panel.querySelectorAll("button:not(:disabled)");
+        var focusTarget = enabled[0] as HTMLElement;
+        for (var focusIndex = 0; focusIndex < enabled.length; focusIndex++)
+            if (enabled[focusIndex].textContent === focusedCaption)
+                focusTarget = enabled[focusIndex] as HTMLElement;
+        if (focusTarget) focusTarget.focus();
     }
     function run(action: () => Promise<any>): void {
         render("Working…");
@@ -298,6 +340,11 @@ export function installLocalMedia(w: any): any {
     }
     function open(): void {
         if (locked()) return;
+        if (settingsLocked()) {
+            if (typeof w.enterPinAndSetAccess === "function")
+                w.enterPinAndSetAccess(open);
+            return;
+        }
         close();
         panel = w.document.createElement("section");
         panel!.setAttribute("role", "dialog");

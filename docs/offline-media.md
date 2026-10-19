@@ -3,7 +3,7 @@
 The **Local videos** library imports media files and exposes them as the
 `offline` provider. Open **Settings → Local videos**, choose **Add files**, then
 **Play local videos**. You can also select **Local videos** from the provider
-list. Channel identity is derived from the stored file ID; playback URLs are
+list. When the library is empty, selecting this provider opens the import screen instead of an empty channel list. The player does not scan the computer: select files with **Add files** first. Chrome profiles, separate site addresses, and native apps have separate libraries. Channel identity is derived from the stored file ID; playback URLs are
 refreshed every time the catalog loads. Existing channel selection, favourites
 and kiosk rules apply to these entries.
 

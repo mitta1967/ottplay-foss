@@ -275,10 +275,52 @@ async function builtUi() {
                 window.__ottLocalMedia &&
                 !document.body.classList.contains("booting")
         );
-        await page.evaluate(() => {
-            window.stbStop();
-            window.popLocalMedia();
-        });
+        async function chooseLocalProvider() {
+            await page.evaluate(() => {
+                window.stbStop();
+                window.showProviderSelection();
+            });
+            await page.keyboard.press("Home");
+            for (let step = 0; step < 12; step++) {
+                const selected = await page.evaluate(() => {
+                    const row = document.getElementById("it" + window.selIndex);
+                    return row && row.textContent.includes("Local videos");
+                });
+                if (selected) break;
+                await page.keyboard.press("ArrowDown");
+            }
+            await page.keyboard.press("Enter");
+            await page
+                .getByText("No local videos yet.", { exact: false })
+                .waitFor();
+        }
+        await chooseLocalProvider();
+        await page
+            .getByRole("dialog", { name: "Local videos" })
+            .getByRole("button", { exact: true, name: "Close" })
+            .click();
+        await chooseLocalProvider();
+        assert.equal(
+            await page
+                .getByRole("button", { exact: true, name: "Play local videos" })
+                .isDisabled(),
+            true,
+            "empty library must offer import instead of activating an empty channel list"
+        );
+        await page
+            .getByText("This library belongs to this website", { exact: false })
+            .waitFor();
+        assert.equal(
+            await page.evaluate(() => document.activeElement.textContent),
+            "Add files",
+            "fresh library focuses import after asynchronous catalog rendering"
+        );
+        await page.keyboard.press("ArrowDown");
+        assert.equal(
+            await page.evaluate(() => document.activeElement.textContent),
+            "Refresh",
+            "remote navigation skips disabled Play on an empty library"
+        );
         const chooserPromise = page.waitForEvent("filechooser");
         await page
             .getByRole("button", { exact: true, name: "Add files" })
