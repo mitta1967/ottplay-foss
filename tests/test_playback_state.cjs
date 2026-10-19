@@ -130,7 +130,44 @@ function fixture(managed = false) {
     return c;
 }
 
+// Quitting during a pending local startup seek must keep the requested offset.
+{
+    const c = fixture(true);
+    c.__ottActiveProviderDriver = { id: "offline" };
+    c.api.command({ channelId: 101, position: 127, type: "live" });
+    c.openBackend();
+    include(c, "src/index.ts", ["body_onUnload"]);
+    c.__ottCoreBackendPeek = () => c.getCoreMediaBackend();
+    c.body_onUnload();
+    assert.equal(c.api.bookmark().playTime, 127);
+    c.getCoreMediaBackend().stop();
+    c.body_onUnload();
+    assert.equal(c.api.bookmark().playTime, 127);
+}
+
 // The normal command path owns kind/identity; observations keep generation stable.
+{
+    const c = fixture(true);
+    c.__ottActiveProviderDriver = { id: "offline" };
+    c.api.command({ channelId: 101, type: "live" });
+    c.openBackend();
+    c.video.duration = 60;
+    c.video.readyState = 4;
+    c.video.paused = false;
+    c.video.currentTime = 59;
+    c.emit("playing");
+    c.api.checkpoint(c.api.snapshot(), true);
+    assert.equal(c.api.bookmark().playTime, 59);
+    c.video.currentTime = 60;
+    c.emit("ended");
+    assert.equal(c.api.snapshot().position, 60);
+    assert.equal(
+        c.api.bookmark().playTime,
+        0,
+        "actual EOF resets resume even when the last periodic sample was one second earlier"
+    );
+}
+
 {
     const c = fixture();
     assert.equal(c.api.snapshot().target.kind, "live");

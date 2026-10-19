@@ -799,6 +799,23 @@ for (const mode of [0, 1, 2]) {
         );
     }
 }
+test("local startup offset waits for metadata and resets only when beyond the new file end", () => {
+    const { w } = fixture();
+    w.__ottActiveProviderDriver = { id: "offline" };
+    w.video.blockEarlySeek = true;
+    w.stbPlay("local.mp4", 37);
+    assert.equal(w.video.currentTime, 0);
+    w.video.duration = 100;
+    w.video.metadata();
+    assert.equal(w.video.currentTime, 37);
+    w.video.readyState = 0;
+    w.video.duration = NaN;
+    w.stbPlay("replaced-local.mp4", 137);
+    w.video.duration = 100;
+    w.video.metadata();
+    assert.equal(w.video.currentTime, 0);
+});
+
 test("native and HLS recovery preserve seek on engines rejecting pre-metadata currentTime", () => {
     const { w, players } = fixture();
     w.video.blockEarlySeek = true;

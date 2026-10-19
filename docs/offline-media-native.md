@@ -5,6 +5,12 @@ original media. They do not copy the selected bytes into OTT storage. Existing
 private imports remain compatible and are labeled as copies. Direct playback
 requires the original file and its OS access permission to remain available.
 
+Native exit saves the measured playback position before decoder teardown.
+Startup restores that position only for the same selected local file and profile;
+completed videos and manual selections start at zero. Tauri and Capacitor share
+this player behavior with the browser and OTT Server. A pending startup seek
+retains its saved position even if the app exits before metadata arrives.
+
 ## Shared contract
 
 Android and iOS expose the `LocalMedia` Capacitor plugin. Tauri supplies the same

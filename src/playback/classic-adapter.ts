@@ -659,7 +659,14 @@ function classicPlaybackImportJournalValue(key: string, raw: any): any {
             value.forEach(function (row: any): void {
                 if (row) row.ci = reference(row.ci);
             });
-        } else if (key === "continueWatch" && value && value.mode !== "vod") {
+        } else if (key === "continueWatch" && value) {
+            if (
+                value.mode === "vod" &&
+                value.playType === -99999999999 &&
+                w.__ottActiveProviderDriver?.id === "offline"
+            )
+                value.mode = "live";
+            if (value.mode === "vod") return raw;
             value.channelId = reference(value.channelId);
         } else return raw;
         return JSON.stringify(value);
@@ -953,6 +960,15 @@ function classicPlaybackCheckpoint(snapshot: any, force = false): void {
     )
         return;
     var payload = target.payload || {};
+    var position = snapshot.position;
+    if (
+        w.__ottActiveProviderDriver?.id === "offline" &&
+        snapshot.target?.kind === "vod" &&
+        snapshot.duration > 0 &&
+        isFinite(snapshot.duration) &&
+        position >= snapshot.duration - 0.25
+    )
+        position = 0;
     var saved = journal.update({
         bookmark: {
             archiveStart: target.archiveStart,
@@ -962,7 +978,7 @@ function classicPlaybackCheckpoint(snapshot: any, force = false): void {
                 (w.__ottChannels && w.__ottChannels.group(payload.c)) ||
                 (w.catsArray || [])[payload.c],
             kind: target.kind,
-            position: snapshot.position,
+            position: position,
         },
     });
     if (saved) {

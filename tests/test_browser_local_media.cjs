@@ -964,6 +964,31 @@ async function builtUi(devicePath) {
         }
         // A retained grant must restore the saved channel after the page has
         // actually closed, without sending the user back into setup.
+        await page.evaluate(() => {
+            const video = document.querySelector("video");
+            video.pause();
+            video.currentTime = 17;
+            video.tabIndex = 0;
+            video.focus();
+            window.close = () => {
+                window.__localExitRequested = true;
+            };
+        });
+        await page.keyboard.press("q");
+        assert.equal(
+            await page.evaluate(() => window.__localExitRequested),
+            true,
+            "Q reaches the actual exit path"
+        );
+        assert.equal(
+            await page.evaluate(() => {
+                window.body_onUnload();
+                window.body_onUnload();
+                return window.__ottClassicPlayback.bookmark().playTime;
+            }),
+            17,
+            "Q and repeated unload after teardown preserve the last media clock"
+        );
         await reopenPlayer();
         await page.waitForFunction(
             (id) => window.curList[window.primaryIndex] === id,
@@ -972,7 +997,11 @@ async function builtUi(devicePath) {
         assert.equal(await action("resume").count(), 0);
         await page.waitForFunction(() =>
             Array.from(document.querySelectorAll("video")).some(
-                (v) => v.currentSrc && !v.error
+                (v) =>
+                    v.currentSrc &&
+                    !v.error &&
+                    v.currentTime >= 16.5 &&
+                    v.currentTime < 21
             )
         );
         // External folder grants may become prompt after browser restart.

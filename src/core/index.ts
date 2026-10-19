@@ -277,7 +277,11 @@ function cancelCoreSeek(): void {
 }
 
 /** Some STB engines reject currentTime until loadedmetadata has arrived. */
-function seekCoreMedia(position: number, session: number): void {
+function seekCoreMedia(
+    position: number,
+    session: number,
+    startup = false
+): void {
     if (
         !video ||
         session !== _playSession ||
@@ -297,7 +301,15 @@ function seekCoreMedia(position: number, session: number): void {
     function apply(): boolean {
         if (session !== _playSession || video !== media) return true;
         try {
-            media.currentTime = position;
+            var duration = media.duration;
+            media.currentTime =
+                startup &&
+                (window as any).__ottActiveProviderDriver?.id === "offline" &&
+                isFinite(duration) &&
+                duration > 0 &&
+                position >= duration
+                    ? 0
+                    : position;
             return true;
         } catch (_notReady) {
             return false;
@@ -1757,7 +1769,8 @@ function startCorePlayback(
             nativeAttached = true;
             media.src = sourceUrl;
             if (active()) coreNativeAttached = true;
-            if (position && position > 0) seekCoreMedia(position, session);
+            if (position && position > 0)
+                seekCoreMedia(position, session, true);
             if (sourceUrl !== url) {
                 // An unsupported relay response must not take away a stream
                 // that the platform could play directly. Retry direct once.

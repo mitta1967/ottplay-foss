@@ -238,6 +238,130 @@ function include(c, file, names) {
 
 // Explicit finite detection remains available to non-local channel adapters.
 {
+    for (const provider of ["offline", "m3u"]) {
+        const c = fixture();
+        c.p_pref = provider;
+        c.__ottActiveProviderDriver = { id: provider };
+        c.stored.continueWatch = JSON.stringify({
+            catIndex: 0,
+            channelId: 101,
+            mode: "vod",
+            playTime: 64,
+            playType: -99999999999,
+            updatedAt: c.Date.now(),
+            v: 1,
+        });
+        const bookmark = c.__ottClassicPlayback.bookmark();
+        if (provider === "offline") {
+            assert.equal(bookmark.mode, "live");
+            assert.equal(
+                bookmark.playTime,
+                64,
+                "old finite-local bookmarks migrate without losing position"
+            );
+        } else
+            assert.equal(
+                bookmark,
+                null,
+                "legacy TV/VOD import semantics remain unchanged"
+            );
+    }
+}
+
+{
+    const c = fixture();
+    c.__ottActiveProviderDriver = { id: "offline" };
+    c.__ottClassicPlayback.command({ channelId: 101, type: "live" });
+    c.__ottClassicPlayback.command({ type: "playing" });
+    c.__ottClassicPlayback.command({
+        duration: 600,
+        position: 125,
+        type: "position",
+    });
+    include(c, "src/channels/index.ts", ["restoreContinueWatch"]);
+    include(c, "src/index.ts", ["body_onUnload"]);
+    let active = true;
+    c.__ottCoreBackendPeek = () => ({
+        current: () => ({
+            active: () => active,
+            sample: () =>
+                c.__ottClassicPlayback.command({
+                    duration: 600,
+                    position: 127,
+                    type: "position",
+                }),
+        }),
+    });
+    c.body_onUnload();
+    assert.equal(
+        c.__ottClassicPlayback.bookmark().playTime,
+        127,
+        "exit samples the decoder before saving"
+    );
+    c.__ottCoreBackendPeek = () => {
+        throw new Error("Decoder retired");
+    };
+    c.body_onUnload();
+    assert.equal(
+        c.__ottClassicPlayback.bookmark().playTime,
+        127,
+        "a failed fresh sample still saves the last known clock"
+    );
+    c.__ottClassicPlayback.command({ type: "stop" });
+    active = false;
+    c.body_onUnload();
+    assert.equal(
+        c.__ottClassicPlayback.bookmark().playTime,
+        127,
+        "later unload after Q/Stop retains the saved position"
+    );
+    const calls = [];
+    c.playChannel = (...args) => {
+        calls.push(args);
+        return true;
+    };
+    c.Date.now = () => 1000000000 + 8 * 86400000;
+    assert.equal(
+        c.restoreContinueWatch(),
+        true,
+        "local positions do not expire like TV archives"
+    );
+    assert.equal(calls[0][4].position, 127);
+    assert.equal(calls[0][4].channelId, "101");
+    c.primaryIndex = 1;
+    assert.equal(
+        c.restoreContinueWatch(),
+        false,
+        "a selected profile/file cannot be replaced by an old bookmark"
+    );
+    c.primaryIndex = 0;
+    c.__ottActiveProviderDriver = { id: "m3u" };
+    assert.equal(
+        c.restoreContinueWatch(),
+        false,
+        "live TV never restores a local media offset"
+    );
+    c.__ottActiveProviderDriver = { id: "offline" };
+    c.__ottClassicPlayback.command({ channelId: 101, type: "live" });
+    assert.equal(
+        c.__ottClassicPlayback.snapshot().position,
+        0,
+        "a manual channel selection starts from zero"
+    );
+    c.__ottClassicPlayback.command({
+        duration: 600,
+        position: 600,
+        type: "position",
+    });
+    c.__ottClassicPlayback.checkpoint(c.__ottClassicPlayback.snapshot(), true);
+    assert.equal(
+        c.__ottClassicPlayback.bookmark().playTime,
+        0,
+        "completed local files restart instead of immediately reaching EOF"
+    );
+}
+
+{
     const c = fixture();
     c.p_pref = "offline";
     c.channels[101].rec = 0;
