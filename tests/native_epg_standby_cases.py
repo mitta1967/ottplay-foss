@@ -58,6 +58,19 @@ SWIFT_STANDBY_TESTS = r'''
         assert(NativeWork.shared.snapshot["pending"] as! Int == 1)
         ticket.finish()
         assert(NativeWork.shared.snapshot["quiescent"] as! Bool)
+        NativeWork.shared.setStandby(false)
+        var finishCleanup: (() -> Void)?
+        let unsubscribe = NativeWork.shared.onStandbyAsync { done in
+            assert(NativeWork.shared.snapshot["pending"] as! Int == 1)
+            finishCleanup = done
+        }
+        NativeWork.shared.setStandby(true)
+        assert(NativeWork.shared.snapshot["quiescent"] as! Bool == false)
+        NativeWork.shared.setStandby(false)
+        assert(NativeWork.shared.snapshot["pending"] as! Int == 1)
+        finishCleanup?(); finishCleanup?()
+        assert(NativeWork.shared.snapshot["pending"] as! Int == 0)
+        unsubscribe()
         print("PASS Swift EPG standby: cancelled HTTP, retired response after wake, joined/batch failure, no late cache, parser cancellation, recovery")
     }
 '''
@@ -102,6 +115,19 @@ KOTLIN_STANDBY_TESTS = r'''
             check(checks >= 4 && NativeWork.pendingCount == 1)
             ticket.finish()
             check(NativeWork.pendingCount == 0)
+            NativeWork.setStandby(false)
+            var finishCleanup: (() -> Unit)? = null
+            val unsubscribe = NativeWork.onStandbyAsync { done ->
+                check(NativeWork.snapshot().pending == 1)
+                finishCleanup = done
+            }
+            NativeWork.setStandby(true)
+            check(!NativeWork.snapshot().quiescent)
+            NativeWork.setStandby(false)
+            check(NativeWork.snapshot().pending == 1)
+            finishCleanup!!(); finishCleanup!!()
+            check(NativeWork.snapshot().pending == 0)
+            unsubscribe()
             println("PASS Kotlin EPG standby: cancelled HTTP, retired response after wake, joined/batch failure, no late cache, parser cancellation, recovery")
         } finally { NativeWork.setStandby(false); okhttp3.Fixture.reset(); dir.deleteRecursively() }
     }
