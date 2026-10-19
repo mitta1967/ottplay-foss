@@ -42,8 +42,9 @@ then remove the old imported copy.
   application storage. OS privacy permissions and drive availability still apply.
 - **Browser / here.now / server-hosted player:** supported browsers retain
   File System Access handles in IndexedDB and create playback URLs from the
-  original files. Refresh rescans linked directories. Browser permission may
-  need **Grant access** after restart. Chrome/Edge desktop support this mode;
+  original files. Refresh rescans linked directories. If the browser expires
+  access, **Continue playback** renews permission and resumes the local provider.
+  Chrome/Edge desktop support this mode;
   unsupported browsers display an explicit error and do not use a hidden
   copy-based fallback. Use the native Android app on older Fire tablets.
 - **Optional remote server library:** media lives on the server. Its existing
@@ -69,6 +70,21 @@ is ready. Keep the same site address and verify a reload with the network off.
 An HTTP LAN page can play already accessible files while open, but cannot
 promise an offline cold start. Browser autoplay rules may require pressing Play
 or Space after reload.
+
+Local playback automatically reloads the connected sources and restores the
+selected file when the browser still grants read access. A saved folder handle
+is not itself a permanent permission. In Chrome 122 and later, after reopening
+the page, choose **Continue playback**, then **Allow on every visit** in the
+browser's permission prompt to retain access for later visits. **Allow this
+time** expires when the session ends. An installed web app also retains a grant
+after it is allowed. See [Chrome's persistent file permissions](https://developer.chrome.com/blog/persistent-permissions-for-the-file-system-access-api).
+
+If permission has expired, OTT keeps the source and previous selection while
+showing the recovery action. It cannot silently approve a browser permission
+prompt. Renew access instead of disconnecting and adding the same folder again.
+An unplugged drive, moved folder, or revoked permission still requires recovery;
+the originals must remain available. File access permission and browser audio
+autoplay permission are independent.
 
 The service worker caches a finite list of public player assets and revalidates
 them online. It does not cache live streams, playlists, credentials, command

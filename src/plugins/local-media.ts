@@ -17,6 +17,7 @@ export function installLocalMedia(w: any): any {
     var handler: any = null;
     var owner: any = null;
     var catalogRevision = 0;
+    var resuming = false;
     var last: any = null;
     var endpoint = "";
     function isNative(): boolean {
@@ -245,6 +246,14 @@ export function installLocalMedia(w: any): any {
         };
         w.showEditKey(null);
     }
+    function restorePlayback(): void {
+        run(function () {
+            return requestAccess().then(function (value) {
+                if (resuming && current() && playable()) activate();
+                return value;
+            });
+        });
+    }
     function render(message?: string): void {
         if (!current()) return;
         if (locked() || settingsLocked()) {
@@ -266,6 +275,18 @@ export function installLocalMedia(w: any): any {
                 name: name,
             });
         }
+        if (resuming)
+            row(
+                "resume",
+                "Continue playback",
+                last &&
+                    (last.sources || []).some(function (source: any) {
+                        return source.access === "permission-required";
+                    })
+                    ? "Chrome needs permission to read your saved folder again. Choose Allow on every visit in its prompt to resume automatically on later visits. No video files are copied."
+                    : "Reconnect the original folder or drive, then continue playback. The saved source and video selection are preserved.",
+                restorePlayback
+            );
         row(
             "add-folder",
             "Add folder",
@@ -299,7 +320,8 @@ export function installLocalMedia(w: any): any {
                 "Grant access",
                 "Allow access to previously connected sources.",
                 function () {
-                    run(requestAccess);
+                    if (resuming) restorePlayback();
+                    else run(requestAccess);
                 }
             );
         row("refresh", "Refresh", "Read connected folders again.", function () {
@@ -319,7 +341,11 @@ export function installLocalMedia(w: any): any {
             row(
                 "disconnect-source",
                 "Disconnect: " + source.name,
-                (source.available ? "Connected. " : "Source unavailable. ") +
+                (source.available
+                    ? "Connected. "
+                    : source.access === "permission-required"
+                      ? "Read permission is needed again; the source is still saved. "
+                      : "Source unavailable. ") +
                     "Disconnecting leaves the original files untouched.",
                 function () {
                     run(function () {
@@ -416,13 +442,14 @@ export function installLocalMedia(w: any): any {
             }
         );
     }
-    function open(): void {
+    function open(recovery = false): void {
         if (locked()) return;
         if (settingsLocked()) {
             if (typeof w.enterPinAndSetAccess === "function")
                 w.enterPinAndSetAccess(open);
             return;
         }
+        resuming = recovery;
         opened = true;
         handler = null;
         owner = null;
@@ -447,6 +474,9 @@ export function installLocalMedia(w: any): any {
         list: list,
         open: open,
         remove: remove,
+        resume: function () {
+            open(true);
+        },
         title: title,
     };
     w.__ottLocalMedia = api;

@@ -309,7 +309,31 @@ async function builtUi(devicePath) {
     const browser = await chromium.launch({ headless: true });
     try {
         const context = await browser.newContext({ serviceWorkers: "allow" });
-        const page = await context.newPage();
+        // Real handles/IndexedDB survive actual page closure below. Only the
+        // browser permission policy is controlled: OPFS does not normally
+        // require the external-folder grants exercised by this regression.
+        await context.addInitScript(() => {
+            if (window.FileSystemHandle) {
+                FileSystemHandle.prototype.queryPermission = function () {
+                    return Promise.resolve(
+                        localStorage.getItem("fixture-source-permission") ||
+                            "granted"
+                    );
+                };
+                FileSystemHandle.prototype.requestPermission = function () {
+                    localStorage.setItem(
+                        "fixture-request-activation",
+                        String(navigator.userActivation.isActive)
+                    );
+                    localStorage.setItem(
+                        "fixture-source-permission",
+                        "granted"
+                    );
+                    return Promise.resolve("granted");
+                };
+            }
+        });
+        let page = await context.newPage();
         page.setDefaultTimeout(10000);
         const errors = [];
         page.on("pageerror", (e) => errors.push(e.message));
@@ -654,6 +678,13 @@ async function builtUi(devicePath) {
                 (v) => v.currentTime > 0.1 && !v.error
             )
         );
+        await page.evaluate(() => {
+            window.playChannel(window.catIndex, 1, true);
+        });
+        await page.waitForFunction(() => window.primaryIndex === 1);
+        const selectedChannel = await page.evaluate(
+            () => window.curList[window.primaryIndex]
+        );
         const before = await page.evaluate(() => ({
             catalog: window.cList,
             provider: window.stbGetItem("ottplayprov"),
@@ -723,11 +754,90 @@ async function builtUi(devicePath) {
             before.urls,
             "offline driver regenerates blob URLs after cold reload"
         );
+        assert.equal(
+            await page.evaluate(() => window.curList[window.primaryIndex]),
+            selectedChannel,
+            "offline reload must preserve the selected second local video"
+        );
+        await context.setOffline(false);
+        async function reopenPlayer() {
+            await page.close();
+            page = await context.newPage();
+            page.setDefaultTimeout(10000);
+            page.on("pageerror", (e) => errors.push(e.message));
+            await page.goto(origin + devicePath);
+            await page.waitForFunction(
+                () =>
+                    window.__ottLocalMedia &&
+                    !document.body.classList.contains("booting")
+            );
+        }
+        // A retained grant must restore the saved channel after the page has
+        // actually closed, without sending the user back into setup.
+        await reopenPlayer();
+        await page.waitForFunction(
+            (id) => window.curList[window.primaryIndex] === id,
+            selectedChannel
+        );
+        assert.equal(await action("resume").count(), 0);
+        await page.waitForFunction(() =>
+            Array.from(document.querySelectorAll("video")).some(
+                (v) => v.currentSrc && !v.error
+            )
+        );
+        // External folder grants may become prompt after browser restart.
+        // The player must focus one explicit recovery action and continue the
+        // previously selected video once that click restores access.
+        await page.evaluate(() =>
+            localStorage.setItem("fixture-source-permission", "prompt")
+        );
+        await reopenPlayer();
+        await action("resume").waitFor({ state: "visible" });
+        assert.equal(
+            await page.evaluate(() => window.listArray[window.selIndex].id),
+            "resume",
+            "permission recovery must be the initially focused action"
+        );
+        assert.equal(await action("resume").textContent(), "Continue playback");
+        assert.equal(
+            Number(
+                await page.evaluate(() =>
+                    window.providerGetItem("primaryIndex")
+                )
+            ),
+            1,
+            "permission-blocked startup must not overwrite the second-channel bookmark"
+        );
+        await selectAction("resume");
+        await page.waitForFunction(
+            (id) => window.curList[window.primaryIndex] === id,
+            selectedChannel
+        );
+        await action("resume").waitFor({ state: "hidden" });
+        await page.waitForFunction(() =>
+            Array.from(document.querySelectorAll("video")).some(
+                (v) => v.currentTime > 0.1 && !v.error
+            )
+        );
+        assert.equal(
+            await page.evaluate(() =>
+                localStorage.getItem("fixture-request-activation")
+            ),
+            "true",
+            "permission recovery must start during the user's Enter action"
+        );
+        assert.equal(
+            await page.evaluate(
+                async () => (await window.__ottLocalMedia.list()).items.length
+            ),
+            2,
+            "permission recovery retains both linked sources"
+        );
         assert.deepEqual(errors, []);
         console.log(
             "PASS built UI " +
                 devicePath +
-                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, playback and offline cold reload"
+                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy)"
         );
     } finally {
         await browser.close();

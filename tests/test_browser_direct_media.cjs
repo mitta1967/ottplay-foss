@@ -28,7 +28,8 @@ require("acorn").parse(source, { ecmaVersion: 5 });
     await new Promise((r) => server.listen(0, "127.0.0.1", r));
     const browser = await chromium.launch({ headless: true });
     try {
-        const page = await browser.newPage();
+        const context = await browser.newContext();
+        const page = await context.newPage();
         await page.goto("http://127.0.0.1:" + server.address().port);
         const result = await page.evaluate(async () => {
             const root = await navigator.storage.getDirectory();
@@ -141,8 +142,66 @@ require("acorn").parse(source, { ecmaVersion: 5 });
         });
         assert.equal(restored.linked, 2);
         assert.equal(restored.sources, 1);
+        // Closing the page (rather than merely reloading it) destroys all
+        // in-memory handles and object URLs. Only IndexedDB may restore them.
+        const origin = "http://127.0.0.1:" + server.address().port;
+        await page.close();
+        const reopened = await context.newPage();
+        await reopened.goto(origin);
+        const resume = await reopened.evaluate(async () => {
+            const api = installBrowserLocalMedia(window);
+            const available = await api.list();
+            const body = await (
+                await fetch(
+                    available.items.find((i) => i.name === "nested/movie.mp4")
+                        .url
+                )
+            ).text();
+            const root = await navigator.storage.getDirectory();
+            const second = await root.getDirectoryHandle("second-source", {
+                create: true,
+            });
+            window.showDirectoryPicker = () => Promise.resolve(second);
+            await api.importFolder();
+            const proto = FileSystemDirectoryHandle.prototype;
+            const query = proto.queryPermission;
+            const request = proto.requestPermission;
+            let granted = false;
+            let prompts = 0;
+            proto.queryPermission = () =>
+                Promise.resolve(granted ? "granted" : "prompt");
+            proto.requestPermission = (options) => {
+                if (options.mode !== "read")
+                    throw new Error("Write access requested");
+                prompts++;
+                granted = true;
+                return Promise.resolve("granted");
+            };
+            const locked = await api.list();
+            const recovered = await api.requestAccess();
+            await api.requestAccess();
+            proto.queryPermission = query;
+            proto.requestPermission = request;
+            return {
+                body,
+                locked: locked.sources.map((s) => s.access),
+                prompts,
+                recovered: recovered.sources.map((s) => s.access),
+            };
+        });
+        assert.equal(resume.body, "replacement-is-longer");
+        assert.deepEqual(resume.locked, [
+            "permission-required",
+            "permission-required",
+        ]);
+        assert.equal(
+            resume.prompts,
+            1,
+            "one click restores all shared grants without parallel prompts"
+        );
+        assert.deepEqual(resume.recovered, ["granted", "granted"]);
         console.log(
-            "PASS direct browser sources: recursive read, handle-only storage, fresh file reads, refresh, permission status/reconnect, disconnect preserves originals, legacy blobs, unsupported browser"
+            "PASS direct browser sources: recursive read, handle-only storage, fresh file reads, refresh, permission status/reconnect, disconnect preserves originals, legacy blobs, unsupported browser, closed-page restoration, single read-only restore prompt"
         );
     } finally {
         await browser.close();

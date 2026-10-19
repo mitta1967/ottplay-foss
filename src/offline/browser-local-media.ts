@@ -218,6 +218,9 @@ export function installBrowserLocalMedia(w: any): any {
                         })
                         .then(function (items) {
                             source.available = source.access === "granted";
+                            // Keep permission state beside the live handle so the next
+                            // click can request access before its activation expires.
+                            record.access = source.access;
                             return source.available
                                 ? items
                                 : [
@@ -355,16 +358,20 @@ export function installBrowserLocalMedia(w: any): any {
             .catch(cancelled);
     }
     function requestAccess(): Promise<any> {
-        // list() cached these handles. Invoke permission synchronously in the click turn.
-        return Promise.all(
-            knownSources.map(function (r) {
-                return r.handle
-                    .requestPermission({ mode: "read" })
-                    .catch(function () {
-                        return "denied";
-                    });
-            })
-        ).then(list);
+        // A restored Chrome grant can cover all previously connected handles.
+        // Request just one in this click: parallel prompts can consume activation
+        // and dismiss each other. list() then observes the grant on every source.
+        var pending = knownSources.filter(function (record) {
+            return record.access === "permission-required";
+        });
+        if (!pending.length) return list();
+        try {
+            return Promise.resolve(
+                pending[0].handle.requestPermission({ mode: "read" })
+            ).then(list, list);
+        } catch (_) {
+            return list();
+        }
     }
     function remove(id: string): Promise<any> {
         return open()

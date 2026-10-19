@@ -1533,16 +1533,24 @@ export function onChannelsLoaded(): void {
         } else {
             // Empty channel list — show popup so user can configure provider (e.g., enter playlist URL)
             window.playType = 0;
-            setCurrent(sFavorites ? 1 : 0, 0);
+            // A local source may only be waiting for renewed browser permission.
+            // Selecting a nonexistent first channel would overwrite the saved
+            // selection before access is restored and the catalog is reloaded.
+            if (!driver || driver.id !== "offline")
+                setCurrent(sFavorites ? 1 : 0, 0);
             var launchEl = document.getElementById("launch");
-            if (launchEl)
+            if (launchEl && (!driver || driver.id !== "offline"))
                 launchEl.innerHTML += "<br/>Channel list not received !!!";
             // Reset pending provider so user can retry without hitting savedProvId === id
             window._pendingProvId = "";
             window.launch_id = "#launch";
-            // Show popup list so user can select 'Select playlist' to configure provider
+            // The offline driver owns source recovery; only remote providers
+            // need the generic playlist configuration popup here.
             try {
-                if (typeof window.popupList === "function") {
+                if (
+                    (!driver || driver.id !== "offline") &&
+                    typeof window.popupList === "function"
+                ) {
                     var pActions = window.popupActions;
                     if (pActions && pActions.length) {
                         window.popupList();

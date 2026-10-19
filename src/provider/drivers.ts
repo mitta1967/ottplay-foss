@@ -261,8 +261,15 @@ function createOfflineDriver(
                         request === revision &&
                         !catalog.ids.length &&
                         typeof media.open === "function"
-                    )
-                        media.open();
+                    ) {
+                        if (
+                            value.sources &&
+                            value.sources.length &&
+                            typeof media.resume === "function"
+                        )
+                            media.resume();
+                        else media.open();
+                    }
                 },
                 function (error: any) {
                     if (active() && request === revision)
