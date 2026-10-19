@@ -941,7 +941,12 @@ export function createVPortalClient(
         return cancelSearch;
     }
 
-    function catalogRecords(data: any, params: any, name: string): any[] {
+    function catalogRecords(
+        data: any,
+        params: any,
+        name: string,
+        retainDirect = false
+    ): any[] {
         if (
             !data ||
             (data.type !== "videoportal" &&
@@ -952,10 +957,31 @@ export function createVPortalClient(
             throw new Error();
         var records: any[] = [];
         var next: any = null;
+        var occurrences: Record<string, number> = Object.create(null);
         data.items.forEach(function (item: any): void {
             if (item && item.type === "next") next = item;
             else {
                 var record = media(item, data);
+                if (retainDirect && record && item.type === "stream") {
+                    var title = String(item.title || "");
+                    var occurrence = occurrences[title] || 0;
+                    occurrences[title] = occurrence + 1;
+                    if (record.stream_url && !record.request) {
+                        record.__ottMediaOrigin = {
+                            kind: "catalog",
+                            target: sourceTarget({
+                                mediaName: name,
+                                request: copyRequest(params),
+                            }),
+                            title: name,
+                        };
+                        record.__ottVPortalDirect = {
+                            id: directProviderId(item),
+                            occurrence: occurrence,
+                            title: title,
+                        };
+                    }
+                }
                 if (record) records.push(record);
             }
         });
@@ -1221,7 +1247,8 @@ export function createVPortalClient(
                         var records = catalogRecords(
                             catalogData,
                             task.request,
-                            task.title
+                            task.title,
+                            recursive
                         );
                         var hasNext = false;
                         records.forEach(function (record) {
@@ -1257,12 +1284,28 @@ export function createVPortalClient(
                                     }
                                     return;
                                 }
+                                var direct = record.__ottVPortalDirect;
                                 var key = identity(
-                                    record.request || record.stream_url
+                                    record.request ||
+                                        (direct
+                                            ? [
+                                                  record.__ottMediaOrigin.target
+                                                      .request,
+                                                  direct.id || [
+                                                      direct.title,
+                                                      direct.occurrence,
+                                                  ],
+                                              ]
+                                            : record.stream_url)
                                 );
                                 if (known[key]) return;
                                 known[key] = true;
                                 record.__ottPlaylistId = key;
+                                if (direct && options.sourceId)
+                                    record.__ottMediaRef = {
+                                        itemId: "direct:" + key,
+                                        sourceId: options.sourceId,
+                                    };
                                 result.push(record);
                             } else if (
                                 record.playlist_url &&
@@ -1481,7 +1524,10 @@ export function createVPortalClient(
         afterRelease(function () {
             if (!current()) return;
             if (!item.request || typeof item.request !== "object") {
-                if (automatic && item.__ottVPortalQueue) {
+                if (
+                    (automatic && item.__ottVPortalQueue) ||
+                    item.__ottVPortalDirect
+                ) {
                     var direct = item.__ottVPortalDirect;
                     var origin = item.__ottMediaOrigin;
                     var target = origin && origin.target;
@@ -1495,7 +1541,7 @@ export function createVPortalClient(
                         (options.sourceId &&
                             target.vportalSource !== options.sourceId)
                     ) {
-                        reportError(true);
+                        reportError(automatic);
                         return;
                     }
                     var page: any = null;
@@ -1512,7 +1558,7 @@ export function createVPortalClient(
                         function (): void {
                             if (!current()) return;
                             if (!page) {
-                                if (pageReceived) reportError(true);
+                                if (pageReceived) reportError(automatic);
                                 return;
                             }
                             if (
@@ -1525,7 +1571,7 @@ export function createVPortalClient(
                                 page.items.length > 10000 ||
                                 page.truncated
                             ) {
-                                reportError(true);
+                                reportError(automatic);
                                 return;
                             }
                             var matches: any[] = [];
@@ -1557,7 +1603,7 @@ export function createVPortalClient(
                                     typeof fresh.request === "object") ||
                                 !validStream(fresh.url)
                             ) {
-                                reportError(true);
+                                reportError(automatic);
                                 return;
                             }
                             start(fresh.url);

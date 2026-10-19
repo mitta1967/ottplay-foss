@@ -1332,6 +1332,104 @@ for (const response of [
     );
     assert.equal(f.alerts.length, 0);
 }
+for (const providerId of ["episode-7", undefined]) {
+    const shifts = [];
+    const f = fixture(
+        { showShift: (text) => shifts.push(text) },
+        { sourceId: "direct-profile" }
+    );
+    const root = { request: { cmd: "season", id: 3 }, title: "Season" };
+    const page = (signature) => ({
+        items: [
+            {
+                id: providerId,
+                title: "Episode",
+                type: "stream",
+                url: "https://cdn.example/episode.mp4?signature=" + signature,
+            },
+        ],
+        type: "category",
+    });
+    let first;
+    f.client.playlist([root], (items) => {
+        first = items[0];
+    });
+    f.requests.at(-1).receive(page("expired"));
+    let refreshed;
+    f.client.playlist([root], (items) => {
+        refreshed = items[0];
+    });
+    f.requests.at(-1).receive(page("new-catalog"));
+    assert.equal(
+        first.__ottPlaylistId,
+        refreshed.__ottPlaylistId,
+        "rotating direct URLs must not change the selected channel identity"
+    );
+    assert.deepEqual(
+        first.__ottMediaRef,
+        refreshed.__ottMediaRef,
+        "the media resume journal keeps the same direct file identity"
+    );
+    assert(first.__ottMediaRef.itemId);
+    for (const automatic of [true, false]) {
+        for (const signature of ["selected", "repeat"]) {
+            let played;
+            const before = f.requests.length;
+            f.client.resolve(
+                first,
+                (item) => {
+                    played = item;
+                },
+                automatic
+            );
+            assert.equal(
+                played,
+                undefined,
+                "cached direct access URLs must not play before re-resolution"
+            );
+            assert.equal(f.requests.length, before + 1);
+            assert.equal(
+                JSON.parse(f.requests.at(-1).options.data).params.cmd,
+                "season"
+            );
+            f.requests.at(-1).receive(page(signature));
+            assert.equal(
+                played.stream_url,
+                "https://cdn.example/episode.mp4?signature=" + signature
+            );
+            assert.deepEqual(played.__ottMediaRef, first.__ottMediaRef);
+            assert.equal(first.stream_url, page("expired").items[0].url);
+        }
+        for (const failure of [
+            "missing-origin",
+            null,
+            { items: [], type: "invalid" },
+            { items: [], type: "category" },
+        ]) {
+            const alertsBefore = f.alerts.length;
+            const shiftsBefore = shifts.length;
+            const broken = { ...first };
+            if (failure === "missing-origin") delete broken.__ottMediaOrigin;
+            let played;
+            f.client.resolve(
+                broken,
+                (item) => {
+                    played = item;
+                },
+                automatic
+            );
+            if (failure !== "missing-origin")
+                f.requests.at(-1).receive(failure);
+            assert.equal(
+                played,
+                undefined,
+                "a failed refresh never reuses the expired URL"
+            );
+            assert.equal(f.alerts.length, alertsBefore + (automatic ? 0 : 1));
+            assert.equal(shifts.length, shiftsBefore + (automatic ? 1 : 0));
+        }
+    }
+}
 {
     const f = fixture();
     const batches = [];
