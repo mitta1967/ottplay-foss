@@ -706,6 +706,11 @@ export function installLocalMedia(w: any): any {
             return { key: "localMediaEndpoint", value: value };
         },
         list: list,
+        open: open,
+        remove: remove,
+        resume: function (skipScan = false) {
+            open(true, skipScan);
+        },
         snapshot: function () {
             // Profile operations must never replace the provider's active scan.
             // Only a completed catalog describes every connected source.
@@ -716,11 +721,6 @@ export function installLocalMedia(w: any): any {
                     )
                 );
             return Promise.resolve(JSON.parse(JSON.stringify(last)));
-        },
-        open: open,
-        remove: remove,
-        resume: function (skipScan = false) {
-            open(true, skipScan);
         },
         title: title,
     };

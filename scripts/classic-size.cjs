@@ -261,9 +261,11 @@ const { gzipSync } = require("node:zlib");
 // Native progressive polling, bounded requests and first-item playback measure
 // 920867 raw / 284799 gzip on Node 26. Use prior headroom plus 2304/768 bytes;
 // native artifacts and optional providers remain included in the same gates.
-// Profile persistence and non-scanning snapshots add 15790 raw bytes over the
-// progressive native baseline; reserve 16 KiB / 5 KiB for this feature.
-const BUDGET = Object.freeze({ bytes: 937343, gzipBytes: 291006 });
+// Reversible list shuffle and stable favorites backup add 4304 raw bytes.
+// Allocate 4608/1024 once, plus the 16 KiB / 5 KiB profile allowance.
+// Profile persistence and non-scanning snapshots add 15790 raw bytes over
+// the progressive native baseline. All provider/native artifacts stay gated.
+const BUDGET = Object.freeze({ bytes: 941951, gzipBytes: 292030 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -393,8 +395,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Include the same progressive-catalog allowance once in the full payload.
 // Count the 512-byte readiness/counter allowance once in the payload.
 // Include the same 256-byte initial progress allowance once.
-// Count the same bounded profile delta once across all shipped artifacts.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1058243, gzipBytes: 335906 });
+// Count the same shuffle and profile deltas once across shipped artifacts.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1062851, gzipBytes: 336930 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
