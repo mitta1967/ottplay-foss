@@ -972,6 +972,9 @@ export function exportSettings(): string {
     if (!context.current()) throw new Error("Settings source changed");
     return JSON.stringify(
         {
+            offline_profiles: w.__ottOfflineProfiles
+                ? w.__ottOfflineProfiles.read()
+                : undefined,
             settings: writeLegacySettingsFields(
                 w.__ottPinSecurity.protectSnapshot(
                     w.OttPlayCore.classicPortableSnapshot(settings, false),
@@ -1069,6 +1072,48 @@ export function importSettings(
             )
                 throw new Error("Invalid setting");
         });
+        if (env.offline_profiles !== undefined) {
+            if (
+                !w.__ottOfflineProfiles ||
+                !w.__ottOfflineProfiles.validateStore(env.offline_profiles)
+            )
+                throw new Error("Invalid local video profiles");
+            var profileRead = w.stbGetItem,
+                profileWrite = w.stbSetItem,
+                profileRemove = w.stbDelItem;
+            if (!profileRead || !profileWrite || !profileRemove)
+                throw new Error("Local profile storage unavailable");
+            var profileContext = context.current;
+            context.current = function () {
+                return (
+                    profileContext() &&
+                    profileRead === w.stbGetItem &&
+                    profileWrite === w.stbSetItem &&
+                    profileRemove === w.stbDelItem
+                );
+            };
+            writes.push({
+                after: JSON.stringify(env.offline_profiles),
+                before: profileRead("offlineProfiles"),
+                storage: {
+                    key: "offlineProfiles",
+                    read: function () {
+                        return profileRead("offlineProfiles");
+                    },
+                    remove: function () {
+                        profileRemove("offlineProfiles");
+                    },
+                    transaction:
+                        profileRead === storage.get &&
+                        profileWrite === storage.set
+                            ? storage.transaction
+                            : undefined,
+                    write: function (value: string) {
+                        profileWrite("offlineProfiles", value);
+                    },
+                },
+            });
+        }
         ["channels", "favorites"].forEach(function (name) {
             if (tv[name] === null) return;
             var port = context.port(

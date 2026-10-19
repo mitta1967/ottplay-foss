@@ -825,6 +825,9 @@ export function executeRemoteControl(
                 "exit_app",
                 "reboot_device",
             ].filter(lifecycleAvailable),
+            offline_profiles: w.__ottOfflineProfiles
+                ? w.__ottOfflineProfiles.capabilities()
+                : null,
             playback: playback,
             player: remotePlayerInfo(w),
             plex_library: plexQueue.libraryCapability,

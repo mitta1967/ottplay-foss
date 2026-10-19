@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add 15 Local videos (`offline`) profile slots with remote save/load/export/import,
+  source-subset isolation and saved-file restoration. Portable profiles carry
+  descriptions only; browser handles and native grants/bookmarks stay local.
+  Foreign imports require an explicit local binding, and generic settings/cloud
+  restores preserve rather than replace the installation's private bindings.
+
 ## [1.1.57] - 2026-10-18
 
 ### Changes

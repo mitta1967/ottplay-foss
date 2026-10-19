@@ -167,6 +167,9 @@ export function executeRemoteRequest(
                   !w.parentAccess;
     }
     if (
+        request.action === "profile_save" ||
+        request.action === "profile_export" ||
+        request.action === "profile_import" ||
         request.action === "profiles" ||
         request.action === "profile" ||
         request.action === "profile_settings" ||

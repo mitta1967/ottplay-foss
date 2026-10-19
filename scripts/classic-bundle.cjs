@@ -88,6 +88,7 @@ const CLASSIC_MODULES = [
     "build/provider/xtream-media.js",
     "build/provider/drivers.js",
     "build/offline/browser-local-media.js",
+    "build/offline/profiles.js",
     "build/plugins/local-media.js",
     "build/provider/assets.js",
     "build/provider/index.js",

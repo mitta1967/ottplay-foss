@@ -244,6 +244,18 @@ media preference within the active provider/profile for VOD. The media setting
 is restored for subsequent videos and after a player restart, including kiosk
 restoration. Setting one live channel does not override all other channels.
 
+### Local video profiles
+
+`ott NAME provider offline` selects **Local videos**. Save the connected source
+selection and current video with `ott NAME profile save 1 Kids`, then restore it
+with `ott NAME profile load 1` (or `profile 1`). Export with `profile export 1
+kids.json`; import into an inactive slot with `profile import 2 kids.json`.
+`profiles` lists the saved slots and whether local binding is required. The
+`offline_profiles` capability advertises these operations. See [Local video
+profiles](offline-profiles.md) for examples, same-device restoration, explicit
+binding on another device and the portable format. Media files and file-access
+grants are never included in these exports.
+
 ### M3U profiles and restarts
 
 Select M3U with `ott NAME provider m3u` before using profile commands.

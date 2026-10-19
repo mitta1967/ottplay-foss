@@ -232,9 +232,41 @@ function createOfflineDriver(
                 done(emptyDriverCatalog(), "Local media is unavailable");
                 return;
             }
+            var profiles = (window as any).__ottOfflineProfiles;
+            var profileBefore = "";
+            try {
+                profileBefore = profiles ? JSON.stringify(profiles.read()) : "";
+            } catch (_) {
+                done(
+                    emptyDriverCatalog(),
+                    "Local profile configuration is unavailable"
+                );
+                return;
+            }
             media.list().then(
                 function (value: any) {
                     if (!active() || request !== revision) return;
+                    try {
+                        if (profiles) {
+                            if (
+                                JSON.stringify(profiles.read()) !==
+                                profileBefore
+                            ) {
+                                done(
+                                    emptyDriverCatalog(),
+                                    "Local profile changed while loading"
+                                );
+                                return;
+                            }
+                            value = profiles.filter(value);
+                        }
+                    } catch (_) {
+                        done(
+                            emptyDriverCatalog(),
+                            "Local profile configuration is unavailable"
+                        );
+                        return;
+                    }
                     catalog = emptyDriverCatalog();
                     value.items.forEach(function (item: any) {
                         if (item.available === false || !item.url) return;
