@@ -604,6 +604,7 @@ var keyStrings = {
     "Loading...": "Barkirin…",
     "Local HTTP remote control": "Kontrola dûr a herêmî ya HTTP",
     "Local URL": "Herêmî URL",
+    "Local videos": "Vîdyoyên herêmî",
     Login: "Navê bikarhêner",
     lang: "Kurdî",
     large: "mezin",

@@ -629,6 +629,7 @@ var keyStrings = {
     "Loading...": "Maka…",
     "Local HTTP remote control": "Fanaraha-maso HTTP lavitra eo an-toerana",
     "Local URL": "URL eo an-toerana",
+    "Local videos": "Horonan-tsary ao amin'ny fitaovana",
     Login: "Anaran'ny mpampiasa",
     lang: "Malagasy",
     large: "lehibe",

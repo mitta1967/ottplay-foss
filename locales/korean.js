@@ -595,6 +595,7 @@ var keyStrings = {
     "Loading...": "로딩중…",
     "Local HTTP remote control": "로컬 HTTP 원격 제어",
     "Local URL": "로컬 URL",
+    "Local videos": "로컬 동영상",
     Login: "사용자 이름",
     lang: "한국어",
     large: "대형",

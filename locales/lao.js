@@ -573,6 +573,7 @@ var keyStrings = {
     "Loading...": "ກຳລັງໂຫຼດ…",
     "Local HTTP remote control": "ການຄວບຄຸມທາງໄກ HTTP ພາຍໃນ",
     "Local URL": "URL ພາຍໃນ",
+    "Local videos": "ວິດີໂອພາຍໃນເຄື່ອງ",
     Login: "ຊື່ຜູ້ໃຊ້",
     lang: "ລາວ",
     large: "ໃຫຍ່",

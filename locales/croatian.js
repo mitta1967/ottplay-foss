@@ -606,6 +606,7 @@ var keyStrings = {
     "Loading...": "učitavanje...",
     "Local HTTP remote control": "Lokalni HTTP daljinski upravljač",
     "Local URL": "Lokalno URL",
+    "Local videos": "Lokalni videozapisi",
     Login: "Korisničko ime",
     lang: "Hrvatski",
     large: "velika",

@@ -621,6 +621,7 @@ var keyStrings = {
     "Loading...": "Φόρτωση…",
     "Local HTTP remote control": "Τοπικός τηλεχειρισμός HTTP",
     "Local URL": "Τοπικό URL",
+    "Local videos": "Τοπικά βίντεο",
     Login: "Όνομα χρήστη",
     lang: "Ελληνικά",
     large: "μεγάλο",

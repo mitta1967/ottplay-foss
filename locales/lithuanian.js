@@ -605,6 +605,7 @@ var keyStrings = {
     "Loading...": "Įkeliama…",
     "Local HTTP remote control": "Vietinis HTTP valdymas",
     "Local URL": "Vietinis URL",
+    "Local videos": "Vietiniai vaizdo įrašai",
     Login: "Naudotojo vardas",
     lang: "Lietuvių",
     large: "didelis",

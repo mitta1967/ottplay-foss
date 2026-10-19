@@ -603,6 +603,7 @@ var keyStrings = {
     "Loading...": "Yükleniyor…",
     "Local HTTP remote control": "Yerel HTTP uzaktan kumandası",
     "Local URL": "Yerel URL",
+    "Local videos": "Yerel videolar",
     Login: "Kullanıcı adı",
     lang: "Türkçe",
     large: "büyük",

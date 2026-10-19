@@ -607,6 +607,7 @@ var keyStrings = {
     "Loading...": "Ielādē…",
     "Local HTTP remote control": "Vietējā HTTP tālvadība",
     "Local URL": "Lokālais URL",
+    "Local videos": "Vietējie videoklipi",
     Login: "Lietotājvārds",
     lang: "Latviešu",
     large: "liels",

@@ -597,6 +597,7 @@ var keyStrings = {
     "Loading...": "ஏற்றுகிறது…",
     "Local HTTP remote control": "உள்ளூர் HTTP ரிமோட் கண்ட்ரோல்",
     "Local URL": "உள்ளூர் URL",
+    "Local videos": "உள்ளூர் காணொளிகள்",
     Login: "பயனர்பெயர்",
     lang: "தமிழ்",
     large: "பெரியது",

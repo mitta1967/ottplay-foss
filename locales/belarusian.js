@@ -599,6 +599,7 @@ var keyStrings = {
     "Loading...": "Загрузка…",
     "Local HTTP remote control": "Лакальны HTTP-пульт",
     "Local URL": "Лакальны адрас",
+    "Local videos": "Лакальныя відэа",
     Login: "Імя карыстальніка",
     lang: "Беларуская",
     large: "вялікі",

@@ -602,6 +602,7 @@ var keyStrings = {
     "Loading...": "Բեռնում…",
     "Local HTTP remote control": "Տեղային HTTP հեռակառավարում",
     "Local URL": "Տեղային URL",
+    "Local videos": "Տեղական տեսանյութեր",
     Login: "Օգտանուն",
     lang: "Հայերեն",
     large: "մեծ",

@@ -570,6 +570,7 @@ var keyStrings = {
     "Loading...": "加载中...",
     "Local HTTP remote control": "本地HTTP远程控制",
     "Local URL": "本地URL",
+    "Local videos": "本地视频",
     Login: "用户名",
     lang: "简体中文",
     large: "大",

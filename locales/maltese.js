@@ -614,6 +614,7 @@ var keyStrings = {
     "Loading...": "Qed jitgħabba…",
     "Local HTTP remote control": "Kontroll mill-bogħod HTTP lokali",
     "Local URL": "URL lokali",
+    "Local videos": "Vidjows lokali",
     Login: "Isem tal-utent",
     lang: "Malti",
     large: "kbir",

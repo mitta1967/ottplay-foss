@@ -607,6 +607,7 @@ var keyStrings = {
     "Loading...": "Боркунӣ…",
     "Local HTTP remote control": "Идоракунии маҳаллии дурдасти HTTP",
     "Local URL": "URL-и маҳаллӣ",
+    "Local videos": "Видеоҳои маҳаллӣ",
     Login: "Номи корбар",
     lang: "Тоҷикӣ",
     large: "калон",

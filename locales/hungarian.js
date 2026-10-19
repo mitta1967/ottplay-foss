@@ -608,6 +608,7 @@ var keyStrings = {
     "Loading...": "Betöltés…",
     "Local HTTP remote control": "Helyi HTTP-távirányítás",
     "Local URL": "Helyi URL-cím",
+    "Local videos": "Helyi videók",
     Login: "Felhasználónév",
     lang: "Magyar",
     large: "nagy",

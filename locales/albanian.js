@@ -615,6 +615,7 @@ var keyStrings = {
     "Loading...": "Po ngarkohet…",
     "Local HTTP remote control": "Telekomanda lokale HTTP",
     "Local URL": "URL lokale",
+    "Local videos": "Video lokale",
     Login: "Emri i përdoruesit",
     lang: "Shqip",
     large: "i madh",

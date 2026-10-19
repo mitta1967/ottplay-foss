@@ -604,6 +604,7 @@ var keyStrings = {
     "Loading...": "لوڈ ہو رہا ہے…",
     "Local HTTP remote control": "مقامی HTTP ریموٹ کنٹرول",
     "Local URL": "مقامی URL",
+    "Local videos": "مقامی ویڈیوز",
     Login: "صارف نام",
     lang: "اردو",
     large: "بڑا",

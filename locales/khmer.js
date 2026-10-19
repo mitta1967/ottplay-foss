@@ -588,6 +588,7 @@ var keyStrings = {
     "Loading...": "កំពុងផ្ទុក...",
     "Local HTTP remote control": "ការបញ្ជាពីចម្ងាយ HTTP ក្នុងស្រុក",
     "Local URL": "URL ក្នុងស្រុក",
+    "Local videos": "វីដេអូមូលដ្ឋាន",
     Login: "ឈ្មោះអ្នកប្រើប្រាស់",
     lang: "ខ្មែរ",
     large: "ធំ",

@@ -400,6 +400,7 @@ for (const testCase of shortcutCases) {
     const w = dom.window;
     const seeks = [];
     const normal = [];
+    const volumes = [];
     let screen = null;
     let hasTarget = true;
     let phase = "playing";
@@ -416,11 +417,13 @@ for (const testCase of shortcutCases) {
                 screens: { current: () => screen },
             },
             $: () => ({ is: () => false }),
+            changeVolume: (delta) => volumes.push(delta),
             keys: { LEFT: 37, RIGHT: 39 },
             nativeListInertia: null,
             setSleepTimeout: () => sleepResets++,
             shiftArchive: (delta) => seeks.push(delta),
             stbEventToKeyCode: (event) => event.keyCode || 0,
+            sVolumeStep: 5,
         });
         w.eval(
             declarations(
@@ -449,7 +452,7 @@ for (const testCase of shortcutCases) {
             target.dispatchEvent(event);
             return { delta: seeks.slice(before), event };
         }
-        for (const modifier of ["altKey", "metaKey"]) {
+        for (const modifier of ["altKey", "ctrlKey", "metaKey"]) {
             for (const [key, direction] of [
                 ["ArrowLeft", -1],
                 ["ArrowRight", 1],
@@ -539,6 +542,32 @@ for (const testCase of shortcutCases) {
             [37],
             "plain arrows keep navigation"
         );
+        w.ott_device = "pc";
+        for (const platform of ["pc", "pc2"]) {
+            w.ott_device = platform;
+            for (const [key, direction] of [
+                ["ArrowLeft", -1],
+                ["ArrowRight", 1],
+            ]) {
+                const result = send({ key });
+                assert.deepEqual(
+                    result.delta,
+                    [],
+                    "plain desktop arrow never seeks"
+                );
+                assert.equal(result.event.defaultPrevented, true);
+                assert.equal(volumes[volumes.length - 1], direction * 5);
+            }
+        }
+        screen = { kind: "list" };
+        const beforeVolumes = volumes.length;
+        assert.equal(send({ key: "ArrowRight" }).event.defaultPrevented, false);
+        assert.equal(
+            volumes.length,
+            beforeVolumes,
+            "menus retain their arrows"
+        );
+        screen = null;
         // Programmatic/legacy dispatch shares the same shortcut admission.
         const direct = new w.KeyboardEvent("keydown", {
             ...shortcut,

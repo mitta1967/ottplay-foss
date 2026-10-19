@@ -16,6 +16,7 @@ export function installLocalMedia(w: any): any {
     var revision = 0;
     var handler: any = null;
     var owner: any = null;
+    var loading: any = null;
     var catalogRevision = 0;
     var resuming = false;
     var last: any = null;
@@ -187,10 +188,18 @@ export function installLocalMedia(w: any): any {
         return (
             opened &&
             (!handler || w.listKeyHandler === handler) &&
-            (!owner || owner.foreground())
+            (!owner ||
+                owner.foreground() ||
+                (loading && loading.foreground() && owner.active()))
         );
     }
+    function finishLoading(active = loading): void {
+        if (!active) return;
+        if (loading === active) loading = null;
+        active.close();
+    }
     function close(): void {
+        finishLoading();
         opened = false;
         revision++;
         if (
@@ -215,6 +224,7 @@ export function installLocalMedia(w: any): any {
             open();
             return;
         }
+        finishLoading();
         opened = false;
         revision++;
         if (typeof w.closeList === "function") w.closeList();
@@ -223,8 +233,9 @@ export function installLocalMedia(w: any): any {
     }
     function editServer(): void {
         if (locked() || settingsLocked()) return;
+        finishLoading();
         revision++;
-        w.editCaption = w._("Server library URL");
+        w.editCaption = w._("Media Library URL");
         w.editvar = remoteEndpoint();
         w.setEdit = function () {
             if (!current() || locked() || settingsLocked()) return;
@@ -396,7 +407,7 @@ export function installLocalMedia(w: any): any {
             );
             w.listFooter.innerHTML =
                 w.renderButtonHint(w.keys.RETURN, w.strRETURN, "Close") +
-                w.renderButtonHint(w.keys.ENTER, w.strENTER, "Select");
+                w.renderButtonHint(w.keys.ENTER, w.strENTER, "Ok");
         };
         handler = function (key: number) {
             if (!current()) return false;
@@ -423,6 +434,7 @@ export function installLocalMedia(w: any): any {
     }
     function run(action: () => Promise<any>): void {
         var request = ++revision;
+        finishLoading();
         // Start the picker inside the user gesture, before rendering or awaiting.
         var pending: Promise<any>;
         try {
@@ -431,12 +443,33 @@ export function installLocalMedia(w: any): any {
             render(error.message || String(error));
             return;
         }
-        render("Working…");
+        // Use the same owned loading dialog as provider/media loading. Its
+        // parent list automatically disposes it when another screen replaces us.
+        var active: any = null;
+        if (current() && w.__ottClassicScreenPort) {
+            active = w.__ottClassicScreenPort.setOwnedCallback(
+                "dialog",
+                function (key: number) {
+                    if (key === w.keys.RETURN || key === w.keys.EXIT) close();
+                }
+            ).owner;
+            loading = active;
+            w.$("#dialogbox")
+                .html(
+                    '<center><div class="ott-spinner" aria-hidden="true"><span class="blob"></span><span class="blob"></span><span class="blob"></span><span class="blob"></span></div></center><br/>' +
+                        text(w._("Loading. Please wait...")) +
+                        "<br/><br/>" +
+                        w.renderButtonHint(w.keys.RETURN, w.strRETURN, "Cancel")
+                )
+                .show();
+        }
         pending.then(
             function () {
+                finishLoading(active);
                 if (request === revision) render();
             },
             function (error) {
+                finishLoading(active);
                 if (request === revision)
                     render(error.message || String(error));
             }
@@ -449,6 +482,7 @@ export function installLocalMedia(w: any): any {
                 w.enterPinAndSetAccess(open);
             return;
         }
+        finishLoading();
         resuming = recovery;
         opened = true;
         handler = null;

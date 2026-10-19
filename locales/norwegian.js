@@ -602,6 +602,7 @@ var keyStrings = {
     "Loading...": "Laster inn …",
     "Local HTTP remote control": "Lokal HTTP fjernkontroll",
     "Local URL": "Lokal URL",
+    "Local videos": "Lokale videoer",
     Login: "Brukernavn",
     lang: "Norsk bokmål",
     large: "store",

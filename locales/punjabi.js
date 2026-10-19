@@ -586,6 +586,7 @@ var keyStrings = {
     "Loading...": "ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ...",
     "Local HTTP remote control": "ਸਥਾਨਕ HTTP ਰਿਮੋਟ ਕੰਟਰੋਲ",
     "Local URL": "ਸਥਾਨਕ URL",
+    "Local videos": "ਸਥਾਨਕ ਵੀਡੀਓ",
     Login: "ਵਰਤੋਂਕਾਰ ਨਾਮ",
     lang: "ਪੰਜਾਬੀ",
     large: "ਵੱਡਾ",

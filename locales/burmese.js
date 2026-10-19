@@ -585,6 +585,7 @@ var keyStrings = {
     "Loading...": "တင်နေသည်...",
     "Local HTTP remote control": "စက်တွင်း HTTP အဝေးထိန်းစနစ်",
     "Local URL": "ပြည်တွင်း URL",
+    "Local videos": "စက်တွင်း ဗီဒီယိုများ",
     Login: "အသုံးပြုသူအမည်",
     lang: "မြန်မာ",
     large: "ကြီးမားသည်။",

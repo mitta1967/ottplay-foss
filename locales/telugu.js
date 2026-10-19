@@ -583,6 +583,7 @@ var keyStrings = {
     "Loading...": "లోడ్ అవుతోంది…",
     "Local HTTP remote control": "స్థానిక HTTP రిమోట్ కంట్రోల్",
     "Local URL": "స్థానిక URL",
+    "Local videos": "స్థానిక వీడియోలు",
     Login: "వినియోగదారు పేరు",
     lang: "తెలుగు",
     large: "పెద్దది",

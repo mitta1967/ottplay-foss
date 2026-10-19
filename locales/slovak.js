@@ -610,6 +610,7 @@ var keyStrings = {
     "Loading...": "Načítava sa...",
     "Local HTTP remote control": "Miestne diaľkové ovládanie HTTP",
     "Local URL": "Miestne URL",
+    "Local videos": "Miestne videá",
     Login: "Používateľské meno",
     lang: "Slovenčina",
     large: "veľký",

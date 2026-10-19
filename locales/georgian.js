@@ -605,6 +605,7 @@ var keyStrings = {
     "Loading...": "იტვირთება…",
     "Local HTTP remote control": "ადგილობრივი HTTP დისტანციური მართვა",
     "Local URL": "ადგილობრივი URL",
+    "Local videos": "ლოკალური ვიდეოები",
     Login: "მომხმარებლის სახელი",
     lang: "ქართული",
     large: "დიდი",

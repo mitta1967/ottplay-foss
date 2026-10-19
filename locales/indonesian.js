@@ -603,6 +603,7 @@ var keyStrings = {
     "Loading...": "Memuat…",
     "Local HTTP remote control": "Kendali jarak jauh HTTP lokal",
     "Local URL": "URL lokal",
+    "Local videos": "Video lokal",
     Login: "Nama pengguna",
     lang: "Bahasa Indonesia",
     large: "besar",

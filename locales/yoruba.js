@@ -590,6 +590,7 @@ var keyStrings = {
     "Loading...": "Ń gbé wọlé…",
     "Local HTTP remote control": "Ìṣàkóso HTTP láti ọ̀nà jíjìn nínú nẹ́tíwọ́ọ̀kì",
     "Local URL": "URL inú ẹ̀rọ",
+    "Local videos": "Àwọn fídíò inú ẹ̀rọ",
     Login: "Orúkọ olùlò",
     lang: "Yorùbá",
     large: "ńlá",

@@ -576,6 +576,7 @@ var keyStrings = {
     "Loading...": "በመጫን ላይ…",
     "Local HTTP remote control": "የአካባቢ HTTP የርቀት መቆጣጠሪያ",
     "Local URL": "የአካባቢ URL",
+    "Local videos": "አካባቢያዊ ቪዲዮዎች",
     Login: "የተጠቃሚ ስም",
     lang: "አማርኛ",
     large: "ትልቅ",

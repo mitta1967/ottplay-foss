@@ -603,6 +603,7 @@ var keyStrings = {
     "Loading...": "Ana lodawa…",
     "Local HTTP remote control": "Sarrafa HTTP daga nesa na gida",
     "Local URL": "URL na gida",
+    "Local videos": "Bidiyoyin gida",
     Login: "Sunan mai amfani",
     lang: "Hausa",
     large: "babba",

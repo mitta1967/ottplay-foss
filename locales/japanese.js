@@ -600,6 +600,7 @@ var keyStrings = {
     "Loading...": "読み込み中…",
     "Local HTTP remote control": "ローカル HTTP リモコン",
     "Local URL": "ローカル URL",
+    "Local videos": "ローカル動画",
     Login: "ユーザー名",
     lang: "日本語",
     large: "大",

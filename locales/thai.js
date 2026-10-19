@@ -585,6 +585,7 @@ var keyStrings = {
     "Loading...": "กำลังโหลด...",
     "Local HTTP remote control": "รีโมทคอนโทรล HTTP ภายในเครื่อง",
     "Local URL": "URL ท้องถิ่น",
+    "Local videos": "วิดีโอในเครื่อง",
     Login: "ชื่อผู้ใช้",
     lang: "ไทย",
     large: "ใหญ่",

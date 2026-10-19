@@ -617,6 +617,7 @@ var keyStrings = {
     "Loading...": "Naglo-load…",
     "Local HTTP remote control": "Lokal na HTTP remote control",
     "Local URL": "Lokal URL",
+    "Local videos": "Mga lokal na video",
     Login: "Pangalan ng gumagamit",
     lang: "Filipino",
     large: "malaki",
