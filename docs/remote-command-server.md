@@ -264,22 +264,23 @@ Select M3U with `ott NAME provider m3u` before using profile commands.
 playlist first. A deployment that fixes the M3U slot cannot select another slot.
 Parental settings locks and provider distribution restrictions still apply.
 
-`profile 2 url URL`, `profile 2 history HOURS`, `profile 2 vportal LINK`, and
-`profile 2 name NAME` change the specified slot. History is the playlist's
-archive depth in whole hours (0–8760), not watch-history retention. The VPortal
-value is the complete cabinet link, including its `portal::[key:...]` prefix.
-Empty strings clear string fields. Use `profile-config 2 FILE.json` to submit
-several settings together without placing credentials in shell history:
+`profile 2 url URL`, `profile 2 history HOURS` and `profile 2 name NAME`
+change the specified slot. History is the playlist's archive depth in whole
+hours (0–8760), not watch-history retention. Empty strings clear string fields.
+Use `profile-config 2 FILE.json` to submit several settings together without
+placing credentials in shell history:
 
 ```json
-{"name":"Movies","playlist":"https://example.com/list.m3u","history_hours":72,"vportal":"portal::[key:YOUR_KEY]http://host/api/v1/"}
+{"name":"Movies","playlist":"https://example.com/list.m3u","history_hours":72}
 ```
 
-The settings object accepts only those four fields. Validation finishes before
+The settings object accepts only those three fields. Validation finishes before
 anything is saved. Other fields and slots are preserved. Editing an inactive
 slot does not select it or reload the active playlist. Responses contain only
-the slot number, name, active state, archive hours and configuration flags;
-they never return playlist URLs, VPortal keys or media source identities.
+the slot number, name, active state, archive hours and `playlist_configured`;
+they never return playlist URLs. VPortal settings belong to the standalone
+VPortal provider. M3U rejects `vportal` updates and ignores previously stored
+portal links without deleting device configuration.
 
 `ott PLAYER restart` reloads the complete player page, as do
 `ott PLAYER restart player` and `ott PLAYER restart p`.

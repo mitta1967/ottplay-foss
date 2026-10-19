@@ -1224,8 +1224,6 @@ function moduleOf(file, requireFn, window) {
                 history_hours: 72,
                 name: "Movies",
                 playlist: "https://example.com/two.m3u?token=TEST_ONLY_TOKEN",
-                vportal:
-                    "portal::[key:TEST_ONLY_KEY]https://example.com/api/v1/",
             }),
             { mode: 0o600 }
         );
@@ -1248,7 +1246,17 @@ function moduleOf(file, requireFn, window) {
         assert.equal(television().configuration.M3Us[1].rechours, 72);
         const listed = await run("profiles");
         assert.match(listed.stdout, /Movies/);
+        assert(!/vportal/i.test(listed.stdout));
         assert(!/TEST_ONLY/.test(listed.stdout + listed.stderr));
+        await assert.rejects(
+            run(
+                "profile",
+                "2",
+                "vportal",
+                "portal::[key:TEST_ONLY_KEY]https://example.com/api/v1/"
+            )
+        );
+        assert.equal(television().configuration.M3Us[1].medUrl || "", "");
         await run("profile", "2");
         assert.equal(television().configuration.active, 1);
         assert.equal(television().playlistLoads, 1);
