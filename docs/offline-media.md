@@ -155,6 +155,14 @@ arbitrary client/server paths as native picker grants.
 
 ## Kiosk and updates
 
+In the video/channel list, open **Actions → Shuffle** to randomize the current
+list without restarting the playing item. **Reset order** restores its order
+before the first shuffle, even after restart or repeated shuffles. New files
+discovered meanwhile remain at the end; deleted entries are not resurrected.
+The numeric popup exposes the same actions on **2** and **5**, respectively.
+These shared list controls apply to the browser, server-hosted UI, Tauri and
+Capacitor. Kiosk locks prevent changing the order.
+
 Select Local videos, choose a playable title, then apply the existing kiosk
 command through the authorized command server. Stable entry IDs identify the
 saved selection; temporary playback URLs are regenerated. Connect the source

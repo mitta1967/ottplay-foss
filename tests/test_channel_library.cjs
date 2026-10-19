@@ -665,6 +665,101 @@ for (let slot = 0; slot < 15; slot++) {
     assert.deepEqual(plain(incremental.snapshot().all), [11, 12, 13, 99]);
     assert.equal(incremental.itemId(99), "stream:99");
 }
+{
+    source = "shuffle-test";
+    const shuffled = library();
+    shuffled.select("system:all", 12);
+    vm.runInContext("Math.random = function () { return 0; };", context);
+    assert(shuffled.shuffleGroup("system:all"));
+    assert.deepEqual(plain(shuffled.snapshot().all), [12, 13, 11]);
+    assert.equal(shuffled.snapshot().selected.itemId, "stream:20");
+    assert.deepEqual(plain(library().snapshot().all), [12, 13, 11]);
+    shuffled.append([
+        {
+            groupId: "genre:7",
+            groupLabel: "News",
+            id: 14,
+            itemId: "stream:40",
+            label: "New",
+        },
+    ]);
+    assert.deepEqual(plain(shuffled.snapshot().all), [12, 13, 11, 14]);
+    assert.equal(shuffled.shuffleGroup("missing"), false);
+    assert.equal(shuffled.resetShuffle("missing"), false);
+    assert.equal(shuffled.isShuffled("system:all"), true);
+    broken = true;
+    const before = plain(shuffled.snapshot());
+    assert.equal(shuffled.shuffleGroup("system:all"), false);
+    assert.deepEqual(plain(shuffled.snapshot()), before);
+    broken = false;
+}
+{
+    saved.clear();
+    source = "shuffle-reset-restart";
+    const catalog = rows.map((row) => ({ ...row }));
+    let shuffled = library(catalog.slice());
+    assert.equal(shuffled.resetShuffle("system:all"), false);
+    assert.equal(shuffled.isShuffled("system:all"), false);
+    assert(shuffled.select("system:all", 12));
+    assert(shuffled.shuffleGroup("system:all"));
+    const baseline = plain(shuffled.document()).groups.find(
+        (group) => group.id === "system:all"
+    ).shuffleBefore;
+    assert.deepEqual(
+        baseline,
+        catalog.map((row) => row.itemId)
+    );
+    assert(shuffled.shuffleGroup("system:all"));
+    assert.deepEqual(
+        plain(shuffled.document()).groups.find(
+            (group) => group.id === "system:all"
+        ).shuffleBefore,
+        baseline,
+        "reshuffling must retain the first original order"
+    );
+    shuffled = library(catalog.slice());
+    assert.equal(shuffled.isShuffled("system:all"), true);
+    const selected = plain(shuffled.snapshot().selected);
+    assert(shuffled.resetShuffle("system:all"));
+    assert.deepEqual(
+        plain(shuffled.snapshot().all),
+        catalog.map((row) => row.id)
+    );
+    assert.deepEqual(plain(shuffled.snapshot().selected), selected);
+    assert.equal(shuffled.isShuffled("system:all"), false);
+    assert.equal(library(catalog.slice()).isShuffled("system:all"), false);
+    assert.equal(shuffled.resetShuffle("system:all"), false);
+    assert(shuffled.shuffleGroup("system:all"));
+    assert(shuffled.changeMember("system:all", 11, "remove"));
+    const added = {
+        groupId: "genre:7",
+        groupLabel: "News",
+        id: 140,
+        itemId: "stream:140",
+        label: "Added while shuffled",
+    };
+    shuffled.append([added]);
+    assert.equal(shuffled.snapshot().all.at(-1), added.id);
+    const before = plain(shuffled.snapshot());
+    broken = true;
+    assert.equal(shuffled.resetShuffle("system:all"), false);
+    assert.deepEqual(plain(shuffled.snapshot()), before);
+    assert.equal(shuffled.isShuffled("system:all"), true);
+    broken = false;
+    assert(shuffled.resetShuffle("system:all"));
+    assert.deepEqual(
+        plain(shuffled.snapshot().all),
+        catalog
+            .filter((row) => row.id !== 11)
+            .map((row) => row.id)
+            .concat(140),
+        "reset preserves removals and places newly discovered media at the end"
+    );
+    shuffled = library(catalog.concat(added));
+    assert.equal(shuffled.isShuffled("system:all"), false);
+    assert.equal(shuffled.snapshot().all.includes(11), false);
+    assert.equal(shuffled.snapshot().all.at(-1), 140);
+}
 console.log(
     "Channel library: stable identity, catalog/user separation, migration, account isolation, storage failures PASS"
 );

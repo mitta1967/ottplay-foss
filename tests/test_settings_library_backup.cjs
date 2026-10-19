@@ -180,6 +180,46 @@ check(
     }
 );
 check(
+    "v2 backup round-trips shuffled favorites and channels with reset still available",
+    () => {
+        const f = fixture();
+        f.data.set("p:favoritesArray", "[100,200]");
+        f.mount();
+        vm.runInContext("Math.random = function () { return 0; }", f.w);
+        assert.equal(f.w.shuffleFavoritesList(), true);
+        assert.equal(f.w.__ottChannels.change("shuffle", "system:all"), true);
+        const exported = f.export();
+        assert.deepEqual(exported.tv.favorites.shuffleBefore.Favorites, [
+            { itemId: "stream:A" },
+            { itemId: "stream:B" },
+        ]);
+        assert.deepEqual(
+            exported.tv.channels.groups.find(
+                (group) => group.id === "system:all"
+            ).shuffleBefore,
+            ["stream:A", "stream:B"]
+        );
+        f.import(exported);
+        assert.equal(f.accept(), true);
+        assert.deepEqual(
+            JSON.parse(f.data.get(f.favoriteKey)),
+            exported.tv.favorites
+        );
+        assert.deepEqual(
+            JSON.parse(f.data.get(f.channelKey)),
+            exported.tv.channels
+        );
+        f.mount();
+        assert.equal(f.w.shuffleFavoritesList(true), true);
+        assert.equal(
+            f.w.__ottChannels.change("resetShuffle", "system:all"),
+            true
+        );
+        assert.deepEqual(Array.from(f.w.favoritesArray), [10, 20]);
+        assert.deepEqual(Array.from(f.w.cats.All), [10, 20]);
+    }
+);
+check(
     "v1 replaces canonical active favorites and locks despite existing migration claims",
     () => {
         const f = fixture();

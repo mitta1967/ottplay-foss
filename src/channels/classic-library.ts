@@ -162,6 +162,8 @@ function channelLibraryChange(action: string, value?: any, extra?: any): any {
             value.delta
         );
     if (action === "lock") result = library.lock(value, extra);
+    if (action === "shuffle") result = library.shuffleGroup(value);
+    if (action === "resetShuffle") result = library.resetShuffle(value);
     if (result) channelLibraryPublish(host);
     return result;
 }

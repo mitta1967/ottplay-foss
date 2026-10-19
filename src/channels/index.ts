@@ -34,6 +34,7 @@ import {
     renameFavoritesList,
     saveFavoritesLists,
     setActiveFavoritesList,
+    shuffleFavoritesList,
     syncFavoritesArrayFromActive,
 } from "./favorites-lists";
 
@@ -3149,6 +3150,38 @@ export function searchChannel(): void {
  * Side effects: writes innerHTML to #dialogbox, shows it, installs
  * window.dialogBoxKeyHandler, hides it on RETURN.
  */
+export function shuffleChannelList(reset = false): void {
+    var w = window as any;
+    if (
+        w.listArray === w.catsArray ||
+        !w.listArray ||
+        w.listArray.length < 2 ||
+        (w.__ottKiosk && w.__ottKiosk.locked())
+    )
+        return;
+    var selected = w.listArray[w.selIndex];
+    var playing = w.curList && w.curList[w.primaryIndex];
+    var group = w.__ottChannels.group(w.listCatIndex);
+    if (group === "system:favorites") {
+        if (!shuffleFavoritesList(reset)) return;
+        w.__ottChannels.refresh();
+    } else if (
+        !group ||
+        !w.__ottChannels.change(reset ? "resetShuffle" : "shuffle", group)
+    )
+        return;
+    w.sSortAbc = 0;
+    if (typeof w.sortChannels === "function") w.sortChannels(0);
+    if (typeof w.providerSetItem === "function")
+        w.providerSetItem("sSortAbc", 0);
+    w.listArray = w.cats[w.catsArray[w.listCatIndex]] || [];
+    w.listDataArray = w.listArray;
+    w.selIndex = Math.max(0, w.listArray.indexOf(selected));
+    var at = w.curList ? w.curList.indexOf(playing) : -1;
+    if (at >= 0) w.primaryIndex = at;
+    if (typeof w.showPage === "function") w.showPage();
+}
+
 export function showActionsDialog(): void {
     var w = window as any;
     var t =
@@ -3224,10 +3257,24 @@ export function showActionsDialog(): void {
             : "") +
         (typeof w.renderButtonHint === "function"
             ? w.renderButtonHint(w.keys.YELLOW, "", "Search", w.strTools)
+            : "") +
+        (w.listArray !== w.catsArray &&
+        w.listArray &&
+        w.listArray.length > 1 &&
+        !(w.__ottKiosk && w.__ottKiosk.locked()) &&
+        typeof w.renderButtonHint === "function"
+            ? w.renderButtonHint(w.keys.N2, "2", "Shuffle") +
+              w.renderButtonHint(w.keys.N5, "5", "Reset order")
             : "");
     $(dialog!).show();
     w.dialogBoxKeyHandler = function (ev: number): boolean {
         switch (ev) {
+            case w.keys.N2:
+            case w.keys.N5:
+                $(dialog!).hide();
+                w.__ottClassicScreenPort.close("dialog");
+                shuffleChannelList(ev === w.keys.N5);
+                return true;
             case w.keys.ENTER:
                 $(dialog!).hide();
                 if (typeof w.addChannel2bucket === "function")
@@ -3458,6 +3505,13 @@ export function saveChannelPreference(
 export function channelsKeyHandler(keyCode: number): boolean {
     var keys = window.keys;
     if (!keys) return false;
+    if (
+        (keyCode === keys.N2 || keyCode === keys.N5) &&
+        $("#listPopUp").is(":visible")
+    ) {
+        shuffleChannelList(keyCode === keys.N5);
+        return true;
+    }
 
     switch (keyCode) {
         case keys.RETURN:

@@ -425,6 +425,17 @@ function setPopupChannels(): void {
         );
     }
     $("#listPopUp").append("<br/>" + renderButtonHint(keys.N6, "6", "Search"));
+    if (
+        listArray &&
+        listArray.length > 1 &&
+        !((window as any).__ottKiosk && (window as any).__ottKiosk.locked())
+    )
+        $("#listPopUp").append(
+            "<br/>" +
+                renderButtonHint(keys.N2, "2", "Shuffle") +
+                "<br/>" +
+                renderButtonHint(keys.N5, "5", "Reset order")
+        );
 }
 declare var sPreview: number;
 declare var previewChan: any;

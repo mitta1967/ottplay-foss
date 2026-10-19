@@ -6,6 +6,7 @@
 
 ### Changes
 
+- Add Shuffle and Reset order to channel-list Actions and the numeric popup. Keep the current video and cursor, preserve the pre-shuffle order across restart, and retain newly discovered files when resetting.
 - Play local videos from browser folder handles, Android document sources, iOS bookmarks, and desktop file references without creating another media copy. Retain the original source and selected video across restart; sources that need permission offer explicit recovery.
 - Stream large browser-folder catalogs in batches, resume the saved file directly, and append remaining entries without restarting playback. Avoid repeated metadata scans on Android; skip unreadable children without losing the source.
 - Scan Tauri folders in the background and start playback from the first eligible result. Show processed entries and playable videos in the standard loading dialog; omit unknown totals and stop waiting on stalled scans.
