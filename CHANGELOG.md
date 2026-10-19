@@ -12,6 +12,7 @@
 - Scan Tauri folders in the background and start playback from the first eligible result. Show processed entries and playable videos in the standard loading dialog; omit unknown totals and stop waiting on stalled scans.
 - Use the standard player settings and loading dialog for local media. Open the player before scanning a saved folder, and offer recovery when a source fails or stops responding.
 - On PC, plain Left/Right adjusts volume even with fullscreen video focus. Alt/Option, Ctrl, or Command with Left/Right seeks by ten seconds in local video, VOD, and supported channel archives.
+- Treat Local videos as finite media from playback start, including when a slow source reports its duration late. Seeking keeps the same video and pause state instead of restarting it; the timeline updates when duration becomes available.
 - Serve the offline worker and hosted runtime assets from the local server, and use content-hashed bootstrap URLs to refresh same-version hosted bundles.
 
 - Add 15 Local videos (`offline`) profile slots with remote save/load/export/import,

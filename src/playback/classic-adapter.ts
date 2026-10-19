@@ -235,6 +235,12 @@ function classicPlaybackCommand(command: any): void {
         type === "vod" ||
         type === "finite-channel"
     ) {
+        // Local catalog entries use channel navigation, but their decoder is
+        // finite media from the outset. Do not wait for the one-shot metadata
+        // probe: a slow disk can supply duration only after that probe ran.
+        var localChannel =
+            type === "live" && w.__ottActiveProviderDriver?.id === "offline";
+        var finiteChannel = type === "finite-channel" || localChannel;
         var id =
             command.channelId !== undefined
                 ? command.channelId
@@ -288,20 +294,19 @@ function classicPlaybackCommand(command: any): void {
                     ? command.sourceId || w.__ottMedia.sourceId()
                     : classicPlaybackSource(w),
         };
-        var target: PlaybackVisit =
-            type === "finite-channel"
-                ? {
-                      channelId: "channel:" + id,
-                      kind: "vod",
-                      sourceId: history.sourceId,
-                  }
-                : history;
+        var target: PlaybackVisit = finiteChannel
+            ? {
+                  channelId: "channel:" + id,
+                  kind: "vod",
+                  sourceId: history.sourceId,
+              }
+            : history;
         w.playType =
             type === "archive"
                 ? history.archiveStart
                 : type === "vod"
                   ? -1e11
-                  : type === "finite-channel"
+                  : finiteChannel
                     ? -99999999999
                     : 0;
         w.playTime =

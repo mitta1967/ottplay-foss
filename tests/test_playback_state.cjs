@@ -385,13 +385,13 @@ for (const phase of ["pause", "stop"]) {
     assert.equal(c.api.snapshot().phase, "stopped");
 }
 
-// Short local clips must acquire media seek semantics; live-provider heuristics stay unchanged.
+// Local sources have media seek semantics before metadata; other provider heuristics stay unchanged.
 for (const [provider, duration, expected] of [
     ["offline", 40, "vod"],
     ["offline", 0.25, "vod"],
-    ["offline", 0, "live"],
-    ["offline", NaN, "live"],
-    ["offline", Infinity, "live"],
+    ["offline", 0, "vod"],
+    ["offline", NaN, "vod"],
+    ["offline", Infinity, "vod"],
     ["m3u", 40, "live"],
     ["m3u", 180, "live"],
     ["m3u", 181, "vod"],
