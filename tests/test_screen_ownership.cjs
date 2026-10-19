@@ -273,7 +273,7 @@ test("Local videos arrows change files after finite classification and respect s
             "minusProg",
         ])
     );
-    w.settings = { auFun: 15, adFun: 16 };
+    w.settings = { adFun: 16, auFun: 15 };
     w.__ottActiveProviderDriver = { id: "offline" };
     w.curList = ["first", "second", "third"];
     w.catIndex = 2;
@@ -321,9 +321,9 @@ test("Local videos arrows change files after finite classification and respect s
             ).owner;
             w.$(
                 {
+                    about: "#listAbout",
                     dialog: "#dialogbox",
                     editor: "#listEdit",
-                    about: "#listAbout",
                 }[kind]
             ).show();
         }

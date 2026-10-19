@@ -275,7 +275,10 @@ const { gzipSync } = require("node:zlib");
 // native on Node 26.8.2; retain both independently measured allowances.
 // PR820 local resume/exit and per-profile journal isolation reserve another
 // 512 + 256 raw bytes in the entry, with no increase to its gzip allowance.
-const BUDGET = Object.freeze({ bytes: 956023, gzipBytes: 295948 });
+// Visible progressive-list refresh, owned VPortal failure completion and Local
+// file arrows add 1529 raw entry bytes on Node 26.8.2 (956603 total). Reserve
+// 1600 bytes for these guards, retaining the gzip cap and existing headroom.
+const BUDGET = Object.freeze({ bytes: 957623, gzipBytes: 295948 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
