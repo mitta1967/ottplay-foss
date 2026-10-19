@@ -28,7 +28,7 @@ layout adjustments are inactive during fullscreen.
 
 In the main video view, press **Option + Left/Right** on macOS or
 **Alt + Left/Right** on Windows/Linux to seek backward/forward by ten seconds.
-**Command + Left/Right** is also supported on macOS. These shortcuts work in
+**Ctrl + Left/Right** is also supported, as is **Command + Left/Right** on macOS. These shortcuts work in
 both the page/window view and fullscreen; entering fullscreen is not required.
 They use the same playback controller in the hosted/server player, installed
 browser app, Tauri and Capacitor with an attached hardware keyboard.
@@ -40,7 +40,7 @@ Ordinary live streams without archive support cannot be rewound. Media support
 and the provider's available archive window still limit where playback can go.
 
 Repeated presses accumulate; the player applies the seek after a short pause
-(500 ms) and shows its usual seek feedback. Plain arrow mappings stay unchanged.
+(500 ms) and shows its usual seek feedback. On PC, plain **Left/Right** decreases/increases volume, including when the native video element has focus in fullscreen. Other devices retain their arrow mappings.
 Menus, lists, dialogs and text editors retain their normal keyboard behavior,
 and kiosk restrictions still take priority. The shortcuts do not change the
 second-channel PiP video or override shortcuts intercepted by the operating

@@ -87,7 +87,7 @@ export var keys: Record<string, number> = {
  * Main key dispatch
  * --------------------------------------------------------------------------- */
 
-/** Seek through the shared transport, without taking navigation from editors. */
+/** Own desktop playback arrows before native video controls can seek. */
 export function tryKeyboardSeek(event: KeyboardEvent): boolean {
     var w = window as any;
     if (
@@ -95,10 +95,11 @@ export function tryKeyboardSeek(event: KeyboardEvent): boolean {
         event.defaultPrevented ||
         event.isComposing ||
         event.keyCode === 229 ||
-        event.ctrlKey ||
         event.shiftKey ||
-        (!event.altKey && !event.metaKey) ||
-        (event.altKey && event.metaKey)
+        Number(!!event.altKey) +
+            Number(!!event.ctrlKey) +
+            Number(!!event.metaKey) >
+            1
     )
         return false;
     var direction =
@@ -112,6 +113,8 @@ export function tryKeyboardSeek(event: KeyboardEvent): boolean {
                   ? 1
                   : 0;
     if (!direction) return false;
+    var seek = !!(event.altKey || event.ctrlKey || event.metaKey);
+    if (!seek && !/^pc(?:2)?$/.test(w.ott_device || "")) return false;
     function editable(element: any): boolean {
         while (element) {
             if (
@@ -146,7 +149,7 @@ export function tryKeyboardSeek(event: KeyboardEvent): boolean {
     if (
         !playback ||
         typeof playback.snapshot !== "function" ||
-        typeof w.shiftArchive !== "function"
+        typeof w[seek ? "shiftArchive" : "changeVolume"] !== "function"
     )
         return false;
     var state = playback.snapshot();
@@ -160,7 +163,8 @@ export function tryKeyboardSeek(event: KeyboardEvent): boolean {
     event.stopPropagation();
     if (event.stopImmediatePropagation) event.stopImmediatePropagation();
     if (typeof w.setSleepTimeout === "function") w.setSleepTimeout();
-    w.shiftArchive(direction * 10);
+    if (seek) w.shiftArchive(direction * 10);
+    else w.changeVolume(direction * w.sVolumeStep);
     return true;
 }
 

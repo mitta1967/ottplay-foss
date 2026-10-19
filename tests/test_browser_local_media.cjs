@@ -370,6 +370,7 @@ async function builtUi(devicePath) {
         const action = (name) =>
             page.locator('[data-local-media-action="' + name + '"]');
         async function selectAction(name) {
+            await page.locator("#dialogbox").waitFor({ state: "hidden" });
             const index = await page.evaluate(
                 (id) => window.listArray.findIndex((row) => row.id === id),
                 name
@@ -460,7 +461,13 @@ async function builtUi(devicePath) {
         await page.waitForFunction(
             () => typeof window.__resolveRefresh === "function"
         );
-        await selectAction("server-library");
+        await page.locator("#dialogbox .ott-spinner").waitFor();
+        // A remote/action transition can replace the loading dialog with the
+        // editor even though local keyboard input is captured by the dialog.
+        await page.evaluate(() =>
+            window.listArray.find((row) => row.id === "server-library").action()
+        );
+        await page.locator("#dialogbox").waitFor({ state: "hidden" });
         await page.evaluate(async () => {
             window.__resolveRefresh({
                 available: true,
@@ -531,12 +538,7 @@ async function builtUi(devicePath) {
                     );
             }, name);
             await selectAction(name);
-            await page.waitForFunction(
-                () =>
-                    !document
-                        .getElementById("listDetail")
-                        .textContent.includes("Working")
-            );
+            await page.locator("#dialogbox").waitFor({ state: "hidden" });
             assert.equal(
                 await page.evaluate(
                     async () =>
@@ -572,7 +574,17 @@ async function builtUi(devicePath) {
         await page.waitForFunction(
             () => typeof window.__resolveOldLocalList === "function"
         );
-        await selectAction("close");
+        await page.locator("#dialogbox .ott-spinner").waitFor();
+        assert.equal(
+            await page
+                .locator("#listDetail")
+                .textContent()
+                .then((text) => text.includes("Working")),
+            false,
+            "catalog loading uses the standard spinner, not a detail placeholder"
+        );
+        await page.keyboard.press("Escape");
+        await page.locator("#dialogbox").waitFor({ state: "hidden" });
         await chooseLocalProvider();
         await page.evaluate(() =>
             window.__resolveOldLocalList({
@@ -588,12 +600,7 @@ async function builtUi(devicePath) {
             })
         );
         await selectAction("refresh");
-        await page.waitForFunction(
-            () =>
-                !document
-                    .getElementById("listDetail")
-                    .textContent.includes("Working")
-        );
+        await page.locator("#dialogbox").waitFor({ state: "hidden" });
         assert.equal(
             await page
                 .getByText("Disconnect: Obsolete response", { exact: true })
@@ -616,7 +623,9 @@ async function builtUi(devicePath) {
         await page.waitForFunction(
             () => typeof window.__resolveClosedLocalList === "function"
         );
+        await page.locator("#dialogbox .ott-spinner").waitFor();
         await page.keyboard.press("Escape");
+        await page.locator("#dialogbox").waitFor({ state: "hidden" });
         await action("add-folder").waitFor({ state: "hidden" });
         await page.evaluate(async () => {
             window.__resolveClosedLocalList({
@@ -720,6 +729,8 @@ async function builtUi(devicePath) {
             "the browser seek fixture must be long enough for real seeks"
         );
         for (const [key, expected] of [
+            ["Control+ArrowRight", 25],
+            ["Control+ArrowLeft", 15],
             ["Alt+ArrowRight", 25],
             ["Alt+ArrowLeft", 15],
             ["Meta+ArrowRight", 25],
@@ -744,6 +755,44 @@ async function builtUi(devicePath) {
                 ),
                 true,
                 key + " preserves paused playback"
+            );
+        }
+        if (await page.evaluate(() => /^pc(?:2)?$/.test(window.ott_device))) {
+            const before = await page.evaluate(() => {
+                window.changeVolume(-100);
+                window.changeVolume(50);
+                return {
+                    position: document.querySelector("video").currentTime,
+                    volume: window.stbGetVolume(),
+                };
+            });
+            await page.keyboard.press("ArrowRight");
+            assert.equal(
+                await page.evaluate(
+                    () => document.querySelector("video").currentTime
+                ),
+                before.position,
+                "plain right in fullscreen does not seek"
+            );
+            assert.ok(
+                (await page.evaluate(() => window.stbGetVolume())) >
+                    before.volume,
+                "plain right increases volume"
+            );
+            await page.keyboard.press("ArrowLeft");
+            assert.ok(
+                Math.abs(
+                    (await page.evaluate(() => window.stbGetVolume())) -
+                        before.volume
+                ) < 0.01,
+                "plain left restores volume"
+            );
+            assert.equal(
+                await page.evaluate(
+                    () => document.querySelector("video").currentTime
+                ),
+                before.position,
+                "plain left in fullscreen does not seek"
             );
         }
         await page.evaluate(async () => {
@@ -1006,7 +1055,7 @@ async function builtUi(devicePath) {
         console.log(
             "PASS built UI " +
                 devicePath +
-                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Meta seek with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration, real profile save/export/import/load via generic catalogue lifecycle, and permission recovery (controlled permission policy)"
+                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Ctrl/Meta seek and plain PC arrow volume with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration, real profile save/export/import/load via generic catalogue lifecycle, and permission recovery (controlled permission policy)"
         );
     } finally {
         await browser.close();
