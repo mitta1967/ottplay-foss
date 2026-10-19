@@ -13,6 +13,14 @@
 - On PC, plain Left/Right adjusts volume even with fullscreen video focus. Alt/Option, Ctrl, or Command with Left/Right seeks by ten seconds in local video, VOD, and supported channel archives.
 - Serve the offline worker and hosted runtime assets from the local server, and use content-hashed bootstrap URLs to refresh same-version hosted bundles.
 
+- Add 15 Local videos (`offline`) profile slots with remote save/load/export/import,
+  source-subset isolation and saved-file restoration. Portable profiles carry
+  descriptions only; browser handles and native grants/bookmarks stay local.
+  Foreign imports require an explicit local binding, and generic settings/cloud
+  restores preserve rather than replace the installation's private bindings.
+- Synchronize the standalone fuzz lockfile with the existing Local videos core
+  dependencies so baseline regression-corpus checks work with `--locked`.
+
 ### Upgrade
 
 - Saved folder references are device-specific. Reconnect moved/removable sources and grant filesystem access when the operating system or browser asks. Access to a server library requires a network connection.

@@ -21,9 +21,12 @@ const source = ts.transpileModule(
     }
 ).outputText;
 require("acorn").parse(source, { ecmaVersion: 5 });
+const profileSource = require("./helpers/offline-profile-source.cjs")();
+require("acorn").parse(profileSource, { ecmaVersion: 5 });
+
 (async () => {
     const server = http.createServer((req, res) =>
-        res.end("<script>" + source + "</script>")
+        res.end("<script>" + source + profileSource + "</script>")
     );
     await new Promise((r) => server.listen(0, "127.0.0.1", r));
     const browser = await chromium.launch({ headless: true });
@@ -200,6 +203,124 @@ require("acorn").parse(source, { ecmaVersion: 5 });
             "one click restores all shared grants without parallel prompts"
         );
         assert.deepEqual(resume.recovered, ["granted", "granted"]);
+        const profileContext = await browser.newContext();
+        let profilePage = await profileContext.newPage();
+        const address = "http://127.0.0.1:" + server.address().port;
+        await profilePage.goto(address);
+        const portable = await profilePage.evaluate(async () => {
+            const root = await navigator.storage.getDirectory();
+            const folder = await root.getDirectoryHandle("Profile cartoons", {
+                create: true,
+            });
+            for (const name of ["first.mp4", "second.mp4"]) {
+                const file = await folder.getFileHandle(name, { create: true });
+                const out = await file.createWritable();
+                await out.write(name);
+                await out.close();
+            }
+            window.showDirectoryPicker = () => Promise.resolve(folder);
+            const media = installBrowserLocalMedia(window);
+            const catalog = await media.importFolder();
+            const selected = catalog.items.find(
+                (item) => item.name === "second.mp4"
+            );
+            window.stbDelItem = (key) => localStorage.removeItem(key);
+            window.stbGetItem = (key) => localStorage.getItem(key);
+            window.stbSetItem = (key, value) =>
+                localStorage.setItem(key, value);
+            window.__ottActiveProviderDriver = { id: "offline" };
+            window.curList = ["local-" + selected.id];
+            window.primaryIndex = 0;
+            window.loadChannels = () => {};
+            const profiles = installOfflineProfiles(window, {
+                libraryIdentity: () => "browser:",
+                snapshot: () => Promise.resolve(catalog),
+            });
+            const saved = await profiles.request({
+                action: "profile_save",
+                params: { name: "Kids", number: 1 },
+            });
+            if (saved.status !== "ok") throw new Error(JSON.stringify(saved));
+            return (
+                await profiles.request({
+                    action: "profile_export",
+                    params: { number: 1 },
+                })
+            ).data.profile;
+        });
+        assert.equal(portable.selected.name, "second.mp4");
+        assert(!JSON.stringify(portable).includes("blob:"));
+        await profilePage.close();
+        profilePage = await profileContext.newPage();
+        await profilePage.goto(address);
+        const restoredProfile = await profilePage.evaluate(async (profile) => {
+            window.stbDelItem = (key) => localStorage.removeItem(key);
+            window.stbGetItem = (key) => localStorage.getItem(key);
+            window.stbSetItem = (key, value) =>
+                localStorage.setItem(key, value);
+            window.__ottActiveProviderDriver = { id: "offline" };
+            window.loadChannels = () => {};
+            const media = installBrowserLocalMedia(window);
+            const profiles = installOfflineProfiles(window, {
+                libraryIdentity: () => "browser:",
+                list: () => media.list(),
+            });
+            const imported = await profiles.request({
+                action: "profile_import",
+                params: { number: 2, profile },
+            });
+            const loaded = await profiles.request({
+                action: "profile",
+                params: { number: 2 },
+            });
+            const catalog = profiles.filter(await media.list());
+            const item = catalog.items.find(
+                (item) => "local-" + item.id === profiles.selection()
+            );
+            const body = await (await fetch(item.url)).text();
+            return { body, count: catalog.items.length, imported, loaded };
+        }, portable);
+        assert.equal(restoredProfile.imported.data.binding_required, false);
+        assert.equal(restoredProfile.loaded.status, "ok");
+        assert.equal(restoredProfile.body, "second.mp4");
+        assert.equal(restoredProfile.count, 2);
+        const foreignContext = await browser.newContext();
+        const foreignPage = await foreignContext.newPage();
+        await foreignPage.goto(address);
+        const foreign = await foreignPage.evaluate(async (profile) => {
+            window.stbDelItem = (key) => localStorage.removeItem(key);
+            window.stbGetItem = (key) => localStorage.getItem(key);
+            window.stbSetItem = (key, value) =>
+                localStorage.setItem(key, value);
+            window.__ottActiveProviderDriver = { id: "offline" };
+            window.loadChannels = () => {};
+            const media = installBrowserLocalMedia(window);
+            const profiles = installOfflineProfiles(window, {
+                libraryIdentity: () => "browser:",
+                list: () => media.list(),
+            });
+            const imported = await profiles.request({
+                action: "profile_import",
+                params: { number: 1, profile },
+            });
+            await profiles.request({
+                action: "profile",
+                params: { number: 1 },
+            });
+            return {
+                count: profiles.filter(await media.list()).items.length,
+                imported,
+                selected: profiles.selection(),
+            };
+        }, portable);
+        assert.equal(foreign.imported.data.binding_required, true);
+        assert.equal(foreign.count, 0);
+        assert.equal(foreign.selected, "");
+        await foreignContext.close();
+        await profileContext.close();
+        console.log(
+            "PASS offline profiles: real IndexedDB handles survive closed-page save/export/import/load; exact selected original read; foreign context requires binding"
+        );
         console.log(
             "PASS direct browser sources: recursive read, handle-only storage, fresh file reads, refresh, permission status/reconnect, disconnect preserves originals, legacy blobs, unsupported browser, closed-page restoration, single read-only restore prompt"
         );

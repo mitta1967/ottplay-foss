@@ -89,6 +89,7 @@ const CLASSIC_MODULES = [
     "build/provider/drivers.js",
     "build/offline/browser-local-media.js",
     "build/offline/local-media-progress.js",
+    "build/offline/profiles.js",
     "build/plugins/local-media.js",
     "build/provider/assets.js",
     "build/provider/index.js",

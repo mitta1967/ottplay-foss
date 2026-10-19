@@ -1502,6 +1502,18 @@ export function onChannelsLoaded(): void {
                 loadFavoritesLists();
                 (window as any).__ottChannels.mount(window);
                 (window as any).__ottClassicPlayback.hydrate();
+                var localProfiles = (window as any).__ottOfflineProfiles;
+                if (driver && driver.id === "offline" && localProfiles) {
+                    var selectedLocal = localProfiles.selection();
+                    if (selectedLocal !== null) {
+                        var localIndex = cList.indexOf(selectedLocal);
+                        if (localIndex < 0) {
+                            (window as any).__ottLocalMedia.resume();
+                            return;
+                        }
+                        window.setCurrent(0, localIndex);
+                    }
+                }
                 // Start playback: restore continue-watching bookmark if available.
                 // If no archive bookmark is offered, fall back to the normal
                 // live playChannel path (live bookmarks are already encoded in

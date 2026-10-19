@@ -3,6 +3,7 @@ import {
     installOfflineShell,
 } from "../offline/browser-local-media";
 import { formatLocalMediaProgress } from "../offline/local-media-progress";
+import { installOfflineProfiles } from "../offline/profiles";
 import { resolveNativePlugin, tauriInvoke } from "./native-bridge";
 
 /** Stable item IDs belong to storage; playback URLs are resolved anew each launch. */
@@ -120,6 +121,7 @@ export function installLocalMedia(w: any): any {
         preferredId?: string
     ): Promise<any> {
         var request = ++catalogRevision;
+        last = null;
         function accept(value: any): boolean {
             if (request !== catalogRevision) return false;
             if (!value || !Array.isArray(value.items))
@@ -479,6 +481,18 @@ export function installLocalMedia(w: any): any {
                     else run(requestAccess);
                 }
             );
+        var profiles = w.__ottOfflineProfiles;
+        if (profiles && profiles.current())
+            row(
+                "bind-profile",
+                "Bind loaded profile to connected sources",
+                "Explicitly match this profile's source names and saved video to folders connected on this device. Ambiguous or missing sources are rejected.",
+                function () {
+                    run(function () {
+                        return profiles.bindCurrent();
+                    });
+                }
+            );
         row("refresh", "Refresh", "Read connected folders again.", function () {
             run(function () {
                 return isTauri()
@@ -581,6 +595,7 @@ export function installLocalMedia(w: any): any {
         owner = w.__ottClassicScreenPort
             ? w.__ottClassicScreenPort.listOwner()
             : null;
+        if (owner && owner.model) owner.model.localOnlyInput = true;
     }
     function run(action: () => Promise<any>, startPlayback = false): void {
         var request = ++revision;
@@ -657,6 +672,10 @@ export function installLocalMedia(w: any): any {
         available: function () {
             return isNative() || isTauri() || !!w.indexedDB;
         },
+        didRestoreLibrary: function () {
+            catalogRevision++;
+            last = null;
+        },
         importFiles: importFiles,
         isPlaybackUrl: function (url: string) {
             return !!(
@@ -666,7 +685,38 @@ export function installLocalMedia(w: any): any {
                 })
             );
         },
+        libraryIdentity: function () {
+            return isNative()
+                ? "capacitor"
+                : isTauri()
+                  ? "tauri"
+                  : "browser:" + remoteEndpoint();
+        },
+        libraryWrite: function (identity: string) {
+            if (isNative() || isTauri() || identity.indexOf("browser:") !== 0)
+                throw new Error(
+                    "This local library belongs to another platform"
+                );
+            var value = identity.slice(8);
+            if (value) {
+                var parsed = new URL(value);
+                if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname)
+                    throw new Error("Invalid saved server library URL");
+            }
+            return { key: "localMediaEndpoint", value: value };
+        },
         list: list,
+        snapshot: function () {
+            // Profile operations must never replace the provider's active scan.
+            // Only a completed catalog describes every connected source.
+            if (!last || last.cancelled || last.scanning)
+                return Promise.reject(
+                    new Error(
+                        "Wait for the local media scan to finish before saving or binding a profile"
+                    )
+                );
+            return Promise.resolve(JSON.parse(JSON.stringify(last)));
+        },
         open: open,
         remove: remove,
         resume: function (skipScan = false) {
@@ -675,6 +725,7 @@ export function installLocalMedia(w: any): any {
         title: title,
     };
     w.__ottLocalMedia = api;
+    installOfflineProfiles(w, api);
     w.popLocalMedia = open;
     return api;
 }

@@ -132,6 +132,8 @@ function fixture(snapshots, options = {}) {
                     installBrowserLocalMedia: () => ({}),
                     installOfflineShell() {},
                 };
+            if (name.includes("offline/profiles"))
+                return { installOfflineProfiles() {} };
             if (name.includes("local-media-progress"))
                 return helperModule.exports;
             return {
@@ -200,6 +202,13 @@ async function flush() {
         "first native item reaches playback before the full scan"
     );
     assert.equal(complete, false);
+    const readsBeforeSnapshot = f.reads();
+    await assert.rejects(f.api.snapshot(), /scan to finish/);
+    assert.equal(
+        f.reads(),
+        readsBeforeSnapshot,
+        "profile snapshot never starts another native scan"
+    );
     await f.tick();
     assert.deepEqual(
         seen,
@@ -209,6 +218,14 @@ async function flush() {
     await f.tick();
     assert.equal((await result).items.length, 2);
     assert.deepEqual(seen, [0, 1, 2]);
+    const completed = await f.api.snapshot();
+    assert.equal(completed.items.length, 2);
+    completed.items.length = 0;
+    assert.equal(
+        (await f.api.snapshot()).items.length,
+        2,
+        "snapshots are isolated from callers"
+    );
 
     const imported = fixture([
         catalog(0, 0),

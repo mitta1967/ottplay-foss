@@ -437,4 +437,37 @@ check(
         assert.equal(f.export().tv.favorites.defaultList, undefined);
     }
 );
+check(
+    "JSON settings export/import round-trips offline descriptions without local bindings",
+    () => {
+        const f = fixture();
+        f.mount();
+        const profilesCode = require("./helpers/offline-profile-source.cjs")(
+            false
+        );
+        f.w.stbGetItem = f.w.storage.get;
+        f.w.stbSetItem = f.w.storage.set;
+        f.w.stbDelItem = f.w.storage.del;
+        vm.runInContext(profilesCode, f.w);
+        f.w.installOfflineProfiles(f.w, { libraryIdentity: () => "browser:" });
+        const store = {
+            active: -1,
+            profiles: Array(15).fill(null),
+            version: 1,
+        };
+        f.data.set("offlineProfiles", JSON.stringify(store));
+        f.data.set("offlineProfileBindings", "PRIVATE_BOOKMARK");
+        const exported = f.export();
+        assert.deepEqual(exported.offline_profiles, store);
+        assert(!JSON.stringify(exported).includes("PRIVATE_BOOKMARK"));
+        f.import(exported);
+        assert.equal(f.accept(), true);
+        assert.equal(f.data.get("offlineProfileBindings"), "PRIVATE_BOOKMARK");
+        const malformed = f.export();
+        malformed.offline_profiles.bookmark = "FOREIGN";
+        f.import(malformed);
+        assert.equal(f.accept(), false);
+        assert.equal(f.data.get("offlineProfileBindings"), "PRIVATE_BOOKMARK");
+    }
+);
 console.log("OK: " + count + " settings/library backup integration groups");

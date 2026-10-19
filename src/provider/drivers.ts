@@ -244,6 +244,17 @@ function createOfflineDriver(
                 done(emptyDriverCatalog(), "Local media is unavailable");
                 return;
             }
+            var profiles = (window as any).__ottOfflineProfiles;
+            var profileBefore = "";
+            try {
+                profileBefore = profiles ? JSON.stringify(profiles.read()) : "";
+            } catch (_) {
+                done(
+                    emptyDriverCatalog(),
+                    "Local profile configuration is unavailable"
+                );
+                return;
+            }
             var started = false;
             var progressStamp = "";
             var wanted = "";
@@ -257,7 +268,10 @@ function createOfflineDriver(
                 var saved = JSON.parse(
                     ports.storage.get("channelLibrary:" + source) || "null"
                 );
-                if (saved && saved.selected && saved.selected.itemId) {
+                var profileSelection = profiles ? profiles.selection() : null;
+                if (profileSelection !== null) {
+                    wanted = profileSelection || "local-profile-unbound";
+                } else if (saved && saved.selected && saved.selected.itemId) {
                     wanted = String(saved.selected.itemId).replace(
                         /^channel:/,
                         ""
@@ -307,6 +321,18 @@ function createOfflineDriver(
                 if (value.cancelled) {
                     clearLoadTimer();
                     revision++;
+                    return false;
+                }
+                try {
+                    if (profiles) {
+                        if (JSON.stringify(profiles.read()) !== profileBefore) {
+                            recover("Local profile changed while loading");
+                            return false;
+                        }
+                        value = profiles.filter(value);
+                    }
+                } catch (_) {
+                    recover("Local profile configuration is unavailable");
                     return false;
                 }
                 var stamp = [

@@ -178,6 +178,18 @@ function testRequestPacing() {
 testRequestPacing();
 if (process.argv.includes("--test-pacing")) process.exit(0);
 
+const offlineProfilesOnly = process.argv.includes("--offline-profiles-only");
+assert(
+    [undefined, "unsupported-controller"].includes(
+        process.env.OTT_OFFLINE_PROFILES
+    ),
+    "OTT_OFFLINE_PROFILES only accepts unsupported-controller; default checks require support"
+);
+assert(
+    !(offlineProfilesOnly && process.env.OTT_OFFLINE_PROFILES),
+    "offline-profiles-only cannot run against an unsupported controller"
+);
+
 const binary = process.env.OTT_CONTROL_BINARY,
     cli = process.env.OTT_CLI;
 assert(binary && cli, "Set OTT_CONTROL_BINARY and OTT_CLI");
@@ -334,6 +346,7 @@ function moduleOf(file, requireFn, window) {
         const aspectPreferences = new Map();
         const favoriteStores = new Map();
         const favoriteConfigurations = new Map();
+        const offlineStores = new Map();
         function player(
             device,
             token,
@@ -742,6 +755,62 @@ function moduleOf(file, requireFn, window) {
                                     ? caseless
                                     : { handleCommand: dispatch };
             let execute, inspection;
+            let offlineLoaded = [];
+            function activateOffline(initialIndex = 0) {
+                offlineLoaded = [];
+                if (!offlineStores.has(device))
+                    offlineStores.set(device, new Map());
+                const saved = offlineStores.get(device);
+                const sourceId = "private-source-" + device;
+                const catalog = {
+                    items: ["episode01.mp4", "episode02.mp4"].map(
+                        (name, index) => ({
+                            available: true,
+                            id: "private-item-" + device + "-" + index,
+                            name,
+                            sourceId,
+                            url: "blob:private-playback-" + index,
+                        })
+                    ),
+                    sources: [{ id: sourceId, kind: "folder", name: "Videos" }],
+                };
+                host.crypto = require("node:crypto").webcrypto;
+                host.__ottActiveProviderDriver = { id: "offline" };
+                saved.set("ottplayprov", "offline");
+                host.stbGetItem = (key) => saved.get(key) ?? null;
+                host.stbSetItem = (key, value) => saved.set(key, String(value));
+                host.stbDelItem = (key) => saved.delete(key);
+                const profiles = moduleOf(
+                    "src/offline/profiles.ts",
+                    (name) => {
+                        assert.equal(name, "../settings/store");
+                        return moduleOf(
+                            "src/settings/store.ts",
+                            () => {},
+                            host
+                        );
+                    },
+                    host
+                ).installOfflineProfiles(host, {
+                    libraryIdentity: () => "fixture-library-" + device,
+                    list: async () => clone(catalog),
+                });
+                host.curList = catalog.items.map((item) => "local-" + item.id);
+                host.primaryIndex = initialIndex;
+                // Production offline profiles use the generic channel loader;
+                // loadPlaylist is an M3U-only hook and may be absent or stale.
+                host.loadChannels = () => {
+                    playlistLoads++;
+                    const filtered = profiles.filter(clone(catalog));
+                    offlineLoaded = filtered.items.map((item) => item.name);
+                    host.curList = filtered.items.map(
+                        (item) => "local-" + item.id
+                    );
+                    host.primaryIndex = host.curList.indexOf(
+                        profiles.selection()
+                    );
+                };
+            }
             function loadRuntime() {
                 restartModule = undefined;
                 execute = moduleOf(
@@ -934,6 +1003,8 @@ function moduleOf(file, requireFn, window) {
                 kiosk: host.__ottKiosk.snapshot(),
                 nativeExits,
                 nativeRestarts,
+                offline: activateOffline,
+                offlineLoaded: clone(offlineLoaded),
                 paused,
                 playback: (kind) => {
                     playbackKind = kind;
@@ -1012,6 +1083,116 @@ function moduleOf(file, requireFn, window) {
                 await new Promise((resolve) => setTimeout(resolve, 100));
             }
             assert.fail(message);
+        }
+        async function checkOfflineProfiles() {
+            television().offline(1);
+            desktop().offline();
+            const offlineCaps = (await jsonOn("tv", "caps")).offline_profiles;
+            if (process.env.OTT_OFFLINE_PROFILES === "unsupported-controller") {
+                assert.equal(
+                    offlineCaps,
+                    undefined,
+                    "legacy controller must not advertise offline profiles"
+                );
+                console.log(
+                    "PASS legacy controller does not advertise unsupported local video profiles"
+                );
+                return;
+            }
+            assert(
+                offlineCaps,
+                "controller must support offline profiles in the default and offline-only checks"
+            );
+            assert.deepEqual(offlineCaps.operations, [
+                "list",
+                "load",
+                "save",
+                "export",
+                "import",
+            ]);
+            const emptyOffline = await jsonOn("tv", "profiles");
+            assert.equal(emptyOffline.provider, "offline");
+            assert.equal(
+                emptyOffline.profiles.filter((row) => row.active).length,
+                0
+            );
+            const savedOffline = await jsonOn(
+                "tv",
+                "profile",
+                "save",
+                "1",
+                "Cartoons"
+            );
+            assert.equal(savedOffline.saved, true);
+            assert.equal(savedOffline.profile.selected_name, "episode02.mp4");
+            assert.equal(savedOffline.binding_required, false);
+            const portablePath = path.join(dir, "local-videos.json");
+            await jsonOn("tv", "profile", "export", "1", portablePath);
+            const portableBytes = fs.readFileSync(portablePath, "utf8");
+            assert(
+                !/private-|blob:|fixture-library-/.test(portableBytes),
+                "export excludes device bindings and playback URLs"
+            );
+            assert.equal(fs.statSync(portablePath).mode & 0o777, 0o600);
+            await assert.rejects(run("profile", "export", "1", portablePath));
+            assert.equal(fs.readFileSync(portablePath, "utf8"), portableBytes);
+            const importedOffline = await jsonOn(
+                "tv",
+                "profile",
+                "import",
+                "2",
+                portablePath
+            );
+            assert.equal(importedOffline.binding_required, false);
+            television().offline();
+            assert.equal(
+                television().selectedChannel,
+                "local-private-item-dev_test-0"
+            );
+            await jsonOn("tv", "profile", "load", "2");
+            assert.deepEqual(television().offlineLoaded, [
+                "episode01.mp4",
+                "episode02.mp4",
+            ]);
+            assert.equal(
+                television().selectedChannel,
+                "local-private-item-dev_test-1"
+            );
+            // Recreate the store to prove this depends on saved bindings, not closures.
+            television().offline();
+            assert.deepEqual(television().offlineLoaded, []);
+            await jsonOn("tv", "profile", "load", "2");
+            assert.deepEqual(television().offlineLoaded, [
+                "episode01.mp4",
+                "episode02.mp4",
+            ]);
+            assert.equal(
+                television().selectedChannel,
+                "local-private-item-dev_test-1"
+            );
+            const foreignOffline = await jsonOn(
+                "mac",
+                "profile",
+                "import",
+                "2",
+                portablePath
+            );
+            assert.equal(foreignOffline.binding_required, true);
+            const foreignLoad = await jsonOn("mac", "profile", "load", "2");
+            assert.equal(foreignLoad.binding_required, true);
+            assert.deepEqual(
+                desktop().offlineLoaded,
+                [],
+                "matching source names on another device grant no playback authority"
+            );
+            assert.equal(desktop().selectedChannel, undefined);
+            console.log(
+                "PASS Local videos profiles through real Go + compiled TS store/transport + Python CLI: save/export/import/load, private binding exclusion, no overwrite, same-device restart and cross-device binding requirement"
+            );
+        }
+        if (offlineProfilesOnly) {
+            await checkOfflineProfiles();
+            return;
         }
         assert.equal((await run("v")).stdout.trim(), "30%");
         assert.equal((await run("v", "+5")).stdout.trim(), "35%");
@@ -1858,6 +2039,7 @@ function moduleOf(file, requireFn, window) {
         assert.equal(television().favoritePlays.length, beforeMissing);
         await jsonOn("tv", "fav", "remove", secondFavorite.entry.id);
         assert.deepEqual((await jsonOn("tv", "fav")).entries, []);
+        await checkOfflineProfiles();
         console.log(
             "PASS favorites via real Go + compiled TS + Python: current capture, aliases, deduplication, same/cross-profile exact selection, loaded-catalog gating, restart persistence, redacted metadata and bound not-found rejection"
         );

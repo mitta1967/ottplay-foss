@@ -567,3 +567,81 @@ test("startup scan counter updates one bounded node without exposing source path
     finish({ items: [first], scanned: 128 });
     await Promise.resolve();
 });
+test("saved offline profile selection overrides a different playback cursor", () => {
+    const f = startupFixture("offline");
+    f.host.cList = [
+        "local-first",
+        "local-saved",
+        "local-third",
+        "local-fourth",
+    ];
+    f.host.__ottOfflineProfiles = { selection: () => "local-saved" };
+    f.host.setCurrent = (category, index) => {
+        f.host.catIndex = category;
+        f.host.primaryIndex = index;
+    };
+    f.host.onChannelsLoaded();
+    assert.deepEqual(f.plays, [[0, 1]]);
+});
+
+test("missing saved offline selection requests local recovery instead of playing another file", () => {
+    const f = startupFixture("offline");
+    let recovery = 0;
+    f.host.cList = ["local-other"];
+    f.host.__ottOfflineProfiles = { selection: () => "" };
+    f.host.__ottLocalMedia = { resume: () => recovery++ };
+    f.host.onChannelsLoaded();
+    assert.equal(recovery, 1);
+    assert.deepEqual(f.plays, []);
+});
+
+test("offline catalog cannot publish sources for a replaced profile", async () => {
+    const f = fixture();
+    let deliver,
+        profile = { active: 0 };
+    f.host.__ottOfflineProfiles = {
+        filter: (catalog) => catalog,
+        read: () => profile,
+    };
+    f.host.__ottLocalMedia = {
+        list: () =>
+            new Promise((resolve) => {
+                deliver = resolve;
+            }),
+    };
+    let result;
+    f.mount("offline").load((catalog, error) => {
+        result = { catalog, error };
+    });
+    profile = { active: 1 };
+    deliver({ items: [{ id: "stale", name: "Stale.mp4", url: "blob:stale" }] });
+    await Promise.resolve();
+    assert.equal(result.catalog.ids.length, 0);
+    assert.match(result.error, /profile changed/);
+});
+
+test("malformed saved profiles settle local catalog loading instead of hanging", async () => {
+    for (const phase of ["before", "filter"]) {
+        const f = fixture();
+        let replies = 0,
+            result;
+        f.host.__ottLocalMedia = { list: async () => ({ items: [] }) };
+        f.host.__ottOfflineProfiles = {
+            filter: () => {
+                throw new Error("corrupt binding");
+            },
+            read: () => {
+                if (phase === "before") throw new Error("corrupt profile");
+                return {};
+            },
+        };
+        f.mount("offline").load((catalog, error) => {
+            replies++;
+            result = { catalog, error };
+        });
+        await Promise.resolve();
+        assert.equal(replies, 1);
+        assert.equal(result.catalog.ids.length, 0);
+        assert.match(result.error, /profile configuration is unavailable/);
+    }
+});

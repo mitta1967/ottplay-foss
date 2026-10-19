@@ -1152,11 +1152,67 @@ async function builtUi(devicePath) {
                 delete window.__progressiveMediaEvents;
             });
         }
+        const portableProfile = await page.evaluate(async () => {
+            if (typeof window.loadChannels !== "function")
+                throw new Error("Generic catalogue loader is missing");
+            const profiles = window.__ottOfflineProfiles;
+            const saved = await profiles.request({
+                action: "profile_save",
+                params: { name: "Browser fixture", number: 1 },
+            });
+            if (saved.status !== "ok") throw new Error(JSON.stringify(saved));
+            return (
+                await profiles.request({
+                    action: "profile_export",
+                    params: { number: 1 },
+                })
+            ).data.profile;
+        });
+        await page.evaluate(() => window.playChannel(window.catIndex, 0, true));
+        await page.waitForFunction(() => window.primaryIndex === 0);
+        const loadedProfile = await page.evaluate(async (profile) => {
+            const profiles = window.__ottOfflineProfiles;
+            const imported = await profiles.request({
+                action: "profile_import",
+                params: { number: 2, profile },
+            });
+            if (imported.status !== "ok")
+                throw new Error(JSON.stringify(imported));
+            return profiles.request({
+                action: "profile",
+                params: { number: 2 },
+            });
+        }, portableProfile);
+        assert.equal(loadedProfile.status, "ok");
+        assert.equal(loadedProfile.data.binding_required, false);
+        await page.waitForFunction(
+            (id) =>
+                window.commandChannelsReady &&
+                window.curList[window.primaryIndex] === id,
+            selectedChannel
+        );
+        await page.waitForFunction(() =>
+            Array.from(document.querySelectorAll("video")).some(
+                (v) => v.currentTime > 0.1 && !v.error
+            )
+        );
+        await reopenPlayer();
+        await page.waitForFunction(
+            (id) =>
+                window.commandChannelsReady &&
+                window.curList[window.primaryIndex] === id,
+            selectedChannel
+        );
+        await page.waitForFunction(() =>
+            Array.from(document.querySelectorAll("video")).some(
+                (v) => v.currentSrc && !v.error
+            )
+        );
         assert.deepEqual(errors, []);
         console.log(
             "PASS built UI " +
                 devicePath +
-                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Ctrl/Meta seek and plain PC arrow volume with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy), progressive first-batch playback and append without restart/pause loss"
+                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Ctrl/Meta seek and plain PC arrow volume with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy), profile save/export/import/load, progressive first-batch playback and append without restart/pause loss"
         );
     } finally {
         await browser.close();
