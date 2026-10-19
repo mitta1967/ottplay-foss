@@ -838,7 +838,7 @@ function classicMediaRuntime(): any {
         var sequence = playback && playback.sequence;
         if (!playback || playback.runtime !== api || !direction) return;
         if (sequence && sequence.channel) {
-            moveChannel(playback, direction, false);
+            movePlaylistEntry(playback, direction, false);
             return;
         }
         var owner = w.__ottClassicScreenPort.screens.current();
@@ -993,7 +993,11 @@ function classicMediaRuntime(): any {
         return true;
     }
     /** Channel order remains owned by the standard list, including live appends. */
-    function moveChannel(playback: any, direction: number, natural: boolean) {
+    function movePlaylistEntry(
+        playback: any,
+        direction: number,
+        natural: boolean
+    ) {
         var channel = playback.sequence && playback.sequence.channel;
         if (!channel || !channel.list || !channel.list.active()) return;
         var members = channel.list.members();
@@ -1407,7 +1411,7 @@ function classicMediaRuntime(): any {
             }
             if (sequence && sequence.channel) {
                 api.checkpoint(playback.ref, 0, true);
-                if (valid()) moveChannel(playback, 1, true);
+                if (valid()) movePlaylistEntry(playback, 1, true);
                 return;
             }
             // Natural completion retires the old decoder generation, but must
