@@ -1471,6 +1471,13 @@ function checkMedia(): void {
 function body_onUnload(): void {
     var playback = (window as any).__ottClassicPlayback;
     if (playback && typeof playback.snapshot === "function") {
+        try {
+            var backend = (window as any).__ottCoreBackendPeek?.();
+            var handle = backend && backend.current();
+            if (handle && handle.active()) handle.sample();
+        } catch (_) {
+            // Keep the last observed clock if the decoder is already retiring.
+        }
         var state = playback.snapshot();
         playback.checkpoint(state, true);
         // VOD has its own resume history. A hidden channel remains selected and
@@ -2613,6 +2620,7 @@ function setupTauriEpgCacheReady(): void {
  * @param chIdx - Channel index within the category.
  * @param fullscreen - Close the list after admitting a remote selection.
  * @param admit - Optional current-state guard for a synchronous remote channel step.
+ * @param resume - Startup-only local file offset, bound to its source and channel.
  *
  * Side effects: Calls stbStop(), setCurrent(), updateChannelInfo(),
  * showChannelInfo(), stbPlay(). Sets window.playType = 0. Creates a
@@ -2625,9 +2633,22 @@ function _playChannel(
     catIdx: number,
     chIdx: number,
     fullscreen?: boolean,
-    admit?: () => boolean
+    admit?: () => boolean,
+    resume?: { channelId: string; position: number; sourceId: string }
 ): boolean | void {
     var w = window as any;
+    function resumeCurrent(): boolean {
+        return (
+            !resume ||
+            (w.__ottActiveProviderDriver?.id === "offline" &&
+                w.__ottClassicPlayback.sourceId() === resume.sourceId &&
+                String((cats[catsArray[catIdx]] || [])[chIdx]) ===
+                    resume.channelId &&
+                isFinite(resume.position) &&
+                resume.position >= 0)
+        );
+    }
+    if (!resumeCurrent()) return false;
     if (admit && !admit()) return false;
     var kiosk = w.__ottKiosk;
     var kioskId = (cats[catsArray[catIdx]] || [])[chIdx];
@@ -2681,7 +2702,7 @@ function _playChannel(
             var list = cats[requestedCategory];
             var index = list ? list.indexOf(requestedId) : -1;
             if (category >= 0 && index >= 0)
-                playChannel(category, index, fullscreen);
+                playChannel(category, index, fullscreen, admit, resume);
         })
     ) {
         console.log("[playChannel] blocked by parental");
@@ -2698,7 +2719,9 @@ function _playChannel(
     if (admit && !admit()) return false;
     if (settings.stopPlay) stbStop();
     if (admit && !admit()) return false;
+    if (!resumeCurrent()) return false;
     setCurrent(catIdx, chIdx);
+    if (!resumeCurrent()) return false;
     var channelId = curList[primaryIndex];
     console.log(
         "[playChannel] channelId=" +
@@ -2712,13 +2735,14 @@ function _playChannel(
     )
         w.__ottClassicPlayback.command({
             channelId: channelId,
+            position: resume && resume.position,
             type: "live",
         });
     else w.playType = 0;
     updateChannelInfo(channelId);
     if (settings.infoSwitch) showChannelInfo(settings.infoTimeout);
     if (typeof setPlayer === "function") setPlayer();
-    stbPlay(getChannelUrl(channelId));
+    stbPlay(getChannelUrl(channelId), resume && resume.position);
     clearTimeout(w._tmedia);
     w._tmedia = setTimeout(checkMedia, 2000);
     return true;
@@ -5430,6 +5454,11 @@ if (typeof window.__TAURI__ !== "undefined") {
 if (typeof (window as any).Capacitor !== "undefined") {
     window.stbExit = function (): void {
         if (window.__ottRemoteInputActive) return;
+        try {
+            body_onUnload();
+        } catch (_) {
+            // An explicit exit must still finish if persistence is unavailable.
+        }
         if (typeof window.stbStop === "function") window.stbStop();
         const Cap = (window as any).Capacitor;
         const plugins = Cap && Cap.Plugins ? Cap.Plugins : null;

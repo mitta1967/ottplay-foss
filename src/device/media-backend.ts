@@ -258,6 +258,18 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 command("pause");
             } else if (type === "ended") {
                 if (!handle.active()) return;
+                // The last timer tick can precede EOF by a full second. Publish
+                // the decoder's final media clock before stop freezes state.
+                if (
+                    context?.kind === "vod" &&
+                    isFinite(sample.position) &&
+                    sample.position >= 0
+                ) {
+                    position = sample.position;
+                    duration = sample.duration;
+                    command("position");
+                    if (!handle.active()) return;
+                }
                 // emit may synchronously stop and dispose the underlying engine.
                 retainAttempt("ended");
                 phase = "stopped";

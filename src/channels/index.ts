@@ -523,14 +523,13 @@ export function setCurrent(
 /**
  * Restore continue-watching bookmark on startup.
  *
- * Reads the `continueWatch` provider key. If the saved mode is archive or
- * vod for a channel still present in the current playlist and the bookmark
- * is younger than 7 days, shows a `confirmBox` "Resume from archive?" dialog.
+ * Reads the scoped playback journal. The same selected local file resumes
+ * directly. TV archive bookmarks younger than seven days offer confirmation.
  * On Yes or after 10 seconds: plays archive at the saved position.
  * On No: starts normal live playback.
  *
- * Returns true if a resume was offered (archive/vod dialog shown), false
- * otherwise (no bookmark / stale / channel missing / live mode) — the caller
+ * Returns true if local resume started or archive confirmation was offered, false
+ * otherwise (no bookmark / stale archive / channel missing / live TV) — the caller
  * should then run the normal `playChannel` path.
  *
  * Must be called after the playlist is populated.
@@ -540,7 +539,27 @@ export function restoreContinueWatch(): boolean {
         var cw: any = (window as any).__ottClassicPlayback.bookmark();
         if (!cw || !cw.v || !cw.mode || cw.channelId == null) return false;
         var ageMs = Date.now() - (cw.updatedAt || 0);
-        if (ageMs < -300000 || ageMs > 7 * 24 * 60 * 60 * 1000) return false; // stale: > 7 days
+        if (ageMs < -300000) return false;
+        var host = window as any;
+        if (
+            host.__ottActiveProviderDriver?.id === "offline" &&
+            (cw.mode === "live" || cw.mode === "vod") &&
+            String(cw.channelId) === String(curList[primaryIndex]) &&
+            typeof cw.playTime === "number" &&
+            isFinite(cw.playTime) &&
+            cw.playTime > 0
+        ) {
+            // Local files retain channel history, but resume their media clock.
+            // Never use a prior cursor to replace a profile's selected file.
+            return (
+                window.playChannel(catIndex, primaryIndex, false, undefined, {
+                    channelId: String(cw.channelId),
+                    position: cw.playTime,
+                    sourceId: host.__ottClassicPlayback.sourceId(),
+                }) !== false
+            );
+        }
+        if (ageMs > 7 * 24 * 60 * 60 * 1000) return false;
         // 1) Resume dialog = archive only (positive playType sentinel required).
         // VOD / live → return false so caller does live playback.
         if (

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Resume the exact selected Local videos file at its saved playback position after Q, page closure, or native app exit. Capture the decoder clock before exit/stop; keep completed files and explicit channel changes starting at zero.
+
 ## [1.1.58] - 2026-10-19
 
 ### Changes

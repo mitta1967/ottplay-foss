@@ -964,6 +964,31 @@ async function builtUi(devicePath) {
         }
         // A retained grant must restore the saved channel after the page has
         // actually closed, without sending the user back into setup.
+        await page.evaluate(() => {
+            const video = document.querySelector("video");
+            video.pause();
+            video.currentTime = 17;
+            video.tabIndex = 0;
+            video.focus();
+            window.close = () => {
+                window.__localExitRequested = true;
+            };
+        });
+        await page.keyboard.press("q");
+        assert.equal(
+            await page.evaluate(() => window.__localExitRequested),
+            true,
+            "Q reaches the actual exit path"
+        );
+        assert.equal(
+            await page.evaluate(() => {
+                window.body_onUnload();
+                window.body_onUnload();
+                return window.__ottClassicPlayback.bookmark().playTime;
+            }),
+            17,
+            "Q and repeated unload after teardown preserve the last media clock"
+        );
         await reopenPlayer();
         await page.waitForFunction(
             (id) => window.curList[window.primaryIndex] === id,
@@ -972,7 +997,11 @@ async function builtUi(devicePath) {
         assert.equal(await action("resume").count(), 0);
         await page.waitForFunction(() =>
             Array.from(document.querySelectorAll("video")).some(
-                (v) => v.currentSrc && !v.error
+                (v) =>
+                    v.currentSrc &&
+                    !v.error &&
+                    v.currentTime >= 16.5 &&
+                    v.currentTime < 21
             )
         );
         // External folder grants may become prompt after browser restart.
@@ -1082,6 +1111,80 @@ async function builtUi(devicePath) {
                 (v) => v.currentSrc && !v.error
             )
         );
+        // A saved profile owns an independent resume journal. Exercise Q after
+        // metadata is ready; the page may need a Play gesture after reopening.
+        await page.waitForFunction(
+            () => document.querySelector("video").readyState >= 2
+        );
+        await page.evaluate(() => {
+            document.querySelector("video").focus();
+        });
+        if (await page.evaluate(() => document.querySelector("video").paused))
+            await page.keyboard.press("p");
+        const beforeProfilePlayback = await page.evaluate(
+            () => document.querySelector("video").currentTime
+        );
+        await page.waitForFunction((before) => {
+            const video = document.querySelector("video");
+            return (
+                !video.paused &&
+                video.readyState >= 2 &&
+                window.__ottClassicPlayback.snapshot().phase === "playing" &&
+                video.currentTime > before + 0.1
+            );
+        }, beforeProfilePlayback);
+        const profileExit = await page.evaluate(() => {
+            const video = document.querySelector("video");
+            video.pause();
+            video.currentTime = 17;
+            video.tabIndex = 0;
+            video.focus();
+            window.close = () => {
+                window.__profileExitRequested = true;
+            };
+            return {
+                channel: window.curList[window.primaryIndex],
+                source: window.__ottClassicPlayback.sourceId(),
+            };
+        });
+        await page.waitForFunction(() => {
+            const video = document.querySelector("video");
+            return (
+                !video.seeking &&
+                video.readyState >= 2 &&
+                Math.abs(video.currentTime - 17) < 0.1
+            );
+        });
+        await page.keyboard.press("q");
+        assert.equal(
+            await page.evaluate(() => window.__profileExitRequested),
+            true
+        );
+        assert.equal(
+            await page.evaluate(() => {
+                window.body_onUnload();
+                return window.__ottClassicPlayback.bookmark().playTime;
+            }),
+            17
+        );
+        await reopenPlayer();
+        await page.waitForFunction(() => {
+            const video = document.querySelector("video");
+            return (
+                video.currentTime >= 16.5 &&
+                video.currentTime < 21 &&
+                !video.error
+            );
+        });
+        const profileReopened = await page.evaluate(() => ({
+            active: window.__ottOfflineProfiles.read().active,
+            channel: window.curList[window.primaryIndex],
+            source: window.__ottClassicPlayback.sourceId(),
+        }));
+        assert.equal(profileReopened.source, profileExit.source);
+        assert.equal(profileReopened.channel, profileExit.channel);
+        assert.equal(profileReopened.active, 1);
+
         // Exercise the real driver/mount path: play an initial batch while the
         // browser catalog's final result remains pending, then append the rest
         // without restarting or unpausing the same video element.
