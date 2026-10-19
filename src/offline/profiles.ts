@@ -656,7 +656,19 @@ export function installOfflineProfiles(w: any, media: any): any {
                 }
             );
     }
+    function completeCatalog(catalog: any): void {
+        if (
+            !catalog ||
+            !Array.isArray(catalog.items) ||
+            catalog.scanning ||
+            catalog.cancelled
+        )
+            throw profileFailure(
+                "Wait for the local media scan to finish before saving or binding a profile"
+            );
+    }
     function bind(catalog: any): void {
+        completeCatalog(catalog);
         if (busy || locked() || !active())
             throw profileFailure(
                 "Unlock Local videos before binding a profile"
@@ -732,10 +744,7 @@ export function installOfflineProfiles(w: any, media: any): any {
             );
         return media.snapshot().then(
             function (catalog: any) {
-                if (!catalog || catalog.cancelled || catalog.scanning)
-                    throw profileFailure(
-                        "Wait for the local media scan to finish before saving or binding a profile"
-                    );
+                completeCatalog(catalog);
                 return catalog;
             },
             function () {
@@ -812,6 +821,34 @@ export function installOfflineProfiles(w: any, media: any): any {
                       version: 1,
                   }
                 : null;
+        },
+        catalogGuard: function () {
+            function selectionContext(): string {
+                var store = read(),
+                    profile =
+                        store.active < 0 ? null : store.profiles[store.active];
+                return JSON.stringify([
+                    store.active,
+                    profile,
+                    profile
+                        ? localBindings()[profile.binding_id] || null
+                        : null,
+                ]);
+            }
+            var readPort = w.stbGetItem,
+                writePort = w.stbSetItem,
+                selection = selectionContext(),
+                library = media.libraryIdentity(),
+                driver = w.__ottActiveProviderDriver;
+            return function () {
+                return (
+                    readPort === w.stbGetItem &&
+                    writePort === w.stbSetItem &&
+                    driver === w.__ottActiveProviderDriver &&
+                    selection === selectionContext() &&
+                    library === media.libraryIdentity()
+                );
+            };
         },
         current: currentProfile,
         filter: filter,

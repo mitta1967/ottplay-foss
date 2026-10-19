@@ -584,15 +584,35 @@ test("saved offline profile selection overrides a different playback cursor", ()
     assert.deepEqual(f.plays, [[0, 1]]);
 });
 
-test("missing saved offline selection requests local recovery instead of playing another file", () => {
-    const f = startupFixture("offline");
-    let recovery = 0;
-    f.host.cList = ["local-other"];
-    f.host.__ottOfflineProfiles = { selection: () => "" };
-    f.host.__ottLocalMedia = { resume: () => recovery++ };
-    f.host.onChannelsLoaded();
-    assert.equal(recovery, 1);
-    assert.deepEqual(f.plays, []);
+test("missing saved offline selection opens recovery after startup cleanup without playing another file", () => {
+    for (const selected of ["", "local-missing"]) {
+        const f = startupFixture("offline");
+        const events = [];
+        f.host.cList = ["local-other"];
+        f.host.isListVisible = true;
+        f.host.__ottOfflineProfiles = { selection: () => selected };
+        f.host.$ = (selector) => ({ hide: () => events.push(selector) });
+        f.host.clearBootHide = () => events.push("boot-cleared");
+        f.host.__ottLocalMedia = {
+            resume: (skipScan) => {
+                assert.equal(skipScan, true);
+                assert.equal(f.host.isListVisible, false);
+                events.push("recovery");
+                f.host.isListVisible = true;
+            },
+        };
+        f.host.onChannelsLoaded();
+        assert.deepEqual(events, [
+            "#dialogbox",
+            "#launch",
+            "#buffering",
+            "boot-cleared",
+            "recovery",
+        ]);
+        assert.equal(f.host.isListVisible, true);
+        assert.equal(f.writes(), 0);
+        assert.deepEqual(f.plays, []);
+    }
 });
 
 test("offline catalog cannot publish sources for a replaced profile", async () => {
@@ -644,4 +664,224 @@ test("malformed saved profiles settle local catalog loading instead of hanging",
         assert.equal(result.catalog.ids.length, 0);
         assert.match(result.error, /profile configuration is unavailable/);
     }
+});
+
+test("progressive profiles prefer the saved file and filter every appended batch", async () => {
+    const f = integrationFixture("offline");
+    let progress, finish, preferred;
+    const added = [];
+    f.host.__ottChannels = { append: (ids) => added.push(...ids), reset() {} };
+    f.host.clearBootHide = () => {};
+    f.host.__ottSourceIdentity = { current: () => "old-cursor" };
+    f.saved.set(
+        "offlinechannelLibrary:old-cursor",
+        JSON.stringify({ selected: { itemId: "channel:local-other" } })
+    );
+    f.host.__ottOfflineProfiles = {
+        filter: (catalog) => ({
+            ...catalog,
+            items: catalog.items.filter((item) => item.sourceId === "allowed"),
+        }),
+        read: () => ({ active: 1 }),
+        selection: () => "local-saved",
+    };
+    f.host.__ottLocalMedia = {
+        list: (cb, id) => {
+            progress = cb;
+            preferred = id;
+            return new Promise((resolve) => {
+                finish = resolve;
+            });
+        },
+    };
+    f.host.loadProv();
+    assert.equal(
+        preferred,
+        "saved",
+        "profile selection takes precedence over channel history"
+    );
+    const other = {
+        id: "other",
+        name: "Other.mp4",
+        sourceId: "foreign",
+        url: "blob:other",
+    };
+    const first = {
+        id: "first",
+        name: "First.mp4",
+        sourceId: "allowed",
+        url: "blob:first",
+    };
+    const saved = {
+        id: "saved",
+        name: "Saved.mp4",
+        sourceId: "allowed",
+        url: "blob:saved",
+    };
+    progress({ items: [other, first], scanning: true });
+    assert.equal(
+        f.completed,
+        0,
+        "first available file must not override saved profile selection"
+    );
+    progress({ items: [other, first, saved], scanning: true });
+    assert.equal(f.completed, 1);
+    assert.equal(f.host.channels["local-other"], undefined);
+    const later = {
+        id: "later",
+        name: "Later.mp4",
+        sourceId: "allowed",
+        url: "blob:later",
+    };
+    finish({ items: [other, first, saved, later], scanning: false });
+    await Promise.resolve();
+    assert.equal(f.completed, 1);
+    assert.deepEqual(added, ["local-later"]);
+    assert.equal(f.host.channels["local-other"], undefined);
+});
+
+test("progressive profile ownership rejects late batches after binding replacement", async () => {
+    const f = integrationFixture("offline");
+    let progress,
+        finish,
+        sameBinding = true;
+    f.host.clearBootHide = () => {};
+    f.host.__ottChannels = {
+        append: () => assert.fail("stale profile appended"),
+        reset() {},
+    };
+    f.host.__ottOfflineProfiles = {
+        catalogGuard: () => () => sameBinding,
+        filter: (catalog) => catalog,
+        read: () => ({ active: 1 }),
+        selection: () => "local-saved",
+    };
+    f.host.__ottLocalMedia = {
+        list: (cb) => {
+            progress = cb;
+            return new Promise((resolve) => {
+                finish = resolve;
+            });
+        },
+    };
+    f.host.loadProv();
+    const saved = { id: "saved", name: "Saved.mp4", url: "blob:saved" };
+    progress({ items: [saved], scanning: true });
+    assert.equal(f.completed, 1);
+    sameBinding = false;
+    assert.equal(
+        progress({
+            items: [
+                saved,
+                { id: "stale", name: "Stale.mp4", url: "blob:stale" },
+            ],
+            scanning: true,
+        }),
+        false
+    );
+    finish({ items: [saved], scanning: false });
+    await Promise.resolve();
+    assert.equal(f.host.channels["local-stale"], undefined);
+    assert.equal(f.completed, 1);
+});
+
+test("cancelled current scan settles startup and incomplete profile batches never authorize playback", async () => {
+    for (const unbound of [false, true]) {
+        const f = fixture();
+        let progress, finish;
+        if (unbound)
+            f.host.__ottOfflineProfiles = {
+                filter: (catalog) => ({ ...catalog, items: [] }),
+                read: () => ({}),
+                selection: () => "",
+            };
+        f.host.__ottLocalMedia = {
+            list: (cb) => {
+                progress = cb;
+                return new Promise((resolve) => {
+                    finish = resolve;
+                });
+            },
+        };
+        const results = [];
+        f.mount("offline").load((catalog, error) =>
+            results.push({ catalog, error })
+        );
+        if (unbound) {
+            progress({
+                items: [
+                    { id: "foreign", name: "Foreign.mp4", url: "blob:foreign" },
+                ],
+                scanning: true,
+            });
+            assert.equal(results.length, 0);
+        }
+        finish({ cancelled: true, items: [] });
+        await Promise.resolve();
+        assert.equal(results.length, 1);
+        assert.match(results[0].error, /cancelled/);
+        assert.equal(results[0].catalog.ids.length, 0);
+    }
+});
+
+test("synchronously throwing local catalog settles startup once", () => {
+    const f = fixture();
+    let replies = 0;
+    f.host.__ottLocalMedia = {
+        list() {
+            throw new Error("Unavailable source");
+        },
+    };
+    f.mount("offline").load((catalog, error) => {
+        replies++;
+        assert.equal(catalog.ids.length, 0);
+        assert.match(error, /could not be read/);
+    });
+    assert.equal(replies, 1);
+});
+
+test("incomplete terminal catalog never starts local playback", async () => {
+    const f = fixture();
+    let result;
+    f.host.__ottLocalMedia = {
+        list: async () => ({
+            items: [
+                { id: "partial", name: "Partial.mp4", url: "blob:partial" },
+            ],
+            scanning: true,
+        }),
+    };
+    f.mount("offline").load((catalog, error) => {
+        result = { catalog, error };
+    });
+    await Promise.resolve();
+    assert.equal(result.catalog.ids.length, 0);
+    assert.match(result.error, /incomplete/);
+});
+
+test("profile replacement inside a catalog callback stops its old enumeration", () => {
+    const f = fixture();
+    let progress,
+        valid = true,
+        replies = 0;
+    f.host.__ottOfflineProfiles = {
+        catalogGuard: () => () => valid,
+        filter: (catalog) => catalog,
+        read: () => ({}),
+        selection: () => null,
+    };
+    f.host.__ottLocalMedia = {
+        list: (callback) => {
+            progress = callback;
+            return new Promise(() => {});
+        },
+    };
+    f.mount("offline").load(() => {
+        replies++;
+        valid = false;
+    });
+    const row = { id: "first", name: "First.mp4", url: "blob:first" };
+    assert.equal(progress({ items: [row], scanning: true }), false);
+    assert.equal(progress({ items: [row], scanning: true }), false);
+    assert.equal(replies, 1);
 });

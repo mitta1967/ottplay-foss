@@ -475,3 +475,110 @@ test("save and bind reject partial or cancelled catalogs without launching anoth
         await assert.rejects(f.api.bindCurrent(), /scan to finish/);
     }
 });
+
+test("save and binding reject partial or cancelled catalogs before granting source access", async () => {
+    for (const flags of [{ scanning: true }, { cancelled: true }]) {
+        const profile = await saved(fixture());
+        const f = fixture();
+        await f.call("profile_import", { number: 1, profile });
+        await f.call("profile", { number: 1 });
+        const before = Array.from(f.data.entries());
+        f.setCatalog({ ...f.catalog(), ...flags });
+        assert.throws(() => f.api.bind(f.catalog()), /scan to finish/);
+        await assert.rejects(f.api.bindCurrent(), /scan to finish/);
+        assert.deepEqual(Array.from(f.data.entries()), before);
+        assert.equal(f.data.has("offlineProfileBindings"), false);
+        const fresh = fixture();
+        fresh.host.curList = [];
+        fresh.setCatalog({ ...fresh.catalog(), ...flags });
+        const result = await fresh.call("profile_save", { number: 1 });
+        assert.equal(result.status, "rejected");
+        assert.match(result.data.error, /scan to finish/);
+        assert.equal(fresh.data.size, 0);
+    }
+});
+
+test("profile catalog ownership ignores other slots but retains active binding and endpoint guards", async () => {
+    const f = fixture();
+    const profile = await saved(f);
+    await f.call("profile", { number: 1 });
+    const guard = f.api.catalogGuard();
+    assert.equal(guard(), true);
+    assert.equal(
+        (await f.call("profile_import", { number: 2, profile })).status,
+        "ok"
+    );
+    assert.equal(
+        guard(),
+        true,
+        "inactive import must not truncate the active scan"
+    );
+    const before = f.data.get("offlineProfileBindings");
+    const bindings = JSON.parse(before);
+    bindings["11111111-1111-4111-8111-111111111111"] = clone(
+        bindings[profile.binding_id]
+    );
+    f.data.set("offlineProfileBindings", JSON.stringify(bindings));
+    assert.equal(
+        guard(),
+        true,
+        "unrelated binding must not truncate the active scan"
+    );
+    bindings[profile.binding_id].selected = "OTHER-ITEM";
+    f.data.set("offlineProfileBindings", JSON.stringify(bindings));
+    assert.equal(guard(), false);
+    f.data.set("offlineProfileBindings", before);
+    assert.equal(guard(), true);
+    f.media.libraryIdentity = () => "browser:https://different.invalid/library";
+    assert.equal(guard(), false);
+});
+
+test("rejected in-progress save leaves no late write and retries the complete cached source set", async () => {
+    const f = fixture();
+    let scans = 0;
+    f.media.list = () => {
+        scans++;
+        throw new Error("Unexpected rescan");
+    };
+    f.catalog().scanning = true;
+    const rejected = await f.call("profile_save", { number: 1 });
+    assert.equal(rejected.status, "rejected");
+    assert.equal(f.data.size, 0);
+    f.catalog().sources.push({ id: "SECOND", kind: "folder", name: "Second" });
+    f.catalog().scanning = false;
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(
+        f.data.size,
+        0,
+        "completion of the original scan cannot save a rejected request later"
+    );
+    assert.equal((await f.call("profile_save", { number: 1 })).status, "ok");
+    assert.equal(f.api.read().profiles[0].sources.length, 2);
+    assert.equal(scans, 0);
+});
+
+test("rejected in-progress binding never grants access after later ambiguous completion", async () => {
+    const profile = await saved(fixture());
+    const f = fixture();
+    await f.call("profile_import", { number: 1, profile });
+    await f.call("profile", { number: 1 });
+    const before = [...f.data];
+    let scans = 0;
+    f.media.list = () => {
+        scans++;
+        throw new Error("Unexpected rescan");
+    };
+    f.catalog().scanning = true;
+    await assert.rejects(f.api.bindCurrent(), /scan to finish/);
+    f.catalog().sources.push({
+        id: "DUPLICATE",
+        kind: "folder",
+        name: "Cartoons",
+    });
+    f.catalog().scanning = false;
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual([...f.data], before);
+    await assert.rejects(f.api.bindCurrent(), /exactly one/);
+    assert.equal(f.data.has("offlineProfileBindings"), false);
+    assert.equal(scans, 0);
+});

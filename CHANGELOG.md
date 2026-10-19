@@ -20,6 +20,8 @@
   descriptions only; browser handles and native grants/bookmarks stay local.
   Foreign imports require an explicit local binding, and generic settings/cloud
   restores preserve rather than replace the installation's private bindings.
+  Missing-file recovery clears startup overlays, and JSON settings backups restore
+  the imported active slot with its channel and favorites documents.
 - Synchronize the standalone fuzz lockfile with the existing Local videos core
   dependencies so baseline regression-corpus checks work with `--locked`.
 

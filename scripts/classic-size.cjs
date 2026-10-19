@@ -265,7 +265,9 @@ const { gzipSync } = require("node:zlib");
 // Allocate 4608/1024 once, plus the 16 KiB / 5 KiB profile allowance.
 // Profile persistence and non-scanning snapshots add 15790 raw bytes over
 // the progressive native baseline. All provider/native artifacts stay gated.
-const BUDGET = Object.freeze({ bytes: 941951, gzipBytes: 292030 });
+// Restored profile ownership/atomic recovery and browser/native inactivity
+// bounds add 2058 raw bytes to the final integrated entry. Reserve 2304/768.
+const BUDGET = Object.freeze({ bytes: 944255, gzipBytes: 292798 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -396,7 +398,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count the 512-byte readiness/counter allowance once in the payload.
 // Include the same 256-byte initial progress allowance once.
 // Count the same shuffle and profile deltas once across shipped artifacts.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1062851, gzipBytes: 336930 });
+// Count the restored recovery/ownership boundary once across all artifacts.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1065155, gzipBytes: 337698 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
