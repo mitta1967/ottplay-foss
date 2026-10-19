@@ -236,6 +236,7 @@ function playbackFixture() {
     const p = {
         cats: { All: ["a", "b"] },
         catsArray: ["All"],
+        channels: { a: { id: "a" }, b: { id: "b" } },
         checkMedia() {},
         clearTimeout(id) {
             events.push(["cancel", id]);
