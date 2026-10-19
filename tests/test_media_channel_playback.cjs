@@ -60,6 +60,147 @@ function setup(provider = "plex") {
     return { c, end, pending, resolve };
 }
 
+// Real VPortal resolution must settle the bridge's owned loading transaction.
+function setupVPortal() {
+    const { c } = setup("vportal");
+    vm.runInContext(
+        sourceFunctions("src/plugins/vportal.ts", [
+            "parseVPortalLink",
+            "hostedVPortalRoute",
+            "createVPortalClient",
+        ]),
+        c
+    );
+    const requests = [];
+    c.$.ajax = (options) => {
+        const request = {
+            abort() {
+                options.error({}, "abort");
+                options.complete();
+            },
+            fail() {
+                options.error({}, "error");
+                options.complete();
+            },
+            receive(value) {
+                options.success(value);
+                options.complete();
+            },
+        };
+        requests.push(request);
+        return request;
+    };
+    c.providerMediaClient = c.createVPortalClient(
+        "portal::[key:fixture]https://portal.example/api/"
+    );
+    c.alert = () => assert.fail("Channel playback reports a nonmodal failure");
+    c.showShift = (text) => {
+        assert.equal(
+            c.elements["#dialogbox"].style.display,
+            "none",
+            "owned loading closes before showing a resolution error"
+        );
+        c.calls.push(["shift", text]);
+    };
+    return { c, requests };
+}
+for (const direct of [false, true]) {
+    for (const failure of [
+        "network",
+        "throw",
+        "null",
+        "malformed",
+        "missing",
+    ]) {
+        const { c, requests } = setupVPortal();
+        if (direct)
+            c.channels[101].__ottMediaItem = {
+                __ottMediaOrigin: {
+                    target: { request: { cmd: "season", id: 3 } },
+                },
+                __ottVPortalDirect: { id: { field: "id", value: "101" } },
+                id: 101,
+                stream_url: "https://cdn.example/expired.mp4",
+                title: "Film 101",
+            };
+        const ajax = c.$.ajax;
+        if (failure === "throw")
+            c.$.ajax = () => {
+                throw Error("fixture-private-key");
+            };
+        c._playChannel(0, 0);
+        if (failure !== "throw") {
+            assert.match(c.elements["#dialogbox"].innerHTML, /ott-spinner/);
+            assert.equal(c.elements["#dialogbox"].style.display, "");
+            if (failure === "network") requests[0].fail();
+            else
+                requests[0].receive(
+                    failure === "null"
+                        ? null
+                        : {
+                              items: [],
+                              type:
+                                  failure === "missing"
+                                      ? "category"
+                                      : "invalid",
+                          }
+                );
+        }
+        assert.equal(c.elements["#dialogbox"].style.display, "none");
+        assert.equal(c.calls.filter(([kind]) => kind === "shift").length, 1);
+        assert.equal(c.calls.filter(([kind]) => kind === "channels").length, 1);
+        assert.equal(c.calls.filter(([kind]) => kind === "play").length, 0);
+        c.$.ajax = ajax;
+        c._playChannel(0, 0);
+        const retry = requests.at(-1);
+        if (requests.length > 1) {
+            requests[0].fail();
+            requests[0].receive({ url: "https://cdn.example/stale.mp4" });
+            assert.equal(
+                c.calls.filter(([kind]) => kind === "shift").length,
+                1
+            );
+            assert.equal(c.elements["#dialogbox"].style.display, "");
+        }
+        retry.receive(
+            direct
+                ? {
+                      items: [
+                          {
+                              id: 101,
+                              type: "stream",
+                              url: "https://cdn.example/retry.mp4",
+                          },
+                      ],
+                      type: "category",
+                  }
+                : { url: "https://cdn.example/retry.mp4" }
+        );
+        assert.equal(c.elements["#dialogbox"].style.display, "none");
+        assert.equal(c.calls.filter(([kind]) => kind === "play").length, 1);
+        assert.equal(
+            c.__ottMedia.current().payload.stream_url,
+            "https://cdn.example/retry.mp4"
+        );
+    }
+}
+{
+    const { c, requests } = setupVPortal();
+    c._playChannel(0, 0);
+    c.dialogBoxKeyHandler(c.keys.RETURN);
+    c._playChannel(0, 1);
+    requests[0].fail();
+    requests[0].receive({ url: "https://cdn.example/cancelled.mp4" });
+    assert.equal(c.calls.filter(([kind]) => kind === "shift").length, 0);
+    assert.equal(c.calls.filter(([kind]) => kind === "play").length, 0);
+    assert.equal(c.elements["#dialogbox"].style.display, "");
+    requests[1].receive({ url: "https://cdn.example/current.mp4" });
+    assert.equal(c.__ottMedia.current().payload.id, 102);
+}
+console.log(
+    "PASS VPortal resolution failures close owned loading, retry, and ignore stale callbacks"
+);
+
 for (const provider of ["plex", "vportal"]) {
     const { c, pending, resolve, end } = setup(provider);
     assert.equal(c._playChannel(0, 1), true);

@@ -797,9 +797,10 @@ for (const failure of ["network", "provider", "url", "throw"]) {
         f.w.$.ajax = () => {
             throw Error("fixture-private-key");
         };
+    const failures = [];
     f.client.resolve(
         { request: { cmd: "play", fid: 2 } },
-        () => assert.fail("Failed automatic request resolved"),
+        (item) => failures.push(item),
         true
     );
     if (failure === "network") f.requests[1].fail();
@@ -808,6 +809,7 @@ for (const failure of ["network", "provider", "url", "throw"]) {
             type: failure === "provider" ? "error" : "stream",
             url: "fixture-private-key",
         });
+    assert.deepEqual(failures, [null], "A failed request completes its owner");
     assert.deepEqual(toasts, ["VPortal request failed"]);
     assert.equal(f.alerts.length, 0);
     assert.strictEqual(f.w.dialogBoxKeyHandler, busy);
@@ -833,6 +835,106 @@ for (const failure of ["network", "provider", "url", "throw"]) {
         "Missing toast support never falls back to a modal"
     );
     assert.equal(f.dom["#dialogbox"], undefined);
+}
+
+// Resolution failures belong to the requesting playback, including the error UI.
+for (const automatic of [false, true]) {
+    for (const failure of [
+        "network",
+        "throw",
+        "null",
+        "provider",
+        "url",
+        "source",
+        "item",
+    ]) {
+        const events = [];
+        const f = fixture(
+            {
+                alert: () => events.push("alert"),
+                showShift: () => events.push("shift"),
+            },
+            { sourceId: "current" }
+        );
+        const ajax = f.w.$.ajax;
+        if (failure === "throw")
+            f.w.$.ajax = () => {
+                throw Error("fixture-private-key");
+            };
+        const done = (item) => events.push(item);
+        done.beforeError = () => events.push("before");
+        f.client.resolve(
+            failure === "item"
+                ? null
+                : {
+                      request: { cmd: "play", id: 1 },
+                      vportalSource: failure === "source" ? "old" : "current",
+                  },
+            done,
+            automatic
+        );
+        const request = f.requests[0];
+        if (request) {
+            if (failure === "network") request.fail();
+            else
+                request.receive(
+                    failure === "null"
+                        ? null
+                        : {
+                              type: failure === "provider" ? "error" : "stream",
+                              url: "invalid",
+                          }
+                );
+            request.fail();
+            request.receive({ url: "https://cdn.example/late.mp4" });
+        }
+        assert.deepEqual(
+            events,
+            ["before", automatic ? "shift" : "alert", null],
+            failure +
+                " finishes once, retires owned loading before notifying, and never starts late media"
+        );
+        f.w.$.ajax = ajax;
+        const retried = [];
+        f.client.resolve(
+            { request: { id: 1 }, vportalSource: "current" },
+            (item) => retried.push(item),
+            automatic
+        );
+        f.requests.at(-1).receive({ url: "https://cdn.example/retried.mp4" });
+        assert.equal(retried.length, 1);
+        assert.equal(retried[0].stream_url, "https://cdn.example/retried.mp4");
+    }
+    for (const invalidate of ["caller", "before", "notice"]) {
+        const events = [];
+        let active = true;
+        const f = fixture({
+            alert: notice,
+            showShift: notice,
+        });
+        function notice() {
+            events.push("notice");
+            if (invalidate === "notice") active = false;
+        }
+        const done = () => events.push("done");
+        done.isCurrent = () => active;
+        done.beforeError = () => {
+            events.push("before");
+            if (invalidate === "before") active = false;
+        };
+        f.client.resolve({ request: { id: 1 } }, done, automatic);
+        if (invalidate === "caller") active = false;
+        f.requests[0].fail();
+        assert.deepEqual(
+            events,
+            invalidate === "caller"
+                ? []
+                : invalidate === "before"
+                  ? ["before"]
+                  : ["before", "notice"],
+            "retired completion cannot overwrite the next owner's error UI"
+        );
+    }
 }
 
 for (const trigger of ["foreground", "background"]) {
@@ -1422,8 +1524,8 @@ for (const providerId of ["episode-7", undefined]) {
                 f.requests.at(-1).receive(failure);
             assert.equal(
                 played,
-                undefined,
-                "a failed refresh never reuses the expired URL"
+                null,
+                "a failed refresh completes without reusing the expired URL"
             );
             assert.equal(f.alerts.length, alertsBefore + (automatic ? 0 : 1));
             assert.equal(shifts.length, shiftsBefore + (automatic ? 1 : 0));

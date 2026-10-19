@@ -359,7 +359,8 @@ export function createVPortalClient(
         accept: (data: any) => void,
         complete: () => void,
         guard: () => boolean,
-        lane: VPortalRequestLane = foreground
+        lane: VPortalRequestLane = foreground,
+        failed?: () => void
     ): void {
         var body = copyRequest(params);
         body.app = "ott-play";
@@ -409,8 +410,10 @@ export function createVPortalClient(
                         isCurrent(token, lane) &&
                         guard() &&
                         status !== "abort"
-                    )
-                        reportError(automatic);
+                    ) {
+                        if (failed) failed();
+                        else reportError(automatic);
+                    }
                 },
                 success: function (data: any): void {
                     if (!finished && isCurrent(token, lane) && guard())
@@ -434,14 +437,17 @@ export function createVPortalClient(
                 xhr.abort();
         } catch (_error) {
             if (!isCurrent(token, lane)) return;
+            finished = true;
             if (visible) hideBusy();
             if (
                 lane !== searchLane &&
                 lane !== pageLane &&
                 lane !== catalogLane &&
                 guard()
-            )
-                reportError(automatic);
+            ) {
+                if (failed) failed();
+                else reportError(automatic);
+            }
             complete();
         }
     }
@@ -1475,25 +1481,51 @@ export function createVPortalClient(
         var token = lane.revision + 1;
         if (automatic) cancelAutomatic();
         else cancel();
-        if (!item || !isCurrent(token, lane)) return;
-        if (
-            options.sourceId &&
-            (item.request || item.vportalSource) &&
-            item.vportalSource !== options.sourceId
-        ) {
-            reportError(automatic);
-            return;
-        }
         var view = w._mediaLoadState;
+        var finished = false;
         function current(): boolean {
             return (
                 isCurrent(token, lane) &&
-                (automatic || view === w._mediaLoadState)
+                (automatic || view === w._mediaLoadState) &&
+                (!resolved ||
+                    !(resolved as any).isCurrent ||
+                    (resolved as any).isCurrent())
             );
+        }
+        function fail(): void {
+            if (finished || !current()) return;
+            finished = true;
+            if (
+                mediaSession &&
+                mediaSession.lane === lane &&
+                !mediaSession.started
+            )
+                stop();
+            // Retire only this launch's wait before displaying its error.
+            var beforeError = resolved && (resolved as any).beforeError;
+            if (typeof beforeError === "function") beforeError();
+            if (!current()) return;
+            reportError(automatic);
+            if (current() && resolved) resolved(null);
+        }
+        if (!current()) return;
+        if (
+            !item ||
+            (options.sourceId &&
+                (item.request || item.vportalSource) &&
+                item.vportalSource !== options.sourceId)
+        ) {
+            fail();
+            return;
         }
         var result: any = null;
         function start(url: string): void {
-            if (!current() || !validStream(url)) return;
+            if (finished || !current()) return;
+            if (!validStream(url)) {
+                if (resolved) fail();
+                return;
+            }
+            finished = true;
             // History may hold the selected object itself. The core must compare
             // its previous URL with the newly resolved URL before updating it.
             var playable = copyRequest(item);
@@ -1541,24 +1573,22 @@ export function createVPortalClient(
                         (options.sourceId &&
                             target.vportalSource !== options.sourceId)
                     ) {
-                        reportError(automatic);
+                        fail();
                         return;
                     }
                     var page: any = null;
-                    var pageReceived = false;
                     request(
                         target.request,
                         token,
                         function (data): void {
                             if (current()) {
-                                pageReceived = true;
                                 page = data;
                             }
                         },
                         function (): void {
                             if (!current()) return;
                             if (!page) {
-                                if (pageReceived) reportError(automatic);
+                                fail();
                                 return;
                             }
                             if (
@@ -1571,7 +1601,7 @@ export function createVPortalClient(
                                 page.items.length > 10000 ||
                                 page.truncated
                             ) {
-                                reportError(automatic);
+                                fail();
                                 return;
                             }
                             var matches: any[] = [];
@@ -1603,13 +1633,14 @@ export function createVPortalClient(
                                     typeof fresh.request === "object") ||
                                 !validStream(fresh.url)
                             ) {
-                                reportError(automatic);
+                                fail();
                                 return;
                             }
                             start(fresh.url);
                         },
                         current,
-                        lane
+                        lane,
+                        fail
                     );
                     return;
                 }
@@ -1643,13 +1674,7 @@ export function createVPortalClient(
                         return;
                     }
                     if (!result || result.type === "error") {
-                        if (
-                            mediaSession &&
-                            mediaSession.lane === lane &&
-                            !mediaSession.started
-                        )
-                            stop();
-                        if (result) reportError(automatic);
+                        fail();
                         return;
                     }
                     var variants = result.variants;
@@ -1665,13 +1690,7 @@ export function createVPortalClient(
                           ? variants[names[0]]
                           : "";
                     if (!url) {
-                        if (
-                            mediaSession &&
-                            mediaSession.lane === lane &&
-                            !mediaSession.started
-                        )
-                            stop();
-                        reportError(automatic);
+                        fail();
                         return;
                     }
                     if (
@@ -1744,7 +1763,8 @@ export function createVPortalClient(
                     else w.selectBoxKeyHandler = qualityHandler;
                 },
                 current,
-                lane
+                lane,
+                fail
             );
         });
     }

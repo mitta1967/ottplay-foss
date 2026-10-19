@@ -8,6 +8,7 @@
 - Update an already open channel list as background batches arrive, preserving the focused item and any active dialog or search.
 - Resolve channel-backed media with the existing loading dialog, authentication and watch history. Keep file navigation aligned with the current channel order, including after shuffle or background additions.
 - Keep VPortal direct-file identities stable when signed URLs rotate, and refresh the playback URL before selection or repeat.
+- Close the owned loading dialog after a VPortal resolution failure so the same item can be retried; ignore cancelled and superseded replies.
 - Put media playlist repeat in channel-list Actions; reuse existing search, Shuffle and Reset order instead of a separate media browser during normal playback.
 - Resume the exact selected Local videos file at its saved playback position after Q, page closure, or native app exit. Capture the decoder clock before exit/stop; keep completed files and explicit channel changes starting at zero.
 
