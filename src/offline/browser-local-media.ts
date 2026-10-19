@@ -138,13 +138,14 @@ export function installBrowserLocalMedia(w: any): any {
                 });
             });
     }
-    function choose(): Promise<any[]> {
+    function choose(directory = false): Promise<any[]> {
         return new Promise(function (resolve) {
             var input = w.document.createElement("input");
             input.type = "file";
             input.accept =
                 "video/*,audio/*,.mp4,.m4v,.webm,.mp3,.m4a,.ogg,.wav,.mov";
             input.multiple = true;
+            if (directory) input.setAttribute("webkitdirectory", "");
             input.style.display = "none";
             var done = false;
             function finish(files: any[]): void {
@@ -213,7 +214,10 @@ export function installBrowserLocalMedia(w: any): any {
                                 created: Date.now(),
                                 id: id,
                                 mime: file.type || "application/octet-stream",
-                                name: file.name || "Local media",
+                                name:
+                                    file.webkitRelativePath ||
+                                    file.name ||
+                                    "Local media",
                                 size: file.size,
                             });
                         });
@@ -235,6 +239,23 @@ export function installBrowserLocalMedia(w: any): any {
             })
             .then(list);
     }
+    function importFolder(): Promise<any> {
+        return choose(true).then(function (selected) {
+            var media = selected.filter(function (file) {
+                return (
+                    /^(video|audio)\//i.test(file.type || "") ||
+                    /\.(mp4|m4v|webm|mp3|m4a|ogg|wav|mov)$/i.test(
+                        file.name || ""
+                    )
+                );
+            });
+            if (selected.length && !media.length)
+                throw new Error(
+                    "The selected folder contains no supported video or audio files"
+                );
+            return importFiles(media);
+        });
+    }
     function remove(id: string): Promise<any> {
         return open()
             .then(function (db) {
@@ -251,7 +272,12 @@ export function installBrowserLocalMedia(w: any): any {
             })
             .then(list);
     }
-    var api = { importFiles: importFiles, list: list, remove: remove };
+    var api = {
+        importFiles: importFiles,
+        importFolder: importFolder,
+        list: list,
+        remove: remove,
+    };
     w.__ottBrowserLocalMedia = api;
     w.addEventListener("unload", function () {
         Object.keys(urls).forEach(function (id) {

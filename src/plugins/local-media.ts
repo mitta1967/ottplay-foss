@@ -76,13 +76,14 @@ export function installLocalMedia(w: any): any {
             })
             .then(remember);
     }
-    function chooseFiles(): Promise<File[]> {
+    function chooseFiles(directory = false): Promise<File[]> {
         return new Promise(function (resolve) {
             var input = w.document.createElement("input");
             var done = false;
             input.type = "file";
             input.accept = "video/*,audio/*,.mp4,.m4v,.webm,.mp3,.m4a";
             input.multiple = true;
+            if (directory) input.setAttribute("webkitdirectory", "");
             input.style.display = "none";
             function finish(): void {
                 if (done) return;
@@ -103,7 +104,7 @@ export function installLocalMedia(w: any): any {
             input.click();
         });
     }
-    function importFiles(): Promise<any> {
+    function importFiles(folder = false): Promise<any> {
         if (locked())
             return Promise.reject(
                 new Error("Unlock kiosk mode to change local files")
@@ -114,8 +115,22 @@ export function installLocalMedia(w: any): any {
             );
         if (isNative()) return native.importFiles().then(remember);
         if (!isTauri() && !remoteEndpoint())
-            return browser.importFiles().then(remember);
-        return chooseFiles().then(function (files) {
+            return (
+                folder ? browser.importFolder() : browser.importFiles()
+            ).then(remember);
+        return chooseFiles(folder).then(function (selected) {
+            var files = folder
+                ? selected.filter(function (file) {
+                      return (
+                          /^(video|audio)\//i.test(file.type || "") ||
+                          /\.(mp4|m4v|webm|ogv|mp3|m4a|ogg)$/i.test(file.name)
+                      );
+                  })
+                : selected;
+            if (selected.length && !files.length)
+                throw new Error(
+                    "The selected folder contains no supported video or audio files"
+                );
             return getEndpoint().then(function (base) {
                 var queue = Promise.resolve(last);
                 files.forEach(function (file) {
@@ -261,12 +276,28 @@ export function installLocalMedia(w: any): any {
         if (last && last.storage === "browser") {
             var scope = w.document.createElement("p");
             scope.textContent =
-                "This library belongs to this website and browser profile. Videos on your Mac, other devices, or another website are not added automatically.";
+                "This library belongs to this website and browser profile. Videos on your computer, other devices, or another website are not added automatically.";
             panel.appendChild(scope);
         }
         button(panel, "Add files", function () {
-            run(importFiles);
+            run(function () {
+                return importFiles();
+            });
         });
+        if (
+            !isNative() &&
+            "webkitdirectory" in w.document.createElement("input")
+        ) {
+            button(panel, "Add folder", function () {
+                run(function () {
+                    return importFiles(true);
+                });
+            });
+            var folderHelp = w.document.createElement("p");
+            folderHelp.textContent =
+                "Add folder imports videos from the selected folder and its subfolders. Files are copied into this library; the folder is not watched for changes.";
+            panel.appendChild(folderHelp);
+        }
         var play = button(panel, "Play local videos", activate);
         play.disabled = !last || !last.items.length;
         if (play.disabled) {

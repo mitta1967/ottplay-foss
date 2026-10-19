@@ -1,11 +1,13 @@
 # Local videos and offline playback
 
 The **Local videos** library imports media files and exposes them as the
-`offline` provider. Open **Settings → Local videos**, choose **Add files**, then
+`offline` provider. Open **Settings → Local videos**, choose **Add files** or **Add folder** (Chrome/desktop), then
 **Play local videos**. You can also select **Local videos** from the provider
 list. When the library is empty, selecting this provider opens the import screen instead of an empty channel list. The player does not scan the computer: select files with **Add files** first. Chrome profiles, separate site addresses, and native apps have separate libraries. Channel identity is derived from the stored file ID; playback URLs are
 refreshed every time the catalog loads. Existing channel selection, favourites
 and kiosk rules apply to these entries.
+
+Selecting **Local videos** always opens its management window. **Add folder** imports supported media from that folder and its subfolders, skips non-media files, and preserves relative names in browser storage. This copies a snapshot into the library; it does not mount or continuously watch the original folder. Native mobile apps currently use **Add files**.
 
 Files are imported explicitly. This feature does not download IPTV channels,
 copy Plex libraries, transcode video, or import multi-file HLS packages. Start

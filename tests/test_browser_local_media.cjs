@@ -236,6 +236,12 @@ async function builtUi() {
     );
     transmuxer.flush();
     assert.ok(movie && movie.length > 1000);
+    const mediaFolder = fs.mkdtempSync(
+        path.join(os.tmpdir(), "ott-local-folder-")
+    );
+    fs.mkdirSync(path.join(mediaFolder, "nested"));
+    fs.writeFileSync(path.join(mediaFolder, "nested/folder-video.mp4"), movie);
+    fs.writeFileSync(path.join(mediaFolder, "notes.txt"), "not a video");
     const server = http.createServer((req, res) => {
         const url = new URL(req.url, "http://localhost");
         const relative =
@@ -284,7 +290,7 @@ async function builtUi() {
                 window.__ottLocalMedia &&
                 !document.body.classList.contains("booting")
         );
-        async function chooseLocalProvider() {
+        async function chooseLocalProvider(empty = true) {
             await page.evaluate(() => {
                 window.stbStop();
                 window.showProviderSelection();
@@ -299,9 +305,11 @@ async function builtUi() {
                 await page.keyboard.press("ArrowDown");
             }
             await page.keyboard.press("Enter");
-            await page
-                .getByText("No local videos yet.", { exact: false })
-                .waitFor();
+            await page.getByRole("dialog", { name: "Local videos" }).waitFor();
+            if (empty)
+                await page
+                    .getByText("No local videos yet.", { exact: false })
+                    .waitFor();
         }
         await chooseLocalProvider();
         await page
@@ -327,6 +335,11 @@ async function builtUi() {
         await page.keyboard.press("ArrowDown");
         assert.equal(
             await page.evaluate(() => document.activeElement.textContent),
+            "Add folder"
+        );
+        await page.keyboard.press("ArrowDown");
+        assert.equal(
+            await page.evaluate(() => document.activeElement.textContent),
             "Refresh",
             "remote navigation skips disabled Play on an empty library"
         );
@@ -342,6 +355,42 @@ async function builtUi() {
         await page
             .getByText("offline-fixture.mp4 —", { exact: false })
             .waitFor();
+        const folderChooser = page.waitForEvent("filechooser");
+        await page
+            .getByRole("button", { exact: true, name: "Add folder" })
+            .click();
+        await (await folderChooser).setFiles(mediaFolder);
+        await page
+            .getByText("nested/folder-video.mp4", { exact: false })
+            .waitFor();
+        assert.equal(
+            await page.evaluate(
+                async () => (await window.__ottLocalMedia.list()).items.length
+            ),
+            2,
+            "folder imports nested media and skips text files"
+        );
+        await page
+            .getByRole("dialog", { name: "Local videos" })
+            .getByRole("button", { exact: true, name: "Close" })
+            .click();
+        await chooseLocalProvider(false);
+        await page
+            .getByRole("button", { exact: true, name: "Play local videos" })
+            .click();
+        await page.waitForFunction(() =>
+            Array.from(document.querySelectorAll("video")).some(
+                (v) => v.currentTime > 0.1 && !v.error
+            )
+        );
+        await chooseLocalProvider(false);
+        assert.equal(
+            await page
+                .getByRole("button", { exact: true, name: "Play local videos" })
+                .isEnabled(),
+            true,
+            "selecting an already active, populated local provider opens management"
+        );
         await page
             .getByRole("button", { exact: true, name: "Play local videos" })
             .click();
@@ -421,10 +470,11 @@ async function builtUi() {
         );
         assert.deepEqual(errors, []);
         console.log(
-            "PASS built UI: import through file picker, Local videos provider, real MP4 decoding, stable IDs and playback after offline cold reload (with a user gesture when browser autoplay policy requires it)"
+            "PASS built UI: file and nested-folder import, non-media filtering, always-open Local videos manager, real MP4 decoding, stable IDs and playback after offline cold reload (with a user gesture when browser autoplay policy requires it)"
         );
     } finally {
         await browser.close();
         await new Promise((r) => server.close(r));
+        fs.rmSync(mediaFolder, { force: true, recursive: true });
     }
 }
