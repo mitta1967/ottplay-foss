@@ -1432,9 +1432,9 @@ function updateMediaInfoDisplay(): void {
 var mediaCheckTimer: any = null;
 
 /**
- * Detect whether the current playback is an archive recording (stream with
- * a finite duration > 180s and < 1,000,000s). If so, sets playType to
- * -99999999999 and resets playTime to 0.
+ * Detect finite channel media. Local videos accept any positive finite duration;
+ * other providers retain the > 180s and < 1,000,000s recording heuristic.
+ * Reclassifies playback without replacing its session or backend.
  *
  * Side effects: Updates window.playType, window.playTime; calls
  * updateMediaInfoDisplay(). Clears mediaCheckTimer.
@@ -1443,11 +1443,12 @@ function checkMedia(): void {
     clearTimeout(mediaCheckTimer);
     if (video) {
         var duration = stbGetLen();
+        var driver = (window as any).__ottActiveProviderDriver;
+        var localFile = driver && driver.id === "offline";
         if (
-            duration &&
-            duration > 180 &&
-            duration !== Number.POSITIVE_INFINITY &&
-            duration < 1000000
+            duration > 0 &&
+            isFinite(duration) &&
+            (localFile || (duration > 180 && duration < 1000000))
         ) {
             var playback = (window as any).__ottClassicPlayback;
             if (playback && typeof playback.command === "function")

@@ -385,6 +385,44 @@ for (const phase of ["pause", "stop"]) {
     assert.equal(c.api.snapshot().phase, "stopped");
 }
 
+// Short local clips must acquire media seek semantics; live-provider heuristics stay unchanged.
+for (const [provider, duration, expected] of [
+    ["offline", 40, "vod"],
+    ["offline", 0.25, "vod"],
+    ["offline", 0, "live"],
+    ["offline", NaN, "live"],
+    ["offline", Infinity, "live"],
+    ["m3u", 40, "live"],
+    ["m3u", 180, "live"],
+    ["m3u", 181, "vod"],
+    ["m3u", Infinity, "live"],
+]) {
+    const c = fixture();
+    include(c, "src/index.ts", ["checkMedia"]);
+    c.mediaCheckTimer = null;
+    c.updateMediaInfoDisplay = () => {};
+    c.__ottActiveProviderDriver = { id: provider };
+    c.video.duration = duration;
+    c.api.command({ channelId: 101, type: "live" });
+    const generation = c.api.snapshot().generation;
+    c.checkMedia();
+    assert.equal(
+        c.api.snapshot().target.kind,
+        expected,
+        `${provider}: ${duration}`
+    );
+    assert.equal(
+        c.api.snapshot().generation,
+        generation,
+        "Detection keeps the playback session"
+    );
+    assert.equal(
+        c.api.snapshot().historyTarget.kind,
+        "live",
+        "Local files retain channel identity"
+    );
+}
+
 // The periodic native bridge cannot mark the old Shaka backend as a new attached source.
 {
     const c = fixture();

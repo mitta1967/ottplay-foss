@@ -242,22 +242,28 @@ async function builtUi(devicePath) {
     if (!fs.existsSync(path.join(dist, "offline-worker.js")))
         throw new Error("Build the player before --built-ui");
     const muxjs = require("mux.js");
-    const transmuxer = new muxjs.mp4.Transmuxer({ remux: true });
-    let movie;
-    transmuxer.on("data", (data) => {
-        movie = Buffer.concat([
-            Buffer.from(data.initSegment),
-            Buffer.from(data.data),
-        ]);
-    });
-    transmuxer.push(
-        new Uint8Array(
-            fs.readFileSync(
-                path.join(root, "tests/fixtures/media-runtime/segment00.ts")
-            )
+    // Repeat the two-second fixture with real increasing decode timestamps so
+    // transport shortcuts exercise a seekable 40-second file, not a mocked
+    // currentTime setter or an immediate end-of-file clamp.
+    const segment = new Uint8Array(
+        fs.readFileSync(
+            path.join(root, "tests/fixtures/media-runtime/segment00.ts")
         )
     );
-    transmuxer.flush();
+    const fragments = [];
+    for (let index = 0; index < 20; index++) {
+        const transmuxer = new muxjs.mp4.Transmuxer({
+            baseMediaDecodeTime: index * 2 * 90000,
+            remux: true,
+        });
+        transmuxer.on("data", (data) => {
+            if (index === 0) fragments.push(Buffer.from(data.initSegment));
+            fragments.push(Buffer.from(data.data));
+        });
+        transmuxer.push(segment);
+        transmuxer.flush();
+    }
+    const movie = Buffer.concat(fragments);
     assert.ok(movie && movie.length > 1000);
     const mediaFolder = fs.mkdtempSync(
         path.join(os.tmpdir(), "ott-local-folder-")
@@ -670,7 +676,103 @@ async function builtUi(devicePath) {
                 (v) => v.currentTime > 0.1 && !v.error
             )
         );
+        await page.waitForFunction(() => !!window.__ottTryKeyboardSeek);
+        await page.waitForFunction(() => window.playType === -99999999999);
+        const playbackUrl = page.url();
+        await page.evaluate(async () => {
+            const video = document.querySelector("video");
+            if (document.fullscreenEnabled) await video.requestFullscreen();
+            video.controls = true;
+            video.tabIndex = 0;
+            video.focus();
+            video.pause();
+            video.currentTime = 15;
+        });
+        assert.equal(
+            await page.evaluate(() => document.activeElement.tagName),
+            "VIDEO",
+            "native video controls own keyboard focus during seek regression"
+        );
+        assert.equal(
+            await page.evaluate(() => document.fullscreenElement?.tagName),
+            "VIDEO",
+            "seek regression exercises the actual browser fullscreen element"
+        );
+        await page.waitForFunction(() => {
+            const video = document.querySelector("video");
+            return !video.seeking && Math.abs(video.currentTime - 15) < 0.5;
+        });
+        assert.ok(
+            await page.evaluate(
+                () => document.querySelector("video").duration > 35
+            ),
+            "the browser seek fixture must be long enough for real seeks"
+        );
+        for (const [key, expected] of [
+            ["Alt+ArrowRight", 25],
+            ["Alt+ArrowLeft", 15],
+            ["Meta+ArrowRight", 25],
+            ["Meta+ArrowLeft", 15],
+        ]) {
+            await page.keyboard.press(key);
+            await page.waitForFunction((position) => {
+                const video = document.querySelector("video");
+                return (
+                    !video.seeking &&
+                    Math.abs(video.currentTime - position) < 0.75
+                );
+            }, expected);
+            assert.equal(
+                page.url(),
+                playbackUrl,
+                key + " must not navigate the browser"
+            );
+            assert.equal(
+                await page.evaluate(
+                    () => document.querySelector("video").paused
+                ),
+                true,
+                key + " preserves paused playback"
+            );
+        }
+        await page.evaluate(async () => {
+            if (document.fullscreenElement) await document.exitFullscreen();
+            const video = document.querySelector("video");
+            video.controls = false;
+            video.blur();
+            await video.play();
+        });
         await chooseLocalProvider();
+        await action("play").waitFor();
+        const menuPosition = await page.evaluate(
+            () => document.querySelector("video").currentTime
+        );
+        await page.keyboard.press("Alt+ArrowRight");
+        await page.keyboard.press("Meta+ArrowLeft");
+        assert.equal(
+            await page.evaluate(
+                () => document.querySelector("video").currentTime
+            ),
+            menuPosition,
+            "transport shortcuts do not seek while a player menu owns input"
+        );
+        await selectAction("server-library");
+        await page.locator("#editvar").waitFor({ state: "visible" });
+        await page.locator("#editvar").fill("https://editor.example/library");
+        await page.keyboard.press("Alt+ArrowRight");
+        await page.keyboard.press("Meta+ArrowLeft");
+        assert.equal(
+            await page.evaluate(
+                () => document.querySelector("video").currentTime
+            ),
+            menuPosition,
+            "transport shortcuts leave playback unchanged while editing text"
+        );
+        assert.equal(
+            await page.locator("#editvar").inputValue(),
+            "https://editor.example/library"
+        );
+        await page.keyboard.press("Escape");
         await action("play").waitFor();
         await selectAction("play");
         await page.waitForFunction(() =>
@@ -837,7 +939,7 @@ async function builtUi(devicePath) {
         console.log(
             "PASS built UI " +
                 devicePath +
-                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy)"
+                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Meta seek with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy)"
         );
     } finally {
         await browser.close();

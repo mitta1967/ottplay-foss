@@ -87,6 +87,94 @@ export var keys: Record<string, number> = {
  * Main key dispatch
  * --------------------------------------------------------------------------- */
 
+/** Seek through the shared transport, without taking navigation from editors. */
+export function tryKeyboardSeek(event: KeyboardEvent): boolean {
+    var w = window as any;
+    if (
+        !event ||
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.keyCode === 229 ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        (!event.altKey && !event.metaKey) ||
+        (event.altKey && event.metaKey)
+    )
+        return false;
+    var direction =
+        event.key === "ArrowLeft" || event.code === "ArrowLeft"
+            ? -1
+            : event.key === "ArrowRight" || event.code === "ArrowRight"
+              ? 1
+              : event.keyCode === 37
+                ? -1
+                : event.keyCode === 39
+                  ? 1
+                  : 0;
+    if (!direction) return false;
+    function editable(element: any): boolean {
+        while (element) {
+            if (
+                /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName || "") ||
+                element.isContentEditable ||
+                (element.getAttribute &&
+                    element.hasAttribute("contenteditable") &&
+                    /^(|true|plaintext-only)$/i.test(
+                        element.getAttribute("contenteditable")
+                    ))
+            )
+                return true;
+            element = element.parentElement;
+        }
+        return false;
+    }
+    if (editable(event.target) || editable(document.activeElement))
+        return false;
+    var kiosk = w.__ottKiosk;
+    if (
+        kiosk &&
+        ((typeof kiosk.strict === "function" && kiosk.strict()) ||
+            (typeof kiosk.locked === "function" && kiosk.locked()))
+    )
+        return false;
+    var port = w.__ottClassicScreenPort;
+    if (!port || !port.screens || typeof port.reconcile !== "function")
+        return false;
+    port.reconcile();
+    if (port.screens.current()) return false;
+    var playback = w.__ottClassicPlayback;
+    if (
+        !playback ||
+        typeof playback.snapshot !== "function" ||
+        typeof w.shiftArchive !== "function"
+    )
+        return false;
+    var state = playback.snapshot();
+    if (
+        !state ||
+        !state.target ||
+        (state.phase !== "playing" && state.phase !== "paused")
+    )
+        return false;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    if (typeof w.setSleepTimeout === "function") w.setSleepTimeout();
+    w.shiftArchive(direction * 10);
+    return true;
+}
+
+/** Capture video-focused keys too; the regular bubble handler remains intact. */
+export function installKeyboardSeek(): void {
+    var w = window as any;
+    w.__ottTryKeyboardSeek = tryKeyboardSeek;
+    if (w.__ottKeyboardSeekCapture || !document.addEventListener) return;
+    w.__ottKeyboardSeekCapture = function (event: KeyboardEvent): void {
+        tryKeyboardSeek(event);
+    };
+    document.addEventListener("keydown", w.__ottKeyboardSeekCapture, true);
+}
+
 /**
  * Main entry point for keyboard and remote-control key events.
  * Routes the event through a priority chain: dialog box → about/list → edit → select box → list → main.
@@ -104,6 +192,11 @@ export function keyHandler(event: KeyboardEvent): void {
         kiosk.strictKey(event);
         return;
     }
+    if (
+        typeof (window as any).__ottTryKeyboardSeek === "function" &&
+        (window as any).__ottTryKeyboardSeek(event)
+    )
+        return;
     // If an input, textarea, or contenteditable is focused, let the browser handle
     // printable typing. But when #listEdit is open (native playlist-name editor),
     // still route accept/cancel so TV Back also reaches handleEditKey → editKey2.
@@ -1510,3 +1603,4 @@ document.body.addEventListener("touchcancel", handleTouchCancel);
 // capture-phase video-surface listener in src/index.ts because WKWebView
 // <video> clicks often never reach body.onclick.
 document.body.onclick = body_onClick;
+installKeyboardSeek();

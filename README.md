@@ -61,6 +61,11 @@ offers it; **Show title bar** restores the usual frame. Ordinary tabs and TV/nat
 shell layouts keep their existing behavior. See [browser window controls](docs/browser-window-controls.md)
 for supported installation URLs, updating an existing shortcut, and verification.
 
+For ten-second seeking in the main video view, use **Alt/Option + Left/Right**
+(**Command + Left/Right** also works on macOS), in fullscreen or the normal view.
+Local videos, VOD and supported channel archives use the same controls across
+web, Tauri and Capacitor. See [keyboard shortcuts and limits](docs/browser-window-controls.md#playback-keyboard-shortcuts).
+
 The synthetic test pattern can be regenerated with `scripts/generate-demo-media.sh`
 (requires FFmpeg); generated media stays in the ignored `.local-artifacts` directory.
 
