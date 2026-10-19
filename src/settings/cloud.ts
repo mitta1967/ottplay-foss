@@ -199,6 +199,7 @@ var cloudSettingsTransfer = (function () {
         function restore(xml: string): void {
             if (w.__ottKiosk && w.__ottKiosk.enabled()) return;
             var imported = w.__ottCloudSettingsCodec.read(xml);
+            validateOfflineProfiles(imported);
             if (!active()) return;
             if (
                 typeof read !== "function" ||
@@ -222,6 +223,10 @@ var cloudSettingsTransfer = (function () {
                 if (keys.indexOf(key) === -1) keys.push(key);
             });
             var writes: SettingsWrite[] = keys
+                // Local source bindings never travel with a settings backup.
+                .filter(function (key) {
+                    return key !== "offlineProfileBindings";
+                })
                 .map(function (key) {
                     var previous = Object.prototype.hasOwnProperty.call(
                         before,
@@ -310,6 +315,18 @@ var cloudSettingsTransfer = (function () {
                 else fail("Invalid cloud settings response");
             });
         }
+        function validateOfflineProfiles(items: any): void {
+            if (!Object.prototype.hasOwnProperty.call(items, "offlineProfiles"))
+                return;
+            var offline = w.__ottOfflineProfiles;
+            if (
+                !offline ||
+                typeof offline.validateStore !== "function" ||
+                typeof items.offlineProfiles !== "string" ||
+                !offline.validateStore(JSON.parse(items.offlineProfiles))
+            )
+                throw new Error("Invalid local video profiles");
+        }
         cancelCloudSettings = cancel;
         w.aboutKeyHandler = keyHandler;
         if (w.aboutKeyHandler !== keyHandler) {
@@ -340,9 +357,11 @@ var cloudSettingsTransfer = (function () {
             });
         else {
             try {
+                var snapshot = dump.call(w);
+                validateOfflineProfiles(snapshot);
                 send(
                     "send",
-                    w.__ottCloudSettingsCodec.write(dump.call(w)),
+                    w.__ottCloudSettingsCodec.write(snapshot),
                     codeScreen
                 );
             } catch (_error) {
