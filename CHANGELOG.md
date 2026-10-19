@@ -7,6 +7,8 @@
   descriptions only; browser handles and native grants/bookmarks stay local.
   Foreign imports require an explicit local binding, and generic settings/cloud
   restores preserve rather than replace the installation's private bindings.
+- Synchronize the standalone fuzz lockfile with the existing Local videos core
+  dependencies so baseline regression-corpus checks work with `--locked`.
 
 ## [1.1.57] - 2026-10-18
 
