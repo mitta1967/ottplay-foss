@@ -254,7 +254,10 @@ const { gzipSync } = require("node:zlib");
 // Legacy bookmark readiness and scan counters consume the remaining raw headroom;
 // allow another 512 bytes while retaining the gzip cap.
 // Initial scan phases and metadata progress need 60 more bytes; reserve 256.
-const BUDGET = Object.freeze({ bytes: 918655, gzipBytes: 285118 });
+// Native progressive polling, bounded requests and first-item playback measure
+// 920867 raw / 284799 gzip on Node 26. Use prior headroom plus 2304/768 bytes;
+// native artifacts and optional providers remain included in the same gates.
+const BUDGET = Object.freeze({ bytes: 920959, gzipBytes: 285886 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -384,7 +387,7 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Include the same progressive-catalog allowance once in the full payload.
 // Count the 512-byte readiness/counter allowance once in the payload.
 // Include the same 256-byte initial progress allowance once.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1039555, gzipBytes: 330018 });
+const TOTAL_BUDGET = Object.freeze({ bytes: 1041859, gzipBytes: 330786 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

@@ -14,6 +14,8 @@ pub struct OfflineMediaState(Mutex<Option<Runtime>>);
 #[derive(Serialize)]
 pub struct Endpoint {
     endpoint: String,
+    #[serde(rename = "pickerCancelled", skip_serializing_if = "Option::is_none")]
+    picker_cancelled: Option<bool>,
 }
 
 async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, String> {
@@ -43,6 +45,7 @@ async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, 
             tracing::warn!(%error, "Offline media listener stopped");
         }
     });
+    library.start_refresh_sources().await;
     let result = Runtime { endpoint, library };
     *current = Some(result.clone());
     Ok(result)
@@ -52,11 +55,15 @@ async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, 
 pub async fn offline_media_endpoint(
     app: AppHandle,
     state: State<'_, OfflineMediaState>,
+    refresh: Option<bool>,
 ) -> Result<Endpoint, String> {
     let current = runtime(&app, &state).await?;
-    current.library.refresh_sources().await;
+    if refresh.unwrap_or(false) {
+        current.library.start_refresh_sources().await;
+    }
     Ok(Endpoint {
         endpoint: current.endpoint,
+        picker_cancelled: None,
     })
 }
 
@@ -74,6 +81,7 @@ pub async fn offline_media_import_files(
     })
     .await
     .map_err(|_| "File picker unavailable")?;
+    let picker_cancelled = selected.is_none().then_some(true);
     if let Some(files) = selected {
         let paths = files
             .into_iter()
@@ -84,12 +92,13 @@ pub async fn offline_media_import_files(
             .collect::<Result<Vec<_>, _>>()?;
         current
             .library
-            .link_paths(paths, false)
+            .start_link_paths(paths, false)
             .await
             .map_err(|_| "Unable to link selected files; no files were copied")?;
     }
     Ok(Endpoint {
         endpoint: current.endpoint,
+        picker_cancelled,
     })
 }
 
@@ -103,18 +112,20 @@ pub async fn offline_media_import_folder(
         tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
             .await
             .map_err(|_| "Folder picker unavailable")?;
+    let picker_cancelled = selected.is_none().then_some(true);
     if let Some(folder) = selected {
         let path = folder
             .into_path()
             .map_err(|_| "Select a local filesystem folder")?;
         current
             .library
-            .link_paths(vec![path], true)
+            .start_link_paths(vec![path], true)
             .await
             .map_err(|_| "Unable to link selected folder; no files were copied")?;
     }
     Ok(Endpoint {
         endpoint: current.endpoint,
+        picker_cancelled,
     })
 }
 
@@ -132,5 +143,6 @@ pub async fn offline_media_remove_source(
         .map_err(|_| "Unable to disconnect local source")?;
     Ok(Endpoint {
         endpoint: current.endpoint,
+        picker_cancelled: None,
     })
 }

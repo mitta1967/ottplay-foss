@@ -2,6 +2,7 @@ import {
     installBrowserLocalMedia,
     installOfflineShell,
 } from "../offline/browser-local-media";
+import { formatLocalMediaProgress } from "../offline/local-media-progress";
 import { resolveNativePlugin, tauriInvoke } from "./native-bridge";
 
 /** Stable item IDs belong to storage; playback URLs are resolved anew each launch. */
@@ -40,14 +41,15 @@ export function installLocalMedia(w: any): any {
             return "";
         }
     }
-    function getEndpoint(): Promise<string> {
+    function getEndpoint(refresh = false): Promise<string> {
         if (isTauri())
-            return tauriInvoke<any>("offline_media_endpoint", {}).then(
-                function (value) {
-                    endpoint = value.endpoint;
-                    return endpoint;
-                }
-            );
+            return tauriInvoke<any>(
+                "offline_media_endpoint",
+                refresh ? { refresh: true } : {}
+            ).then(function (value) {
+                endpoint = value.endpoint;
+                return endpoint;
+            });
         endpoint = remoteEndpoint().replace(/\/+$/, "");
         return Promise.resolve(endpoint);
     }
@@ -66,6 +68,42 @@ export function installLocalMedia(w: any): any {
                     value.uploadUrl = new URL(value.uploadUrl, url).href;
                 return value;
             });
+        });
+    }
+    function boundedCatalogRequest(url: string, timeout: number): Promise<any> {
+        return new Promise(function (resolve, reject) {
+            var controller = w.AbortController ? new w.AbortController() : null;
+            var settled = false;
+            var timer = setTimeout(function () {
+                if (settled) return;
+                settled = true;
+                if (controller) controller.abort();
+                reject(new Error("Local media scan stopped responding"));
+            }, timeout);
+            function finish(error: any, value?: any): void {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                if (error) reject(error);
+                else resolve(value);
+            }
+            // Include response.json() in the deadline: headers alone do not
+            // establish progress when a local server stops sending its body.
+            try {
+                http(
+                    url,
+                    controller ? { signal: controller.signal } : undefined
+                ).then(
+                    function (value) {
+                        finish(null, value);
+                    },
+                    function (error) {
+                        finish(error);
+                    }
+                );
+            } catch (error) {
+                finish(error);
+            }
         });
     }
     function remember(pending: Promise<any>): Promise<any> {
@@ -87,13 +125,14 @@ export function installLocalMedia(w: any): any {
             if (!value || !Array.isArray(value.items))
                 throw new Error("Invalid local media catalog");
             last = value;
+            updateLoading(value);
             return !onProgress || onProgress(value) !== false;
         }
         var pending = isNative()
             ? native.list()
             : getEndpoint().then(function (base) {
                   return base
-                      ? http(base)
+                      ? pollCatalog(base, request, accept, !!onProgress)
                       : browser.list(
                             onProgress ? accept : undefined,
                             preferredId
@@ -105,6 +144,55 @@ export function installLocalMedia(w: any): any {
             if (request === catalogRevision) last = value;
             return value;
         });
+    }
+    // Poll snapshots of a native background scan. Reading the catalog never
+    // starts a replacement scan, and unchanged snapshots are not progress.
+    function pollCatalog(
+        base: string,
+        request: number,
+        accept: (value: any) => boolean,
+        progressive: boolean
+    ): Promise<any> {
+        var signature = "";
+        var changedAt = Date.now();
+        function read(): Promise<any> {
+            return boundedCatalogRequest(
+                base,
+                Math.max(1, 60000 - (Date.now() - changedAt))
+            ).then(function (value) {
+                if (!value || !Array.isArray(value.items))
+                    throw new Error("Invalid local media catalog");
+                if (request !== catalogRevision)
+                    return { ...value, cancelled: true };
+                var next = JSON.stringify([
+                    value.scanning,
+                    value.scanned,
+                    value.total,
+                    value.items.length,
+                    value.scanError,
+                ]);
+                if (next !== signature) {
+                    signature = next;
+                    changedAt = Date.now();
+                    if (!accept(value)) return { ...value, cancelled: true };
+                }
+                if (value.scanError) throw new Error(value.scanError);
+                if (!value.scanning) return value;
+                if (Date.now() - changedAt >= 60000)
+                    throw new Error("Local media scan stopped responding");
+                // A one-shot server catalog remains compatible. Only Tauri's
+                // explicit background-scan protocol needs repeated requests.
+                if (!isTauri() && !progressive) return value;
+                return new Promise(function (resolve) {
+                    setTimeout(resolve, 250);
+                }).then(function () {
+                    if (request !== catalogRevision)
+                        return { ...value, cancelled: true };
+                    return read();
+                });
+            });
+        }
+        return read();
     }
     function importFiles(folder = false): Promise<any> {
         if (locked() || settingsLocked())
@@ -123,8 +211,15 @@ export function installLocalMedia(w: any): any {
                     ? "offline_media_import_folder"
                     : "offline_media_import_files",
                 {}
-            ).then(function () {
-                return list();
+            ).then(function (result) {
+                if (result && result.pickerCancelled)
+                    return { pickerCancelled: true };
+                return list(function (value) {
+                    updateLoading(value);
+                    return !value.items.some(function (item: any) {
+                        return item.available !== false && !!item.url;
+                    });
+                });
             });
         if (remoteEndpoint())
             return Promise.reject(
@@ -230,6 +325,12 @@ export function installLocalMedia(w: any): any {
                 (loading && loading.foreground() && owner.active()))
         );
     }
+    function updateLoading(value: any): void {
+        if (!loading || !current()) return;
+        var node =
+            w.document && w.document.getElementById("local-media-progress");
+        if (node) node.textContent = formatLocalMediaProgress(value, w._);
+    }
     function finishLoading(active = loading): void {
         if (!active) return;
         if (loading === active) loading = null;
@@ -239,6 +340,7 @@ export function installLocalMedia(w: any): any {
         finishLoading();
         opened = false;
         revision++;
+        catalogRevision++;
         if (
             !locked() &&
             !settingsLocked() &&
@@ -349,7 +451,7 @@ export function installLocalMedia(w: any): any {
             function () {
                 run(function () {
                     return importFiles(true);
-                });
+                }, isTauri());
             }
         );
         row(
@@ -359,7 +461,7 @@ export function installLocalMedia(w: any): any {
             function () {
                 run(function () {
                     return importFiles();
-                });
+                }, isTauri());
             }
         );
         if (
@@ -378,7 +480,13 @@ export function installLocalMedia(w: any): any {
                 }
             );
         row("refresh", "Refresh", "Read connected folders again.", function () {
-            run(list);
+            run(function () {
+                return isTauri()
+                    ? getEndpoint(true).then(function () {
+                          return list();
+                      })
+                    : list();
+            });
         });
         row(
             "play",
@@ -474,7 +582,7 @@ export function installLocalMedia(w: any): any {
             ? w.__ottClassicScreenPort.listOwner()
             : null;
     }
-    function run(action: () => Promise<any>): void {
+    function run(action: () => Promise<any>, startPlayback = false): void {
         var request = ++revision;
         finishLoading();
         // Start the picker inside the user gesture, before rendering or awaiting.
@@ -499,16 +607,26 @@ export function installLocalMedia(w: any): any {
             w.$("#dialogbox")
                 .html(
                     '<center><div class="ott-spinner" aria-hidden="true"><span class="blob"></span><span class="blob"></span><span class="blob"></span><span class="blob"></span></div></center><br/>' +
+                        '<div id="local-media-progress">' +
                         text(w._("Loading. Please wait...")) +
-                        "<br/><br/>" +
+                        "</div><br/><br/>" +
                         w.renderButtonHint(w.keys.RETURN, w.strRETURN, "Cancel")
                 )
                 .show();
         }
         pending.then(
-            function () {
+            function (value) {
                 finishLoading(active);
-                if (request === revision) render();
+                if (request === revision) {
+                    if (
+                        startPlayback &&
+                        !(value && value.pickerCancelled) &&
+                        current() &&
+                        playable()
+                    )
+                        activate();
+                    else render();
+                }
             },
             function (error) {
                 finishLoading(active);

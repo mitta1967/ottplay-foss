@@ -40,6 +40,15 @@ pub struct Library {
     token: String,
     storage: String,
     mutation: Arc<Mutex<()>>,
+    scan: Arc<Mutex<ScanState>>,
+}
+#[derive(Default)]
+struct ScanState {
+    jobs: usize,
+    scanned: u64,
+    records: std::collections::HashMap<String, (Record, bool)>,
+    cached: bool,
+    error: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct Record {
@@ -90,6 +99,11 @@ pub struct Catalog {
     pub upload_url: String,
     pub direct_sources: bool,
     pub sources: Vec<Source>,
+    pub scanning: bool,
+    pub scanned: u64,
+    pub total: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scan_error: Option<String>,
 }
 #[derive(Deserialize)]
 struct ImportQuery {
@@ -113,6 +127,7 @@ impl Library {
             token,
             storage: storage.into(),
             mutation: Arc::new(Mutex::new(())),
+            scan: Arc::new(Mutex::new(ScanState::default())),
         })
     }
     pub fn endpoint(&self) -> String {
@@ -185,6 +200,13 @@ impl Library {
                     && media_type(&record.extension) == Some(record.mime.as_str())
                     && (record.linked_path.is_some() || self.path(&record).await.is_ok())
                 {
+                    let available = self.path(&record).await.is_ok();
+                    let mut scan = self.scan.lock().await;
+                    if scan.jobs > 0 {
+                        scan.scanned += 1;
+                        scan.records
+                            .insert(record.id.clone(), (record.clone(), available));
+                    }
                     out.push(record);
                 }
             }
@@ -219,11 +241,24 @@ impl Library {
         if !valid_id(id) {
             return Err((StatusCode::NOT_FOUND, "Media not found"));
         }
-        self.records()
-            .await?
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or((StatusCode::NOT_FOUND, "Media not found"))
+        // A range request must not rescan every metadata record before it can
+        // return the first video byte from a large library.
+        let path = self.root.join(format!("{id}.json"));
+        let metadata = fs::symlink_metadata(&path)
+            .await
+            .map_err(|_| (StatusCode::NOT_FOUND, "Media not found"))?;
+        if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > 4096 {
+            return Err((StatusCode::NOT_FOUND, "Media not found"));
+        }
+        let bytes = fs::read(path).await.map_err(storage_error)?;
+        let record: Record = serde_json::from_slice(&bytes).map_err(storage_error)?;
+        if bytes.len() > 4096
+            || record.id != id
+            || media_type(&record.extension) != Some(record.mime.as_str())
+        {
+            return Err((StatusCode::NOT_FOUND, "Media not found"));
+        }
+        Ok(record)
     }
     async fn source_records(&self) -> Result<Vec<SourceRecord>, Failure> {
         let folder = self.root.join("sources");
@@ -250,6 +285,64 @@ impl Library {
         Ok(sources)
     }
 
+    /// Schedule native discovery without keeping the webview's invoke pending.
+    /// Metadata becomes visible in cumulative catalog snapshots as it is read.
+    pub async fn start_link_paths(&self, paths: Vec<PathBuf>, folder: bool) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.storage == "device",
+            "Native sources are unavailable on this server"
+        );
+        {
+            let mut scan = self.scan.lock().await;
+            if scan.jobs == 0 {
+                scan.records.clear();
+                scan.cached = true;
+                scan.scanned = 0;
+                scan.error = None;
+            }
+            scan.jobs += 1;
+        }
+        let library = self.clone();
+        tokio::spawn(async move {
+            let result = library.link_paths(paths, folder).await;
+            let mut scan = library.scan.lock().await;
+            if result.is_err() {
+                scan.error = Some("Local source could not be completely scanned".into());
+            }
+            scan.jobs -= 1;
+        });
+        Ok(())
+    }
+
+    pub async fn start_refresh_sources(&self) {
+        if self.storage != "device" {
+            return;
+        }
+        let library = self.clone();
+        // Register before returning so the first HTTP catalog cannot mistake an
+        // empty startup snapshot for a finished library.
+        {
+            let mut scan = self.scan.lock().await;
+            if scan.jobs > 0 {
+                return;
+            }
+            scan.jobs = 1;
+            scan.records.clear();
+            scan.cached = true;
+            scan.scanned = 0;
+            scan.error = None;
+        }
+        tokio::spawn(async move {
+            if library.records().await.is_err() {
+                library.scan.lock().await.error =
+                    Some("Local media metadata could not be read".into());
+            }
+            library.refresh_sources().await;
+            let mut scan = library.scan.lock().await;
+            scan.jobs -= 1;
+        });
+    }
+
     /// Called only with paths returned by an OS-native picker, never HTTP input.
     /// Stores names and original paths; no source media is copied or deleted.
     pub async fn link_paths(&self, paths: Vec<PathBuf>, folder: bool) -> anyhow::Result<()> {
@@ -262,8 +355,10 @@ impl Library {
             .records()
             .await
             .map_err(|_| anyhow::anyhow!("Cannot read media metadata"))?;
-        let mut known_paths: std::collections::HashSet<PathBuf> = records.iter()
-            .filter_map(|record| record.linked_path.clone()).collect();
+        let mut known_paths: std::collections::HashSet<PathBuf> = records
+            .iter()
+            .filter_map(|record| record.linked_path.clone())
+            .collect();
         let sources = self
             .source_records()
             .await
@@ -307,9 +402,29 @@ impl Library {
             fs::write(&temporary, serde_json::to_vec(&source)?).await?;
             fs::rename(temporary, destination).await?;
             let mut pending = vec![root.clone()];
+            let mut directories: Vec<fs::ReadDir> = Vec::new();
             let mut count = 0;
-            while let Some(path) = pending.pop() {
+            loop {
+                let path = if let Some(path) = pending.pop() {
+                    path
+                } else if let Some(directory) = directories.last_mut() {
+                    match directory.next_entry().await {
+                        Ok(Some(entry)) => entry.path(),
+                        Ok(None) | Err(_) => {
+                            directories.pop();
+                            continue;
+                        }
+                    }
+                } else {
+                    break;
+                };
                 count += 1;
+                {
+                    let mut scan = self.scan.lock().await;
+                    if scan.jobs > 0 {
+                        scan.scanned += 1;
+                    }
+                }
                 anyhow::ensure!(count <= 20000, "Selected source contains too many entries");
                 let metadata = match fs::symlink_metadata(&path).await {
                     Ok(metadata) => metadata,
@@ -321,14 +436,12 @@ impl Library {
                     continue;
                 }
                 if metadata.is_dir() {
-                    let mut children = match fs::read_dir(&path).await {
+                    let children = match fs::read_dir(&path).await {
                         Ok(children) => children,
                         Err(error) if path == root => return Err(error.into()),
                         Err(_) => continue,
                     };
-                    while let Ok(Some(entry)) = children.next_entry().await {
-                        pending.push(entry.path());
-                    }
+                    directories.push(children);
                     continue;
                 }
                 if !metadata.is_file() {
@@ -346,7 +459,9 @@ impl Library {
                     continue;
                 }
                 if let Err(error) = fs::File::open(&path).await {
-                    if path == root { return Err(error.into()); }
+                    if path == root {
+                        return Err(error.into());
+                    }
                     continue;
                 }
                 let record = Record {
@@ -367,6 +482,10 @@ impl Library {
                 fs::write(&temporary, serde_json::to_vec(&record)?).await?;
                 fs::rename(temporary, destination).await?;
                 known_paths.insert(path);
+                let mut scan = self.scan.lock().await;
+                if scan.jobs > 0 {
+                    scan.records.insert(record.id.clone(), (record, true));
+                }
             }
         }
         Ok(())
@@ -413,19 +532,47 @@ impl Library {
         if fs::try_exists(&path).await? {
             fs::remove_file(path).await?;
         }
+        self.scan.lock().await.cached = false;
         Ok(())
     }
 
     pub async fn catalog(&self) -> Result<Catalog, Failure> {
         let base = self.endpoint();
-        let records = self.records().await?;
+        let (scanning, scanned, scan_error, cached) = {
+            let scan = self.scan.lock().await;
+            (
+                scan.jobs > 0,
+                scan.scanned,
+                scan.error.clone(),
+                if scan.cached {
+                    Some(scan.records.values().cloned().collect::<Vec<_>>())
+                } else {
+                    None
+                },
+            )
+        };
+        let mut records = match cached {
+            Some(records) => records,
+            None => {
+                let mut validated = Vec::new();
+                for record in self.records().await? {
+                    let available = self.path(&record).await.is_ok();
+                    validated.push((record, available));
+                }
+                validated
+            }
+        };
+        records.sort_by(|(a, _), (b, _)| {
+            a.name
+                .to_lowercase()
+                .cmp(&b.name.to_lowercase())
+                .then(a.id.cmp(&b.id))
+        });
         let mut items = Vec::new();
-        for r in records {
-            let available = self.path(&r).await.is_ok();
-            let size = match self.path(&r).await {
-                Ok(path) => fs::metadata(path).await.map(|m| m.len()).unwrap_or(r.size),
-                Err(_) => r.size,
-            };
+        for (r, available) in records {
+            // Availability is checked when metadata enters a scan snapshot.
+            // Media requests always validate the original again before serving.
+            let size = r.size;
             items.push(Item {
                 id: r.id.clone(),
                 name: r.name,
@@ -489,6 +636,14 @@ impl Library {
             upload_url: format!("{base}/import"),
             direct_sources: self.storage == "device",
             sources,
+            scanning,
+            scanned,
+            total: if scanning || scan_error.is_some() {
+                None
+            } else {
+                Some(scanned)
+            },
+            scan_error,
         })
     }
 }
@@ -672,6 +827,7 @@ async fn import_inner(
         let _ = fs::remove_file(target).await;
         return Err(storage_error(e));
     }
+    l.scan.lock().await.cached = false;
     l.catalog().await
 }
 async fn remove(State(l): State<Library>, Path((token, id)): Path<(String, String)>) -> Response {
@@ -687,6 +843,7 @@ async fn remove(State(l): State<Library>, Path((token, id)): Path<(String, Strin
         fs::remove_file(l.root.join(format!("{id}.json")))
             .await
             .map_err(storage_error)?;
+        l.scan.lock().await.cached = false;
         l.catalog().await
     }
     .await;
@@ -822,6 +979,197 @@ async fn media(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn background_native_scan_publishes_playable_items_before_completion() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = root.with_extension("originals");
+        fs::create_dir_all(&originals).await.unwrap();
+        for index in 0..192 {
+            fs::write(originals.join(format!("movie-{index:03}.mp4")), b"video")
+                .await
+                .unwrap();
+        }
+        let library = Library::new(root.clone(), "p".repeat(32), "device")
+            .await
+            .unwrap();
+        library
+            .start_link_paths(vec![originals.clone()], true)
+            .await
+            .unwrap();
+        let initial = library.catalog().await.unwrap();
+        assert!(
+            initial.scanning,
+            "the command registers work before returning"
+        );
+        assert_eq!(initial.total, None);
+        let early = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                let catalog = library.catalog().await.unwrap();
+                if !catalog.items.is_empty() {
+                    break catalog;
+                }
+                assert!(catalog.scanning);
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(
+            early.scanning,
+            "first playable batch must precede the final scan"
+        );
+        assert!(early.items.len() < 192);
+        assert!(early.scanned > 0);
+        let first_id = early.items[0].id.clone();
+        let response = media(
+            State(library.clone()),
+            Path(("p".repeat(32), first_id.clone())),
+            HeaderMap::new(),
+            Method::GET,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let completed = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                if library.scan.lock().await.jobs == 0 {
+                    break library.catalog().await.unwrap();
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(completed.items.len(), 192);
+        assert!(!completed.scanning);
+        assert_eq!(completed.total, Some(completed.scanned));
+        assert!(completed.scan_error.is_none());
+        assert!(completed.items.iter().any(|item| item.id == first_id));
+        library.start_refresh_sources().await;
+        // Repeated endpoint discovery must not enqueue duplicate refresh jobs.
+        library.start_refresh_sources().await;
+        assert_eq!(library.scan.lock().await.jobs, 1);
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while library.scan.lock().await.jobs != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let refreshed = library.catalog().await.unwrap();
+        assert_eq!(refreshed.items.len(), 192);
+        assert!(refreshed.items.iter().any(|item| item.id == first_id));
+        assert!(!root.join(format!("{first_id}.mp4")).exists());
+        let original = library
+            .record(&first_id)
+            .await
+            .unwrap()
+            .linked_path
+            .unwrap();
+        fs::remove_file(original).await.unwrap();
+        library.start_refresh_sources().await;
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while library.scan.lock().await.jobs != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let missing = library.catalog().await.unwrap();
+        let missing_item = missing
+            .items
+            .iter()
+            .find(|item| item.id == first_id)
+            .unwrap();
+        assert!(
+            !missing_item.available,
+            "cached snapshots must preserve unavailable originals"
+        );
+        assert!(missing_item.url.is_empty());
+        library
+            .disconnect_source(&missing_item.source_id)
+            .await
+            .unwrap();
+        assert!(
+            library.catalog().await.unwrap().items.is_empty(),
+            "disconnect invalidates the completed scan cache"
+        );
+        fs::remove_dir_all(root).await.unwrap();
+        fs::remove_dir_all(originals).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn refresh_keeps_available_folder_when_another_source_is_missing() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = root.with_extension("originals");
+        let missing = originals.join("missing");
+        let available = originals.join("available");
+        fs::create_dir_all(&missing).await.unwrap();
+        fs::create_dir_all(&available).await.unwrap();
+        fs::write(missing.join("old.mp4"), b"old").await.unwrap();
+        fs::write(available.join("play.mp4"), b"video")
+            .await
+            .unwrap();
+        let library = Library::new(root.clone(), "m".repeat(32), "device")
+            .await
+            .unwrap();
+        library
+            .link_paths(vec![missing.clone(), available], true)
+            .await
+            .unwrap();
+        fs::remove_dir_all(missing).await.unwrap();
+        library.start_refresh_sources().await;
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while library.scan.lock().await.jobs != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let catalog = library.catalog().await.unwrap();
+        assert!(
+            catalog.scan_error.is_none(),
+            "one disconnected source must not reject the playable catalog"
+        );
+        assert_eq!(catalog.items.len(), 2);
+        assert_eq!(
+            catalog.items.iter().filter(|item| item.available).count(),
+            1
+        );
+        assert_eq!(
+            catalog
+                .sources
+                .iter()
+                .filter(|source| source.available)
+                .count(),
+            1
+        );
+        fs::remove_dir_all(root).await.unwrap();
+        fs::remove_dir_all(originals).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn failed_background_scan_finishes_with_explicit_error() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let library = Library::new(root.clone(), "z".repeat(32), "device")
+            .await
+            .unwrap();
+        library
+            .start_link_paths(vec![root.join("missing")], true)
+            .await
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while library.scan.lock().await.jobs != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let catalog = library.catalog().await.unwrap();
+        assert!(!catalog.scanning);
+        assert!(catalog.scan_error.is_some());
+        fs::remove_dir_all(root).await.unwrap();
+    }
+
     #[tokio::test]
     async fn native_sources_stream_originals_persist_and_disconnect_without_deleting() {
         let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
@@ -1187,13 +1535,23 @@ mod tests {
         let originals = root.join("originals");
         let denied = originals.join("denied");
         fs::create_dir_all(&denied).await.unwrap();
-        fs::write(originals.join("good.mp4"), b"movie").await.unwrap();
-        fs::write(denied.join("hidden.mp4"), b"movie").await.unwrap();
-        fs::set_permissions(&denied, std::fs::Permissions::from_mode(0o000)).await.unwrap();
+        fs::write(originals.join("good.mp4"), b"movie")
+            .await
+            .unwrap();
+        fs::write(denied.join("hidden.mp4"), b"movie")
+            .await
+            .unwrap();
+        fs::set_permissions(&denied, std::fs::Permissions::from_mode(0o000))
+            .await
+            .unwrap();
         let permission_is_enforced = fs::read_dir(&denied).await.is_err();
-        let library = Library::new(root.join("library"), "k".repeat(32), "device").await.unwrap();
+        let library = Library::new(root.join("library"), "k".repeat(32), "device")
+            .await
+            .unwrap();
         let result = library.link_paths(vec![originals.clone()], true).await;
-        fs::set_permissions(&denied, std::fs::Permissions::from_mode(0o700)).await.unwrap();
+        fs::set_permissions(&denied, std::fs::Permissions::from_mode(0o700))
+            .await
+            .unwrap();
         result.unwrap();
         let sources = library.source_records().await.unwrap();
         assert_eq!(sources.len(), 1);
@@ -1204,7 +1562,12 @@ mod tests {
             assert!(!records.iter().any(|record| record.name == "hidden.mp4"));
         }
         library.refresh_sources().await;
-        assert!(library.records().await.unwrap().iter().any(|record| record.name == "hidden.mp4"));
+        assert!(library
+            .records()
+            .await
+            .unwrap()
+            .iter()
+            .any(|record| record.name == "hidden.mp4"));
         fs::remove_dir_all(root).await.unwrap();
     }
 
@@ -1215,11 +1578,17 @@ mod tests {
         let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
         let originals = root.join("originals");
         fs::create_dir_all(&originals).await.unwrap();
-        let library = Library::new(root.join("library"), "k".repeat(32), "device").await.unwrap();
-        fs::set_permissions(&originals, std::fs::Permissions::from_mode(0o000)).await.unwrap();
+        let library = Library::new(root.join("library"), "k".repeat(32), "device")
+            .await
+            .unwrap();
+        fs::set_permissions(&originals, std::fs::Permissions::from_mode(0o000))
+            .await
+            .unwrap();
         let permission_is_enforced = fs::read_dir(&originals).await.is_err();
         let result = library.link_paths(vec![originals.clone()], true).await;
-        fs::set_permissions(&originals, std::fs::Permissions::from_mode(0o700)).await.unwrap();
+        fs::set_permissions(&originals, std::fs::Permissions::from_mode(0o700))
+            .await
+            .unwrap();
         if permission_is_enforced {
             assert!(result.is_err());
             assert!(library.source_records().await.unwrap().is_empty());

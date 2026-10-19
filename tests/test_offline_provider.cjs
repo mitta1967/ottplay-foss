@@ -118,6 +118,27 @@ test("offline provider resolves stable IDs to fresh URLs after reload, without n
     assert.equal(f.requests.length, 0);
 });
 
+test("unchanged native polling cannot keep a stalled scan alive forever", async () => {
+    const f = integrationFixture("offline");
+    let progress;
+    const recovery = [];
+    f.host.__ottLocalMedia = {
+        list: (callback) => {
+            progress = callback;
+            return new Promise(() => {});
+        },
+        resume: (skipScan) => recovery.push(skipScan),
+    };
+    f.host.loadProv();
+    const stalled = { items: [], scanned: 10, scanning: true };
+    progress(stalled);
+    f.advanceTimers(30000);
+    progress(stalled);
+    f.advanceTimers(30000);
+    assert.deepEqual(recovery, [true]);
+    assert.equal(f.completed, 1);
+});
+
 test("offline catalog completion cannot publish after a provider switch", async () => {
     const f = fixture();
     let deliver;
@@ -527,7 +548,10 @@ test("startup scan counter updates one bounded node without exposing source path
     progress({ items: [], scanned: 64 });
     progress({ items: [first], scanned: 128 });
     assert.equal(nodes.length, 1);
-    assert.equal(nodes[0].textContent, "Local videos: 1 / 128");
+    assert.equal(
+        nodes[0].textContent,
+        "Loading. Please wait... (128) · Local videos: 1"
+    );
     assert.deepEqual(nodes[0].attrs, {
         "data-local-items": "1",
         "data-local-phase": "files",
@@ -535,6 +559,11 @@ test("startup scan counter updates one bounded node without exposing source path
         "data-local-waiting": "legacy-index",
     });
     assert(!JSON.stringify(nodes[0]).includes("private/path"));
+    progress({ items: [first], scanned: 150, total: 10000 });
+    assert.equal(
+        nodes[0].textContent,
+        "Loading. Please wait... (150 / 10000) · Local videos: 1"
+    );
     finish({ items: [first], scanned: 128 });
     await Promise.resolve();
 });

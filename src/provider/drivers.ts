@@ -245,6 +245,7 @@ function createOfflineDriver(
                 return;
             }
             var started = false;
+            var progressStamp = "";
             var wanted = "";
             var waitForFinal = false;
             var legacyIndex = 0;
@@ -308,7 +309,17 @@ function createOfflineDriver(
                     revision++;
                     return false;
                 }
-                heartbeat();
+                var stamp = [
+                    value.scanned || 0,
+                    (value.items || []).length,
+                    value.phase || "",
+                    !!value.scanning,
+                ].join(":");
+                // Polling the same stalled native scan is not progress.
+                if (stamp !== progressStamp) {
+                    progressStamp = stamp;
+                    heartbeat();
+                }
                 (value.items || []).forEach(function (item: any) {
                     if (item.available === false || !item.url) return;
                     var id = "local-" + item.id;
@@ -345,6 +356,13 @@ function createOfflineDriver(
                             0,
                             Math.floor(Number(value.scanned) || 0)
                         );
+                        if (!isFinite(scanned)) scanned = 0;
+                        var total = Number(value.total);
+                        var knownTotal =
+                            value.total != null &&
+                            isFinite(total) &&
+                            total >= scanned &&
+                            Math.floor(total) === total;
                         var waiting = waitForFinal
                             ? "invalid-index"
                             : wanted && !catalog.channels[wanted]
@@ -369,11 +387,14 @@ function createOfflineDriver(
                             value.phase || "files"
                         );
                         progress.textContent =
+                            ports.translate("Loading. Please wait...") +
+                            " (" +
+                            scanned +
+                            (knownTotal ? " / " + total : "") +
+                            ") · " +
                             ports.translate("Local videos") +
                             ": " +
-                            catalog.ids.length +
-                            " / " +
-                            scanned;
+                            catalog.ids.length;
                     }
                 }
                 if (final) clearLoadTimer();

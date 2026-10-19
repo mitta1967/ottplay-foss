@@ -13,6 +13,20 @@ no HTTP API for submitting an arbitrary filesystem path. These commands return
 the private loopback endpoint, and the UI fetches its catalog. They do not upload
 the picked files to that endpoint.
 
+The picker command schedules background discovery and returns without waiting
+for the entire directory. The private catalog exposes cumulative items with
+`scanning`, `scanned`, nullable `total`, and an optional `scanError`. While it is
+scanning, the frontend polls every 250 ms and publishes changed snapshots. Adding
+a folder starts playback when an eligible item becomes available; later entries
+append without reopening the playing video. A restored selection still waits
+for its saved item rather than choosing a different video.
+
+The standard loading dialog displays processed catalog records and playable
+video counts. These are not downloaded bytes: media stays in place. An unknown
+total is omitted; unchanged polling does not reset the 60-second stall timeout.
+Catalog polling does not start a second scan. Explicit Refresh requests a new
+scan, and source changes preserve existing item IDs.
+
 The existing Rust byte-range server opens the original files read-only. URLs use
 opaque IDs and a random per-process token rather than filesystem paths. JSON
 catalogs expose source names, availability, and item source IDs, not full paths.
