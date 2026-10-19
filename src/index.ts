@@ -2621,6 +2621,8 @@ function setupTauriEpgCacheReady(): void {
  * @param fullscreen - Close the list after admitting a remote selection.
  * @param admit - Optional current-state guard for a synchronous remote channel step.
  * @param resume - Startup-only local file offset, bound to its source and channel.
+ * @param background - Keep the channel list open during natural media transitions.
+ * @param fromStart - Start an adjacent media file at zero instead of its saved position.
  *
  * Side effects: Calls stbStop(), setCurrent(), updateChannelInfo(),
  * showChannelInfo(), stbPlay(). Sets window.playType = 0. Creates a
@@ -2634,7 +2636,9 @@ function _playChannel(
     chIdx: number,
     fullscreen?: boolean,
     admit?: () => boolean,
-    resume?: { channelId: string; position: number; sourceId: string }
+    resume?: { channelId: string; position: number; sourceId: string },
+    background = false,
+    fromStart = false
 ): boolean | void {
     var w = window as any;
     function resumeCurrent(): boolean {
@@ -2702,7 +2706,15 @@ function _playChannel(
             var list = cats[requestedCategory];
             var index = list ? list.indexOf(requestedId) : -1;
             if (category >= 0 && index >= 0)
-                playChannel(category, index, fullscreen, admit, resume);
+                playChannel(
+                    category,
+                    index,
+                    fullscreen,
+                    admit,
+                    resume,
+                    background,
+                    fromStart
+                );
         })
     ) {
         console.log("[playChannel] blocked by parental");
@@ -2723,6 +2735,34 @@ function _playChannel(
     setCurrent(catIdx, chIdx);
     if (!resumeCurrent()) return false;
     var channelId = curList[primaryIndex];
+    var mediaItem =
+        channels[channelId] && (channels[channelId] as any).__ottMediaItem;
+    if (mediaItem && w.__ottMedia && w.__ottMedia.playChannel) {
+        var selectedDriver = w.__ottActiveProviderDriver;
+        var selectedLoad = w.__ottCommandChannelLoad;
+        var selectedRow = channels[channelId];
+        clearTimeout(w.previewTimer);
+        w.previewChan = null;
+        if (w.isListVisible && !background) closeList();
+        if (
+            selectedDriver !== w.__ottActiveProviderDriver ||
+            selectedLoad !== w.__ottCommandChannelLoad ||
+            selectedRow !== channels[channelId]
+        )
+            return false;
+        return w.__ottMedia.playChannel(
+            mediaItem,
+            channelId,
+            undefined,
+            background,
+            fromStart
+                ? "start"
+                : w.commandChannelsReady === false ||
+                    (kiosk && kiosk.locked() && kiosk.allowed(channelId))
+                  ? "resume"
+                  : "prompt"
+        );
+    }
     console.log(
         "[playChannel] channelId=" +
             channelId +
@@ -2751,14 +2791,19 @@ function _playChannel(
 /** Start a resolved MediaRef and render its metadata. The owned media journal chooses resume. */
 function _playMedia(item: MediaHistoryEntry, automatic = false): void {
     var kiosk = (window as any).__ottKiosk;
+    var channelLaunch =
+        (window as any).__ottMedia &&
+        (window as any).__ottMedia.channelLaunch &&
+        (window as any).__ottMedia.channelLaunch(item);
     if (
         kiosk &&
         kiosk.enabled() &&
         !(
-            automatic &&
-            kiosk.locked() &&
-            typeof kiosk.allowedMedia === "function" &&
-            kiosk.allowedMedia(item && (item as any).__ottMediaRef)
+            (channelLaunch != null && kiosk.allowed(channelLaunch)) ||
+            (automatic &&
+                kiosk.locked() &&
+                typeof kiosk.allowedMedia === "function" &&
+                kiosk.allowedMedia(item && (item as any).__ottMediaRef))
         )
     )
         return;
@@ -2783,7 +2828,7 @@ function _playMedia(item: MediaHistoryEntry, automatic = false): void {
     // A delayed live-channel probe must not relabel the newly selected VOD item.
     clearTimeout((window as any)._tmedia);
     clearTimeout(mediaCheckTimer);
-    setCurrent(catIndex, -1);
+    if (channelLaunch == null) setCurrent(catIndex, -1);
     var media = (window as any).__ottMedia.prepare(item, streamUrl);
     if (!media) return;
     item = media.item;
@@ -2816,6 +2861,7 @@ function _playMedia(item: MediaHistoryEntry, automatic = false): void {
     )
         (window as any).__ottClassicPlayback.command({
             channelId: media.ref.itemId,
+            channelSelection: media.channel && media.channel.id,
             item: item,
             position: startupPosition,
             sourceId: media.ref.sourceId,
