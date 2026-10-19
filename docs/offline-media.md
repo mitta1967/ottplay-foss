@@ -37,7 +37,9 @@ Closing the page, pressing **Q** on a PC, or exiting the native app saves the
 current video position before stopping playback. On the next start, the exact
 selected file resumes from that position, including when a saved Local videos
 profile is active. This applies to here.now/browser, OTT Server, Tauri, and
-Capacitor players. The original source must still be present and permitted;
+Capacitor players. Each saved profile keeps its own position; switching profiles
+does not overwrite another profile's or the unprofiled library's resume journal.
+The original source must still be present and permitted;
 missing files or revoked access open recovery instead of playing a different file.
 Local positions do not have the seven-day expiry used for TV archives.
 

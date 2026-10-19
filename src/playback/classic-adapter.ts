@@ -688,8 +688,11 @@ function classicPlaybackJournal(): any {
     var set = w.providerSetItem;
     var source = classicPlaybackSource(w);
     var legacy = w.__ottSourceIdentity.legacy(w);
+    var localProfile = /^offline:\d+$/.test(legacy);
     var storageKey =
-        source === legacy ? "playbackJournal" : "playbackJournal:" + source;
+        source === legacy && !localProfile
+            ? "playbackJournal"
+            : "playbackJournal:" + source;
     function current(): boolean {
         return (
             source === classicPlaybackSource(w) &&
@@ -706,11 +709,17 @@ function classicPlaybackJournal(): any {
     var allowLegacy = false;
     try {
         var claim = read("playbackJournalSource");
-        if (!claim) {
+        var canClaim = !localProfile;
+        if (localProfile && !claim) {
+            // A slot must not claim an older unprofiled or another slot's data.
+            var previous = read("playbackJournal");
+            canClaim = !!previous && JSON.parse(previous).sourceId === source;
+        }
+        if (!claim && canClaim) {
             set.call(w, "playbackJournalSource", source);
         }
         allowLegacy =
-            (!claim || claim === source) &&
+            ((!claim && canClaim) || claim === source) &&
             read("playbackJournalSource") === source;
     } catch (_) {}
     return w.__ottPlaybackJournal.create({

@@ -269,7 +269,8 @@ const { gzipSync } = require("node:zlib");
 // bounds add 2058 raw bytes to the final integrated entry. Reserve 2304/768.
 // Exact local-file startup resume and pre-Q checkpointing measure 944712 raw;
 // use remaining headroom plus 512 raw bytes, without raising the gzip cap.
-const BUDGET = Object.freeze({ bytes: 944767, gzipBytes: 292798 });
+// Profile journal isolation measures 944824 raw (+112); reserve 256 once.
+const BUDGET = Object.freeze({ bytes: 945023, gzipBytes: 292798 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -402,7 +403,7 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count the same shuffle and profile deltas once across shipped artifacts.
 // Count the restored recovery/ownership boundary once across all artifacts.
 // Count the same 512-byte local resume/exit allowance once in the full payload.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1065667, gzipBytes: 337698 });
+const TOTAL_BUDGET = Object.freeze({ bytes: 1065923, gzipBytes: 337698 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

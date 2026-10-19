@@ -238,6 +238,87 @@ function include(c, file, names) {
 
 // Explicit finite detection remains available to non-local channel adapters.
 {
+    const c = fixture();
+    c.p_pref = "offline";
+    c.__ottActiveProviderDriver = { id: "offline" };
+    let slot = -1;
+    c.__ottOfflineProfiles = {
+        namespace: () => (slot < 0 ? "offline" : "offline:" + slot),
+    };
+    function save(position) {
+        c.__ottClassicPlayback.command({
+            channelId: 101,
+            position,
+            type: "live",
+        });
+        c.__ottClassicPlayback.checkpoint(
+            c.__ottClassicPlayback.snapshot(),
+            true
+        );
+    }
+    save(23);
+    const original = c.stored.playbackJournal;
+    slot = 0;
+    save(17);
+    slot = 1;
+    save(41);
+    slot = 0;
+    assert.equal(c.__ottClassicPlayback.bookmark().playTime, 17);
+    slot = 1;
+    assert.equal(c.__ottClassicPlayback.bookmark().playTime, 41);
+    slot = -1;
+    assert.equal(c.__ottClassicPlayback.bookmark().playTime, 23);
+    assert.equal(
+        c.stored.playbackJournal,
+        original,
+        "profile writes preserve the unprofiled journal"
+    );
+    assert.equal(
+        JSON.parse(c.stored["playbackJournal:offline:0"]).sourceId,
+        "offline:0"
+    );
+    assert.equal(
+        JSON.parse(c.stored["playbackJournal:offline:1"]).sourceId,
+        "offline:1"
+    );
+    const unclaimed = fixture();
+    unclaimed.p_pref = "offline";
+    unclaimed.__ottActiveProviderDriver = { id: "offline" };
+    unclaimed.stored.playbackJournal = original;
+    unclaimed.__ottOfflineProfiles = { namespace: () => "offline:0" };
+    assert.equal(unclaimed.__ottClassicPlayback.bookmark(), null);
+    unclaimed.__ottClassicPlayback.command({
+        channelId: 101,
+        position: 9,
+        type: "live",
+    });
+    unclaimed.__ottClassicPlayback.checkpoint(
+        unclaimed.__ottClassicPlayback.snapshot(),
+        true
+    );
+    assert.equal(unclaimed.__ottClassicPlayback.bookmark().playTime, 9);
+    assert.equal(unclaimed.stored.playbackJournal, original);
+    assert.equal(
+        unclaimed.stored.playbackJournalSource,
+        undefined,
+        "a slot cannot claim an unowned foreign journal"
+    );
+    const claimed = fixture();
+    claimed.p_pref = "offline";
+    claimed.__ottActiveProviderDriver = { id: "offline" };
+    claimed.__ottOfflineProfiles = { namespace: () => "offline:0" };
+    claimed.stored.playbackJournalSource = "offline:0";
+    const legacyProfile = JSON.parse(original);
+    legacyProfile.sourceId = "offline:0";
+    claimed.stored.playbackJournal = JSON.stringify(legacyProfile);
+    assert.equal(
+        claimed.__ottClassicPlayback.bookmark().playTime,
+        23,
+        "an explicitly owned old profile journal remains readable"
+    );
+}
+
+{
     for (const provider of ["offline", "m3u"]) {
         const c = fixture();
         c.p_pref = provider;
