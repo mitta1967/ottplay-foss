@@ -310,8 +310,10 @@ requests, local-library scans and programme-guide work, and prevents late result
 or the kiosk watchdog from restarting them. New playback and scans remain blocked
 until `go`. Authenticated standby/go are available in strict kiosk and with settings
 locked; app restart, exit, reboot and configuration keep their existing restrictions.
-Remote polling, command replies and diagnostics stay connected. This is a player
-work state, not an OS shutdown or a command to wake an offline television.
+Remote polling, command replies and diagnostics remain available while the OS
+keeps the app running. On iOS/Android the OS may suspend the app in the background;
+`go` cannot wake a closed or suspended app, or an offline device. Standby controls
+the player's work without shutting down the operating system.
 
 The player checkpoints its confirmed playback cursor before retiring the source.
 Go reopens the saved source/profile through normal startup and resume rules; live
