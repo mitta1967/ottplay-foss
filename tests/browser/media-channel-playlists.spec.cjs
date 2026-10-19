@@ -18,6 +18,8 @@ for (const provider of ["plex", "vportal"]) {
                 second = [],
                 metadata = [];
             const errors = [];
+            let holdMetadata = false;
+            const pendingMetadata = [];
             page.on("pageerror", (error) => errors.push(error.message));
             const json = (route, value) =>
                 route.fulfill({
@@ -97,12 +99,20 @@ for (const provider of ["plex", "vportal"]) {
                 if (/^\/library\/metadata\/\d+$/.test(url.pathname)) {
                     const id = Number(url.pathname.split("/").pop());
                     metadata.push(id);
+                    if (holdMetadata) {
+                        pendingMetadata.push({ id, route });
+                        return;
+                    }
                     return resolved(route, id);
                 }
                 if (url.pathname.endsWith("/vportal/api")) {
                     const params = route.request().postDataJSON().params;
                     if (params.cmd === "play") {
                         metadata.push(params.id);
+                        if (holdMetadata) {
+                            pendingMetadata.push({ id: params.id, route });
+                            return;
+                        }
                         return resolved(route, params.id);
                     }
                     if (params.folder === "one") first.push(route);
@@ -242,12 +252,38 @@ for (const provider of ["plex", "vportal"]) {
             await page.evaluate(() =>
                 window.dialogBoxKeyHandler(window.keys.RETURN)
             );
+            holdMetadata = true;
             await page.evaluate(() => {
                 window.selIndex = window.listArray.findIndex(
                     (id) => window.channels[id].channel_name === "Film 2"
                 );
                 window.channelsKeyHandler(window.keys.ENTER);
             });
+            await expect.poll(() => pendingMetadata.length).toBe(1);
+            await expect(page.locator("#dialogbox .ott-spinner")).toBeVisible();
+            await page.keyboard.press("ArrowDown");
+            expect(pendingMetadata.length).toBe(1);
+            await page.keyboard.press("Backspace");
+            await expect(page.locator("#dialogbox")).toBeHidden();
+            await expect(page.locator("#list")).toBeVisible();
+            expect(
+                await page.evaluate(
+                    () =>
+                        window.channels[window.listArray[window.selIndex]]
+                            .channel_name
+                )
+            ).toBe("Film 2");
+            const cancelled = pendingMetadata.shift();
+            await resolved(cancelled.route, cancelled.id);
+            expect(
+                await page.evaluate(
+                    () => window.__ottMedia.current()?.payload.title
+                )
+            ).toBe("Film 1");
+            holdMetadata = false;
+            const beforeRetry = metadata.length;
+            await page.keyboard.press("Enter");
+            await expect.poll(() => metadata.length).toBe(beforeRetry + 1);
             await expect.poll(() => metadata[metadata.length - 1]).toBe(2);
             await page.waitForFunction(
                 () =>
