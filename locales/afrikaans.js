@@ -605,6 +605,7 @@ var keyStrings = {
     "Loading...": "Laai…",
     "Local HTTP remote control": "Plaaslike HTTP-afstandbeheer",
     "Local URL": "Plaaslike URL",
+    "Local videos": "Plaaslike video's",
     Login: "Gebruikersnaam",
     lang: "Afrikaans",
     large: "groot",

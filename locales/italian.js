@@ -613,6 +613,7 @@ var keyStrings = {
     "Loading...": "Caricamento…",
     "Local HTTP remote control": "Controllo remoto HTTP locale",
     "Local URL": "URL locale",
+    "Local videos": "Video locali",
     Login: "Nome utente",
     lang: "Italiano",
     large: "grande",

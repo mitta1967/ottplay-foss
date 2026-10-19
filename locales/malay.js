@@ -601,6 +601,7 @@ var keyStrings = {
     "Loading...": "Memuatkan…",
     "Local HTTP remote control": "Kawalan jauh HTTP setempat",
     "Local URL": "URL setempat",
+    "Local videos": "Video setempat",
     Login: "Nama pengguna",
     lang: "Bahasa Melayu",
     large: "besar",

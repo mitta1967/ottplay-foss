@@ -599,6 +599,7 @@ var keyStrings = {
     "Loading...": "Ýüklenýär…",
     "Local HTTP remote control": "Ýerli HTTP uzakdan dolandyryş",
     "Local URL": "Ýerli URL",
+    "Local videos": "Ýerli wideolar",
     Login: "Ulanyjy ady",
     lang: "Türkmençe",
     large: "uly",

@@ -598,6 +598,7 @@ var keyStrings = {
     "Loading...": "بارول…",
     "Local HTTP remote control": "ځایی HTTP ریموټ کنټرول",
     "Local URL": "ځایی URL",
+    "Local videos": "ځايي ویډیوګانې",
     Login: "د کارن نوم",
     lang: "پښتو",
     large: "لوی",

@@ -577,6 +577,7 @@ var keyStrings = {
     "Loading...": "ଲୋଡ୍ ହେଉଛି…",
     "Local HTTP remote control": "ସ୍ଥାନୀୟ HTTP ଦୂର ନିୟନ୍ତ୍ରଣ",
     "Local URL": "ସ୍ଥାନୀୟ URL",
+    "Local videos": "ସ୍ଥାନୀୟ ଭିଡିଓ",
     Login: "ବ୍ୟବହାରକାରୀ ନାମ",
     lang: "ଓଡ଼ିଆ",
     large: "ବଡ଼",

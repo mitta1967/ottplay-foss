@@ -580,6 +580,7 @@ var keyStrings = {
     "Loading...": "טוען…",
     "Local HTTP remote control": "שליטה מקומית דרך HTTP",
     "Local URL": "כתובת מקומית",
+    "Local videos": "סרטונים מקומיים",
     Login: "שם משתמש",
     lang: "עברית",
     large: "גדול",

@@ -612,6 +612,7 @@ var keyStrings = {
     "Loading...": "Á luchtú…",
     "Local HTTP remote control": "Cianrialú HTTP áitiúil",
     "Local URL": "URL áitiúil",
+    "Local videos": "Físeáin áitiúla",
     Login: "Ainm úsáideora",
     lang: "Gaeilge",
     large: "mór",

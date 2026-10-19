@@ -591,6 +591,7 @@ var keyStrings = {
     "Loading...": "لوڊ ٿي رهيو آهي…",
     "Local HTTP remote control": "مقامي HTTP ريموٽ ڪنٽرول",
     "Local URL": "مقامي URL",
+    "Local videos": "مقامي وڊيوز",
     Login: "يوزر نالو",
     lang: "سنڌي",
     large: "وڏو",

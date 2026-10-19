@@ -613,6 +613,7 @@ var keyStrings = {
     "Loading...": "Се вчитува…",
     "Local HTTP remote control": "Локална HTTP далечинска контрола",
     "Local URL": "Локален URL",
+    "Local videos": "Локални видеа",
     Login: "Корисничко име",
     lang: "Македонски",
     large: "голем",

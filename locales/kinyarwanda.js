@@ -620,6 +620,7 @@ var keyStrings = {
     "Local HTTP remote control":
         "Igenzura ryo kure rya HTTP ryo ku rusobe rw'aha",
     "Local URL": "URL yo ku gikoresho",
+    "Local videos": "Amashusho ari ku gikoresho",
     Login: "Izina ry'ukoresha",
     lang: "Ikinyarwanda",
     large: "binini",

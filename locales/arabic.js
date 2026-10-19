@@ -586,6 +586,7 @@ var keyStrings = {
     "Loading...": "جاري التحميل...",
     "Local HTTP remote control": "جهاز التحكم عن بعد HTTP المحلي",
     "Local URL": "URL المحلي",
+    "Local videos": "مقاطع الفيديو المحلية",
     Login: "اسم المستخدم",
     lang: "العربية",
     large: "كبيرة",

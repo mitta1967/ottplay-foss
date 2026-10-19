@@ -620,6 +620,7 @@ var keyStrings = {
     "Loading...": "Kuyalayishwa…",
     "Local HTTP remote control": "Ukulawula ukude nge-HTTP yendawo",
     "Local URL": "I-URL yendawo",
+    "Local videos": "Amavidiyo akudivayisi",
     Login: "Igama lomsebenzisi",
     lang: "isiZulu",
     large: "okukhulu",

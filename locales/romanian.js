@@ -616,6 +616,7 @@ var keyStrings = {
     "Loading...": "Se încarcă…",
     "Local HTTP remote control": "Control HTTP local",
     "Local URL": "URL local",
+    "Local videos": "Videoclipuri locale",
     Login: "Nume de utilizator",
     lang: "Română",
     large: "mare",

@@ -589,6 +589,7 @@ var keyStrings = {
     "Loading...": "පූරණය වෙමින්...",
     "Local HTTP remote control": "දේශීය HTTP දුරස්ථ පාලකය",
     "Local URL": "දේශීය URL",
+    "Local videos": "දේශීය වීඩියෝ",
     Login: "පරිශීලක නාමය",
     lang: "සිංහල",
     large: "විශාල",

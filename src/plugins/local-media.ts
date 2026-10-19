@@ -224,7 +224,7 @@ export function installLocalMedia(w: any): any {
     function editServer(): void {
         if (locked() || settingsLocked()) return;
         revision++;
-        w.editCaption = w._("Server library URL");
+        w.editCaption = w._("Media Library URL");
         w.editvar = remoteEndpoint();
         w.setEdit = function () {
             if (!current() || locked() || settingsLocked()) return;
@@ -396,7 +396,7 @@ export function installLocalMedia(w: any): any {
             );
             w.listFooter.innerHTML =
                 w.renderButtonHint(w.keys.RETURN, w.strRETURN, "Close") +
-                w.renderButtonHint(w.keys.ENTER, w.strENTER, "Select");
+                w.renderButtonHint(w.keys.ENTER, w.strENTER, "Ok");
         };
         handler = function (key: number) {
             if (!current()) return false;

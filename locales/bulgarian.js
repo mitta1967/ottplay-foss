@@ -609,6 +609,7 @@ var keyStrings = {
     "Loading...": "Зареждане…",
     "Local HTTP remote control": "Локално HTTP дистанционно",
     "Local URL": "Локален URL",
+    "Local videos": "Локални видеоклипове",
     Login: "Потребителско име",
     lang: "Български",
     large: "голям",

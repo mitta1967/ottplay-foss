@@ -596,6 +596,7 @@ var keyStrings = {
     "Loading...": "Ana ebugo…",
     "Local HTTP remote control": "Njikwa HTTP mpaghara dị anya",
     "Local URL": "URL mpaghara",
+    "Local videos": "Vidiyo dị na ngwaọrụ",
     Login: "Aha njirimara",
     lang: "Igbo",
     large: "nnukwu",

@@ -586,6 +586,7 @@ var keyStrings = {
     "Loading...": "লোড হৈ আছে…",
     "Local HTTP remote control": "স্থানীয় HTTP ৰিম’ট নিয়ন্ত্ৰণ",
     "Local URL": "স্থানীয় URL",
+    "Local videos": "স্থানীয় ভিডিঅ'",
     Login: "ব্যৱহাৰকাৰীৰ নাম",
     lang: "অসমীয়া",
     large: "ডাঙৰ",

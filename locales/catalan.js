@@ -624,6 +624,7 @@ var keyStrings = {
     "Loading...": "S’està carregant…",
     "Local HTTP remote control": "Control remot HTTP local",
     "Local URL": "URL local",
+    "Local videos": "Vídeos locals",
     Login: "Nom d’usuari",
     lang: "Català",
     large: "gran",

@@ -621,6 +621,7 @@ var keyStrings = {
     "Loading...": "Kulayishwa…",
     "Local HTTP remote control": "Ulawulo olukude lwe-HTTP lwasekuhlaleni",
     "Local URL": "I-URL yasekuhlaleni",
+    "Local videos": "Iividiyo ezikwisixhobo",
     Login: "Igama lomsebenzisi",
     lang: "isiXhosa",
     large: "enkulu",

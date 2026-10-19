@@ -610,6 +610,7 @@ var keyStrings = {
     "Loading...": "Laden…",
     "Local HTTP remote control": "Lokale HTTP-afstandsbediening",
     "Local URL": "Lokale URL",
+    "Local videos": "Lokale video's",
     Login: "Gebruikersnaam",
     lang: "Nederlands",
     large: "groot",

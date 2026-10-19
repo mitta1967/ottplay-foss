@@ -603,6 +603,7 @@ var keyStrings = {
     "Loading...": "Yüklənir…",
     "Local HTTP remote control": "Yerli HTTP uzaqdan idarəetməsi",
     "Local URL": "Yerli URL",
+    "Local videos": "Yerli videolar",
     Login: "İstifadəçi adı",
     lang: "Azərbaycanca",
     large: "böyük",

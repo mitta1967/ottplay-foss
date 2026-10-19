@@ -593,6 +593,7 @@ var keyStrings = {
     "Loading...": "Hleð…",
     "Local HTTP remote control": "Staðbundin HTTP-fjarstýring",
     "Local URL": "Staðbundin vefslóð",
+    "Local videos": "Staðbundin myndskeið",
     Login: "Notandanafn",
     lang: "Íslenska",
     large: "stórt",

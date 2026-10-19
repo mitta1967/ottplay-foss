@@ -616,6 +616,7 @@ var keyStrings = {
     "Loading...": "Waxaa la soo rarayaa…",
     "Local HTTP remote control": "Kontoroolka fog ee HTTP ee maxalliga ah",
     "Local URL": "URL-ka maxalliga ah",
+    "Local videos": "Fiidyowyada qalabka",
     Login: "Magaca isticmaalaha",
     lang: "Soomaali",
     large: "weyn",

@@ -594,6 +594,7 @@ var keyStrings = {
     "Loading...": "در حال بارگیری…",
     "Local HTTP remote control": "کنترل از راه دور HTTP محلی",
     "Local URL": "محلی URL",
+    "Local videos": "ویدیوهای محلی",
     Login: "نام کاربری",
     lang: "فارسی",
     large: "بزرگ",

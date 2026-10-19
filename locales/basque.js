@@ -610,6 +610,7 @@ var keyStrings = {
     "Loading...": "Kargatzen…",
     "Local HTTP remote control": "HTTP urruneko kontrol lokala",
     "Local URL": "URL lokala",
+    "Local videos": "Tokiko bideoak",
     Login: "Erabiltzaile-izena",
     lang: "Euskara",
     large: "handia",

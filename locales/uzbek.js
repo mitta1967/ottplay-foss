@@ -612,6 +612,7 @@ var keyStrings = {
     "Loading...": "Yuklanmoqda…",
     "Local HTTP remote control": "Mahalliy HTTP pulti",
     "Local URL": "Mahalliy URL manzil",
+    "Local videos": "Mahalliy videolar",
     Login: "Foydalanuvchi nomi",
     lang: "Oʻzbekcha",
     large: "katta",

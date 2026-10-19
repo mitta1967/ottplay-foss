@@ -595,6 +595,7 @@ var keyStrings = {
     "Loading...": "Đang tải…",
     "Local HTTP remote control": "Điều khiển từ xa HTTP cục bộ",
     "Local URL": "URL cục bộ",
+    "Local videos": "Video cục bộ",
     Login: "Tên người dùng",
     lang: "Tiếng Việt",
     large: "lớn",

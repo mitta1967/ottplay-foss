@@ -610,6 +610,7 @@ var keyStrings = {
     "Loading...": "Ачаалж байна…",
     "Local HTTP remote control": "Дотоод HTTP алсын удирдлага",
     "Local URL": "Дотоод URL",
+    "Local videos": "Төхөөрөмжийн видеонууд",
     Login: "Хэрэглэгчийн нэр",
     lang: "Монгол",
     large: "том",

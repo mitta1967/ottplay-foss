@@ -600,6 +600,7 @@ var keyStrings = {
     "Loading...": "Laadimine…",
     "Local HTTP remote control": "Kohalik HTTP kaugjuhtimispult",
     "Local URL": "Kohalik URL",
+    "Local videos": "Kohalikud videod",
     Login: "Kasutajanimi",
     lang: "Eesti",
     large: "suur",

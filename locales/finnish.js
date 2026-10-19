@@ -604,6 +604,7 @@ var keyStrings = {
     "Loading...": "Ladataan…",
     "Local HTTP remote control": "Paikallinen HTTP kaukosäädin",
     "Local URL": "Paikallinen URL",
+    "Local videos": "Paikalliset videot",
     Login: "Käyttäjätunnus",
     lang: "Suomi",
     large: "suuri",

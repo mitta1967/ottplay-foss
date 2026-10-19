@@ -611,6 +611,7 @@ var keyStrings = {
     "Loading...": "Nalaganje ...",
     "Local HTTP remote control": "Lokalni daljinski upravljalnik HTTP",
     "Local URL": "Lokalno URL",
+    "Local videos": "Lokalni videoposnetki",
     Login: "Uporabniško ime",
     lang: "Slovenščina",
     large: "velik",

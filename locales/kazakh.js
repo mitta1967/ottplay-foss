@@ -602,6 +602,7 @@ var keyStrings = {
     "Loading...": "Жүктелуде…",
     "Local HTTP remote control": "Жергілікті HTTP қашықтан басқару",
     "Local URL": "Жергілікті URL",
+    "Local videos": "Жергілікті бейнелер",
     Login: "Пайдаланушы аты",
     lang: "Қазақша",
     large: "үлкен",
