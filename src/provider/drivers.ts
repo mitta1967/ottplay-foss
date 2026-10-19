@@ -14,6 +14,7 @@ interface DriverCatalog {
     groupOrder: string[];
     groups: { [name: string]: Array<string | number> };
     ids: Array<string | number>;
+    incremental?: boolean;
 }
 interface DriverHttpRequest {
     contentType?: string;
@@ -201,6 +202,15 @@ function createOfflineDriver(
     var disposed = false;
     var catalog = emptyDriverCatalog();
     var revision = 0;
+    var loadTimer: any = null;
+    function clearLoadTimer(): void {
+        if (
+            loadTimer !== null &&
+            typeof (window as any).clearTimeout === "function"
+        )
+            (window as any).clearTimeout(loadTimer);
+        loadTimer = null;
+    }
     function active(): boolean {
         return !disposed && owner.active();
     }
@@ -220,6 +230,7 @@ function createOfflineDriver(
         dispose: function () {
             disposed = true;
             revision++;
+            clearLoadTimer();
         },
         guide: function (_, done) {
             if (active()) done([]);
@@ -227,58 +238,132 @@ function createOfflineDriver(
         id: "offline",
         load: function (done) {
             var request = ++revision;
+            clearLoadTimer();
             var media = (window as any).__ottLocalMedia;
             if (!media) {
                 done(emptyDriverCatalog(), "Local media is unavailable");
                 return;
             }
-            media.list().then(
-                function (value: any) {
-                    if (!active() || request !== revision) return;
-                    catalog = emptyDriverCatalog();
-                    value.items.forEach(function (item: any) {
-                        if (item.available === false || !item.url) return;
-                        var id = "local-" + item.id;
-                        catalog.ids.push(id);
-                        catalog.channels[id] = {
-                            category: {
-                                class: 2,
-                                name: ports.translate("Local videos"),
-                            },
-                            channel_name: item.name,
-                            logo: "",
-                            rec: 0,
-                            time: 0,
-                            time_to: 0,
-                            url: item.url,
-                        };
-                    });
-                    done(driverCatalogSnapshot(catalog));
-                    // An empty provider must offer import rather than strand the user
-                    // on a blank channel list. Recheck ownership after the callback.
+            var started = false;
+            var wanted = "";
+            var waitForFinal = false;
+            try {
+                var host = window as any;
+                var source =
+                    host.__ottSourceIdentity &&
+                    host.__ottSourceIdentity.current(host);
+                var saved = JSON.parse(
+                    ports.storage.get("channelLibrary:" + source) || "null"
+                );
+                if (saved && saved.selected && saved.selected.itemId) {
+                    wanted = String(saved.selected.itemId).replace(
+                        /^channel:/,
+                        ""
+                    );
+                    if (wanted.indexOf("local-") !== 0) waitForFinal = true;
+                } else
+                    waitForFinal =
+                        Number(ports.storage.get("primaryIndex")) > 0;
+            } catch (_) {
+                waitForFinal = true;
+            }
+            catalog = emptyDriverCatalog();
+            function current(): boolean {
+                return active() && request === revision;
+            }
+            function recover(error: string): void {
+                if (!current()) return;
+                clearLoadTimer();
+                revision++;
+                if (!started) {
+                    done(emptyDriverCatalog(), error);
                     if (
                         active() &&
-                        request === revision &&
-                        !catalog.ids.length &&
-                        typeof media.open === "function"
-                    ) {
-                        if (
-                            value.sources &&
-                            value.sources.length &&
-                            typeof media.resume === "function"
-                        )
-                            media.resume();
-                        else media.open();
-                    }
-                },
-                function (error: any) {
-                    if (active() && request === revision)
-                        done(
-                            emptyDriverCatalog(),
-                            String(error.message || error)
-                        );
+                        request + 1 === revision &&
+                        typeof media.resume === "function"
+                    )
+                        media.resume(true);
                 }
-            );
+            }
+            function heartbeat(): void {
+                clearLoadTimer();
+                if (typeof (window as any).setTimeout === "function")
+                    loadTimer = (window as any).setTimeout(function () {
+                        recover("Local source did not respond");
+                    }, 60000);
+            }
+            function publish(value: any, final: boolean): boolean {
+                if (!current()) return false;
+                if (value.cancelled) {
+                    clearLoadTimer();
+                    revision++;
+                    return false;
+                }
+                heartbeat();
+                (value.items || []).forEach(function (item: any) {
+                    if (item.available === false || !item.url) return;
+                    var id = "local-" + item.id;
+                    if (catalog.channels[id]) return;
+                    catalog.ids.push(id);
+                    catalog.channels[id] = {
+                        category: {
+                            class: 2,
+                            name: ports.translate("Local videos"),
+                        },
+                        channel_name: item.name,
+                        logo: "",
+                        rec: 0,
+                        time: 0,
+                        time_to: 0,
+                        url: item.url,
+                    };
+                });
+                if (final) clearLoadTimer();
+                if (
+                    !started &&
+                    !final &&
+                    (!catalog.ids.length ||
+                        waitForFinal ||
+                        (wanted && !catalog.channels[wanted]))
+                )
+                    return true;
+                var incremental = started;
+                started = true;
+                var snapshot = driverCatalogSnapshot(catalog);
+                snapshot.incremental = incremental;
+                done(snapshot, undefined, incremental);
+                if (!current()) return false;
+                if (
+                    final &&
+                    !catalog.ids.length &&
+                    typeof media.open === "function"
+                ) {
+                    if (
+                        value.sources &&
+                        value.sources.length &&
+                        typeof media.resume === "function"
+                    )
+                        media.resume(true);
+                    else media.open();
+                }
+                return true;
+            }
+            heartbeat();
+            media
+                .list(
+                    function (value: any) {
+                        return publish(value, false);
+                    },
+                    wanted.indexOf("local-") === 0 ? wanted.slice(6) : undefined
+                )
+                .then(
+                    function (value: any) {
+                        publish(value, true);
+                    },
+                    function (error: any) {
+                        recover(String(error.message || error));
+                    }
+                );
         },
         logo: function () {
             return "";
@@ -2152,6 +2237,25 @@ function mountProviderDriver(
                 host._("Loading channels from Xtream API...")
             );
         driver.load(function (catalog, error, pending) {
+            if (owner.active() && catalog && catalog.incremental) {
+                var added: any[] = [];
+                catalog.ids.forEach(function (key) {
+                    if (
+                        Object.prototype.hasOwnProperty.call(host.channels, key)
+                    )
+                        return;
+                    host.channels[key] = catalog.channels[key];
+                    host.cList.push(key);
+                    added.push(key);
+                });
+                if (
+                    added.length &&
+                    host.__ottChannels &&
+                    host.__ottChannels.append
+                )
+                    host.__ottChannels.append(added);
+                return;
+            }
             if (owner.active() && !pending && settled) settled();
             if (!owner.active()) return;
             if (id === "xtream" && catalog)

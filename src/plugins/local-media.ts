@@ -77,13 +77,34 @@ export function installLocalMedia(w: any): any {
             return value;
         });
     }
-    function list(): Promise<any> {
-        if (isNative()) return remember(native.list());
-        return remember(
-            getEndpoint().then(function (base) {
-                return base ? http(base) : browser.list();
-            })
-        );
+    function list(
+        onProgress?: (value: any) => boolean | void,
+        preferredId?: string
+    ): Promise<any> {
+        var request = ++catalogRevision;
+        function accept(value: any): boolean {
+            if (request !== catalogRevision) return false;
+            if (!value || !Array.isArray(value.items))
+                throw new Error("Invalid local media catalog");
+            last = value;
+            return !onProgress || onProgress(value) !== false;
+        }
+        var pending = isNative()
+            ? native.list()
+            : getEndpoint().then(function (base) {
+                  return base
+                      ? http(base)
+                      : browser.list(
+                            onProgress ? accept : undefined,
+                            preferredId
+                        );
+              });
+        return pending.then(function (value: any) {
+            if (!value || !Array.isArray(value.items))
+                throw new Error("Invalid local media catalog");
+            if (request === catalogRevision) last = value;
+            return value;
+        });
     }
     function importFiles(folder = false): Promise<any> {
         if (locked() || settingsLocked())
@@ -133,7 +154,9 @@ export function installLocalMedia(w: any): any {
             );
         return remember(browser.removeSource(id));
     }
-    function requestAccess(): Promise<any> {
+    function requestAccess(
+        onProgress?: (value: any) => boolean | void
+    ): Promise<any> {
         if (locked() || settingsLocked())
             return Promise.reject(new Error("Unlock settings to grant access"));
         if (isNative()) return remember(native.requestAccess());
@@ -145,8 +168,22 @@ export function installLocalMedia(w: any): any {
                 })[0];
             return importFiles(!!missing && missing.kind === "folder");
         }
-        if (remoteEndpoint()) return list();
-        return remember(browser.requestAccess());
+        if (remoteEndpoint()) return list(onProgress);
+        var request = ++catalogRevision;
+        return browser
+            .requestAccess(
+                onProgress
+                    ? function (value: any) {
+                          if (request !== catalogRevision) return false;
+                          last = value;
+                          return onProgress(value);
+                      }
+                    : undefined
+            )
+            .then(function (value: any) {
+                if (request === catalogRevision) last = value;
+                return value;
+            });
     }
     function remove(id: string): Promise<any> {
         if (locked())
@@ -259,7 +296,12 @@ export function installLocalMedia(w: any): any {
     }
     function restorePlayback(): void {
         run(function () {
-            return requestAccess().then(function (value) {
+            return requestAccess(function () {
+                if (!resuming || !current()) return false;
+                if (!playable()) return true;
+                activate();
+                return false;
+            }).then(function (value) {
                 if (resuming && current() && playable()) activate();
                 return value;
             });
@@ -475,7 +517,7 @@ export function installLocalMedia(w: any): any {
             }
         );
     }
-    function open(recovery = false): void {
+    function open(recovery = false, skipScan = false): void {
         if (locked()) return;
         if (settingsLocked()) {
             if (typeof w.enterPinAndSetAccess === "function")
@@ -488,8 +530,9 @@ export function installLocalMedia(w: any): any {
         handler = null;
         owner = null;
         w.selIndex = 0;
+        if (skipScan) catalogRevision++;
         render();
-        run(list);
+        if (!skipScan) run(list);
     }
     var api = {
         activate: activate,
@@ -508,8 +551,8 @@ export function installLocalMedia(w: any): any {
         list: list,
         open: open,
         remove: remove,
-        resume: function () {
-            open(true);
+        resume: function (skipScan = false) {
+            open(true, skipScan);
         },
         title: title,
     };

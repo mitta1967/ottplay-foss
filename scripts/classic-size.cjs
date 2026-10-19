@@ -247,7 +247,11 @@ const { gzipSync } = require("node:zlib");
 // The requested owned loading spinner adds 459 raw bytes; allow 512 once.
 // Retain the existing gzip cap and all native/provider artifact checks.
 // Desktop volume capture and Ctrl seek add 155 raw bytes; allow 256 once.
-const BUDGET = Object.freeze({ bytes: 913791, gzipBytes: 283582 });
+// Nonblocking local startup and bounded source recovery add 454 raw bytes.
+// Progressive 10k-file scanning, preferred resume and append-only catalogs add
+// 3322 raw bytes and ~1.2 KB gzip; reserve 3584/1536 for this feature
+// while retaining prior Node/zlib compression headroom.
+const BUDGET = Object.freeze({ bytes: 917887, gzipBytes: 285118 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -373,7 +377,9 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // bundles are unchanged and remain inside the complete-payload measurement.
 // Count the same 512-byte loading-spinner allowance once in the full payload.
 // Include the same 256-byte desktop input allowance once.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1034691, gzipBytes: 328482 });
+// Count the 512-byte local startup allowance once; gzip limits stay fixed.
+// Include the same progressive-catalog allowance once in the full payload.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1038787, gzipBytes: 330018 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

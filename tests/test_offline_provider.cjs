@@ -1,6 +1,96 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { fixture } = require("./helpers/provider-driver-fixture.cjs");
+const {
+    fixture: createFixture,
+    integrationFixture,
+} = require("./helpers/provider-driver-fixture.cjs");
+function fixture(initial) {
+    const f = createFixture(initial);
+    f.host.setTimeout = setTimeout;
+    f.host.clearTimeout = clearTimeout;
+    return f;
+}
+
+test("restored local folder leaves the boot splash before its catalog resolves", async () => {
+    const f = integrationFixture("offline");
+    let resolveCatalog;
+    let bootReleased = 0;
+    f.host.clearBootHide = () => bootReleased++;
+    f.host.__ottLocalMedia = {
+        list: () =>
+            new Promise((resolve) => {
+                resolveCatalog = resolve;
+            }),
+    };
+    f.host.loadProv();
+    assert.equal(bootReleased, 1);
+    assert.equal(f.panels["#launch"].visible, false);
+    assert.equal(f.panels["#dialogbox"].visible, true);
+    assert.match(f.panels["#dialogbox"].html, /ott-spinner/);
+    assert.equal(f.completed, 0);
+    assert.equal(f.host.commandChannelsReady, false);
+    resolveCatalog({
+        items: [{ id: "saved", name: "Saved.mp4", url: "blob:saved" }],
+    });
+    await Promise.resolve();
+    assert.equal(f.completed, 1);
+    assert.equal(f.panels["#dialogbox"].visible, false);
+    assert.equal(f.host.commandChannelsReady, true);
+});
+
+test("local startup loading retires cleanly when another provider wins", async () => {
+    const f = integrationFixture("offline");
+    let resolveCatalog;
+    f.host.clearBootHide = () => {};
+    f.host.__ottLocalMedia = {
+        list: () =>
+            new Promise((resolve) => {
+                resolveCatalog = resolve;
+            }),
+        open: () => assert.fail("retired catalog reopened local media"),
+        resume: () => assert.fail("retired catalog reopened local recovery"),
+    };
+    f.host.loadProv();
+    f.host.loadProv("demo");
+    const completed = f.completed;
+    resolveCatalog({
+        items: [],
+        sources: [{ access: "permission-required", id: "old" }],
+    });
+    await Promise.resolve();
+    assert.equal(f.completed, completed);
+    assert.equal(f.host.__ottActiveProviderDriver.id, "demo");
+    assert.equal(f.panels["#dialogbox"].visible, false);
+});
+
+test("stalled local catalog opens recovery after a minute and ignores late completion", async () => {
+    const f = integrationFixture("offline");
+    let resolveCatalog;
+    const recovery = [];
+    f.host.clearBootHide = () => {};
+    f.host.__ottLocalMedia = {
+        list: () =>
+            new Promise((resolve) => {
+                resolveCatalog = resolve;
+            }),
+        resume: (skipScan) => recovery.push(skipScan),
+    };
+    f.host.loadProv();
+    f.advanceTimers(59999);
+    assert.equal(f.completed, 0);
+    assert.deepEqual(recovery, []);
+    f.advanceTimers(1);
+    assert.equal(f.completed, 1);
+    assert.deepEqual(recovery, [true]);
+    assert.equal(f.panels["#dialogbox"].visible, false);
+    resolveCatalog({
+        items: [{ id: "late", name: "Late.mp4", url: "blob:late" }],
+    });
+    await Promise.resolve();
+    assert.equal(f.completed, 1);
+    assert.deepEqual(recovery, [true]);
+    assert.equal(f.host.__ottActiveProviderDriver.stream("local-late"), "");
+});
 
 test("offline provider resolves stable IDs to fresh URLs after reload, without network", async () => {
     const f = fixture();
@@ -51,10 +141,12 @@ test("offline catalog completion cannot publish after a provider switch", async 
 
 test("offline storage failure settles the catalog with an actionable error", async () => {
     const f = fixture();
+    const recovery = [];
     f.host.__ottLocalMedia = {
         list: async () => {
             throw new Error("Storage unavailable");
         },
+        resume: (skipScan) => recovery.push(skipScan),
     };
     const driver = f.mount("offline");
     const result = await new Promise((resolve) =>
@@ -62,6 +154,7 @@ test("offline storage failure settles the catalog with an actionable error", asy
     );
     assert.equal(result.error, "Storage unavailable");
     assert.equal(result.catalog.ids.length, 0);
+    assert.deepEqual(recovery, [true]);
 });
 
 test("empty offline provider opens import after settling the catalog", async () => {
@@ -233,4 +326,88 @@ test("permission-blocked source opens playback recovery instead of settings", as
     f.mount("offline").load(() => events.push("settled"));
     await Promise.resolve();
     assert.deepEqual(events, ["settled", "resume"]);
+});
+
+test("local scan starts one playable batch and appends without replacing playing row", async () => {
+    const f = integrationFixture("offline");
+    let progress, finish;
+    const batches = [];
+    f.host.__ottChannels = {
+        append: (ids) => batches.push(Array.from(ids)),
+        reset() {},
+    };
+    f.host.clearBootHide = () => {};
+    f.host.__ottLocalMedia = {
+        list: (callback) => {
+            progress = callback;
+            return new Promise((resolve) => {
+                finish = resolve;
+            });
+        },
+    };
+    f.host.loadProv();
+    const first = { id: "first", name: "First.mp4", url: "blob:first" };
+    const second = { id: "second", name: "Second.mp4", url: "blob:second" };
+    progress({ items: [first] });
+    assert.equal(f.completed, 1);
+    const playing = f.host.channels["local-first"];
+    f.advanceTimers(59000);
+    progress({ items: [first, second] });
+    f.advanceTimers(59000);
+    assert.equal(f.completed, 1);
+    assert.strictEqual(f.host.channels["local-first"], playing);
+    assert.deepEqual(batches, [["local-second"]]);
+    finish({ items: [first, second] });
+    await Promise.resolve();
+    assert.equal(f.completed, 1);
+    assert.deepEqual(Array.from(f.host.cList), ["local-first", "local-second"]);
+});
+
+test("scan waits for saved stable selection instead of playing first different video", async () => {
+    const f = integrationFixture("offline");
+    let progress, finish, preferred;
+    f.host.__ottSourceIdentity = { current: () => "saved-source" };
+    f.saved.set(
+        "offlinechannelLibrary:saved-source",
+        JSON.stringify({ selected: { itemId: "channel:local-saved" } })
+    );
+    f.host.clearBootHide = () => {};
+    f.host.__ottLocalMedia = {
+        list: (callback, preferredId) => {
+            preferred = preferredId;
+            progress = callback;
+            return new Promise((resolve) => {
+                finish = resolve;
+            });
+        },
+    };
+    f.host.loadProv();
+    assert.equal(preferred, "saved");
+    const first = { id: "first", name: "First.mp4", url: "blob:first" };
+    const saved = { id: "saved", name: "Saved.mp4", url: "blob:saved" };
+    progress({ items: [first] });
+    assert.equal(f.completed, 0);
+    progress({ items: [first, saved] });
+    assert.equal(f.completed, 1);
+    finish({ items: [first, saved] });
+    await Promise.resolve();
+    assert.equal(f.completed, 1);
+});
+
+test("progress callback cancels background enumeration after provider replacement", async () => {
+    const f = fixture();
+    let progress, finish;
+    f.host.__ottLocalMedia = {
+        list: (callback) => {
+            progress = callback;
+            return new Promise((resolve) => {
+                finish = resolve;
+            });
+        },
+    };
+    f.mount("offline").load(() => {});
+    f.mount("demo");
+    assert.equal(progress({ items: [] }), false);
+    finish({ cancelled: true, items: [] });
+    await Promise.resolve();
 });
