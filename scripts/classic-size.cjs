@@ -280,7 +280,10 @@ const { gzipSync } = require("node:zlib");
 // 1600 raw bytes for these guards. Node 22.23.3 / zlib 1.3.1 measures
 // 295986 gzip in CI before the native suffix; reserve another 256 gzip bytes
 // for that compressor, native artifacts and release identity. Total caps stay.
-const BUDGET = Object.freeze({ bytes: 957623, gzipBytes: 296204 });
+// Retain the independently measured standby allowance once: 11264 raw / 3712 gzip.
+// Combined with main 4fe571e3 on Node 22.23.3: web 967984/299580,
+// native 967942/299643; complete web 1099953/347857 and native 1099911/347920.
+const BUDGET = Object.freeze({ bytes: 968887, gzipBytes: 299916 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -416,7 +419,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // The complete payload adds 23671 raw / at most 6957 gzip bytes over 4f9aea8a;
 // allocate 23700/7000, preserving the existing complete-payload headroom.
 // Count PR820's 768-byte local resume/journal allowance once in the payload.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1089623, gzipBytes: 344698 });
+// Count the same standby allowance once across the complete payload.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1100887, gzipBytes: 348410 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

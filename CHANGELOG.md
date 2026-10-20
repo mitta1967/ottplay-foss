@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Make remote standby/go suspend playback, provider requests, local scans and EPG work while keeping control connected. Persist the device-local state across reload, block late playback and kiosk watchdog recovery until go, and expose actual background drain status. Allow authenticated standby/go with kiosk/settings locks while retaining other lifecycle restrictions.
+
 - Remove VPortal setup, catalog loading and remote settings from M3U profiles. Use the standalone VPortal provider for selected portal sections; stored legacy device values are preserved but inactive. M3U remote metadata and settings comparisons now cover only TV settings.
 
 - Project selected Plex folders and standalone VPortal sections into the standard channel playlist. Start from the first usable batch, append remaining videos without restarting playback, and ignore results from cancelled loads.

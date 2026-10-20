@@ -32,6 +32,11 @@ unavailable saved item still follows the existing recovery flow; a different
 video is not substituted. Reading an endpoint during an active scan does not
 restart that scan.
 
+Standby cancels pending lookup and scan work. After an explicit wake, an
+invalidated catalog is rebuilt in the background with the same saved-item
+priority; a completed valid catalog is reused. A late endpoint response from
+before standby cannot start a new catalog request.
+
 The standard loading dialog shows its loading title once and one count of
 playable videos found. Internal scan counters remain available for diagnostics
 and stall detection; they are not a second visible count or downloaded bytes.

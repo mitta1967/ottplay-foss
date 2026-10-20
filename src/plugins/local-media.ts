@@ -123,6 +123,8 @@ export function installLocalMedia(w: any): any {
         onProgress?: (value: any) => boolean | void,
         preferredId?: string
     ): Promise<any> {
+        if (w.__ottStandby?.blocked())
+            return Promise.reject(w.__ottStandby.error());
         var request = ++catalogRevision;
         last = null;
         function accept(value: any): boolean {
@@ -140,6 +142,8 @@ export function installLocalMedia(w: any): any {
             : boundedLocalRead(function () {
                   return getEndpoint(false, preferredId);
               }).then(function (base) {
+                  if (request !== catalogRevision)
+                      return { cancelled: true, items: [] };
                   return base
                       ? pollCatalog(base, request, accept, !!onProgress)
                       : boundedLocalRead(function (progress) {
@@ -798,6 +802,11 @@ export function installLocalMedia(w: any): any {
                     )
                 );
             return Promise.resolve(JSON.parse(JSON.stringify(last)));
+        },
+        suspend: function () {
+            catalogRevision++;
+            revision++;
+            close();
         },
         title: title,
     };

@@ -280,6 +280,60 @@ async function flush() {
     assert.equal(discovery.queued(), 0);
 
     const savedId = "751db9d74d2cfe13";
+    const standby = fixture([catalog(1, 1, false)]);
+    const standbyError = new Error("Player is in standby");
+    standby.w.__ottStandby = {
+        blocked: () => true,
+        error: () => standbyError,
+    };
+    await assert.rejects(
+        standby.api.list(
+            () => assert.fail("standby cannot publish preferred-file progress"),
+            savedId
+        ),
+        (error) => error === standbyError
+    );
+    assert.equal(
+        standby.commands.length,
+        0,
+        "standby never invokes native lookup"
+    );
+    assert.equal(standby.reads(), 0, "standby never requests the catalog");
+    assert.equal(
+        standby.queued(),
+        0,
+        "standby never schedules catalog polling"
+    );
+
+    let finishSuspendedEndpoint;
+    const suspended = fixture([catalog(1, 1, false)], {
+        endpoint: () =>
+            new Promise((resolve) => {
+                finishSuspendedEndpoint = resolve;
+            }),
+    });
+    const suspendedResult = suspended.api.list(
+        () =>
+            assert.fail(
+                "suspended lookup cannot publish preferred-file progress"
+            ),
+        savedId
+    );
+    await flush();
+    assert.equal(suspended.commands[0].args.preferredId, savedId);
+    suspended.api.suspend();
+    finishSuspendedEndpoint({ endpoint: "http://localhost/catalog" });
+    const cancelledDiscovery = await suspendedResult;
+    assert.equal(cancelledDiscovery.cancelled, true);
+    assert.equal(
+        suspended.reads(),
+        0,
+        "endpoint completion after suspend cannot start a catalog request"
+    );
+    assert.equal(cancelledDiscovery.items.length, 0);
+    assert.equal(suspended.queued(), 0, "suspended discovery leaves no poller");
+    await assert.rejects(suspended.api.snapshot(), /scan to finish/);
+
     const savedFile = {
         id: savedId,
         name: "2999-saved-video.mp4",

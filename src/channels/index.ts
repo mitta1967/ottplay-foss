@@ -1200,10 +1200,16 @@ export function fetchChannelGuide(
     channelId: number,
     callback: (id: number, rows: EPGEntry[] | null) => void
 ): () => void {
+    var admission = (window as any).__ottStandby;
+    var generation = admission ? admission.generation() : 0;
+    if (admission && admission.blocked()) {
+        callback(channelId, null);
+        return function () {};
+    }
     var active = true,
         cancel: any = null;
     function finish(id: number, rows: EPGEntry[] | null): void {
-        if (!active) return;
+        if (!active || (admission && !admission.current(generation))) return;
         active = false;
         callback(id, rows);
     }
@@ -1444,6 +1450,7 @@ export function publishChannelProgrammeRows(
  * - Console log "player ready!".
  */
 export function onChannelsLoaded(): void {
+    if ((window as any).__ottStandby?.blocked()) return;
     console.log("[onChanelsLoaded] cList.length=" + cList.length);
     // Dismiss the old loading dialog before playback can open a PIN or resume
     // prompt. Hiding it afterwards would close the newly created prompt.

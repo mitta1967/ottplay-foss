@@ -1,4 +1,5 @@
 import { popupActionId } from "./compatibility/legacy-names";
+import { installStandby } from "./core/standby";
 import { applyLanguageMetadata, normalizeSearchText } from "./localization";
 import {
     languageAssetPath,
@@ -2037,6 +2038,7 @@ function loadStartupLanguage(): boolean {
     }
 
     function ready(): void {
+        if ((window as any).__ottStandby?.blocked()) return;
         (window as any).__ottBootDictionary = (window as any).keyStrings;
         if (typeof duneAddSettings !== "function") loadProv();
         else if (typeof (window as any).optionsList === "function")
@@ -2155,8 +2157,14 @@ function onStbReady(): void {
                 setupStalkerPortalShim();
         }
 
-        if (TMDb && TMDb.prepare) TMDb.prepare();
-        loadStartupLanguage();
+        window.__ottStandby.ready(function () {
+            if (window.__ottStandby.blocked()) {
+                stbSetStandby(true);
+                return;
+            }
+            if (TMDb && TMDb.prepare) TMDb.prepare();
+            loadStartupLanguage();
+        });
     } catch (e) {
         startupError(document.getElementById("launch"), "onStbReady", e);
     }
@@ -2347,6 +2355,8 @@ function setupTauriCompanionShim(): void {
     window.installTauriHttpTransport($, tauriInvoke);
 
     $.ajax = function (urlOrOpts: any, maybeOpts?: any) {
+        if ((window as any).__ottStandby?.blocked())
+            return origAjax(urlOrOpts, maybeOpts);
         let opts: any;
         if (typeof urlOrOpts === "string") {
             opts = Object.assign({}, maybeOpts || {}, { url: urlOrOpts });
@@ -2574,6 +2584,7 @@ function setupTauriEpgCacheReady(): void {
     }
     eventApi
         .listen("epg-cache-ready", function (_ev: any) {
+            if ((window as any).__ottStandby?.blocked()) return;
             try {
                 console.log("[Tauri] epg-cache-ready — refilling EPG");
                 invalidateEpgCache(true);
@@ -2641,6 +2652,7 @@ function _playChannel(
     fromStart = false
 ): boolean | void {
     var w = window as any;
+    if (w.__ottStandby?.blocked()) return false;
     function resumeCurrent(): boolean {
         return (
             !resume ||
@@ -2790,6 +2802,7 @@ function _playChannel(
 
 /** Start a resolved MediaRef and render its metadata. The owned media journal chooses resume. */
 function _playMedia(item: MediaHistoryEntry, automatic = false): void {
+    if ((window as any).__ottStandby?.blocked()) return;
     var kiosk = (window as any).__ottKiosk;
     var channelLaunch =
         (window as any).__ottMedia &&
@@ -5554,6 +5567,30 @@ installRemoteLifecycle(window, {
 });
 window.setPlayer = setPlayer;
 window.stbGetItem = stbGetItem;
+installStandby(window, stbGetItem, stbSetItem);
+if (window.__TAURI__ || window.__TAURI_INTERNALS__) {
+    window.__ottNativeStandby = function (standby: boolean) {
+        return tauriInvoke("set_background_standby", { standby: standby });
+    };
+    window.__ottStandby.native(window.__ottNativeStandby, function () {
+        return tauriInvoke("background_standby_status", {});
+    });
+} else if (window.Capacitor && window.Capacitor.isNativePlatform?.()) {
+    var nativeBackground = resolveNativePlugin<any>(
+        "NativeBackground",
+        function () {
+            return {};
+        }
+    );
+    window.__ottNativeStandby = function (standby: boolean) {
+        if (!nativeBackground.setStandby)
+            return Promise.reject(new Error("Native standby unavailable"));
+        return nativeBackground.setStandby({ standby: standby });
+    };
+    window.__ottStandby.native(window.__ottNativeStandby, function () {
+        return nativeBackground.status();
+    });
+}
 (window as any).stbGetPersistedItem = stbGetPersistedItem;
 window.stbSetItem = stbSetItem;
 window.stbDelItem = stbDelItem;
@@ -7366,9 +7403,17 @@ optionsArr.push({ action: selectLang, name: "Change interface language" });
 // and cannot resolve bare specifiers in the Mode A/B player.js bundle.
 var tauriUpdaterStarted = false;
 function checkTauriUpdatesAfterLanguage(): void {
-    if (typeof window.__TAURI__ === "undefined" || tauriUpdaterStarted) return;
+    const standby = window.__ottStandby;
+    if (
+        typeof window.__TAURI__ === "undefined" ||
+        tauriUpdaterStarted ||
+        standby?.blocked()
+    )
+        return;
     tauriUpdaterStarted = true;
     void (async () => {
+        const generation = standby?.generation();
+        let release = function () {};
         try {
             type UpdaterMeta = {
                 rid: number;
@@ -7377,11 +7422,13 @@ function checkTauriUpdatesAfterLanguage(): void {
                 date?: string;
                 body?: string;
             };
+            if (standby) release = standby.track(function () {});
             const update = await tauriInvoke<UpdaterMeta | null>(
                 "plugin:updater|check",
                 {}
             );
-            if (!update) return;
+            release();
+            if (!update || (standby && !standby.current(generation))) return;
             const ver = update.version;
             // Soft prompt — do not force install on startup.
             const confirmed = await new Promise<boolean>((resolve) => {
@@ -7394,16 +7441,19 @@ function checkTauriUpdatesAfterLanguage(): void {
                     () => resolve(false)
                 );
             });
-            if (confirmed) {
+            if (confirmed && (!standby || standby.current(generation))) {
                 const ChannelCtor = (window as any).__TAURI__?.core?.Channel;
                 if (typeof ChannelCtor !== "function") {
                     throw new Error("Tauri Channel unavailable for updater");
                 }
                 const onEvent = new ChannelCtor();
+                if (standby) release = standby.track(function () {});
                 await tauriInvoke("plugin:updater|download_and_install", {
                     onEvent,
                     rid: update.rid,
                 });
+                release();
+                if (standby && !standby.current(generation)) return;
                 // Relaunch is optional; ask the user to restart if plugin-process is absent.
                 try {
                     const processApi = (window as any).__TAURI__?.process;
@@ -7423,6 +7473,8 @@ function checkTauriUpdatesAfterLanguage(): void {
         } catch (err) {
             // Missing latest.json / placeholder pubkey / offline: non-fatal.
             console.debug("Tauri updater check skipped:", err);
+        } finally {
+            release();
         }
     })();
 }

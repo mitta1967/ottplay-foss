@@ -937,7 +937,8 @@ try {
     for (const mode of ["auto", "unsupported", "preload-failed"]) {
         const events = [],
             queue = [],
-            requests = [];
+            requests = [],
+            startup = [];
         let saved = "",
             preference = "";
         const noop = () => {};
@@ -948,6 +949,10 @@ try {
             __ottKiosk: { init: noop },
             __ottLocalHttpRemote: { init: noop },
             __ottRemoteDiagnostics: {},
+            __ottStandby: {
+                blocked: () => false,
+                ready: (callback) => startup.push(callback),
+            },
             Capacitor: {},
             clearBootHide: noop,
             keyStrings: dictionary,
@@ -1030,6 +1035,10 @@ try {
             context
         );
         context.onStbReady();
+        assert.equal(startup.length, 1, "Startup waits for the native probe");
+        assert.deepEqual(events, ["capacitorHTTP", "stalkerHTTP"]);
+        assert.equal(requests.length, 0, "No language fetch before readiness");
+        startup[0]();
         if (mode === "auto")
             queue
                 .filter((timer) => timer.delay === 0)

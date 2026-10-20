@@ -295,26 +295,50 @@ the in-memory VPortal automatic queue is not restored across page reloads.
 An expired response or changed controller connection discards a pending reload.
 Neither command retries a mutation after an uncertain response.
 
-For an unattended player, use the CLI's `stop` / `start` aliases (or the
-equivalent `standby` / `wake` operations):
+For an unattended player, use standby and go. The older `stop` / `start` and
+`wake` aliases remain supported:
 
 ```sh
 ott d1 restart stream  # Reconnect the current stream
-ott d1 restart        # Reload the player
-ott d1 stop           # Stop streams while keeping remote control connected
-ott d1 start          # Leave standby and run the configured startup flow
+ott d1 restart        # Reload the player, preserving standby if it is set
+ott d1 standby        # Stop playback and suspend background media work
+ott d1 go             # Resume the saved provider/profile startup once
+ott d1 status         # Observe standby and background work state
 ```
 
-Standby releases the main and PiP streams, cancels preview and pending Plex
-playback, and prevents new Plex playback until the player wakes. Explicit
-channel or favorite commands can start media again; another `stop` tears down
-both streams again without waking the player. It is not a
-pause: waking starts the normal provider/profile startup flow and does not
-promise to resume the same VOD position or in-memory queue. Remote-control
-heartbeats and other background metadata requests can continue while streams
-are stopped. Kiosk and settings-lock restrictions still apply; the CLI reports
-an unavailable operation instead of bypassing them. The aliases require an
-updated CLI, and complete stream cleanup requires an updated player.
+Standby stops main/PiP playback, previews and queued autoplay, cancels provider
+requests, local-library scans and programme-guide work, and prevents late results
+or the kiosk watchdog from restarting them. New playback and scans remain blocked
+until `go`. Authenticated standby/go are available in strict kiosk and with settings
+locked; app restart, exit, reboot and configuration keep their existing restrictions.
+Remote polling, command replies and diagnostics remain available while the OS
+keeps the app running. On iOS/Android the OS may suspend the app in the background;
+`go` cannot wake a closed or suspended app, or an offline device. Standby controls
+the player's work without shutting down the operating system.
+
+The player checkpoints its confirmed playback cursor before retiring the source.
+Go reopens the saved source/profile through normal startup and resume rules; live
+streams obtain a fresh URL. Repeated go does not launch a second startup. Standby
+is saved only on this installation, so page/app reload stays asleep. Portable
+settings and cloud backups neither import nor remove that state.
+The normal Exit/Q action saves the playback position and closes the player
+without entering standby; an awake player can resume normally on its next launch.
+
+`status.player.standby` reports the state. On updated players,
+`status.player.background` contains `state` and `pending`: `suspending` means tracked
+work is still draining, `suspended` confirms zero tracked frontend/native jobs,
+`running` means the player is awake, and `unsupported` or `error` does not promise
+native quiescence. An accepted command only confirms delivery. Older native shells
+must be updated for native HTTP, XMLTV and filesystem cancellation; the updated
+frontend still blocks its own new work. A native acknowledgement timeout leaves
+wake blocked with an error instead of silently starting against a sleeping backend.
+Native startup checks the saved shell state before opening the provider, even if
+the webview's settings were cleared. A native application update already downloading
+cannot be cancelled by the updater API: it stays counted as pending until it finishes,
+and its late result cannot relaunch an asleep player. New update checks/downloads are
+blocked during standby.
+Already-started browser script downloads and filesystem reads likewise remain
+pending until their completion; their retired owners cannot resume playback.
 
 If the backend supports restarting but has no current restartable stream, the
 request returns `rejected` with `reason: "no_restartable_stream"`. This can happen
