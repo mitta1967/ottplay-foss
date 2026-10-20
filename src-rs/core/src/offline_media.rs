@@ -129,6 +129,41 @@ struct ImportQuery {
 }
 
 type Failure = (StatusCode, &'static str);
+const BACKGROUND_CANCELLED: Failure = (
+    StatusCode::SERVICE_UNAVAILABLE,
+    "Player background work cancelled",
+);
+
+// Unlike cancellation of a network future, dropping a tokio::fs future does
+// not stop its blocking syscall. Keep the owner alive until that call returns.
+async fn owned_read<T: Send + 'static>(
+    work: &crate::background_work::WorkLease,
+    read: impl std::future::Future<Output = Result<T, Failure>> + Send + 'static,
+) -> Result<T, Failure> {
+    work.check().map_err(|_| BACKGROUND_CANCELLED)?;
+    let owner = work.clone();
+    let task = tokio::spawn(async move { checked(Some(&owner), read).await? });
+    work.run(task)
+        .await
+        .map_err(|_| BACKGROUND_CANCELLED)?
+        .map_err(storage_error)?
+}
+
+// The owned reader must stop between operations, rather than abandon an
+// operation already submitted to the filesystem thread pool.
+async fn checked<T>(
+    work: Option<&crate::background_work::WorkLease>,
+    operation: impl std::future::Future<Output = T>,
+) -> Result<T, Failure> {
+    if let Some(work) = work {
+        work.check().map_err(|_| BACKGROUND_CANCELLED)?;
+    }
+    let value = operation.await;
+    if let Some(work) = work {
+        work.check().map_err(|_| BACKGROUND_CANCELLED)?;
+    }
+    Ok(value)
+}
 impl Library {
     pub async fn new(root: PathBuf, token: String, storage: &str) -> anyhow::Result<Self> {
         anyhow::ensure!(
@@ -191,15 +226,31 @@ impl Library {
             Ok(())
         }
     }
-    async fn records(&self) -> Result<Vec<Record>, Failure> {
-        let mut directory = fs::read_dir(&self.root).await.map_err(storage_error)?;
+    async fn records(
+        &self,
+        work: &crate::background_work::WorkLease,
+    ) -> Result<Vec<Record>, Failure> {
+        let library = self.clone();
+        let owner = work.clone();
+        owned_read(work, async move { library.read_records(&owner).await }).await
+    }
+    async fn read_records(
+        &self,
+        work: &crate::background_work::WorkLease,
+    ) -> Result<Vec<Record>, Failure> {
+        let mut directory = checked(Some(work), fs::read_dir(&self.root))
+            .await?
+            .map_err(storage_error)?;
         let mut out = Vec::new();
-        while let Some(entry) = directory.next_entry().await.map_err(storage_error)? {
+        while let Some(entry) = checked(Some(work), directory.next_entry())
+            .await?
+            .map_err(storage_error)?
+        {
             let path = entry.path();
             if path.extension().and_then(|v| v.to_str()) != Some("json") {
                 continue;
             }
-            let kind = match entry.file_type().await {
+            let kind = match checked(Some(work), entry.file_type()).await? {
                 Ok(kind) => kind,
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(e) => return Err(storage_error(e)),
@@ -207,7 +258,7 @@ impl Library {
             if !kind.is_file() {
                 continue;
             }
-            let metadata = match entry.metadata().await {
+            let metadata = match checked(Some(work), entry.metadata()).await? {
                 Ok(metadata) => metadata,
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(e) => return Err(storage_error(e)),
@@ -215,7 +266,7 @@ impl Library {
             if metadata.len() > 4096 {
                 continue;
             }
-            let bytes = match fs::read(&path).await {
+            let bytes = match checked(Some(work), fs::read(&path)).await? {
                 Ok(bytes) => bytes,
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(e) => return Err(storage_error(e)),
@@ -226,15 +277,24 @@ impl Library {
             if let Ok(record) = serde_json::from_slice::<Record>(&bytes) {
                 if valid_id(&record.id)
                     && media_type(&record.extension) == Some(record.mime.as_str())
-                    && (record.linked_path.is_some() || self.path(&record).await.is_ok())
                 {
-                    let available = self.path(&record).await.is_ok();
-                    let mut scan = self.scan.lock().await;
-                    if scan.jobs > 0 {
-                        scan.scanned += 1;
-                        scan.records
-                            .insert(record.id.clone(), (record.clone(), available));
+                    let available = self.read_path(&record, Some(work)).await.is_ok();
+                    work.check().map_err(|_| BACKGROUND_CANCELLED)?;
+                    if record.linked_path.is_none() && !available {
+                        continue;
                     }
+                    let mut scan = work
+                        .run(self.scan.lock())
+                        .await
+                        .map_err(|_| BACKGROUND_CANCELLED)?;
+                    work.publish(|| {
+                        if scan.jobs > 0 {
+                            scan.scanned += 1;
+                            scan.records
+                                .insert(record.id.clone(), (record.clone(), available));
+                        }
+                    })
+                    .map_err(|_| BACKGROUND_CANCELLED)?;
                     out.push(record);
                 }
             }
@@ -248,17 +308,24 @@ impl Library {
         Ok(out)
     }
     async fn path(&self, record: &Record) -> Result<PathBuf, Failure> {
+        self.read_path(record, None).await
+    }
+    async fn read_path(
+        &self,
+        record: &Record,
+        work: Option<&crate::background_work::WorkLease>,
+    ) -> Result<PathBuf, Failure> {
         let path = record.linked_path.clone().unwrap_or_else(|| {
             self.root
                 .join(format!("{}.{}", record.id, record.extension))
         });
         if record.linked_path.is_some()
-            && fs::canonicalize(&path).await.ok().as_ref() != Some(&path)
+            && checked(work, fs::canonicalize(&path)).await?.ok().as_ref() != Some(&path)
         {
             return Err((StatusCode::GONE, "Original source unavailable"));
         }
-        let metadata = fs::symlink_metadata(&path)
-            .await
+        let metadata = checked(work, fs::symlink_metadata(&path))
+            .await?
             .map_err(|_| (StatusCode::NOT_FOUND, "Media not found"))?;
         if !metadata.is_file() || metadata.file_type().is_symlink() {
             return Err((StatusCode::NOT_FOUND, "Media not found"));
@@ -266,19 +333,28 @@ impl Library {
         Ok(path)
     }
     async fn record(&self, id: &str) -> Result<Record, Failure> {
+        self.read_record(id, None).await
+    }
+    async fn read_record(
+        &self,
+        id: &str,
+        work: Option<&crate::background_work::WorkLease>,
+    ) -> Result<Record, Failure> {
         if !valid_id(id) {
             return Err((StatusCode::NOT_FOUND, "Media not found"));
         }
         // A range request must not rescan every metadata record before it can
         // return the first video byte from a large library.
         let path = self.root.join(format!("{id}.json"));
-        let metadata = fs::symlink_metadata(&path)
-            .await
+        let metadata = checked(work, fs::symlink_metadata(&path))
+            .await?
             .map_err(|_| (StatusCode::NOT_FOUND, "Media not found"))?;
         if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > 4096 {
             return Err((StatusCode::NOT_FOUND, "Media not found"));
         }
-        let bytes = fs::read(path).await.map_err(storage_error)?;
+        let bytes = checked(work, fs::read(path))
+            .await?
+            .map_err(storage_error)?;
         let record: Record = serde_json::from_slice(&bytes).map_err(storage_error)?;
         if bytes.len() > 4096
             || record.id != id
@@ -365,21 +441,27 @@ impl Library {
         if self.storage != "device" || !valid_id(id) {
             return None;
         }
-        // Read one persisted opaque ID independently of directory traversal.
-        // Both an unavailable volume and standby must promptly release the
-        // caller, and an old work generation must never publish after wake.
-        work.run(tokio::time::timeout(
+        // The caller has a short deadline, but filesystem work keeps its
+        // lease until the current syscall finishes, even if the caller leaves.
+        let library = self.clone();
+        let id = id.to_string();
+        let owner = work.clone();
+        tokio::time::timeout(
             std::time::Duration::from_secs(1),
-            async {
-                let revision = self.scan.lock().await.revision;
-                let record = self.record(id).await.ok()?;
-                self.path(&record).await.ok()?;
-                Some((revision, record))
-            },
-        ))
+            owned_read(work, async move {
+                let revision = owner
+                    .run(library.scan.lock())
+                    .await
+                    .map_err(|_| BACKGROUND_CANCELLED)?
+                    .revision;
+                let record = library.read_record(&id, Some(&owner)).await?;
+                library.read_path(&record, Some(&owner)).await?;
+                Ok((revision, record))
+            }),
+        )
         .await
         .ok()?
-        .ok()?
+        .ok()
     }
 
     /// Make the saved item available without restarting an existing scan.
@@ -485,7 +567,7 @@ impl Library {
             }
         }
         tokio::spawn(async move {
-            if !matches!(work.run(library.records()).await, Ok(Ok(_))) {
+            if !matches!(work.run(library.records(&work)).await, Ok(Ok(_))) {
                 library.scan.lock().await.error =
                     Some("Local media metadata could not be read".into());
             }
@@ -522,7 +604,7 @@ impl Library {
             .await
             .map_err(anyhow::Error::msg)?;
         let records = work
-            .run(self.records())
+            .run(self.records(work))
             .await
             .map_err(anyhow::Error::msg)?
             .map_err(|_| anyhow::anyhow!("Cannot read media metadata"))?;
@@ -708,7 +790,7 @@ impl Library {
             .await
             .map_err(anyhow::Error::msg)?;
         for record in self
-            .records()
+            .records(&work)
             .await
             .map_err(|_| anyhow::anyhow!("Cannot read media metadata"))?
         {
@@ -754,7 +836,7 @@ impl Library {
             Some(records) => records,
             None => {
                 let mut validated = Vec::new();
-                for record in self.records().await? {
+                for record in self.records(&work).await? {
                     work.check().map_err(|_| {
                         (
                             StatusCode::SERVICE_UNAVAILABLE,
@@ -1224,6 +1306,169 @@ async fn media(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    async fn bounded<T>(operation: impl std::future::Future<Output = T>) -> T {
+        tokio::time::timeout(std::time::Duration::from_secs(2), operation)
+            .await
+            .expect("filesystem worker did not reach the expected checkpoint")
+    }
+
+    async fn wait_for_drain(background: &crate::background_work::BackgroundWork) {
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while background.status().pending != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelled_owned_read_counts_current_io_and_never_starts_next_operation() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let background = crate::background_work::BackgroundWork::default();
+        let work = background.enter().unwrap();
+        let owner = work.clone();
+        let next_operations = Arc::new(AtomicUsize::new(0));
+        let observed = next_operations.clone();
+        let (started, entered) = tokio::sync::oneshot::channel();
+        let (finish, current_io) = tokio::sync::oneshot::channel();
+        let reader = tokio::spawn(async move {
+            owned_read(&work, async move {
+                // This barrier represents an already-running filesystem call:
+                // cancelling its caller cannot stop the underlying operation.
+                checked(Some(&owner), async move {
+                    started.send(()).unwrap();
+                    current_io.await.unwrap();
+                })
+                .await?;
+                observed.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            })
+            .await
+        });
+        bounded(entered).await.unwrap();
+        background.set_standby(true);
+        assert_eq!(bounded(reader).await.unwrap(), Err(BACKGROUND_CANCELLED));
+        assert_eq!(background.status().pending, 1);
+        assert!(!background.status().quiescent);
+        // Even an immediate wake cannot authorize the previous read's tail.
+        background.set_standby(false);
+        finish.send(()).unwrap();
+        wait_for_drain(&background).await;
+        assert_eq!(next_operations.load(Ordering::SeqCst), 0);
+        assert!(background.set_standby(true).quiescent);
+    }
+
+    #[tokio::test]
+    async fn timed_out_or_dropped_reader_keeps_pending_until_current_io_finishes() {
+        for timeout in [true, false] {
+            let background = crate::background_work::BackgroundWork::default();
+            let work = background.enter().unwrap();
+            let owner = work.clone();
+            let (started, entered) = tokio::sync::oneshot::channel();
+            let (finish, current_io) = tokio::sync::oneshot::channel();
+            let reader = tokio::spawn(async move {
+                let read = owned_read(&work, async move {
+                    checked(Some(&owner), async move {
+                        started.send(()).unwrap();
+                        current_io.await.unwrap();
+                    })
+                    .await?;
+                    Ok(())
+                });
+                if timeout {
+                    assert!(
+                        tokio::time::timeout(std::time::Duration::from_millis(25), read)
+                            .await
+                            .is_err()
+                    );
+                } else {
+                    read.await.unwrap();
+                }
+            });
+            bounded(entered).await.unwrap();
+            if timeout {
+                bounded(reader).await.unwrap();
+            } else {
+                reader.abort();
+                assert!(bounded(reader).await.unwrap_err().is_cancelled());
+            }
+            assert_eq!(background.status().pending, 1);
+            assert!(!background.set_standby(true).quiescent);
+            finish.send(()).unwrap();
+            wait_for_drain(&background).await;
+            assert!(background.status().quiescent);
+        }
+    }
+
+    #[tokio::test]
+    async fn standby_stops_persisted_metadata_traversal_without_late_cache_publication() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = root.with_extension("originals");
+        fs::create_dir_all(&originals).await.unwrap();
+        let movie = originals.join("movie.mp4");
+        fs::write(&movie, b"movie").await.unwrap();
+        let movie = fs::canonicalize(movie).await.unwrap();
+        let background = crate::background_work::BackgroundWork::default();
+        let library = Library::new(root.clone(), "r".repeat(32), "device")
+            .await
+            .unwrap()
+            .with_background(background.clone());
+        for index in 0..64 {
+            let record = Record {
+                id: uuid::Uuid::new_v4().simple().to_string(),
+                name: format!("movie-{index}"),
+                size: 5,
+                mime: "video/mp4".into(),
+                extension: "mp4".into(),
+                linked_path: Some(movie.clone()),
+                source_id: None,
+            };
+            fs::write(
+                root.join(format!("{}.json", record.id)),
+                serde_json::to_vec(&record).unwrap(),
+            )
+            .await
+            .unwrap();
+        }
+        library.start_refresh_sources().await;
+        let at_cancel = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                let scan = library.scan.lock().await;
+                if scan.scanned > 0 {
+                    assert!(
+                        scan.scanned < 64,
+                        "cancel before the metadata traversal completes"
+                    );
+                    // Hold publication's mutex across cancellation. A record
+                    // already read may not publish when that mutex is released.
+                    background.set_standby(true);
+                    let scanned = scan.scanned;
+                    drop(scan);
+                    return scanned;
+                }
+                drop(scan);
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        background.set_standby(false);
+        wait_for_drain(&background).await;
+        {
+            let scan = library.scan.lock().await;
+            assert_eq!(scan.scanned, at_cancel);
+            assert_eq!(scan.records.len(), at_cancel as usize);
+            assert_eq!(scan.jobs, 0);
+            assert!(!scan.cached);
+        }
+        library.start_refresh_sources().await;
+        wait_for_drain(&background).await;
+        assert_eq!(library.catalog().await.unwrap().items.len(), 64);
+        fs::remove_dir_all(root).await.unwrap();
+        fs::remove_dir_all(originals).await.unwrap();
+    }
 
     #[tokio::test]
     async fn saved_native_item_is_ready_before_unrelated_records_are_scanned() {
@@ -2258,14 +2503,17 @@ mod tests {
         let sources = library.source_records().await.unwrap();
         assert_eq!(sources.len(), 1);
         assert_eq!(sources[0].kind, "folder");
-        let records = library.records().await.unwrap();
+        let records = library
+            .records(&library.background.enter().unwrap())
+            .await
+            .unwrap();
         assert!(records.iter().any(|record| record.name == "good.mp4"));
         if permission_is_enforced {
             assert!(!records.iter().any(|record| record.name == "hidden.mp4"));
         }
         library.refresh_sources().await;
         assert!(library
-            .records()
+            .records(&library.background.enter().unwrap())
             .await
             .unwrap()
             .iter()
