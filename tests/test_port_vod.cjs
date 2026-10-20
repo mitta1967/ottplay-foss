@@ -248,6 +248,7 @@ function fixture() {
             "metadataCssUrl",
             "metadataHtml",
             "hasTmdbService",
+            "formatTwoDigits",
         ]) +
             sourceFunctions("src/channels/index.ts", [
                 "rememberMediaView",
@@ -270,6 +271,7 @@ function fixture() {
                 "mediaList",
                 "showSelectBox",
                 "updateMediaInfo",
+                "finiteProgrammeClock",
                 "updateChannelInfo",
                 "virtualTimeshiftProg",
                 "initBackgroundIntervals",
@@ -442,7 +444,8 @@ if (require.main === module) {
             ["unnamed.mp4"]
         );
         c._playMedia(c.listArray[0]);
-        assert.equal(c.elements["#channel_name"].textContent, "Untitled");
+        assert.equal(c.elements["#channel_name"].textContent, rootTitle);
+        assert.equal(c.elements["#programm_name"].textContent, "Untitled");
         assert.equal(
             c.documentState().history[0].payload.__ottMediaLabel.key,
             "Untitled"
@@ -458,8 +461,9 @@ if (require.main === module) {
         );
         assert.equal(restored.listArray[0].title, title);
         restored._playMedia(restored.listArray[0]);
+        assert.equal(restored.elements["#channel_name"].textContent, rootTitle);
         assert.equal(
-            restored.elements["#channel_name"].textContent,
+            restored.elements["#programm_name"].textContent,
             "Untitled"
         );
         assert.equal(restored.documentState().history[0].payload.title, title);
@@ -708,6 +712,88 @@ if (require.main === module) {
             "Favorites hint remains when a favoriteable media row is present"
         );
     }
+    // Finite media shares the default current/next programme layout on every provider.
+    for (const provider of ["offline", "plex", "vportal"]) {
+        const c = fixture();
+        c.__ottActiveProviderDriver = { id: provider };
+        c.playType = -1e11;
+        const startedAt = new Date(2026, 9, 20, 4, 11, 52).getTime() / 1000;
+        let programme = {
+            collection: "Collection <one>",
+            duration: 70,
+            nextStartedAt: startedAt + 70,
+            nextTitle: "Next & last.mkv",
+            position: 10,
+            startedAt,
+            title: "Current <file>.mp4",
+        };
+        c.__ottClassicPlayback.programme = () => programme;
+        c.updateMediaInfo();
+        assert.equal(
+            c.elements["#channel_name"].textContent,
+            "Collection <one>"
+        );
+        assert.equal(
+            c.elements["#programm_name"].textContent,
+            "Current <file>.mp4"
+        );
+        assert.equal(
+            c.elements["#programm_name2"].textContent,
+            "Current <file>.mp4"
+        );
+        assert.equal(
+            c.elements["#nprogramm_name"].textContent,
+            "Next & last.mkv"
+        );
+        assert.equal(c.elements["#begin_time"].textContent, "04:11:52");
+        assert.equal(c.elements["#nbegin_time"].textContent, "04:13:02");
+        assert.equal(c.elements["#end_time"].textContent, "+1");
+        assert.equal(c.elements["#nend_time"].textContent, "");
+        assert(
+            Math.abs(
+                parseFloat(c.elements["#progress"].style.width) - 100 / 7
+            ) < 0.0001
+        );
+        programme.position = 60; // Seek/progress must not turn start into an invented clock.
+        c.updateMediaInfo();
+        assert.equal(c.elements["#begin_time"].textContent, "04:11:52");
+        assert.equal(c.elements["#nbegin_time"].textContent, "04:13:02");
+        programme.duration = 0;
+        programme.nextStartedAt = null;
+        c.updateMediaInfo();
+        assert.equal(c.elements["#nbegin_time"].textContent, "");
+        assert.equal(
+            c.elements["#nprogramm_name"].textContent,
+            "Next & last.mkv"
+        );
+        programme.startedAt = null;
+        c.updateMediaInfo();
+        assert.equal(c.elements["#begin_time"].textContent, "");
+        programme.startedAt =
+            new Date(2026, 9, 20, 23, 59, 40).getTime() / 1000;
+        programme.duration = 70;
+        programme.nextStartedAt = programme.startedAt + 70;
+        c.updateMediaInfo();
+        assert.equal(c.elements["#begin_time"].textContent, "23:59:40");
+        assert.equal(c.elements["#nbegin_time"].textContent, "00:00:50");
+        programme.nextTitle = "";
+        programme.nextStartedAt = startedAt + 70;
+        c.updateMediaInfo();
+        assert.equal(c.elements["#nprogramm_name"].textContent, "");
+        assert.equal(c.elements["#nbegin_time"].textContent, "");
+        programme = null; // Source/selection was replaced while an old timer was queued.
+        c.updateMediaInfo();
+        for (const selector of [
+            "#channel_name",
+            "#programm_name",
+            "#programm_name2",
+            "#nprogramm_name",
+            "#begin_time",
+            "#nbegin_time",
+            "#end_time",
+        ])
+            assert.equal(c.elements[selector].textContent, "", selector);
+    }
     // Local files become finite playback before their first channel-info paint.
     // Only the owned file/source may supply the footer, including after EOF.
     {
@@ -717,8 +803,24 @@ if (require.main === module) {
         let namespace = "offline:0";
         c.__ottOfflineProfiles = { namespace: () => namespace };
         c.channels = {
-            1: { channel_name: "First <clip>.mp4", rec: 0 },
-            2: { channel_name: "Second clip.mkv", rec: 0 },
+            1: {
+                __ottMediaCollection: "Cartoons",
+                channel_name: "First <clip>.mp4",
+                rec: 0,
+            },
+            2: {
+                __ottMediaCollection: "Cartoons",
+                channel_name: "Second clip.mkv",
+                rec: 0,
+            },
+        };
+        c.__ottChannels = {
+            capture: () => ({
+                active: () => true,
+                members: () => c.cats.All.slice(),
+            }),
+            group: () => "system:all",
+            select: () => true,
         };
         c.observeCurrentProgramme = () =>
             assert.fail("Local files have no EPG");
@@ -733,11 +835,8 @@ if (require.main === module) {
             c.$(selector).text("Previous channel");
         c._playChannel(0, 0);
         assert(c.playType < 0, "local channel is immediately finite");
-        for (const selector of [
-            "#channel_name",
-            "#programm_name",
-            "#programm_name2",
-        ])
+        assert.equal(c.elements["#channel_name"].textContent, "Cartoons");
+        for (const selector of ["#programm_name", "#programm_name2"])
             assert.equal(c.elements[selector].textContent, "First <clip>.mp4");
 
         c.cats.All = [1, 2];
@@ -758,10 +857,7 @@ if (require.main === module) {
         namespace = "offline:1";
         c.elements["#programm_name"].textContent = "New profile pending";
         c.updateChannelInfo(2);
-        assert.equal(
-            c.elements["#programm_name"].textContent,
-            "New profile pending"
-        );
+        assert.equal(c.elements["#programm_name"].textContent, "");
         c.channels[2].channel_name = "Other profile.mp4";
         c._playChannel(0, 1);
         assert.equal(
@@ -798,12 +894,24 @@ if (require.main === module) {
             stream_url: "movie.mp4",
             title: "Selected movie",
         });
+        c.__ottClassicPlayback.command({
+            duration: 600,
+            position: 125.9,
+            type: "position",
+        });
         c.updateMediaInfo();
         const movieInfo = JSON.stringify(c.elements);
         guideReady(1);
         assert.equal(JSON.stringify(c.elements), movieInfo);
-        assert.equal(c.elements["#channel_name"].textContent, "Selected movie");
-        assert.equal(c.elements["#begin_time"].textContent, "2");
+        assert.equal(c.elements["#channel_name"].textContent, "");
+        assert.equal(
+            c.elements["#programm_name"].textContent,
+            "Selected movie"
+        );
+        assert.match(
+            c.elements["#begin_time"].textContent,
+            /^\d{2}:\d{2}:\d{2}$/
+        );
         assert.equal(c.elements["#end_time"].textContent, "+8");
 
         // Changing mode before rendering restores the previous channel on return.
@@ -980,13 +1088,19 @@ if (require.main === module) {
             title: "Disabled history",
         });
         assert.equal(c.documentState().history.length, 0);
+        c.__ottClassicPlayback.command({
+            duration: 600,
+            position: 125.9,
+            type: "position",
+        });
         c.updateMediaInfo();
-        assert.equal(c.elements["#begin_time"].textContent, "2");
+        const startClock = c.elements["#begin_time"].textContent;
+        assert.match(startClock, /^\d{2}:\d{2}:\d{2}$/);
         assert.equal(c.elements["#end_time"].textContent, "+8");
         c.initBackgroundIntervals();
         c.elements["#begin_time"].textContent = "";
         c.timers.at(-2)();
-        assert.equal(c.elements["#begin_time"].textContent, "2");
+        assert.equal(c.elements["#begin_time"].textContent, startClock);
         assert.equal(first.stream_url, "first.mp4");
     }
     // VOD, including Plex, uses the actual owned dialog to resume after ten seconds.
