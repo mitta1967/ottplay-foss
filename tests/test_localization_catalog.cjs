@@ -676,11 +676,19 @@ try {
             picker = [];
         let providers = 0,
             updates = 0,
-            hidden = 0;
+            hidden = 0,
+            generation = 0,
+            settingsLists = 0;
         const dictionary = { lang: "fixture" };
         const window = {
+            __ottBootDictionary: dictionary,
+            __ottStandby: {
+                current: (expected) => expected === generation,
+                generation: () => generation,
+            },
             clearBootHide: () => hidden++,
             keyStrings: dictionary,
+            optionsList: () => settingsLists++,
         };
         if (options.boot)
             window.__ottBootLanguage = {
@@ -689,7 +697,9 @@ try {
             };
         const launch = { style: {} };
         const context = {
-            applyLanguageMetadata() {},
+            applyLanguageMetadata(code) {
+                window.__ottInterfaceLanguage = code;
+            },
             checkTauriUpdatesAfterLanguage: () => updates++,
             clearTimeout: () => {},
             console: { log() {} },
@@ -719,6 +729,7 @@ try {
             },
             window,
         };
+        if (options.existingProvider) context.duneAddSettings = () => {};
         vm.runInNewContext(
             ts.transpileModule(
                 loadInterface.getText(selectionSource) +
@@ -733,10 +744,14 @@ try {
             deadlines,
             deferred,
             launch,
+            load: (code, done) => context.loadInterfaceLanguage(code, done),
             picker,
             proceeded,
             requests,
+            restart: () => context.loadStartupLanguage(),
+            settingsLists: () => settingsLists,
             snapshot: () => ({ hidden, providers, saved, updates }),
+            supersede: () => generation++,
             window,
             writes,
         };
@@ -785,6 +800,77 @@ try {
     assert.equal(savedBoot.snapshot().providers, 0);
     savedBoot.deferred[0]();
     assert.equal(savedBoot.snapshot().providers, 1);
+    // Same-page wake must never turn startup into the Settings language action.
+    for (const mode of ["manual", "system"]) {
+        const replay = startupLanguage({
+            boot: { automatic: mode === "system", code: "_eng" },
+            existingProvider: true,
+            mode,
+            saved: "_eng",
+        });
+        replay.deferred.shift()();
+        for (let cycle = 0; cycle < 2; cycle++) {
+            replay.supersede();
+            assert.equal(replay.restart(), true);
+            assert.equal(
+                replay.requests.length,
+                0,
+                "Reuse the verified active dictionary"
+            );
+            replay.deferred.shift()();
+        }
+        assert.equal(replay.snapshot().providers, 3);
+        assert.equal(replay.settingsLists(), 0);
+        assert.deepEqual(replay.picker, []);
+    }
+    const interruptedPicker = startupLanguage({
+        boot: { automatic: false, code: "_eng" },
+        saved: "_eng",
+    });
+    interruptedPicker.deferred.shift()();
+    const acceptedDictionary = interruptedPicker.window.keyStrings;
+    let pickerCompletions = 0;
+    interruptedPicker.load("_fra", () => pickerCompletions++);
+    interruptedPicker.supersede();
+    interruptedPicker.restart();
+    interruptedPicker.deferred.shift()();
+    interruptedPicker.window.keyStrings = { lang: "French" };
+    interruptedPicker.requests[0].success();
+    assert.equal(
+        pickerCompletions,
+        0,
+        "Old picker cannot commit after cached startup reuse"
+    );
+    assert.equal(interruptedPicker.window.keyStrings, acceptedDictionary);
+    assert.equal(interruptedPicker.window.__ottInterfaceLanguage, "_eng");
+    assert.equal(interruptedPicker.snapshot().saved, "_eng");
+    assert.equal(interruptedPicker.snapshot().providers, 2);
+    const staleReady = startupLanguage({
+        boot: { automatic: false, code: "_eng" },
+        saved: "_eng",
+    });
+    staleReady.supersede();
+    staleReady.restart();
+    staleReady.deferred.shift()();
+    assert.equal(
+        staleReady.snapshot().providers,
+        0,
+        "Previous bootstrap ready is fenced"
+    );
+    staleReady.deferred.shift()();
+    assert.equal(staleReady.snapshot().providers, 1);
+    for (const success of [false, true]) {
+        const staleDownload = startupLanguage({ saved: "_eng" });
+        staleDownload.supersede();
+        if (success) staleDownload.window.keyStrings = { lang: "English" };
+        staleDownload.requests[0][success ? "success" : "error"]();
+        assert.equal(staleDownload.snapshot().providers, 0);
+        assert.deepEqual(
+            staleDownload.picker,
+            [],
+            "Stale locale failure must not reopen the picker"
+        );
+    }
     const changedPreference = startupLanguage({
         boot: { automatic: true, code: "_rus" },
         saved: "_fra",
@@ -830,10 +916,12 @@ try {
         const stored = { ottplaylang: "_rus", ottplaylangmode: "system" };
         const requests = [];
         const emptyDictionary = {};
-        let providers = 0;
+        let providers = 0,
+            settingsLists = 0;
         const host = {
             __ottDetectLanguage: () => (choice === "system" ? "_rus" : ""),
             keyStrings: emptyDictionary,
+            optionsList: () => settingsLists++,
         };
         const recovery = {
             _: (key) => host.keyStrings[key] || key,
@@ -844,6 +932,7 @@ try {
             clearTimeout() {},
             console: { log() {} },
             document: { getElementById: () => null },
+            duneAddSettings() {},
             getScriptDOM: (url, success, error) =>
                 requests.push({ error, success, url }),
             hostUrl: "",
@@ -916,7 +1005,12 @@ try {
             2,
             "A successfully active language is reused"
         );
-        assert.equal(providers, 2);
+        assert.equal(
+            providers,
+            1,
+            "Manual language selection returns to Settings"
+        );
+        assert.equal(settingsLists, 1);
     }
     const stalledSaved = startupLanguage({ saved: "_rus" });
     assert.equal(stalledSaved.deadlines.length, 1);
@@ -951,6 +1045,8 @@ try {
             __ottRemoteDiagnostics: {},
             __ottStandby: {
                 blocked: () => false,
+                current: (generation) => generation === 0,
+                generation: () => 0,
                 ready: (callback) => startup.push(callback),
             },
             Capacitor: {},
@@ -986,7 +1082,7 @@ try {
             popupArray: [],
             popupDetail: [],
             renderButtonHint: () => "",
-            savedPopup: {},
+            savedPopup: { popupActions: [], popupArray: [], popupDetail: [] },
             setTimeout: (callback, delay) => {
                 queue.push({ callback, delay });
                 return queue.length;
