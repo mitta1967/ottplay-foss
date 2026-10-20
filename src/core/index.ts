@@ -2971,6 +2971,7 @@ export function stbSetStandby(standby: boolean): void {
             });
             document.body.style.backgroundColor = "";
             if (typeof w.startPlayer === "function") w.startPlayer();
+            if (typeof w.setSleepTimeout === "function") w.setSleepTimeout();
         });
         return;
     }
