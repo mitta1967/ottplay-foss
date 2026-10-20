@@ -347,6 +347,9 @@ and its late result cannot relaunch an asleep player. New update checks/download
 blocked during standby.
 Already-started browser script downloads and filesystem reads likewise remain
 pending until their completion; their retired owners cannot resume playback.
+An abandoned local-media request stops after its current filesystem operation.
+An idle local HTTP response retained by an external client can remain pending
+until that client reads or closes it; standby prevents further media reads.
 
 If the backend supports restarting but has no current restartable stream, the
 request returns `rejected` with `reason: "no_restartable_stream"`. This can happen

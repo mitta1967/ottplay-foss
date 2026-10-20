@@ -17,7 +17,7 @@ use std::{
 use tokio::{
     fs,
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
-    sync::Mutex,
+    sync::{watch, Mutex},
 };
 
 const MAX_BYTES: u64 = 16 * 1024 * 1024 * 1024;
@@ -134,15 +134,74 @@ const BACKGROUND_CANCELLED: Failure = (
     "Player background work cancelled",
 );
 
+struct ReadCaller(watch::Sender<bool>);
+impl Drop for ReadCaller {
+    fn drop(&mut self) {
+        self.0.send_replace(true);
+    }
+}
+
+#[derive(Clone)]
+struct ReadWork {
+    lease: crate::background_work::WorkLease,
+    abandoned: watch::Receiver<bool>,
+}
+impl ReadWork {
+    fn check(&self) -> Result<(), Failure> {
+        if *self.abandoned.borrow() {
+            return Err(BACKGROUND_CANCELLED);
+        }
+        self.lease.check().map_err(|_| BACKGROUND_CANCELLED)
+    }
+
+    fn publish<T>(&self, publish: impl FnOnce() -> T) -> Result<T, Failure> {
+        // Serialize caller abandonment with the short cache publication, just
+        // as the lease serializes it with a global standby transition.
+        let abandoned = self.abandoned.borrow();
+        if *abandoned {
+            return Err(BACKGROUND_CANCELLED);
+        }
+        self.lease
+            .publish(publish)
+            .map_err(|_| BACKGROUND_CANCELLED)
+    }
+
+    // Only interrupt waits without an in-flight filesystem operation, such as
+    // the scan mutex. Actual filesystem futures go through checked() instead.
+    async fn run<T>(&self, future: impl std::future::Future<Output = T>) -> Result<T, Failure> {
+        let mut abandoned = self.abandoned.clone();
+        if *abandoned.borrow_and_update() {
+            return Err(BACKGROUND_CANCELLED);
+        }
+        tokio::select! {
+            biased;
+            _ = abandoned.changed() => Err(BACKGROUND_CANCELLED),
+            value = self.lease.run(future) => {
+                self.check()?;
+                value.map_err(|_| BACKGROUND_CANCELLED)
+            }
+        }
+    }
+}
+
 // Unlike cancellation of a network future, dropping a tokio::fs future does
-// not stop its blocking syscall. Keep the owner alive until that call returns.
-async fn owned_read<T: Send + 'static>(
+// not stop its blocking syscall. Keep the owner alive until that call returns,
+// but abandon subsequent operations when this particular caller goes away.
+async fn owned_read<
+    T: Send + 'static,
+    F: std::future::Future<Output = Result<T, Failure>> + Send + 'static,
+>(
     work: &crate::background_work::WorkLease,
-    read: impl std::future::Future<Output = Result<T, Failure>> + Send + 'static,
+    read: impl FnOnce(ReadWork) -> F + Send + 'static,
 ) -> Result<T, Failure> {
     work.check().map_err(|_| BACKGROUND_CANCELLED)?;
-    let owner = work.clone();
-    let task = tokio::spawn(async move { checked(Some(&owner), read).await? });
+    let (abandoned, receiver) = watch::channel(false);
+    let _caller = ReadCaller(abandoned);
+    let owner = ReadWork {
+        lease: work.clone(),
+        abandoned: receiver,
+    };
+    let task = tokio::spawn(async move { checked(Some(&owner), read(owner.clone())).await? });
     work.run(task)
         .await
         .map_err(|_| BACKGROUND_CANCELLED)?
@@ -152,15 +211,15 @@ async fn owned_read<T: Send + 'static>(
 // The owned reader must stop between operations, rather than abandon an
 // operation already submitted to the filesystem thread pool.
 async fn checked<T>(
-    work: Option<&crate::background_work::WorkLease>,
+    work: Option<&ReadWork>,
     operation: impl std::future::Future<Output = T>,
 ) -> Result<T, Failure> {
     if let Some(work) = work {
-        work.check().map_err(|_| BACKGROUND_CANCELLED)?;
+        work.check()?;
     }
     let value = operation.await;
     if let Some(work) = work {
-        work.check().map_err(|_| BACKGROUND_CANCELLED)?;
+        work.check()?;
     }
     Ok(value)
 }
@@ -231,13 +290,13 @@ impl Library {
         work: &crate::background_work::WorkLease,
     ) -> Result<Vec<Record>, Failure> {
         let library = self.clone();
-        let owner = work.clone();
-        owned_read(work, async move { library.read_records(&owner).await }).await
+        owned_read(
+            work,
+            |owner| async move { library.read_records(&owner).await },
+        )
+        .await
     }
-    async fn read_records(
-        &self,
-        work: &crate::background_work::WorkLease,
-    ) -> Result<Vec<Record>, Failure> {
+    async fn read_records(&self, work: &ReadWork) -> Result<Vec<Record>, Failure> {
         let mut directory = checked(Some(work), fs::read_dir(&self.root))
             .await?
             .map_err(storage_error)?;
@@ -313,7 +372,7 @@ impl Library {
     async fn read_path(
         &self,
         record: &Record,
-        work: Option<&crate::background_work::WorkLease>,
+        work: Option<&ReadWork>,
     ) -> Result<PathBuf, Failure> {
         let path = if let Some(path) = &record.linked_path {
             // Native-picked originals may live outside the private library.
@@ -348,11 +407,7 @@ impl Library {
     async fn record(&self, id: &str) -> Result<Record, Failure> {
         self.read_record(id, None).await
     }
-    async fn read_record(
-        &self,
-        id: &str,
-        work: Option<&crate::background_work::WorkLease>,
-    ) -> Result<Record, Failure> {
+    async fn read_record(&self, id: &str, work: Option<&ReadWork>) -> Result<Record, Failure> {
         if !valid_id(id) {
             return Err((StatusCode::NOT_FOUND, "Media not found"));
         }
@@ -381,20 +436,41 @@ impl Library {
         Ok(record)
     }
     async fn source_records(&self) -> Result<Vec<SourceRecord>, Failure> {
+        self.read_source_records(None).await
+    }
+    async fn read_source_records(
+        &self,
+        work: Option<&ReadWork>,
+    ) -> Result<Vec<SourceRecord>, Failure> {
         let folder = self.root.join("sources");
-        fs::create_dir_all(&folder).await.map_err(storage_error)?;
-        let mut entries = fs::read_dir(folder).await.map_err(storage_error)?;
+        checked(work, fs::create_dir_all(&folder))
+            .await?
+            .map_err(storage_error)?;
+        let mut entries = checked(work, fs::read_dir(folder))
+            .await?
+            .map_err(storage_error)?;
         let mut sources = Vec::new();
-        while let Some(entry) = entries.next_entry().await.map_err(storage_error)? {
-            if !entry.file_type().await.map_err(storage_error)?.is_file()
+        while let Some(entry) = checked(work, entries.next_entry())
+            .await?
+            .map_err(storage_error)?
+        {
+            if !checked(work, entry.file_type())
+                .await?
+                .map_err(storage_error)?
+                .is_file()
                 || entry.path().extension().and_then(|x| x.to_str()) != Some("json")
             {
                 continue;
             }
-            if entry.metadata().await.map_err(storage_error)?.len() > 16384 {
+            if checked(work, entry.metadata())
+                .await?
+                .map_err(storage_error)?
+                .len()
+                > 16384
+            {
                 continue;
             }
-            if let Ok(bytes) = fs::read(entry.path()).await {
+            if let Ok(bytes) = checked(work, fs::read(entry.path())).await? {
                 if let Ok(source) = serde_json::from_slice::<SourceRecord>(&bytes) {
                     if valid_id(&source.id) {
                         sources.push(source);
@@ -461,10 +537,9 @@ impl Library {
         // lease until the current syscall finishes, even if the caller leaves.
         let library = self.clone();
         let id = id.to_string();
-        let owner = work.clone();
         tokio::time::timeout(
             std::time::Duration::from_secs(1),
-            owned_read(work, async move {
+            owned_read(work, |owner| async move {
                 let revision = owner
                     .run(library.scan.lock())
                     .await
@@ -834,9 +909,17 @@ impl Library {
             .background
             .enter()
             .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?;
+        let library = self.clone();
+        owned_read(
+            &work,
+            |owner| async move { library.read_catalog(&owner).await },
+        )
+        .await
+    }
+    async fn read_catalog(&self, work: &ReadWork) -> Result<Catalog, Failure> {
         let base = self.endpoint();
         let (scanning, scanned, scan_error, cached) = {
-            let scan = self.scan.lock().await;
+            let scan = work.run(self.scan.lock()).await?;
             (
                 scan.jobs > 0,
                 scan.scanned,
@@ -852,14 +935,10 @@ impl Library {
             Some(records) => records,
             None => {
                 let mut validated = Vec::new();
-                for record in self.records(&work).await? {
-                    work.check().map_err(|_| {
-                        (
-                            StatusCode::SERVICE_UNAVAILABLE,
-                            "Player background work cancelled",
-                        )
-                    })?;
-                    let available = self.path(&record).await.is_ok();
+                for record in self.read_records(work).await? {
+                    work.check()?;
+                    let available = self.read_path(&record, Some(work)).await.is_ok();
+                    work.check()?;
                     validated.push((record, available));
                 }
                 validated
@@ -896,15 +975,9 @@ impl Library {
             });
         }
         let mut sources = Vec::new();
-        for source in self.source_records().await? {
-            work.check().map_err(|_| {
-                (
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "Player background work cancelled",
-                )
-            })?;
-            let available = fs::symlink_metadata(&source.path)
-                .await
+        for source in self.read_source_records(Some(work)).await? {
+            let available = checked(Some(work), fs::symlink_metadata(&source.path))
+                .await?
                 .map(|m| {
                     !m.file_type().is_symlink()
                         && if source.kind == "folder" {
@@ -937,12 +1010,7 @@ impl Library {
                 });
             }
         }
-        work.check().map_err(|_| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Player background work cancelled",
-            )
-        })?;
+        work.check()?;
         Ok(Catalog {
             available: true,
             items,
@@ -1236,6 +1304,23 @@ fn byte_range(value: Option<&str>, size: u64) -> Result<Option<(u64, u64)>, Fail
     };
     Ok(Some(range))
 }
+
+async fn read_media_chunk<R: tokio::io::AsyncRead + Unpin + Send + 'static>(
+    mut file: R,
+    left: u64,
+    work: &crate::background_work::WorkLease,
+) -> Result<(R, Vec<u8>), Failure> {
+    owned_read(work, move |owner| async move {
+        let mut bytes = vec![0; left.min(64 * 1024) as usize];
+        let read = checked(Some(&owner), file.read(&mut bytes))
+            .await?
+            .map_err(storage_error)?;
+        bytes.truncate(read);
+        Ok((file, bytes))
+    })
+    .await
+}
+
 async fn media(
     State(l): State<Library>,
     Path((token, id)): Path<(String, String)>,
@@ -1248,11 +1333,19 @@ async fn media(
             .background
             .enter()
             .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?;
-        let record = l.record(&id).await?;
-        let mut file = fs::File::open(l.path(&record).await?)
-            .await
-            .map_err(storage_error)?;
-        let size = file.metadata().await.map_err(storage_error)?.len();
+        let (record, file, size) = owned_read(&work, |owner| async move {
+            let record = l.read_record(&id, Some(&owner)).await?;
+            let path = l.read_path(&record, Some(&owner)).await?;
+            let file = checked(Some(&owner), fs::File::open(path))
+                .await?
+                .map_err(storage_error)?;
+            let size = checked(Some(&owner), file.metadata())
+                .await?
+                .map_err(storage_error)?
+                .len();
+            Ok((record, file, size))
+        })
+        .await?;
         let range = match byte_range(headers.get("range").and_then(|v| v.to_str().ok()), size) {
             Ok(r) => r,
             Err(e) => {
@@ -1264,30 +1357,33 @@ async fn media(
         };
         let (start, end) = range.unwrap_or((0, size.saturating_sub(1)));
         let length = if size == 0 { 0 } else { end - start + 1 };
-        file.seek(std::io::SeekFrom::Start(start))
-            .await
-            .map_err(storage_error)?;
+        let file = owned_read(&work, move |owner| async move {
+            let mut file = file;
+            checked(Some(&owner), file.seek(std::io::SeekFrom::Start(start)))
+                .await?
+                .map_err(storage_error)?;
+            Ok(file)
+        })
+        .await?;
         let body = if method == Method::HEAD {
             Body::empty()
         } else {
             Body::from_stream(stream::try_unfold(
                 (file, length, work),
-                |(mut file, left, work)| async move {
+                |(file, left, work)| async move {
                     if left == 0 {
                         return Ok::<_, std::io::Error>(None);
                     }
-                    let mut bytes = vec![0; left.min(64 * 1024) as usize];
-                    let read = work
-                        .run(file.read(&mut bytes))
+                    let (file, bytes) = read_media_chunk(file, left, &work)
                         .await
-                        .map_err(std::io::Error::other)??;
+                        .map_err(|error| std::io::Error::other(error.1))?;
+                    let read = bytes.len();
                     if read == 0 {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::UnexpectedEof,
                             "Local media truncated",
                         ));
                     }
-                    bytes.truncate(read);
                     Ok(Some((Bytes::from(bytes), (file, left - read as u64, work))))
                 },
             ))
@@ -1344,13 +1440,12 @@ mod tests {
         use std::sync::atomic::{AtomicUsize, Ordering};
         let background = crate::background_work::BackgroundWork::default();
         let work = background.enter().unwrap();
-        let owner = work.clone();
         let next_operations = Arc::new(AtomicUsize::new(0));
         let observed = next_operations.clone();
         let (started, entered) = tokio::sync::oneshot::channel();
         let (finish, current_io) = tokio::sync::oneshot::channel();
         let reader = tokio::spawn(async move {
-            owned_read(&work, async move {
+            owned_read(&work, |owner| async move {
                 // This barrier represents an already-running filesystem call:
                 // cancelling its caller cannot stop the underlying operation.
                 checked(Some(&owner), async move {
@@ -1377,20 +1472,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn timed_out_or_dropped_reader_keeps_pending_until_current_io_finishes() {
+    async fn timed_out_or_dropped_reader_stops_after_current_io_while_player_stays_awake() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
         for timeout in [true, false] {
             let background = crate::background_work::BackgroundWork::default();
             let work = background.enter().unwrap();
-            let owner = work.clone();
+            let next_operations = Arc::new(AtomicUsize::new(0));
+            let observed = next_operations.clone();
+            let scan = Arc::new(Mutex::new(ScanState::default()));
+            let published = scan.clone();
             let (started, entered) = tokio::sync::oneshot::channel();
             let (finish, current_io) = tokio::sync::oneshot::channel();
             let reader = tokio::spawn(async move {
-                let read = owned_read(&work, async move {
+                let read = owned_read(&work, |owner| async move {
                     checked(Some(&owner), async move {
                         started.send(()).unwrap();
                         current_io.await.unwrap();
                     })
                     .await?;
+                    checked(Some(&owner), async {
+                        observed.fetch_add(1, Ordering::SeqCst);
+                    })
+                    .await?;
+                    let mut scan = owner.run(published.lock()).await?;
+                    owner.publish(|| scan.cached = true)?;
                     Ok(())
                 });
                 if timeout {
@@ -1411,10 +1516,116 @@ mod tests {
                 assert!(bounded(reader).await.unwrap_err().is_cancelled());
             }
             assert_eq!(background.status().pending, 1);
-            assert!(!background.set_standby(true).quiescent);
+            assert!(!background.status().standby);
             finish.send(()).unwrap();
             wait_for_drain(&background).await;
-            assert!(background.status().quiescent);
+            assert!(!background.status().standby);
+            assert_eq!(next_operations.load(Ordering::SeqCst), 0);
+            assert!(!scan.lock().await.cached);
+        }
+    }
+
+    #[tokio::test]
+    async fn abandoned_reader_releases_scan_mutex_wait_without_late_publication() {
+        let background = crate::background_work::BackgroundWork::default();
+        let work = background.enter().unwrap();
+        let scan = Arc::new(Mutex::new(ScanState::default()));
+        let held = scan.lock().await;
+        let published = scan.clone();
+        let (started, entered) = tokio::sync::oneshot::channel();
+        let reader = tokio::spawn(async move {
+            owned_read(&work, |owner| async move {
+                started.send(()).unwrap();
+                let mut scan = owner.run(published.lock()).await?;
+                owner.publish(|| scan.cached = true)?;
+                Ok(())
+            })
+            .await
+        });
+        bounded(entered).await.unwrap();
+        reader.abort();
+        assert!(bounded(reader).await.unwrap_err().is_cancelled());
+        // No filesystem call is active here: the abandoned mutex waiter must
+        // drain even while another operation retains the publication lock.
+        wait_for_drain(&background).await;
+        assert!(!background.status().standby);
+        assert!(!held.cached);
+        drop(held);
+        // A fresh read and publication remain allowed in this generation.
+        let fresh = background.enter().unwrap();
+        let published = scan.clone();
+        owned_read(&fresh, |owner| async move {
+            let mut scan = owner.run(published.lock()).await?;
+            owner.publish(|| scan.cached = true)
+        })
+        .await
+        .unwrap();
+        assert!(scan.lock().await.cached);
+    }
+
+    #[tokio::test]
+    async fn cancelled_media_chunk_keeps_io_owned_until_completion() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        struct HeldRead {
+            started: Option<tokio::sync::oneshot::Sender<()>>,
+            completion: tokio::sync::oneshot::Receiver<()>,
+            dropped: Arc<AtomicBool>,
+        }
+        impl tokio::io::AsyncRead for HeldRead {
+            fn poll_read(
+                mut self: std::pin::Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+                buf: &mut tokio::io::ReadBuf<'_>,
+            ) -> std::task::Poll<std::io::Result<()>> {
+                if let Some(started) = self.started.take() {
+                    started.send(()).unwrap();
+                }
+                match std::future::Future::poll(std::pin::Pin::new(&mut self.completion), cx) {
+                    std::task::Poll::Pending => std::task::Poll::Pending,
+                    std::task::Poll::Ready(result) => {
+                        result.unwrap();
+                        buf.put_slice(b"x");
+                        std::task::Poll::Ready(Ok(()))
+                    }
+                }
+            }
+        }
+        impl Drop for HeldRead {
+            fn drop(&mut self) {
+                self.dropped.store(true, Ordering::SeqCst);
+            }
+        }
+        for standby in [false, true] {
+            let background = crate::background_work::BackgroundWork::default();
+            let work = background.enter().unwrap();
+            let dropped = Arc::new(AtomicBool::new(false));
+            let (started, entered) = tokio::sync::oneshot::channel();
+            let (finish, completion) = tokio::sync::oneshot::channel();
+            let file = HeldRead {
+                started: Some(started),
+                completion,
+                dropped: dropped.clone(),
+            };
+            let reader = tokio::spawn(async move { read_media_chunk(file, 64, &work).await });
+            bounded(entered).await.unwrap();
+            if standby {
+                background.set_standby(true);
+                assert_eq!(
+                    bounded(reader).await.unwrap().err(),
+                    Some(BACKGROUND_CANCELLED)
+                );
+                background.set_standby(false);
+            } else {
+                reader.abort();
+                assert!(bounded(reader).await.err().unwrap().is_cancelled());
+            }
+            assert_eq!(background.status().pending, 1);
+            assert!(!dropped.load(Ordering::SeqCst));
+            // The caller has gone, but its actual read still owns the file.
+            finish.send(()).unwrap();
+            wait_for_drain(&background).await;
+            assert!(dropped.load(Ordering::SeqCst));
+            assert!(!background.status().standby);
         }
     }
 
@@ -2342,6 +2553,72 @@ mod tests {
         task.abort();
         fs::remove_dir_all(root).await.unwrap();
     }
+
+    #[tokio::test]
+    async fn media_body_reads_on_demand_and_rejects_old_reads_after_standby() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let background = crate::background_work::BackgroundWork::default();
+        let library = Library::new(root.clone(), "b".repeat(32), "device")
+            .await
+            .unwrap()
+            .with_background(background.clone());
+        let payload = vec![b'a'; 128 * 1024];
+        let catalog = import_inner(&library, &library.token, "movie.mp4", Body::from(payload))
+            .await
+            .unwrap();
+        let id = catalog.items[0].id.clone();
+        let response = media(
+            State(library.clone()),
+            Path((library.token.clone(), id.clone())),
+            HeaderMap::new(),
+            Method::GET,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()["content-length"], "131072");
+        let mut body = response.into_body().into_data_stream();
+        assert_eq!(body.next().await.unwrap().unwrap(), vec![b'a'; 64 * 1024]);
+        // Changing the unread half proves the stream has not prefetched it.
+        let path = library
+            .path(&library.record(&id).await.unwrap())
+            .await
+            .unwrap();
+        fs::write(&path, vec![b'b'; 128 * 1024]).await.unwrap();
+        assert_eq!(body.next().await.unwrap().unwrap(), vec![b'b'; 64 * 1024]);
+        assert!(body.next().await.is_none());
+        drop(body);
+        wait_for_drain(&background).await;
+
+        let response = media(
+            State(library.clone()),
+            Path((library.token.clone(), id.clone())),
+            HeaderMap::new(),
+            Method::GET,
+        )
+        .await;
+        let mut body = response.into_body().into_data_stream();
+        assert_eq!(body.next().await.unwrap().unwrap().len(), 64 * 1024);
+        background.set_standby(true);
+        background.set_standby(false);
+        assert!(body.next().await.unwrap().is_err());
+        drop(body);
+        wait_for_drain(&background).await;
+        assert!(!background.status().standby);
+
+        let response = media(
+            State(library.clone()),
+            Path((library.token.clone(), id)),
+            HeaderMap::new(),
+            Method::GET,
+        )
+        .await;
+        let mut body = response.into_body().into_data_stream();
+        assert_eq!(body.next().await.unwrap().unwrap().len(), 64 * 1024);
+        assert_eq!(background.status().pending, 1);
+        drop(body); // A disconnected consumer must release the idle stream.
+        wait_for_drain(&background).await;
+        fs::remove_dir_all(root).await.unwrap();
+    }
     #[tokio::test]
     async fn cancelled_upload_removes_partial_file() {
         let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
@@ -2502,7 +2779,11 @@ mod tests {
         picked.linked_path = Some(original.clone());
         let work = library.background.enter().unwrap();
         assert_eq!(
-            library.read_path(&picked, Some(&work)).await.unwrap(),
+            owned_read(&work, |owner| async move {
+                library.read_path(&picked, Some(&owner)).await
+            })
+            .await
+            .unwrap(),
             original
         );
         assert_eq!(fs::read(&original).await.unwrap(), b"picked original");
