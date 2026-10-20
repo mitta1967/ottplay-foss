@@ -281,8 +281,8 @@ const { gzipSync } = require("node:zlib");
 // 295986 gzip in CI before the native suffix; reserve another 256 gzip bytes
 // for that compressor, native artifacts and release identity. Total caps stay.
 // Retain the independently measured standby allowance once: 11264 raw / 3712 gzip.
-// Combined with main 4fe571e3 on Node 22.23.3: web 967837/299561,
-// native 967795/299625; complete web 1099806/347838 and native 1099764/347902.
+// Combined with main 4fe571e3 on Node 22.23.3: web 967861/299563,
+// native 967819/299629; complete web 1099830/347840 and native 1099788/347906.
 const BUDGET = Object.freeze({ bytes: 968887, gzipBytes: 299916 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });

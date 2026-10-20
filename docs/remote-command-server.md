@@ -321,6 +321,8 @@ Go reopens the saved source/profile through normal startup and resume rules; liv
 streams obtain a fresh URL. Repeated go does not launch a second startup. Standby
 is saved only on this installation, so page/app reload stays asleep. Portable
 settings and cloud backups neither import nor remove that state.
+The normal Exit/Q action saves the playback position and closes the player
+without entering standby; an awake player can resume normally on its next launch.
 
 `status.player.standby` reports the state. On updated players,
 `status.player.background` contains `state` and `pending`: `suspending` means tracked

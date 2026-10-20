@@ -3014,7 +3014,7 @@ export function stbSetStandby(standby: boolean): void {
     if (typeof window.setSleepTimeout === "function") window.setSleepTimeout();
 }
 
-/** Local power keys toggle; remote Stop can reassert teardown without waking. */
+/** Toggle standby; remote Stop can reassert teardown without waking. */
 export function stbToggleStandby(): void {
     stbSetStandby(!stbIsStandby());
 }
