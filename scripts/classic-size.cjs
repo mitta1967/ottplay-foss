@@ -292,7 +292,16 @@ const { gzipSync } = require("node:zlib");
 // Stable-group/history reaches 302000 gzip bytes on the macOS CI Node 22.23.3
 // runner. Matching local Node 22 measures 302042 native with a beta suffix.
 // Reserve 256 gzip bytes for this measured feature and native/release variation.
-const BUDGET = Object.freeze({ bytes: 975543, gzipBytes: 302220 });
+// Deferred browser import, source priority and one-shot provider handoff add
+// 1107 raw bytes on Node 22; reserve 1280 for the feature and version suffix.
+// Web gzip is 302279 bytes; allow the measured native and release suffix delta.
+// Browser enumeration phases, honest counters and cold-directory deadlines add
+// 1337 raw entry bytes on Node 22; reserve 1536 including release identity room.
+// Web gzip is 302703 bytes; retain 448 extra bytes for native/release variation.
+// Startup cancellation, sanitized read failures and local standby wake add
+// about 2613 raw bytes on Node 22; reserve 2816 for this reviewed feature set.
+// Web gzip is 303501 bytes; add 896 for native transforms and release identity.
+const BUDGET = Object.freeze({ bytes: 981175, gzipBytes: 303756 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -436,7 +445,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // retain 256 raw aggregate bytes for the frozen beta suffix and native variants.
 // Node 22 beta output totals 350370 gzip bytes for native builds; the observed
 // CI entry variation leaves only 47 bytes. Retain 128 bytes of aggregate margin.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1107799, gzipBytes: 350586 });
+// Integrated Node 22 native output is 350730 gzip bytes; retain suffix room.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1113431, gzipBytes: 352122 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

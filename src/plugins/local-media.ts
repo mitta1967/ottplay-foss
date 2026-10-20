@@ -2,7 +2,10 @@ import {
     installBrowserLocalMedia,
     installOfflineShell,
 } from "../offline/browser-local-media";
-import { formatLocalMediaProgress } from "../offline/local-media-progress";
+import {
+    formatLocalMediaProgress,
+    localMediaProgressTimeout,
+} from "../offline/local-media-progress";
 import { installOfflineProfiles } from "../offline/profiles";
 import { resolveNativePlugin, tauriInvoke } from "./native-bridge";
 
@@ -19,10 +22,13 @@ export function installLocalMedia(w: any): any {
     var handler: any = null;
     var owner: any = null;
     var loading: any = null;
+    var progressState: any = null;
     var catalogRevision = 0;
     var resuming = false;
     var last: any = null;
     var endpoint = "";
+    var importedSelection = "";
+    var nextImportSelection = "";
     function isNative(): boolean {
         return !!(
             w.Capacitor &&
@@ -121,7 +127,8 @@ export function installLocalMedia(w: any): any {
     }
     function list(
         onProgress?: (value: any) => boolean | void,
-        preferredId?: string
+        preferredId?: string,
+        prioritySources?: string[]
     ): Promise<any> {
         if (w.__ottStandby?.blocked())
             return Promise.reject(w.__ottStandby.error());
@@ -147,7 +154,11 @@ export function installLocalMedia(w: any): any {
                   return base
                       ? pollCatalog(base, request, accept, !!onProgress)
                       : boundedLocalRead(function (progress) {
-                            return browser.list(progress, preferredId);
+                            return browser.list(
+                                progress,
+                                preferredId,
+                                prioritySources
+                            );
                         });
               });
         // Native bridges and browser filesystem reads cannot always be aborted.
@@ -166,7 +177,7 @@ export function installLocalMedia(w: any): any {
                     if (timer !== null) clearTimeout(timer);
                     timer = null;
                 }
-                function heartbeat(): void {
+                function heartbeat(timeout = 60000): void {
                     clear();
                     timer = setTimeout(function () {
                         if (settled) return;
@@ -177,7 +188,7 @@ export function installLocalMedia(w: any): any {
                             last = null;
                         }
                         reject(new Error("Local source did not respond"));
-                    }, 60000);
+                    }, timeout);
                 }
                 function finish(error: any, value?: any): void {
                     if (settled) return;
@@ -202,7 +213,7 @@ export function installLocalMedia(w: any): any {
                         ]);
                         if (next !== signature) {
                             signature = next;
-                            heartbeat();
+                            heartbeat(localMediaProgressTimeout(value));
                         }
                         return admitted;
                     }).then(
@@ -283,35 +294,75 @@ export function installLocalMedia(w: any): any {
                     "Unlock settings and kiosk mode to change local sources"
                 )
             );
+        function scanImported(result: any): Promise<any> {
+            if (request !== catalogRevision)
+                return Promise.resolve({
+                    cancelled: true,
+                    pickerCancelled: true,
+                });
+            if (result && result.pickerCancelled)
+                return Promise.resolve({ pickerCancelled: true });
+            var pending = list(
+                function (value) {
+                    updateLoading(value);
+                    return !value.items.some(function (item: any) {
+                        return item.available !== false && !!item.url;
+                    });
+                },
+                undefined,
+                result && result.sourceIds
+            );
+            var scanRequest = catalogRevision;
+            return pending.then(function (value) {
+                if (
+                    scanRequest === catalogRevision &&
+                    last === value &&
+                    result &&
+                    result.sourceIds
+                ) {
+                    var item = value.items.filter(function (item: any) {
+                        return (
+                            result.sourceIds.indexOf(item.sourceId) >= 0 &&
+                            item.available !== false &&
+                            !!item.url
+                        );
+                    })[0];
+                    importedSelection = item ? "local-" + item.id : "";
+                }
+                return value;
+            });
+        }
         if (isNative())
             return remember(
                 folder ? native.importFolder() : native.importFiles()
             );
+        // A picker may outlive its screen. Its saved handle is still valid, but
+        // its completion must not replace a newer catalog or start playback.
+        var request = ++catalogRevision;
+        importedSelection = "";
+        nextImportSelection = "";
         if (isTauri())
             return tauriInvoke<any>(
                 folder
                     ? "offline_media_import_folder"
                     : "offline_media_import_files",
                 {}
-            ).then(function (result) {
-                if (result && result.pickerCancelled)
-                    return { pickerCancelled: true };
-                return list(function (value) {
-                    updateLoading(value);
-                    return !value.items.some(function (item: any) {
-                        return item.available !== false && !!item.url;
-                    });
-                });
-            });
+            ).then(scanImported);
         if (remoteEndpoint())
             return Promise.reject(
                 new Error(
                     "Connect folders on the server itself, or select this device's library."
                 )
             );
-        return remember(
-            folder ? browser.importFolder() : browser.importFiles()
-        );
+        progressState = {
+            items: [],
+            phase: folder ? "picker-folder" : "picker-files",
+        };
+        return (
+            folder
+                ? browser.importFolder({ deferScan: true })
+                : browser.importFiles(undefined, { deferScan: true })
+        ).then(scanImported);
     }
     function removeSource(id: string): Promise<any> {
         if (locked() || settingsLocked())
@@ -407,7 +458,28 @@ export function installLocalMedia(w: any): any {
                 (loading && loading.foreground() && owner.active()))
         );
     }
+    function failureMessage(value: any): string {
+        var name = value && value.readErrorName;
+        if (
+            !/^(NotFoundError|NotAllowedError|SecurityError|NotReadableError|AbortError|InvalidStateError|QuotaExceededError|TimeoutError|TypeError|UnknownError|Error)$/.test(
+                name
+            )
+        )
+            return "";
+        var stage = (
+            {
+                enumerating: "Reading folder entries",
+                files: "Reading local files",
+                metadata: "Reading file information",
+                permission: "Checking folder permission",
+                sources: "Reading saved sources",
+            } as any
+        )[value.readErrorPhase];
+        if (typeof stage !== "string") stage = "Local source unavailable";
+        return (w._ ? w._(stage) : stage) + ": " + name;
+    }
     function updateLoading(value: any): void {
+        progressState = value;
         if (!loading || !current()) return;
         var node =
             w.document && w.document.getElementById("local-media-progress");
@@ -419,6 +491,8 @@ export function installLocalMedia(w: any): any {
         active.close();
     }
     function close(): void {
+        importedSelection = "";
+        nextImportSelection = "";
         finishLoading();
         opened = false;
         revision++;
@@ -445,11 +519,14 @@ export function installLocalMedia(w: any): any {
             open();
             return;
         }
+        var selected = importedSelection;
         finishLoading();
         opened = false;
         revision++;
         if (typeof w.closeList === "function") w.closeList();
         w.stbSetItem("ottplayprov", "offline");
+        nextImportSelection = selected;
+        importedSelection = "";
         w.loadProv("offline");
     }
     function editServer(): void {
@@ -533,7 +610,7 @@ export function installLocalMedia(w: any): any {
             function () {
                 run(function () {
                     return importFiles(true);
-                }, isTauri());
+                }, !isNative());
             }
         );
         row(
@@ -543,7 +620,7 @@ export function installLocalMedia(w: any): any {
             function () {
                 run(function () {
                     return importFiles();
-                }, isTauri());
+                }, !isNative());
             }
         );
         if (
@@ -680,6 +757,7 @@ export function installLocalMedia(w: any): any {
     function run(action: () => Promise<any>, startPlayback = false): void {
         var request = ++revision;
         finishLoading();
+        progressState = null;
         // Start the picker inside the user gesture, before rendering or awaiting.
         var pending: Promise<any>;
         try {
@@ -704,7 +782,12 @@ export function installLocalMedia(w: any): any {
                     '<center><div class="ott-spinner" aria-hidden="true"><span class="blob"></span><span class="blob"></span><span class="blob"></span><span class="blob"></span></div></center><br/>' +
                         text(w._("Loading. Please wait...")) +
                         '<div id="local-media-progress">' +
-                        text(formatLocalMediaProgress({ items: [] }, w._)) +
+                        text(
+                            formatLocalMediaProgress(
+                                progressState || { items: [] },
+                                w._
+                            )
+                        ) +
                         "</div><br/><br/>" +
                         w.renderButtonHint(w.keys.RETURN, w.strRETURN, "Cancel")
                 )
@@ -731,7 +814,7 @@ export function installLocalMedia(w: any): any {
             }
         );
     }
-    function open(recovery = false, skipScan = false): void {
+    function open(recovery = false, skipScan = false, message = ""): void {
         if (locked()) return;
         if (settingsLocked()) {
             if (typeof w.enterPinAndSetAccess === "function")
@@ -745,7 +828,7 @@ export function installLocalMedia(w: any): any {
         owner = null;
         w.selIndex = 0;
         if (skipScan) catalogRevision++;
-        render();
+        render(message || failureMessage(last));
         if (!skipScan) run(list);
     }
     var api = {
@@ -757,6 +840,7 @@ export function installLocalMedia(w: any): any {
             catalogRevision++;
             last = null;
         },
+        failureMessage: failureMessage,
         importFiles: importFiles,
         isPlaybackUrl: function (url: string) {
             return !!(
@@ -788,9 +872,21 @@ export function installLocalMedia(w: any): any {
         },
         list: list,
         open: open,
+        progressText: function (value: any) {
+            return formatLocalMediaProgress(value, w._);
+        },
+        progressTimeout: localMediaProgressTimeout,
         remove: remove,
-        resume: function (skipScan = false) {
-            open(true, skipScan);
+        resume: function (skipScan = false, message = "") {
+            // Backend exception text may contain private file paths. Keep only
+            // our fixed timeout message or the sanitized filesystem error code.
+            open(
+                true,
+                skipScan,
+                message === "Local source did not respond"
+                    ? message
+                    : failureMessage(last)
+            );
         },
         snapshot: function () {
             // Profile operations must never replace the provider's active scan.
@@ -807,6 +903,11 @@ export function installLocalMedia(w: any): any {
             catalogRevision++;
             revision++;
             close();
+        },
+        takeImportSelection: function () {
+            var selected = nextImportSelection;
+            nextImportSelection = "";
+            return selected;
         },
         title: title,
     };

@@ -16,8 +16,17 @@ from the provider list. Its controls use the player's normal settings list:
 file-manager dialog. The operating system's file/folder picker still appears to
 let you choose what OTT may read.
 
-Choose a folder or files, then choose **Play local videos** to open the channel
-list. OTT saves references and small metadata records, not a second copy of the
+In a supported desktop browser or Tauri, **Add folder** and **Add files** start
+playback as soon as the first playable file is available. The remaining catalog
+loads in the background. The picker saves source references before the scan;
+it does not wait for every file to open before reporting progress. Cancelling
+the picker keeps the current library and does not start playback. Newly selected
+browser sources are read before older sources, so a stalled old folder cannot
+block a newly added video. That new selection is carried through the initial
+player handoff; ordinary restart/resume and active profile restrictions are
+unchanged. Other native
+variants use **Play local videos** after loading the catalog. OTT saves
+references and small metadata records, not a second copy of the
 movies. The original disk, SD card, or directory must remain accessible. Moving
 or deleting originals, removing an SD card, or revoking access can make entries
 unavailable. Reconnect the source or grant access again; an unavailable source
@@ -32,6 +41,27 @@ background. The last selected file is looked up directly before enumerating a
 large folder. Later batches do not restart playback or reset the selection. If a source fails or does not respond, recovery offers **Continue
 playback** without immediately repeating the stalled scan. Menu navigation and
 saved source/video selection remain available; retrying does not copy media.
+The browser's file picker is allowed to remain open while you choose a source.
+The loading dialog distinguishes the browser folder picker, directory enumeration,
+and file metadata reads. It shows entries discovered separately from playable
+videos; neither counter measures copied or downloaded media. Before the first
+playable video, directory enumeration may take up to ten minutes, including
+nested folders on a network drive. An unchanged status does not extend this
+deadline. File metadata reads and later stalled reads retain the 60-second
+inactivity limit. Cancel remains available while waiting; expired or cancelled
+reads cannot revive the old dialog or replace a newer selection. Startup loading
+has the same Cancel control and returns to source management. When the browser
+reports a filesystem error, recovery names the stage and error code without
+including private file paths. Cancelling stops OTT from using late results; an
+already issued operating-system read can still finish in the background.
+
+On a large network folder, Chrome can read the folder's metadata before returning
+even the first entry to JavaScript. During that stage, **Entries found: 0** does
+not mean that OTT is copying the videos or that the folder is empty. The player
+cannot display an entry which the browser has not returned yet. A previously
+selected file can start through the direct lookup described above; a first-time
+folder selection must wait for that initial browser result. Repeated Refresh or
+page reloads do not bypass this operating-system work.
 
 Closing the page, pressing **Q** on a PC, or exiting the native app saves the
 current video position before stopping playback. On the next start, the exact

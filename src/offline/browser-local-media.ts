@@ -125,17 +125,19 @@ export function installBrowserLocalMedia(w: any): any {
     // cancelling never prunes URLs that the current player may still be using.
     function list(
         onProgress?: (catalog: any) => boolean | void,
-        preferredId?: string
+        preferredId?: string,
+        prioritySources?: string[]
     ): Promise<any> {
         if (w.__ottStandby?.blocked())
             return Promise.reject(w.__ottStandby.error());
-        var pending = scan(onProgress, preferredId);
+        var pending = scan(onProgress, preferredId, prioritySources);
         if (w.__ottStandby) w.__ottStandby.observe(pending);
         return pending;
     }
     function scan(
         onProgress?: (catalog: any) => boolean | void,
-        preferredId?: string
+        preferredId?: string,
+        prioritySources?: string[]
     ): Promise<any> {
         if (typeof onProgress !== "function") onProgress = undefined;
         var generation = ++scanGeneration;
@@ -143,11 +145,23 @@ export function installBrowserLocalMedia(w: any): any {
             sources: any[] = [],
             live: any = {};
         var scanned = 0,
+            discovered = 0,
             published = 0,
             lastPublish = Date.now();
         var stopped = false,
             firstPlayable = false;
         var phase = "sources";
+        var readErrorName = "";
+        var readErrorPhase = "";
+        function readFailure(error: any): void {
+            readErrorName =
+                /^(NotFoundError|NotAllowedError|SecurityError|NotReadableError|AbortError|InvalidStateError|QuotaExceededError|TimeoutError|TypeError|UnknownError)$/.test(
+                    error && error.name
+                )
+                    ? error.name
+                    : "Error";
+            readErrorPhase = phase;
+        }
         function active(): boolean {
             return !stopped && generation === scanGeneration;
         }
@@ -156,6 +170,7 @@ export function installBrowserLocalMedia(w: any): any {
                 available: available,
                 cancelled: !active(),
                 directSources: !!w.showDirectoryPicker,
+                discovered: discovered,
                 items: items.slice(),
                 offlineReady: !!(
                     w.navigator.serviceWorker &&
@@ -166,6 +181,8 @@ export function installBrowserLocalMedia(w: any): any {
                 ),
                 persistent: false,
                 phase: scanning ? phase : "complete",
+                readErrorName: readErrorName,
+                readErrorPhase: readErrorPhase,
                 scanned: scanned,
                 scanning: scanning,
                 sources: sources.map(function (source) {
@@ -199,14 +216,42 @@ export function installBrowserLocalMedia(w: any): any {
                 progress(true);
             }
         }
-        function visit(): Promise<void> {
+        function visit(force = false): Promise<void> {
             scanned++;
-            progress();
+            progress(force);
             return scanned % 64 === 0
                 ? new Promise(function (resolve) {
                       w.setTimeout(resolve, 0);
                   })
                 : Promise.resolve();
+        }
+        function readPhase(
+            name: string,
+            read: () => any,
+            force = false
+        ): Promise<any> {
+            phase = name;
+            progress(force);
+            if (!active()) return Promise.resolve(null);
+            // Fast reads keep batch publication cheap. A pending browser call
+            // exposes its real phase once, without inventing scan progress.
+            var timer = w.setTimeout(function () {
+                progress(true);
+            }, 100);
+            return Promise.resolve()
+                .then(function () {
+                    return active() ? read() : null;
+                })
+                .then(
+                    function (value) {
+                        w.clearTimeout(timer);
+                        return value;
+                    },
+                    function (error) {
+                        w.clearTimeout(timer);
+                        throw error;
+                    }
+                );
         }
         // Manual async iteration keeps legacy ES5 bundles compatible. Push into
         // one result array instead of copying a growing array for every file.
@@ -216,16 +261,25 @@ export function installBrowserLocalMedia(w: any): any {
             sourceId: string
         ): Promise<void> {
             if (!active()) return Promise.resolve();
+            phase = "enumerating";
             var iterator = handle.values();
             function next(): Promise<void> {
                 if (!active()) return Promise.resolve();
-                return Promise.resolve(iterator.next()).then(function (step) {
-                    if (step.done || !active()) return;
+                return readPhase(
+                    "enumerating",
+                    function () {
+                        return iterator.next();
+                    },
+                    discovered === 0
+                ).then(function (step) {
+                    if (!step || step.done || !active()) return;
                     var child = step.value,
                         name = prefix + child.name;
+                    discovered++;
+                    var visited = visit(discovered === 1);
                     var work: Promise<any>;
                     if (child.kind === "directory")
-                        work = Promise.resolve().then(function () {
+                        work = visited.then(function () {
                             return walk(child, name + "/", sourceId);
                         });
                     // A known non-media extension cannot become playable by
@@ -235,11 +289,13 @@ export function installBrowserLocalMedia(w: any): any {
                             child.name
                         )
                     )
-                        work = Promise.resolve();
+                        work = visited;
                     else
-                        work = Promise.resolve()
+                        work = visited
                             .then(function () {
-                                return active() ? child.getFile() : null;
+                                return readPhase("metadata", function () {
+                                    return active() ? child.getFile() : null;
+                                });
                             })
                             .then(function (file) {
                                 if (active() && file && media(file))
@@ -252,6 +308,7 @@ export function installBrowserLocalMedia(w: any): any {
                             });
                     return work
                         .catch(function (error) {
+                            if (active()) readFailure(error);
                             // Files can disappear or have narrower permissions than
                             // their parent. Keep scanning readable siblings.
                             if (
@@ -262,7 +319,6 @@ export function installBrowserLocalMedia(w: any): any {
                             )
                                 throw error;
                         })
-                        .then(visit)
                         .then(next);
                 });
             }
@@ -288,21 +344,32 @@ export function installBrowserLocalMedia(w: any): any {
             parts.slice(0, -1).forEach(function (part) {
                 handle = handle.then(function (directory) {
                     return active()
-                        ? directory.getDirectoryHandle(part)
+                        ? readPhase("metadata", function () {
+                              return directory.getDirectoryHandle(part);
+                          })
                         : Promise.reject();
                 });
             });
             return handle
                 .then(function (directory) {
                     return active()
-                        ? directory.getFileHandle(parts[parts.length - 1])
+                        ? readPhase("metadata", function () {
+                              return directory.getFileHandle(
+                                  parts[parts.length - 1]
+                              );
+                          })
                         : Promise.reject();
                 })
                 .then(function (fileHandle) {
-                    return active() ? fileHandle.getFile() : Promise.reject();
+                    return active() && fileHandle
+                        ? readPhase("metadata", function () {
+                              return fileHandle.getFile();
+                          })
+                        : Promise.reject();
                 })
                 .then(function (file) {
-                    if (media(file)) add(preferredId!, file, path, record.id);
+                    if (file && media(file))
+                        add(preferredId!, file, path, record.id);
                 })
                 .catch(function () {
                     /* Missing paths fall back to the full scan. */
@@ -337,6 +404,15 @@ export function installBrowserLocalMedia(w: any): any {
                                 preferredId === a.id ||
                                     preferredId!.indexOf(a.id + ":") === 0
                             )
+                        );
+                    });
+                if (prioritySources?.length)
+                    saved.sort(function (a, b) {
+                        var left = prioritySources!.indexOf(a.id),
+                            right = prioritySources!.indexOf(b.id);
+                        return (
+                            (left < 0 ? prioritySources!.length : left) -
+                            (right < 0 ? prioritySources!.length : right)
                         );
                     });
                 var chain = Promise.resolve();
@@ -385,18 +461,28 @@ export function installBrowserLocalMedia(w: any): any {
                                             record.id
                                         );
                                     });
-                                return record.handle
-                                    .getFile()
-                                    .then(function (file) {
+                                discovered++;
+                                return readPhase(
+                                    "metadata",
+                                    function () {
+                                        return record.handle.getFile();
+                                    },
+                                    true
+                                ).then(function (file) {
+                                    if (active() && file && media(file))
                                         add(
                                             record.id,
                                             file,
                                             file.name,
                                             record.id
                                         );
-                                    });
+                                });
                             })
                             .catch(function (error) {
+                                if (!active()) return;
+                                readFailure(error);
+                                (source as any).readErrorName = readErrorName;
+                                (source as any).readErrorPhase = readErrorPhase;
                                 source.access =
                                     error && error.name === "NotAllowedError"
                                         ? "permission-required"
@@ -433,22 +519,25 @@ export function installBrowserLocalMedia(w: any): any {
                 return catalog(false);
             });
     }
-    function save(handles: any[]): Promise<any> {
+    function save(handles: any[], deferScan = false): Promise<any> {
+        var sourceIds: string[] = [];
         return open()
             .then(function (db) {
                 return new Promise(function (resolve, reject) {
                     var tx = db.transaction("files", "readwrite");
                     handles.forEach(function (handle, index) {
+                        var id =
+                            "source-" +
+                            Date.now().toString(36) +
+                            "-" +
+                            index +
+                            "-" +
+                            Math.random().toString(36).slice(2);
+                        sourceIds.push(id);
                         tx.objectStore("files").add({
                             created: Date.now(),
                             handle: handle,
-                            id:
-                                "source-" +
-                                Date.now().toString(36) +
-                                "-" +
-                                index +
-                                "-" +
-                                Math.random().toString(36).slice(2),
+                            id: id,
                             name: handle.name,
                         });
                     });
@@ -462,13 +551,25 @@ export function installBrowserLocalMedia(w: any): any {
                     };
                 });
             })
-            .then(list);
+            .then(function () {
+                // The picker UI owns a bounded, progressive scan after saving.
+                // Do not enumerate the entire directory before it can begin.
+                return deferScan
+                    ? { sourceIds: sourceIds, sourceSaved: true }
+                    : list();
+            });
     }
-    function cancelled(error: any): Promise<any> {
-        if (error && error.name === "AbortError") return list();
+    function cancelled(error: any, deferScan = false): Promise<any> {
+        if (error && error.name === "AbortError")
+            return deferScan
+                ? Promise.resolve({ pickerCancelled: true })
+                : list();
         return Promise.reject(error);
     }
-    function importFiles(files?: any): Promise<any> {
+    function importFiles(
+        files?: any,
+        options?: { deferScan?: boolean }
+    ): Promise<any> {
         if (files)
             return Promise.reject(
                 new Error(
@@ -495,6 +596,9 @@ export function installBrowserLocalMedia(w: any): any {
                 ],
             })
             .then(function (handles: any[]) {
+                // File reads belong to the progressive scan as well: even one
+                // selected file can wait on a disconnected drive or cloud mount.
+                if (options?.deferScan) return handles;
                 return Promise.all(
                     handles.map(function (handle) {
                         return handle.getFile().then(function (file) {
@@ -507,10 +611,14 @@ export function installBrowserLocalMedia(w: any): any {
                     })
                 );
             })
-            .then(save)
-            .catch(cancelled);
+            .then(function (handles) {
+                return save(handles, !!options?.deferScan);
+            })
+            .catch(function (error) {
+                return cancelled(error, !!options?.deferScan);
+            });
     }
-    function importFolder(): Promise<any> {
+    function importFolder(options?: { deferScan?: boolean }): Promise<any> {
         if (!w.showDirectoryPicker)
             return Promise.reject(
                 new Error(
@@ -520,9 +628,11 @@ export function installBrowserLocalMedia(w: any): any {
         return w
             .showDirectoryPicker({ mode: "read" })
             .then(function (handle) {
-                return save([handle]);
+                return save([handle], !!options?.deferScan);
             })
-            .catch(cancelled);
+            .catch(function (error) {
+                return cancelled(error, !!options?.deferScan);
+            });
     }
     function requestAccess(
         onProgress?: (catalog: any) => boolean | void,

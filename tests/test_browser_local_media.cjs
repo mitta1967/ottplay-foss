@@ -691,14 +691,104 @@ async function builtUi(devicePath) {
             window.showOpenFilePicker = () => Promise.resolve([file]);
             window.showDirectoryPicker = () => Promise.resolve(folder);
         }, Array.from(movie));
+        async function blockOlderSource() {
+            await page.evaluate(async () => {
+                const root = await navigator.storage.getDirectory();
+                const folder = await root.getDirectoryHandle(
+                    "unresponsive-old-source",
+                    { create: true }
+                );
+                const picker = window.showDirectoryPicker;
+                window.showDirectoryPicker = () => Promise.resolve(folder);
+                const saved = await window.__ottBrowserLocalMedia.importFolder({
+                    deferScan: true,
+                });
+                window.showDirectoryPicker = picker;
+                const prototype = FileSystemDirectoryHandle.prototype;
+                const values = prototype.values;
+                const pending = [];
+                window.__blockedImportSource = {
+                    id: saved.sourceIds[0],
+                    pending,
+                    prototype,
+                    values,
+                };
+                prototype.values = function () {
+                    if (this.name !== "unresponsive-old-source")
+                        return values.call(this);
+                    return {
+                        next: () =>
+                            new Promise((resolve) => pending.push(resolve)),
+                    };
+                };
+            });
+        }
+        async function releaseOlderSource() {
+            await page.evaluate(async () => {
+                const blocked = window.__blockedImportSource;
+                blocked.prototype.values = blocked.values;
+                for (const resolve of blocked.pending) resolve({ done: true });
+                await window.__ottBrowserLocalMedia.removeSource(blocked.id);
+                delete window.__blockedImportSource;
+            });
+        }
+        async function expectImportedPlayback(actionName) {
+            const expected =
+                actionName === "add-files"
+                    ? "offline-fixture.mp4"
+                    : "folder-video.mp4";
+            await page.waitForFunction((name) => {
+                const id = window.curList[window.primaryIndex];
+                return window.channels[id]?.channel_name === name;
+            }, expected);
+            await page.waitForFunction(() =>
+                Array.from(document.querySelectorAll("video")).some(
+                    (video) =>
+                        video.currentTime > 0.1 && !video.error && !video.paused
+                )
+            );
+            await action("add-folder").waitFor({ state: "hidden" });
+            const playback = await page.evaluate(() => {
+                const video = Array.from(
+                    document.querySelectorAll("video")
+                ).find(
+                    (item) =>
+                        item.currentTime > 0.1 && !item.error && !item.paused
+                );
+                return {
+                    frames: video.getVideoPlaybackQuality().totalVideoFrames,
+                    position: video.currentTime,
+                };
+            });
+            assert.ok(
+                playback.frames > 0,
+                "imported video decodes actual frames"
+            );
+            console.log(
+                "PASS imported playback " +
+                    devicePath +
+                    " " +
+                    actionName +
+                    ": " +
+                    JSON.stringify(playback)
+            );
+        }
+        await blockOlderSource();
         await selectAction("add-files");
+        await expectImportedPlayback("add-files");
+        await releaseOlderSource();
+        await chooseLocalProvider();
         await page.waitForFunction(
             () =>
                 document.querySelectorAll(
                     '[data-local-media-action="disconnect-source"]'
                 ).length === 1
         );
+        await blockOlderSource();
         await selectAction("add-folder");
+        await expectImportedPlayback("add-folder");
+        await releaseOlderSource();
+        await chooseLocalProvider();
         await page.waitForFunction(
             () =>
                 document.querySelectorAll(
@@ -720,6 +810,64 @@ async function builtUi(devicePath) {
                 (v) => v.currentTime > 0.1 && !v.error
             )
         );
+        for (const input of ["keyboard", "pointer", "touch"]) {
+            const before = await page.evaluate(() => ({
+                selected: window.curList[window.primaryIndex],
+                volume: document.querySelector("video").volume,
+            }));
+            await page.evaluate(() => window.stbSetStandby(true));
+            await page.waitForFunction(() => window.__ottStandby.isStandby());
+            if (input === "keyboard") await page.keyboard.press("ArrowDown");
+            else if (input === "pointer") await page.mouse.click(300, 200);
+            else {
+                const touch = await context.newCDPSession(page);
+                await touch.send("Emulation.setTouchEmulationEnabled", {
+                    enabled: true,
+                    maxTouchPoints: 1,
+                });
+                await touch.send("Input.dispatchTouchEvent", {
+                    touchPoints: [{ x: 300, y: 200 }],
+                    type: "touchStart",
+                });
+                await touch.send("Input.dispatchTouchEvent", {
+                    touchPoints: [],
+                    type: "touchEnd",
+                });
+                await touch.send("Emulation.setTouchEmulationEnabled", {
+                    enabled: false,
+                });
+                await touch.detach();
+            }
+            await page.waitForFunction(() => {
+                const video = document.querySelector("video");
+                return (
+                    !window.__ottStandby.blocked() &&
+                    video.currentTime > 0.1 &&
+                    !video.paused &&
+                    !video.error &&
+                    video.getVideoPlaybackQuality().totalVideoFrames > 0
+                );
+            });
+            const after = await page.evaluate(() => ({
+                frames: document
+                    .querySelector("video")
+                    .getVideoPlaybackQuality().totalVideoFrames,
+                selected: window.curList[window.primaryIndex],
+                volume: document.querySelector("video").volume,
+            }));
+            assert.equal(
+                after.selected,
+                before.selected,
+                "wake gesture cannot change the selected video"
+            );
+            assert.equal(
+                after.volume,
+                before.volume,
+                "wake gesture cannot change the volume"
+            );
+            assert.ok(after.frames > 0, "local wake resumes decoded video");
+            console.log("PASS local standby wake " + devicePath + " " + input);
+        }
         await page.waitForFunction(() => !!window.__ottTryKeyboardSeek);
         await page.waitForFunction(() => window.playType === -99999999999);
         const playbackUrl = page.url();

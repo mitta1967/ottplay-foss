@@ -924,3 +924,153 @@ test("local footer metadata uses immediate directory and supports legacy source 
     );
     assert.equal(catalog.channels["local-relative"].channel_name, "Third.mp4");
 });
+
+test("import selection is consumed once and preserves explicit profile precedence", async () => {
+    for (const explicitProfile of [false, true]) {
+        const f = integrationFixture("offline");
+        const preferred = [];
+        let imported = "local-imported";
+        let profileActive = explicitProfile;
+        f.host.clearBootHide = () => {};
+        f.host.__ottSourceIdentity = { current: () => "saved-source" };
+        f.saved.set(
+            "offlinechannelLibrary:saved-source",
+            JSON.stringify({ selected: { itemId: "channel:local-saved" } })
+        );
+        f.host.__ottOfflineProfiles = {
+            read: () => ({ active: profileActive ? 1 : 0 }),
+            selection: () => (profileActive ? "local-profile" : null),
+        };
+        f.host.__ottLocalMedia = {
+            list: (_, id) => {
+                preferred.push(id);
+                return Promise.resolve({ items: [] });
+            },
+            takeImportSelection: () => {
+                const result = imported;
+                imported = "";
+                return result;
+            },
+        };
+        f.host.loadProv();
+        assert.equal(preferred[0], explicitProfile ? "profile" : "imported");
+        assert.equal(
+            imported,
+            "",
+            "the handoff is consumed even with an active profile"
+        );
+        await Promise.resolve();
+        profileActive = false;
+        f.host.loadProv();
+        assert.equal(
+            preferred[1],
+            "saved",
+            "later loads use normal saved selection"
+        );
+        await Promise.resolve();
+    }
+});
+
+function startupDialogFixture() {
+    const f = fixture();
+    const nodes = [];
+    const callbacks = [];
+    let closed = 0;
+    f.host.keys.EXIT = 8;
+    f.host.document = {
+        createElement: () => ({ setAttribute() {} }),
+        getElementById: () => ({
+            appendChild: (node) => nodes.push(node),
+            querySelector: (selector) =>
+                selector === ".ott-spinner" ? {} : null,
+        }),
+    };
+    f.host.renderButtonHint = (_, __, label) => label;
+    f.host.__ottClassicScreenPort = {
+        setOwnedCallback: (kind, handler) => {
+            assert.equal(kind, "dialog");
+            callbacks.push(handler);
+            return { owner: { close: () => closed++ } };
+        },
+    };
+    return { ...f, callbacks, closed: () => closed, nodes };
+}
+
+test("local startup Cancel retires pending work and ignores late completion", async (t) => {
+    for (const key of [27, 8]) {
+        const f = startupDialogFixture();
+        const resumed = [];
+        const results = [];
+        let complete;
+        f.host.__ottLocalMedia = {
+            list: () => new Promise((resolve) => (complete = resolve)),
+            resume: (skipScan) => resumed.push(skipScan),
+        };
+        const driver = f.mount("offline");
+        t.after(() => driver.dispose());
+        driver.load((catalog, error) => results.push({ catalog, error }));
+        assert.equal(f.callbacks.length, 1);
+        assert.match(f.nodes[0].innerHTML, /Cancel/);
+        f.callbacks[0](key);
+        assert.equal(results.length, 1);
+        assert.equal(results[0].catalog.ids.length, 0);
+        assert.deepEqual(resumed, [true]);
+        assert.equal(f.closed(), 1);
+        complete({
+            items: [{ id: "late", name: "Late.mp4", url: "blob:late" }],
+        });
+        await Promise.resolve();
+        f.callbacks[0](key);
+        assert.equal(
+            results.length,
+            1,
+            "cancelled startup cannot publish late files"
+        );
+        assert.equal(f.closed(), 1);
+    }
+});
+
+test("first local playback closes its startup owner and leaves old Cancel inert", (t) => {
+    const f = startupDialogFixture();
+    const resumed = [];
+    const results = [];
+    let progress;
+    f.host.__ottLocalMedia = {
+        list: (callback) => {
+            progress = callback;
+            return new Promise(() => {});
+        },
+        resume: (skipScan) => resumed.push(skipScan),
+    };
+    const driver = f.mount("offline");
+    t.after(() => driver.dispose());
+    driver.load((catalog) => results.push(catalog));
+    progress({
+        items: [{ id: "first", name: "First.mp4", url: "blob:first" }],
+    });
+    assert.equal(results.length, 1);
+    assert.equal(f.closed(), 1);
+    f.callbacks[0](f.host.keys.RETURN);
+    assert.equal(results.length, 1);
+    assert.deepEqual(resumed, []);
+});
+
+test("strict kiosk prevents local startup cancellation, including a newly locked session", (t) => {
+    for (const initiallyLocked of [true, false]) {
+        const f = startupDialogFixture();
+        let locked = initiallyLocked;
+        let resumed = 0;
+        f.host.__ottKiosk = { locked: () => locked };
+        f.host.__ottLocalMedia = {
+            list: () => new Promise(() => {}),
+            resume: () => resumed++,
+        };
+        const driver = f.mount("offline");
+        t.after(() => driver.dispose());
+        driver.load(() => assert.fail("locked startup was cancelled"));
+        assert.equal(f.callbacks.length, initiallyLocked ? 0 : 1);
+        locked = true;
+        if (f.callbacks[0]) f.callbacks[0](f.host.keys.RETURN);
+        assert.equal(resumed, 0);
+    }
+});

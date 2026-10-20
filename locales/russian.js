@@ -162,8 +162,11 @@ var keyStrings = {
         "Проверить подключение и открыть медиатеки Plex.",
     "Check this server's SWOP configuration.":
         "Проверьте настройки SWOP этого сервера.",
+    "Checking folder permission": "Проверка доступа к папке",
     "Checking the Plex server connection…":
         "Проверка подключения к серверу Plex…",
+    "Choose a folder in the browser window": "Выберите папку в окне браузера",
+    "Choose files in the browser window": "Выберите файлы в окне браузера",
     "Choose from": "Выбрать из",
     "Choose language": "Выберите язык",
     "Choose Plex server": "Выберите сервер Plex",
@@ -437,6 +440,7 @@ var keyStrings = {
         "Введите токен доступа Plex. Он сохраняется в профиле этого устройства.",
     "Enter your Plex server address, for example http://192.168.1.25:32400":
         "Введите адрес сервера Plex, например http://192.168.1.25:32400",
+    "Entries found": "Найдено элементов",
     EPG: "Программа",
     "EPG and archive. Channel: ": "Программа и архив. Канал: ",
     "EPG archive or XML is invalid.":
@@ -599,6 +603,9 @@ var keyStrings = {
     "Loading. Please wait...": "Загрузка. Подождите…",
     "Loading...": "Загрузка…",
     "Local HTTP remote control": "Локальный HTTP-пульт",
+    "Local source did not respond":
+        "Локальный источник не ответил за отведённое время",
+    "Local source unavailable": "Локальный источник недоступен",
     "Local URL": "Локальный адрес",
     "Local videos": "Локальные видео",
     Login: "Имя пользователя",
@@ -763,6 +770,10 @@ var keyStrings = {
     Rating: "Рейтинг",
     RD: "RD",
     "RD settings": "Настройки RD",
+    "Reading file information": "Чтение сведений о файле",
+    "Reading folder entries": "Чтение содержимого папки",
+    "Reading local files": "Чтение локальных файлов",
+    "Reading saved sources": "Чтение сохранённых источников",
     "Reconnecting…": "Повторное подключение…",
     Records: "Записи",
     "Records for channel: ": "Записи канала: ",

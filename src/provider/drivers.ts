@@ -208,6 +208,12 @@ function createOfflineDriver(
     var catalog = emptyDriverCatalog();
     var revision = 0;
     var loadTimer: any = null;
+    var loadingOwner: any = null;
+    function closeLoading(): void {
+        var current = loadingOwner;
+        loadingOwner = null;
+        if (current) current.close();
+    }
     function clearLoadTimer(): void {
         if (
             loadTimer !== null &&
@@ -236,6 +242,7 @@ function createOfflineDriver(
             disposed = true;
             revision++;
             clearLoadTimer();
+            closeLoading();
         },
         guide: function (_, done) {
             if (active()) done([]);
@@ -244,6 +251,7 @@ function createOfflineDriver(
         load: function (done) {
             var request = ++revision;
             clearLoadTimer();
+            closeLoading();
             var media = (window as any).__ottLocalMedia;
             if (!media) {
                 done(emptyDriverCatalog(), "Local media is unavailable");
@@ -276,6 +284,9 @@ function createOfflineDriver(
             var waitForFinal = false;
             var legacyIndex = 0;
             try {
+                var imported = media.takeImportSelection
+                    ? media.takeImportSelection()
+                    : "";
                 var host = window as any;
                 var source =
                     host.__ottSourceIdentity &&
@@ -289,6 +300,8 @@ function createOfflineDriver(
                         : null;
                 if (profileSelection !== null) {
                     wanted = profileSelection || "local-profile-unbound";
+                } else if (imported) {
+                    wanted = imported;
                 } else if (saved && saved.selected && saved.selected.itemId) {
                     wanted = String(saved.selected.itemId).replace(
                         /^channel:/,
@@ -317,6 +330,7 @@ function createOfflineDriver(
                 if (!current()) return;
                 clearLoadTimer();
                 revision++;
+                closeLoading();
                 if (!started) {
                     done(emptyDriverCatalog(), error);
                     if (
@@ -325,15 +339,15 @@ function createOfflineDriver(
                         request + 1 === revision &&
                         typeof media.resume === "function"
                     )
-                        media.resume(true);
+                        media.resume(true, error);
                 }
             }
-            function heartbeat(): void {
+            function heartbeat(timeout = 60000): void {
                 clearLoadTimer();
                 if (typeof (window as any).setTimeout === "function")
                     loadTimer = (window as any).setTimeout(function () {
                         recover("Local source did not respond");
-                    }, 60000);
+                    }, timeout);
             }
             function publish(value: any, final: boolean): boolean {
                 if (!current()) return false;
@@ -376,7 +390,11 @@ function createOfflineDriver(
                 // Polling the same stalled native scan is not progress.
                 if (stamp !== progressStamp) {
                     progressStamp = stamp;
-                    heartbeat();
+                    heartbeat(
+                        media.progressTimeout
+                            ? media.progressTimeout(value)
+                            : 60000
+                    );
                 }
                 (value.items || []).forEach(function (item: any) {
                     if (item.available === false || !item.url) return;
@@ -450,10 +468,11 @@ function createOfflineDriver(
                             "data-local-phase",
                             value.phase || "files"
                         );
-                        progress.textContent =
-                            ports.translate("Local videos") +
-                            ": " +
-                            catalog.ids.length;
+                        progress.textContent = media.progressText
+                            ? media.progressText(value)
+                            : ports.translate("Local videos") +
+                              ": " +
+                              catalog.ids.length;
                     }
                 }
                 if (final) clearLoadTimer();
@@ -468,6 +487,7 @@ function createOfflineDriver(
                     return true;
                 var incremental = started;
                 started = true;
+                closeLoading();
                 var snapshot = driverCatalogSnapshot(catalog);
                 snapshot.incremental = incremental;
                 done(snapshot, undefined, incremental);
@@ -494,10 +514,48 @@ function createOfflineDriver(
                         value.sources.length &&
                         typeof media.resume === "function"
                     )
-                        media.resume(true);
+                        media.resume(
+                            true,
+                            media.failureMessage
+                                ? media.failureMessage(value)
+                                : ""
+                        );
                     else media.open();
                 }
                 return true;
+            }
+            var host = window as any;
+            var panel =
+                typeof document !== "undefined" &&
+                document.getElementById("dialogbox");
+            if (
+                panel &&
+                panel.querySelector(".ott-spinner") &&
+                host.__ottClassicScreenPort &&
+                typeof host.renderButtonHint === "function" &&
+                !(host.__ottKiosk && host.__ottKiosk.locked())
+            ) {
+                loadingOwner = host.__ottClassicScreenPort.setOwnedCallback(
+                    "dialog",
+                    function (key: number) {
+                        if (
+                            current() &&
+                            !started &&
+                            (key === host.keys.RETURN ||
+                                key === host.keys.EXIT) &&
+                            !(host.__ottKiosk && host.__ottKiosk.locked())
+                        )
+                            recover("");
+                    }
+                ).owner;
+                var cancel = document.createElement("div");
+                cancel.setAttribute("data-local-cancel", "");
+                cancel.innerHTML = host.renderButtonHint(
+                    host.keys.RETURN,
+                    host.strRETURN,
+                    "Cancel"
+                );
+                panel.appendChild(cancel);
             }
             heartbeat();
             try {

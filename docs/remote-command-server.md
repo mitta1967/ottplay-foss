@@ -309,8 +309,18 @@ ott d1 status         # Observe standby and background work state
 Standby stops main/PiP playback, previews and queued autoplay, cancels provider
 requests, local-library scans and programme-guide work, and prevents late results
 or the kiosk watchdog from restarting them. New playback and scans remain blocked
-until `go`. Authenticated standby/go are available in strict kiosk and with settings
-locked; app restart, exit, reboot and configuration keep their existing restrictions.
+until `go` or a local wake gesture. Clicking, tapping, or pressing a key on the
+Standby screen uses the same wake path as `go`. The complete first gesture is
+consumed: it does not change the channel, adjust volume, or activate an underlying
+control. Pointer movement alone does not wake the player. Kiosk and settings
+restrictions remain in effect after wake. Authenticated standby/go are available
+in strict kiosk and with settings locked; app restart, exit, reboot and configuration keep their existing restrictions.
+For Android hardware volume, D-pad, Back, Enter and media keys, install the updated
+APK as well as the frontend. A web update cannot replace the old shell's native
+key handling. Web tests verify tap/key dispatch, while physical button behavior
+must also be checked on the installed device. The CLI's authenticated `key`
+operation follows its separate remote-input restrictions and is not a substitute
+for testing a physical wake gesture.
 Remote polling, command replies and diagnostics remain available while the OS
 keeps the app running. On iOS/Android the OS may suspend the app in the background;
 `go` cannot wake a closed or suspended app, or an offline device. Standby controls

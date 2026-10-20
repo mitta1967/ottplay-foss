@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Wake Standby from a local click, tap or key press. Consume the wake gesture
+  without changing the channel or volume, while preserving native wake ordering
+  and kiosk restrictions.
+
+- Keep waiting for a large browser folder's initial directory batch instead of
+  expiring after 60 seconds. Show the picker, enumeration and metadata phases
+  with discovered-entry and playable-video counts; preserve immediate cancel
+  and bounded metadata reads.
+
+- Start browser Add folder/Add files playback from the first readable video
+  instead of waiting for the whole source to scan. Report progress, bound stalled
+  reads, and ignore cancelled or superseded picker results without copying media.
+  Prioritize newly selected sources through the playback handoff so a stalled
+  old folder cannot block the new video.
+
 - Retain a Local video's stable group identity for the next-file footer,
   automatic completion and saved playback. Reordering groups cannot select a
   different group's video; deleting the playing group clears its successor
