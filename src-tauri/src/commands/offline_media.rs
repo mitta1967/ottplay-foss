@@ -18,10 +18,25 @@ pub struct Endpoint {
     picker_cancelled: Option<bool>,
 }
 
-async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, String> {
+async fn runtime(
+    app: &AppHandle,
+    state: &OfflineMediaState,
+    preferred_id: Option<&str>,
+    refresh: bool,
+) -> Result<Runtime, String> {
     let mut current = state.0.lock().await;
     if let Some(value) = current.as_ref() {
-        return Ok(value.clone());
+        let value = value.clone();
+        drop(current);
+        if refresh {
+            value
+                .library
+                .start_refresh_sources_with_preferred(preferred_id)
+                .await;
+        } else if let Some(id) = preferred_id {
+            value.library.prioritize_item(id).await;
+        }
+        return Ok(value);
     }
     let root = crate::instance::app_data_dir(app)?.join("offline-media");
     let token = format!(
@@ -45,7 +60,9 @@ async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, 
             tracing::warn!(%error, "Offline media listener stopped");
         }
     });
-    library.start_refresh_sources().await;
+    library
+        .start_refresh_sources_with_preferred(preferred_id)
+        .await;
     let result = Runtime { endpoint, library };
     *current = Some(result.clone());
     Ok(result)
@@ -56,11 +73,15 @@ pub async fn offline_media_endpoint(
     app: AppHandle,
     state: State<'_, OfflineMediaState>,
     refresh: Option<bool>,
+    preferred_id: Option<String>,
 ) -> Result<Endpoint, String> {
-    let current = runtime(&app, &state).await?;
-    if refresh.unwrap_or(false) {
-        current.library.start_refresh_sources().await;
-    }
+    let current = runtime(
+        &app,
+        &state,
+        preferred_id.as_deref(),
+        refresh.unwrap_or(false),
+    )
+    .await?;
     Ok(Endpoint {
         endpoint: current.endpoint,
         picker_cancelled: None,
@@ -72,7 +93,7 @@ pub async fn offline_media_import_files(
     app: AppHandle,
     state: State<'_, OfflineMediaState>,
 ) -> Result<Endpoint, String> {
-    let current = runtime(&app, &state).await?;
+    let current = runtime(&app, &state, None, false).await?;
     let selected = tauri::async_runtime::spawn_blocking(move || {
         app.dialog()
             .file()
@@ -107,7 +128,7 @@ pub async fn offline_media_import_folder(
     app: AppHandle,
     state: State<'_, OfflineMediaState>,
 ) -> Result<Endpoint, String> {
-    let current = runtime(&app, &state).await?;
+    let current = runtime(&app, &state, None, false).await?;
     let selected =
         tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
             .await
@@ -135,7 +156,7 @@ pub async fn offline_media_remove_source(
     state: State<'_, OfflineMediaState>,
     id: String,
 ) -> Result<Endpoint, String> {
-    let current = runtime(&app, &state).await?;
+    let current = runtime(&app, &state, None, false).await?;
     current
         .library
         .disconnect_source(&id)
