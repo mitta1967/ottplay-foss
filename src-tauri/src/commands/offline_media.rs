@@ -18,13 +18,31 @@ pub struct Endpoint {
     picker_cancelled: Option<bool>,
 }
 
-async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, String> {
+async fn runtime(
+    app: &AppHandle,
+    state: &OfflineMediaState,
+    preferred_id: Option<&str>,
+    refresh: bool,
+) -> Result<Runtime, String> {
     let background = app.state::<ottplay_core::background_work::BackgroundWork>();
-    let _work = background.enter().map_err(str::to_string)?;
-    let mut current = state.0.lock().await;
-    _work.check().map_err(str::to_string)?;
+    let work = background.enter().map_err(str::to_string)?;
+    let mut current = work.run(state.0.lock()).await.map_err(str::to_string)?;
     if let Some(value) = current.as_ref() {
-        return Ok(value.clone());
+        let value = value.clone();
+        drop(current);
+        if refresh {
+            value
+                .library
+                .start_refresh_sources_with_preferred_tracked(preferred_id, work.clone())
+                .await;
+        } else {
+            value
+                .library
+                .ensure_catalog_tracked(preferred_id, work.clone())
+                .await;
+        }
+        work.check().map_err(str::to_string)?;
+        return Ok(value);
     }
     let root = crate::instance::app_data_dir(app)?.join("offline-media");
     let token = format!(
@@ -32,26 +50,37 @@ async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, 
         uuid::Uuid::new_v4().simple(),
         uuid::Uuid::new_v4().simple()
     );
-    let library = ottplay_core::offline_media::Library::new(root, token, "device")
+    let library = work
+        .run(ottplay_core::offline_media::Library::new(
+            root, token, "device",
+        ))
         .await
+        .map_err(str::to_string)?
         .map_err(|_| "Local media storage unavailable")?
         .with_background(background.inner().clone());
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+    let listener = work
+        .run(tokio::net::TcpListener::bind("127.0.0.1:0"))
         .await
+        .map_err(str::to_string)?
         .map_err(|_| "Local media listener unavailable")?;
     let address = listener
         .local_addr()
         .map_err(|_| "Local media listener unavailable")?;
     let endpoint = format!("http://{address}{}", library.endpoint());
     let server = library.clone();
-    tauri::async_runtime::spawn(async move {
-        if let Err(error) = axum::serve(listener, server.routes()).await {
-            tracing::warn!(%error, "Offline media listener stopped");
-        }
-    });
-    library.start_refresh_sources_tracked(_work.clone()).await;
+    library
+        .start_refresh_sources_with_preferred_tracked(preferred_id, work.clone())
+        .await;
     let result = Runtime { endpoint, library };
-    *current = Some(result.clone());
+    work.publish(|| {
+        tauri::async_runtime::spawn(async move {
+            if let Err(error) = axum::serve(listener, server.routes()).await {
+                tracing::warn!(%error, "Offline media listener stopped");
+            }
+        });
+        *current = Some(result.clone());
+    })
+    .map_err(str::to_string)?;
     Ok(result)
 }
 
@@ -60,13 +89,15 @@ pub async fn offline_media_endpoint(
     app: AppHandle,
     state: State<'_, OfflineMediaState>,
     refresh: Option<bool>,
+    preferred_id: Option<String>,
 ) -> Result<Endpoint, String> {
-    let work = app.state::<ottplay_core::background_work::BackgroundWork>().enter().map_err(str::to_string)?;
-    let current = runtime(&app, &state).await?;
-    work.check().map_err(str::to_string)?;
-    if refresh.unwrap_or(false) {
-        current.library.start_refresh_sources_tracked(work).await;
-    }
+    let current = runtime(
+        &app,
+        &state,
+        preferred_id.as_deref(),
+        refresh.unwrap_or(false),
+    )
+    .await?;
     Ok(Endpoint {
         endpoint: current.endpoint,
         picker_cancelled: None,
@@ -82,7 +113,7 @@ pub async fn offline_media_import_files(
         .state::<ottplay_core::background_work::BackgroundWork>()
         .enter()
         .map_err(str::to_string)?;
-    let current = runtime(&app, &state).await?;
+    let current = runtime(&app, &state, None, false).await?;
     let picker_work = work.clone();
     let selected = tauri::async_runtime::spawn_blocking(move || {
         let _picker_work = picker_work;
@@ -124,7 +155,7 @@ pub async fn offline_media_import_folder(
         .state::<ottplay_core::background_work::BackgroundWork>()
         .enter()
         .map_err(str::to_string)?;
-    let current = runtime(&app, &state).await?;
+    let current = runtime(&app, &state, None, false).await?;
     let picker_work = work.clone();
     let selected = tauri::async_runtime::spawn_blocking(move || {
         let _picker_work = picker_work;
@@ -156,7 +187,7 @@ pub async fn offline_media_remove_source(
     state: State<'_, OfflineMediaState>,
     id: String,
 ) -> Result<Endpoint, String> {
-    let current = runtime(&app, &state).await?;
+    let current = runtime(&app, &state, None, false).await?;
     current
         .library
         .disconnect_source(&id)
