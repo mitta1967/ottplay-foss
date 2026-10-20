@@ -332,7 +332,7 @@ function toggleMainPlayback(): void {
  * @returns void
  * @sideeffect Calls any of the following on `window`: numberProg, keyFun, channelsList, infoBarHide, exitPortal,
  *             popupList, prevProg, stbPause/stbContinue, playChannel, stbToggleMute, stbSetVolume,
- *             showShift, showChannelInfo, epgList, togglePip, toggleStandby, stbExit, etc.
+ *             showShift, showChannelInfo, epgList, togglePip, stbStop/stbStopPip, stbExit, etc.
  *             Sets `window.isListVisible` for CH_LIST and SETUP.
  * @analysis Digits 0-9 are handled before the switch. Color keys are skipped when settings.noColorKeys is set.
  *             RETURN dispatches based on settings.eFun (0-4). The PLAY/PAUSE toggle uses stbIsPlaying().
@@ -477,8 +477,16 @@ function handleMainKey(keyCode: number, event: KeyboardEvent): void {
             } catch (_) {
                 // Persistence must not prevent the user's explicit exit.
             }
+            // Exit preserves the next launch's playback intent. A denied or
+            // asynchronous window close must not become persistent standby.
+            ["stbStop", "stbStopPip"].forEach(function (name) {
+                try {
+                    call(name);
+                } catch (_) {
+                    // Retire the other lane and exit even if cleanup fails.
+                }
+            });
             call("stbExit");
-            call("toggleStandby");
         },
         "previous-channel": function () {
             call("prevProg");

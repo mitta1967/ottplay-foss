@@ -1827,6 +1827,7 @@ export function initBackgroundIntervals(): void {
         clearInterval(previous.clock);
         clearInterval(previous.guide);
     }
+    if (host.__ottStandby?.blocked()) return;
     function updateClockText(id: string, value: string): void {
         // Resolve the current node because menus can replace clock elements.
         var element = document.getElementById(id);

@@ -41,6 +41,7 @@ pub struct Library {
     storage: String,
     mutation: Arc<Mutex<()>>,
     scan: Arc<Mutex<ScanState>>,
+    background: crate::background_work::BackgroundWork,
 }
 #[derive(Default)]
 struct ScanState {
@@ -128,7 +129,14 @@ impl Library {
             storage: storage.into(),
             mutation: Arc::new(Mutex::new(())),
             scan: Arc::new(Mutex::new(ScanState::default())),
+            background: Default::default(),
         })
+    }
+    /// Only native instances attach a player gate. A shared server keeps its own
+    /// independent default gate and cannot be suspended by a connected player.
+    pub fn with_background(mut self, background: crate::background_work::BackgroundWork) -> Self {
+        self.background = background;
+        self
     }
     pub fn endpoint(&self) -> String {
         format!("/offline-media/{}", self.token)
@@ -152,6 +160,9 @@ impl Library {
             .with_state(self)
     }
     fn authorize(&self, token: &str) -> Result<(), Failure> {
+        if self.background.status().standby {
+            return Err((StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"));
+        }
         // Fixed-length comparison avoids early exits on a matching prefix.
         let mut diff = self.token.len() ^ token.len();
         for (a, b) in self.token.bytes().zip(token.bytes()) {
@@ -288,6 +299,12 @@ impl Library {
     /// Schedule native discovery without keeping the webview's invoke pending.
     /// Metadata becomes visible in cumulative catalog snapshots as it is read.
     pub async fn start_link_paths(&self, paths: Vec<PathBuf>, folder: bool) -> anyhow::Result<()> {
+        let work = self.background.enter().map_err(anyhow::Error::msg)?;
+        self.start_link_paths_tracked(paths, folder, work).await
+    }
+
+    pub async fn start_link_paths_tracked(&self, paths: Vec<PathBuf>, folder: bool, work: crate::background_work::WorkLease) -> anyhow::Result<()> {
+        work.check().map_err(anyhow::Error::msg)?;
         anyhow::ensure!(
             self.storage == "device",
             "Native sources are unavailable on this server"
@@ -304,7 +321,7 @@ impl Library {
         }
         let library = self.clone();
         tokio::spawn(async move {
-            let result = library.link_paths(paths, folder).await;
+            let result = library.link_paths_inner(paths, folder, &work).await;
             let mut scan = library.scan.lock().await;
             if result.is_err() {
                 scan.error = Some("Local source could not be completely scanned".into());
@@ -318,6 +335,14 @@ impl Library {
         if self.storage != "device" {
             return;
         }
+        let Ok(work) = self.background.enter() else {
+            return;
+        };
+        self.start_refresh_sources_tracked(work).await;
+    }
+
+    pub async fn start_refresh_sources_tracked(&self, work: crate::background_work::WorkLease) {
+        if self.storage != "device" || work.check().is_err() { return; }
         let library = self.clone();
         // Register before returning so the first HTTP catalog cannot mistake an
         // empty startup snapshot for a finished library.
@@ -337,8 +362,12 @@ impl Library {
                 library.scan.lock().await.error =
                     Some("Local media metadata could not be read".into());
             }
-            library.refresh_sources().await;
+            library.refresh_sources_inner(&work).await;
             let mut scan = library.scan.lock().await;
+            if work.check().is_err() {
+                scan.cached = false;
+                scan.error = Some("Local media scan cancelled".into());
+            }
             scan.jobs -= 1;
         });
     }
@@ -346,11 +375,25 @@ impl Library {
     /// Called only with paths returned by an OS-native picker, never HTTP input.
     /// Stores names and original paths; no source media is copied or deleted.
     pub async fn link_paths(&self, paths: Vec<PathBuf>, folder: bool) -> anyhow::Result<()> {
+        let work = self.background.enter().map_err(anyhow::Error::msg)?;
+        self.link_paths_inner(paths, folder, &work).await
+    }
+
+    async fn link_paths_inner(
+        &self,
+        paths: Vec<PathBuf>,
+        folder: bool,
+        work: &crate::background_work::WorkLease,
+    ) -> anyhow::Result<()> {
+        work.check().map_err(anyhow::Error::msg)?;
         anyhow::ensure!(
             self.storage == "device",
             "Native sources are unavailable on this server"
         );
-        let _lock = self.mutation.lock().await;
+        let _lock = work
+            .run(self.mutation.lock())
+            .await
+            .map_err(anyhow::Error::msg)?;
         let records = self
             .records()
             .await
@@ -364,6 +407,7 @@ impl Library {
             .await
             .map_err(|_| anyhow::anyhow!("Cannot read media sources"))?;
         for picked in paths {
+            work.check().map_err(anyhow::Error::msg)?;
             let root = fs::canonicalize(&picked).await?;
             let metadata = fs::metadata(&root).await?;
             anyhow::ensure!(
@@ -399,12 +443,14 @@ impl Library {
             }
             let destination = self.root.join("sources").join(format!("{id}.json"));
             let temporary = destination.with_extension("part");
+            work.check().map_err(anyhow::Error::msg)?;
             fs::write(&temporary, serde_json::to_vec(&source)?).await?;
             fs::rename(temporary, destination).await?;
             let mut pending = vec![root.clone()];
             let mut directories: Vec<fs::ReadDir> = Vec::new();
             let mut count = 0;
             loop {
+                work.check().map_err(anyhow::Error::msg)?;
                 let path = if let Some(path) = pending.pop() {
                     path
                 } else if let Some(directory) = directories.last_mut() {
@@ -479,13 +525,17 @@ impl Library {
                 };
                 let destination = self.root.join(format!("{}.json", record.id));
                 let temporary = destination.with_extension("part");
+                work.check().map_err(anyhow::Error::msg)?;
                 fs::write(&temporary, serde_json::to_vec(&record)?).await?;
                 fs::rename(temporary, destination).await?;
                 known_paths.insert(path);
                 let mut scan = self.scan.lock().await;
-                if scan.jobs > 0 {
-                    scan.records.insert(record.id.clone(), (record, true));
-                }
+                work.publish(|| {
+                    if scan.jobs > 0 {
+                        scan.records.insert(record.id.clone(), (record, true));
+                    }
+                })
+                .map_err(anyhow::Error::msg)?;
             }
         }
         Ok(())
@@ -493,6 +543,15 @@ impl Library {
 
     /// Refresh existing folder grants without dropping missing files or changing stable IDs.
     pub async fn refresh_sources(&self) {
+        let Ok(work) = self.background.enter() else {
+            return;
+        };
+        self.refresh_sources_inner(&work).await;
+    }
+    async fn refresh_sources_inner(&self, work: &crate::background_work::WorkLease) {
+        if work.check().is_err() {
+            return;
+        }
         if self.storage != "device" {
             return;
         }
@@ -500,24 +559,29 @@ impl Library {
             return;
         };
         for source in sources {
+            if work.check().is_err() {
+                return;
+            }
             if source.kind != "folder" {
                 continue;
             }
             // Unmounted, moved or denied sources remain visible for reconnection.
-            if let Err(_error) = self.link_paths(vec![source.path], true).await {
+            if let Err(_error) = self.link_paths_inner(vec![source.path], true, work).await {
                 tracing::debug!("Local source currently unavailable during refresh");
             }
         }
     }
 
     pub async fn disconnect_source(&self, id: &str) -> anyhow::Result<()> {
+        let work = self.background.enter().map_err(anyhow::Error::msg)?;
         anyhow::ensure!(valid_id(id), "Invalid source ID");
-        let _lock = self.mutation.lock().await;
+        let _lock = work.run(self.mutation.lock()).await.map_err(anyhow::Error::msg)?;
         for record in self
             .records()
             .await
             .map_err(|_| anyhow::anyhow!("Cannot read media metadata"))?
         {
+            work.check().map_err(anyhow::Error::msg)?;
             if record.source_id.as_deref().unwrap_or(&record.id) != id {
                 continue;
             }
@@ -537,6 +601,10 @@ impl Library {
     }
 
     pub async fn catalog(&self) -> Result<Catalog, Failure> {
+        let work = self
+            .background
+            .enter()
+            .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?;
         let base = self.endpoint();
         let (scanning, scanned, scan_error, cached) = {
             let scan = self.scan.lock().await;
@@ -556,6 +624,7 @@ impl Library {
             None => {
                 let mut validated = Vec::new();
                 for record in self.records().await? {
+                    work.check().map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player background work cancelled"))?;
                     let available = self.path(&record).await.is_ok();
                     validated.push((record, available));
                 }
@@ -594,6 +663,7 @@ impl Library {
         }
         let mut sources = Vec::new();
         for source in self.source_records().await? {
+            work.check().map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player background work cancelled"))?;
             let available = fs::symlink_metadata(&source.path)
                 .await
                 .map(|m| {
@@ -628,6 +698,7 @@ impl Library {
                 });
             }
         }
+        work.check().map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player background work cancelled"))?;
         Ok(Catalog {
             available: true,
             items,
@@ -728,6 +799,10 @@ async fn import_inner(
     body: Body,
 ) -> Result<Catalog, Failure> {
     l.authorize(token)?;
+    let work = l
+        .background
+        .enter()
+        .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?;
     if name.is_empty()
         || name.len() > 240
         || name
@@ -752,7 +827,9 @@ async fn import_inner(
     // Ownership is established inside the blocking task, so cancellation while
     // creating the file still drops a guard instead of leaving an orphan.
     let upload_path = temporary.clone();
+    let creation = work.clone();
     let mut upload = tokio::task::spawn_blocking(move || {
+        creation.check().map_err(std::io::Error::other)?;
         let file = std::fs::OpenOptions::new()
             .create_new(true)
             .write(true)
@@ -768,10 +845,14 @@ async fn import_inner(
     let write_result: Result<u64, Failure> = async {
         let mut size = 0u64;
         let mut chunks = body.into_data_stream();
-        while let Some(chunk) =
-            tokio::time::timeout(std::time::Duration::from_secs(60), chunks.next())
-                .await
-                .map_err(|_| (StatusCode::REQUEST_TIMEOUT, "Upload stalled"))?
+        while let Some(chunk) = work
+            .run(tokio::time::timeout(
+                std::time::Duration::from_secs(60),
+                chunks.next(),
+            ))
+            .await
+            .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?
+            .map_err(|_| (StatusCode::REQUEST_TIMEOUT, "Upload stalled"))?
         {
             let chunk = chunk.map_err(|_| (StatusCode::BAD_REQUEST, "Upload interrupted"))?;
             size = size
@@ -789,6 +870,8 @@ async fn import_inner(
                 .await
                 .map_err(storage_error)?;
         }
+        work.check()
+            .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?;
         if size == 0 {
             return Err((StatusCode::BAD_REQUEST, "Media file is empty"));
         }
@@ -833,7 +916,8 @@ async fn import_inner(
 async fn remove(State(l): State<Library>, Path((token, id)): Path<(String, String)>) -> Response {
     let result: Result<Catalog, Failure> = async {
         l.authorize(&token)?;
-        let _lock = l.mutation.lock().await;
+        let work = l.background.enter().map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?;
+        let _lock = work.run(l.mutation.lock()).await.map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player background work cancelled"))?;
         let record = l.record(&id).await?;
         if record.linked_path.is_none() {
             fs::remove_file(l.path(&record).await?)
@@ -908,6 +992,10 @@ async fn media(
 ) -> Response {
     let result: Result<Response, Failure> = async {
         l.authorize(&token)?;
+        let work = l
+            .background
+            .enter()
+            .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?;
         let record = l.record(&id).await?;
         let mut file = fs::File::open(l.path(&record).await?)
             .await
@@ -931,13 +1019,16 @@ async fn media(
             Body::empty()
         } else {
             Body::from_stream(stream::try_unfold(
-                (file, length),
-                |(mut file, left)| async move {
+                (file, length, work),
+                |(mut file, left, work)| async move {
                     if left == 0 {
                         return Ok::<_, std::io::Error>(None);
                     }
                     let mut bytes = vec![0; left.min(64 * 1024) as usize];
-                    let read = file.read(&mut bytes).await?;
+                    let read = work
+                        .run(file.read(&mut bytes))
+                        .await
+                        .map_err(std::io::Error::other)??;
                     if read == 0 {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::UnexpectedEof,
@@ -945,7 +1036,7 @@ async fn media(
                         ));
                     }
                     bytes.truncate(read);
-                    Ok(Some((Bytes::from(bytes), (file, left - read as u64))))
+                    Ok(Some((Bytes::from(bytes), (file, left - read as u64, work))))
                 },
             ))
         };
@@ -979,6 +1070,42 @@ async fn media(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn standby_cancels_a_queued_scan_and_wake_does_not_revive_its_generation() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = root.with_extension("originals");
+        fs::create_dir_all(&originals).await.unwrap();
+        fs::write(originals.join("movie.mp4"), b"video").await.unwrap();
+        let background = crate::background_work::BackgroundWork::default();
+        let library = Library::new(root.clone(), "q".repeat(32), "device").await.unwrap()
+            .with_background(background.clone());
+        let held = library.mutation.lock().await;
+        library.start_link_paths(vec![originals.clone()], true).await.unwrap();
+        assert_eq!(background.status().pending, 1);
+        background.set_standby(true);
+        assert!(library.start_link_paths(vec![originals.clone()], true).await.is_err());
+        assert!(library.catalog().await.is_err());
+        background.set_standby(false);
+        drop(held);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while background.status().pending != 0 { tokio::task::yield_now().await; }
+        }).await.unwrap();
+        assert!(library.source_records().await.unwrap().is_empty());
+        library.start_link_paths(vec![originals.clone()], true).await.unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while background.status().pending != 0 { tokio::task::yield_now().await; }
+        }).await.unwrap();
+        assert_eq!(library.catalog().await.unwrap().items.len(), 1);
+        background.set_standby(true);
+        let shared_root = root.with_extension("shared");
+        let shared = Library::new(shared_root.clone(), "z".repeat(32), "server").await.unwrap();
+        assert!(shared.catalog().await.is_ok(), "another server library is independent");
+        assert!(background.status().quiescent);
+        fs::remove_dir_all(root).await.unwrap();
+        fs::remove_dir_all(originals).await.unwrap();
+        fs::remove_dir_all(shared_root).await.unwrap();
+    }
     #[tokio::test]
     async fn background_native_scan_publishes_playable_items_before_completion() {
         let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());

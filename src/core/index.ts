@@ -345,6 +345,7 @@ function destroyCoreShaka(): void {
     try {
         var pending = player.destroy();
         if (isCoreThenable(pending)) {
+            if (window.__ottStandby) window.__ottStandby.observe(pending, true);
             _coreShakaTeardown = pending;
             var clear = function (): void {
                 if (_coreShakaTeardown === pending) _coreShakaTeardown = null;
@@ -355,6 +356,7 @@ function destroyCoreShaka(): void {
             });
         }
     } catch (error) {
+        if (window.__ottStandby) window.__ottStandby.failed();
         console.error("[Shaka] destroy failed:", error);
     }
 }
@@ -1906,6 +1908,7 @@ function stopCoreEngine(): void {
  */
 /** Device ABI delegates to the backend's current lease. */
 export function stbPlay(url: string, position?: number): void {
+    if (stbIsStandby()) return;
     var playback = (window as any).__ottClassicPlayback;
     if (playback) playback.importLegacy();
     getCoreMediaBackend().open({ position: position, url: url });
@@ -1923,10 +1926,12 @@ export function stbPause(): void {
 }
 /** Explicit Play must not toggle a loading or already playing lease to pause. */
 export function stbResume(): void {
+    if (stbIsStandby()) return;
     var handle = getCoreMediaBackend().current();
     if (handle) handle.resume();
 }
 export function stbContinue(): void {
+    if (stbIsStandby()) return;
     var handle = getCoreMediaBackend().current();
     if (!handle) return;
     if (video && video.paused) handle.resume();
@@ -2932,7 +2937,9 @@ var _standby = false;
 
 /** Report shared standby state without toggling playback or native wake locks. */
 export function stbIsStandby(): boolean {
-    return _standby;
+    return (window as any).__ottStandby
+        ? (window as any).__ottStandby.isStandby()
+        : _standby;
 }
 
 /**
@@ -2940,22 +2947,36 @@ export function stbIsStandby(): boolean {
  *
  * When entering standby: stops video, closes all lists, sets background to black,
  * and shows a "STANDBY" message in #launch.
- * Repeated standby tears down any explicitly restarted media without waking.
+ * Repeated standby is idempotent; new playback remains blocked until wake.
  * When exiting standby: restores background and calls startPlayer once.
  *
  * Side effects: DOM mutations, video stop, global key handler may be affected.
  */
 export function stbSetStandby(standby: boolean): void {
-    if (!standby && !_standby) return;
+    if (!standby && !stbIsStandby()) return;
     var w = window as any;
     function attempt(effect: () => void): void {
         try {
             effect();
         } catch (_) {
+            if (w.__ottStandby) w.__ottStandby.failed();
             console.warn("[Standby] A cleanup step failed.");
         }
     }
+    if (w.__ottStandby && !standby) {
+        w.__ottStandby.set(false, function () {
+            _standby = false;
+            attempt(function () {
+                if (coreDeviceEffects.standby) coreDeviceEffects.standby(false);
+            });
+            document.body.style.backgroundColor = "";
+            if (typeof w.startPlayer === "function") w.startPlayer();
+            if (typeof w.setSleepTimeout === "function") w.setSleepTimeout();
+        });
+        return;
+    }
     _standby = standby;
+    if (w.__ottStandby) w.__ottStandby.set(standby);
     attempt(function () {
         if (coreDeviceEffects.standby) coreDeviceEffects.standby(_standby);
     });
@@ -2979,11 +3000,13 @@ export function stbSetStandby(standby: boolean): void {
         });
         document.body.style.backgroundColor = "#000";
         var launchEl = document.getElementById("launch");
-        if (launchEl)
+        if (launchEl) {
+            launchEl.style.display = "block";
             launchEl.innerHTML =
                 '<div style="text-align:center;padding-top:40%;color:#666;font-size:200%;">' +
                 (window.standbyText || "STANDBY") +
                 "</div>";
+        }
     } else {
         document.body.style.backgroundColor = "";
         if (typeof window.startPlayer === "function") window.startPlayer();
@@ -2991,9 +3014,9 @@ export function stbSetStandby(standby: boolean): void {
     if (typeof window.setSleepTimeout === "function") window.setSleepTimeout();
 }
 
-/** Local power keys toggle; remote Stop can reassert teardown without waking. */
+/** Toggle standby; remote Stop can reassert teardown without waking. */
 export function stbToggleStandby(): void {
-    stbSetStandby(!_standby);
+    stbSetStandby(!stbIsStandby());
 }
 
 /** Convenience wrapper for stbToggleStandby. */
@@ -3098,6 +3121,9 @@ var coreDeviceEffects: any = {};
 export function getCoreMediaBackend(): any {
     if (coreMediaBackend) return coreMediaBackend;
     coreMediaBackend = (window as any).__ottMediaBackend.create({
+        admitted: function () {
+            return !stbIsStandby();
+        },
         clearInterval: function (timer: any) {
             clearInterval(timer);
         },
@@ -3432,6 +3458,7 @@ function startCoreAvTest(): boolean {
 };
 
 export function stbPlayPip(url: string): void {
+    if (stbIsStandby()) return;
     if ((window as any).__ottKiosk && (window as any).__ottKiosk.enabled())
         return;
     getCoreMediaBackend().open({ lane: "pip", url: url });

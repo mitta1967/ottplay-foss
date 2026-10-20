@@ -905,7 +905,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -d '{"command":"exit_player"}'
 ```
 
-Tries standby mode first (if supported), otherwise exits the player. No fields needed.
+This unacknowledged webhook queue does not support `exit_player`. Use `ott PLAYER exit` or the modern acknowledged `command: exit_player` request on a player that supports native app exit; it never enters standby. No additional fields are accepted.
 
 ## Local Proxy Server
 

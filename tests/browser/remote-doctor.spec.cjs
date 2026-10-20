@@ -4,10 +4,12 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const { createHash } = require("node:crypto");
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("../helpers/browser-test.cjs");
 
 const mediaRoot = path.resolve(__dirname, "../fixtures/media-runtime");
-const dist = path.resolve(__dirname, "../../dist");
+const dist = process.env.CI_BROWSER_WEB_ROOT
+    ? path.resolve(process.env.CI_BROWSER_WEB_ROOT, "dist")
+    : path.resolve(__dirname, "../../dist");
 const SECRET = "DOCTOR_FIXTURE_PRIVATE_VALUE";
 test.use({
     launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] },
@@ -30,6 +32,35 @@ async function fixture(page, context, baseURL, media = {}) {
         const url = new URL(route.request().url());
         if (url.origin === media.origin) return route.continue();
         if (url.origin !== origin) return route.abort("blockedbyclient");
+        if (media.control && url.pathname.startsWith("/standby-control/")) {
+            const control = media.control;
+            if (route.request().method() === "POST") {
+                if (url.pathname.endsWith("/responses"))
+                    control.replies.push(route.request().postDataJSON());
+                return route.fulfill({ json: { status: "ok" } });
+            }
+            control.polls++;
+            const next = control.pending.shift();
+            const now = Date.now() / 1000;
+            return route.fulfill({
+                json: {
+                    commands: [],
+                    requests: next
+                        ? [
+                              {
+                                  ...next,
+                                  expires_at: now + 40,
+                                  id: String(++control.sequence).padStart(
+                                      32,
+                                      "0"
+                                  ),
+                              },
+                          ]
+                        : [],
+                    server_time: now,
+                },
+            });
+        }
         if (url.pathname.endsWith("/build-info.json"))
             return route.fulfill({ json: manifest });
         if (url.pathname === "/doctor-fixture/channels.m3u")
@@ -109,11 +140,12 @@ async function fixture(page, context, baseURL, media = {}) {
 
 // A real HTTP response stays open while Chromium consumes media. A fulfilled
 // Playwright route cannot demonstrate that stop aborts an in-flight download.
-async function streamingMedia(kind) {
+async function streamingMedia(kind, background = false) {
     const lanes = {
         main: { active: 0, bytes: 0, requests: 0 },
         pip: { active: 0, bytes: 0, requests: 0 },
     };
+    if (background) lanes.background = { active: 0, bytes: 0, requests: 0 };
     const responses = new Set();
     const segment = fs.readFileSync(path.join(mediaRoot, "segment00.ts"));
     const header = Buffer.alloc(44);
@@ -158,6 +190,23 @@ async function streamingMedia(kind) {
             response.setHeader("Content-Type", "application/vnd.apple.mpegurl");
             lane.bytes += Buffer.byteLength(playlist);
             return response.end(playlist);
+        }
+        if (pathname.startsWith("/background/")) {
+            response.setHeader("Content-Type", "text/plain");
+            response.flushHeaders();
+            lane.active++;
+            responses.add(response);
+            const timer = setInterval(() => {
+                const text = "background provider data\n";
+                lane.bytes += Buffer.byteLength(text);
+                response.write(text);
+            }, 40);
+            response.on("close", () => {
+                clearInterval(timer);
+                responses.delete(response);
+                lane.active--;
+            });
+            return;
         }
         const native = pathname.endsWith(".wav");
         response.setHeader("Content-Type", native ? "audio/wav" : "video/mp2t");
@@ -206,12 +255,12 @@ async function streamingMedia(kind) {
     };
 }
 
-async function standbyRequest(page) {
-    return page.evaluate(() => {
+async function standbyRequest(page, operation = "standby") {
+    return page.evaluate((operation) => {
         let reply;
         let effect;
         window.executeRemoteRequest(
-            { action: "lifecycle", params: { operation: "standby" } },
+            { action: "lifecycle", params: { operation } },
             (value) => {
                 reply = value;
             },
@@ -222,7 +271,7 @@ async function standbyRequest(page) {
         // The production dispatcher defers lifecycle changes until reply ACK.
         if (reply?.status === "ok" && effect) effect();
         return reply;
-    });
+    }, operation);
 }
 
 for (const kind of ["native", "hls"]) {
@@ -235,10 +284,16 @@ for (const kind of ["native", "hls"]) {
             try {
                 const observed = await fixture(page, context, baseURL, media);
                 for (const repeat of [false, true]) {
+                    if (repeat) {
+                        expect(
+                            (await standbyRequest(page, "wake")).status
+                        ).toBe("ok");
+                        await page.waitForFunction(
+                            () => !window.stbIsStandby()
+                        );
+                    }
                     await page.evaluate(
                         ({ main, pip, repeat }) => {
-                            // Explicit playback can run while the standby flag is
-                            // still true. Repeating stop must retire this work too.
                             if (repeat) window.stbPlay(main);
                             window.stbPlayPip(pip);
                         },
@@ -257,10 +312,6 @@ for (const kind of ["native", "hls"]) {
                             .poll(() => lane.bytes)
                             .toBeGreaterThan(before);
                     }
-                    if (repeat)
-                        expect(
-                            await page.evaluate(() => window.stbIsStandby())
-                        ).toBe(true);
                     expect(await standbyRequest(page)).toMatchObject({
                         data: { accepted: true, operation: "standby" },
                         status: "ok",
@@ -276,6 +327,14 @@ for (const kind of ["native", "hls"]) {
                         )
                         .toBe(0);
                     const stopped = JSON.parse(JSON.stringify(media.lanes));
+                    await page.evaluate(
+                        ({ main, pip }) => {
+                            // Neither a late retry nor direct playback may leave standby.
+                            window.stbPlay(main);
+                            window.stbPlayPip(pip);
+                        },
+                        { main: media.url, pip: media.pipUrl }
+                    );
                     await page.waitForTimeout(1200);
                     expect(media.lanes).toEqual(stopped);
                     const state = await page.evaluate(() => ({
@@ -307,6 +366,155 @@ for (const kind of ["native", "hls"]) {
         }
     );
 }
+
+test("standby drains background HTTP, survives reload and wakes a strict kiosk", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    test.setTimeout(90000);
+    const media = await streamingMedia("native", true);
+    const control = { pending: [], polls: 0, replies: [], sequence: 0 };
+    media.control = control;
+    async function rpc(action, params) {
+        const count = control.replies.length;
+        control.pending.push({ action, params });
+        await expect
+            .poll(() => control.replies.length, { timeout: 15000 })
+            .toBe(count + 1);
+        return control.replies[count];
+    }
+    try {
+        const observed = await fixture(page, context, baseURL, media);
+        await page.evaluate(() =>
+            window.__ottCommandServer.configure({
+                address: location.origin + "/standby-control",
+                enabled: true,
+                token: "STANDBY_FIXTURE_COMMAND_TOKEN_0123456789abcdef",
+            })
+        );
+        const lock = await rpc("kiosk", {
+            mode: "on",
+            query: "1",
+            strict: true,
+        });
+        expect(lock.data.state).toBe("locked");
+        expect(lock.data.channel).not.toBeNull();
+        expect(lock.status).toBe("ok");
+        await page.evaluate((origin) => {
+            window.backgroundResults = [];
+            window
+                .fetch(origin + "/background/fetch")
+                .then((r) => r.text())
+                .then(
+                    () => window.backgroundResults.push("fetch-success"),
+                    () => window.backgroundResults.push("fetch-stopped")
+                );
+            window.$.ajax({
+                dataType: "text",
+                url: origin + "/background/jquery",
+            }).then(
+                () => window.backgroundResults.push("jquery-success"),
+                () => window.backgroundResults.push("jquery-stopped")
+            );
+        }, media.origin);
+        await expect.poll(() => media.lanes.background.active).toBe(2);
+        expect((await rpc("lifecycle", { operation: "standby" })).status).toBe(
+            "ok"
+        );
+        await expect
+            .poll(() =>
+                Object.values(media.lanes).reduce(
+                    (n, lane) => n + lane.active,
+                    0
+                )
+            )
+            .toBe(0);
+        await page.waitForFunction(() => window.backgroundResults.length === 2);
+        expect(
+            await page.evaluate(() => window.backgroundResults.sort())
+        ).toEqual(["fetch-stopped", "jquery-stopped"]);
+        const stopped = JSON.parse(JSON.stringify(media.lanes));
+        const status = await rpc("status", {});
+        expect(status).toMatchObject({
+            data: {
+                player: {
+                    background: { pending: 0, state: "suspended" },
+                    standby: true,
+                },
+            },
+            status: "ok",
+        });
+        // Longer than kiosk's 10s retry interval: no invisible watchdog restart.
+        await page.waitForTimeout(11000);
+        expect(media.lanes).toEqual(stopped);
+        await page.reload();
+        await page.waitForFunction(
+            () =>
+                window.stbIsStandby &&
+                window.stbIsStandby() &&
+                window.executeRemoteRequest
+        );
+        await page.waitForTimeout(1200);
+        expect(media.lanes).toEqual(stopped);
+        expect((await rpc("lifecycle", { operation: "wake" })).status).toBe(
+            "ok"
+        );
+        await page
+            .waitForFunction(
+                () => {
+                    const video = document.getElementById("video");
+                    return (
+                        !window.stbIsStandby() &&
+                        video &&
+                        video.currentTime > 0.1 &&
+                        !video.paused
+                    );
+                },
+                null,
+                { timeout: 15000 }
+            )
+            .catch(async (error) => {
+                console.log(
+                    "WAKE_DIAGNOSTIC",
+                    await page.evaluate(() => ({
+                        body: document.body.innerText.slice(0, 500),
+                        kiosk: window.__ottKiosk?.snapshot(),
+                        launch: document.getElementById("launch")?.textContent,
+                        playback: window.__ottClassicPlayback?.snapshot(),
+                        ready: window.commandChannelsReady,
+                        standby: window.__ottStandby?.snapshot(),
+                        video: Array.from(
+                            document.querySelectorAll("video")
+                        ).map((v) => ({
+                            error: v.error?.message,
+                            id: v.id,
+                            paused: v.paused,
+                            ready: v.readyState,
+                            src: v.currentSrc,
+                            time: v.currentTime,
+                        })),
+                    }))
+                );
+                console.log(
+                    "WAKE_REQUESTS",
+                    observed.requests,
+                    "ERRORS",
+                    observed.errors
+                );
+                throw error;
+            });
+        expect(
+            await page.evaluate(() => window.__ottKiosk.snapshot().strict)
+        ).toBe(true);
+        await expect
+            .poll(() => media.lanes.main.bytes)
+            .toBeGreaterThan(stopped.main.bytes);
+        expect(observed.errors).toEqual([]);
+    } finally {
+        await media.close();
+    }
+});
 
 async function caps(page) {
     return page.evaluate(

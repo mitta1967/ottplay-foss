@@ -1,6 +1,6 @@
 //! Native-picked local sources, served directly through a private loopback endpoint.
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tokio::sync::Mutex;
 
@@ -19,7 +19,10 @@ pub struct Endpoint {
 }
 
 async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, String> {
+    let background = app.state::<ottplay_core::background_work::BackgroundWork>();
+    let _work = background.enter().map_err(str::to_string)?;
     let mut current = state.0.lock().await;
+    _work.check().map_err(str::to_string)?;
     if let Some(value) = current.as_ref() {
         return Ok(value.clone());
     }
@@ -31,7 +34,8 @@ async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, 
     );
     let library = ottplay_core::offline_media::Library::new(root, token, "device")
         .await
-        .map_err(|_| "Local media storage unavailable")?;
+        .map_err(|_| "Local media storage unavailable")?
+        .with_background(background.inner().clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|_| "Local media listener unavailable")?;
@@ -45,7 +49,7 @@ async fn runtime(app: &AppHandle, state: &OfflineMediaState) -> Result<Runtime, 
             tracing::warn!(%error, "Offline media listener stopped");
         }
     });
-    library.start_refresh_sources().await;
+    library.start_refresh_sources_tracked(_work.clone()).await;
     let result = Runtime { endpoint, library };
     *current = Some(result.clone());
     Ok(result)
@@ -57,9 +61,11 @@ pub async fn offline_media_endpoint(
     state: State<'_, OfflineMediaState>,
     refresh: Option<bool>,
 ) -> Result<Endpoint, String> {
+    let work = app.state::<ottplay_core::background_work::BackgroundWork>().enter().map_err(str::to_string)?;
     let current = runtime(&app, &state).await?;
+    work.check().map_err(str::to_string)?;
     if refresh.unwrap_or(false) {
-        current.library.start_refresh_sources().await;
+        current.library.start_refresh_sources_tracked(work).await;
     }
     Ok(Endpoint {
         endpoint: current.endpoint,
@@ -72,8 +78,14 @@ pub async fn offline_media_import_files(
     app: AppHandle,
     state: State<'_, OfflineMediaState>,
 ) -> Result<Endpoint, String> {
+    let work = app
+        .state::<ottplay_core::background_work::BackgroundWork>()
+        .enter()
+        .map_err(str::to_string)?;
     let current = runtime(&app, &state).await?;
+    let picker_work = work.clone();
     let selected = tauri::async_runtime::spawn_blocking(move || {
+        let _picker_work = picker_work;
         app.dialog()
             .file()
             .add_filter("Media", &["mp4", "m4v", "webm", "ogv", "mp3", "m4a", "ogg"])
@@ -81,6 +93,7 @@ pub async fn offline_media_import_files(
     })
     .await
     .map_err(|_| "File picker unavailable")?;
+    work.check().map_err(str::to_string)?;
     let picker_cancelled = selected.is_none().then_some(true);
     if let Some(files) = selected {
         let paths = files
@@ -92,7 +105,7 @@ pub async fn offline_media_import_files(
             .collect::<Result<Vec<_>, _>>()?;
         current
             .library
-            .start_link_paths(paths, false)
+            .start_link_paths_tracked(paths, false, work.clone())
             .await
             .map_err(|_| "Unable to link selected files; no files were copied")?;
     }
@@ -107,11 +120,19 @@ pub async fn offline_media_import_folder(
     app: AppHandle,
     state: State<'_, OfflineMediaState>,
 ) -> Result<Endpoint, String> {
+    let work = app
+        .state::<ottplay_core::background_work::BackgroundWork>()
+        .enter()
+        .map_err(str::to_string)?;
     let current = runtime(&app, &state).await?;
-    let selected =
-        tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
-            .await
-            .map_err(|_| "Folder picker unavailable")?;
+    let picker_work = work.clone();
+    let selected = tauri::async_runtime::spawn_blocking(move || {
+        let _picker_work = picker_work;
+        app.dialog().file().blocking_pick_folder()
+    })
+    .await
+    .map_err(|_| "Folder picker unavailable")?;
+    work.check().map_err(str::to_string)?;
     let picker_cancelled = selected.is_none().then_some(true);
     if let Some(folder) = selected {
         let path = folder
@@ -119,7 +140,7 @@ pub async fn offline_media_import_folder(
             .map_err(|_| "Select a local filesystem folder")?;
         current
             .library
-            .start_link_paths(vec![path], true)
+            .start_link_paths_tracked(vec![path], true, work.clone())
             .await
             .map_err(|_| "Unable to link selected folder; no files were copied")?;
     }
