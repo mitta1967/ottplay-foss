@@ -1940,6 +1940,103 @@ function screenRig() {
     };
     return { ...r, calls, publish: () => subscriber({ handle: r.handle }) };
 }
+function localScreenRig(mode = "off") {
+    const r = screenRig();
+    r.request({ mode: "off" });
+    r.w.__ottActiveProviderDriver = { id: "offline" };
+    r.source("offline:device");
+    if (mode === "waiting") r.request({ mode: "on" });
+    if (mode === "folder") {
+        Object.assign(r.w.channels.a, {
+            __ottLocalSource: "local-folder",
+            __ottLocalSourceName: "Local",
+        });
+        r.w.__ottLocalMedia = {
+            completedSources: () => [
+                { id: "local-folder", kind: "folder", name: "Local" },
+            ],
+        };
+        assert.equal(
+            r.request({ mode: "on", query: "folder:Local", strict: true })
+                .status,
+            "ok"
+        );
+    }
+    r.calls.length = 0;
+    return r;
+}
+for (const mode of ["off", "waiting", "folder"]) {
+    const r = localScreenRig(mode);
+    r.kiosk.setScreenAwake(false);
+    assert.deepEqual(
+        r.calls,
+        ["suspend"],
+        "local screen off suspends in " + mode
+    );
+    assert.equal(r.kiosk.screenBlocked(), true);
+    r.advance(90);
+    assert.equal(r.kiosk.snapshot().retries, 0);
+    r.sample.phase = "playing";
+    r.publish();
+    assert.deepEqual(
+        r.calls,
+        ["suspend", "suspend"],
+        "late local start remains suspended"
+    );
+    r.kiosk.setScreenAwake(true);
+    r.kiosk.setScreenAwake(true);
+    assert.equal(r.calls.filter((c) => c === "resume").length, 1);
+    assert.equal(r.state.position, 37);
+}
+{
+    const r = screenRig();
+    r.request({ mode: "off" });
+    r.kiosk.setScreenAwake(false);
+    r.w.__ottActiveProviderDriver = { id: "offline" };
+    r.source("offline:device");
+    r.events.play();
+    assert.deepEqual(r.calls, ["suspend"]);
+    r.kiosk.setScreenAwake(true);
+    assert.deepEqual(
+        r.calls,
+        ["suspend", "resume"],
+        "provider loaded while asleep owns its wake"
+    );
+}
+for (const change of [
+    (r) => r.source("offline:other"),
+    (r) => {
+        r.w.__ottActiveProviderDriver = { id: "plex" };
+    },
+    (r) => {
+        r.backend.current = () => ({ ...r.handle });
+    },
+    (r) => {
+        r.w.__ottStandby = { blocked: () => true };
+    },
+]) {
+    const r = localScreenRig();
+    r.kiosk.setScreenAwake(false);
+    change(r);
+    r.kiosk.setScreenAwake(true);
+    assert.equal(
+        r.calls.includes("resume"),
+        false,
+        "stale/standby local wake is inert"
+    );
+}
+{
+    const r = localScreenRig();
+    let ends = 0;
+    r.kiosk.setScreenAwake(false);
+    r.kiosk.deferScreenEnd(() => {
+        ends++;
+    });
+    assert.equal(ends, 0);
+    r.kiosk.setScreenAwake(true);
+    r.kiosk.setScreenAwake(true);
+    assert.equal(ends, 1, "deferred local completion resumes once on wake");
+}
 {
     const r = screenRig();
     r.kiosk.setScreenAwake(false);
@@ -2220,3 +2317,192 @@ testScreenBridge().catch((error) => {
     r.advance(10);
     assert(r.played.length > started, "wake restores normal kiosk recovery");
 }
+{
+    const r = rig();
+    r.w.__ottActiveProviderDriver = { id: "offline" };
+    r.source("offline:device");
+    r.w.channels = {
+        a: {
+            __ottLocalSource: "folder-1",
+            __ottLocalSourceName: "Winnie",
+            channel_name: "First",
+        },
+        b: {
+            __ottLocalSource: "folder-2",
+            __ottLocalSourceName: "Other",
+            channel_name: "Outside",
+        },
+        c: {
+            __ottLocalSource: "folder-1",
+            __ottLocalSourceName: "Winnie",
+            channel_name: "Last",
+        },
+    };
+    r.w.cats.all = r.w.cList = r.w.curList = ["a", "b", "c"];
+    const sources = [
+        { id: "folder-1", kind: "folder", name: "Winnie" },
+        { id: "folder-2", kind: "folder", name: "Other" },
+    ];
+    r.w.__ottLocalMedia = { completedSources: () => sources };
+    const result = r.request({
+        mode: "on",
+        query: "folder:Winnie",
+        strict: true,
+    });
+    assert.equal(result.status, "ok");
+    assert.equal(r.kiosk.strict(), true);
+    assert.equal(r.kiosk.snapshot().folder.total, 2);
+    assert.equal(r.kiosk.allowed("b"), false);
+    assert.equal(r.kiosk.folderNext("a", r.w.curList), "c");
+    assert.equal(r.kiosk.folderNext("c", r.w.curList), "a");
+    assert.equal(r.kiosk.admit("c"), true);
+    assert.equal(r.kiosk.snapshot().channel.id, "c");
+    assert.equal(r.kiosk.admit("b"), false);
+    const saved = JSON.parse(r.storage.__ottKioskV1);
+    assert.equal(saved.folder.id, "folder-1");
+    assert.equal(saved.channel.id, "c");
+    const restored = rig(r.storage);
+    restored.w.__ottActiveProviderDriver = { id: "offline" };
+    restored.source("offline:device");
+    restored.w.channels = r.w.channels;
+    assert.equal(restored.kiosk.allowed("c"), true);
+    assert.equal(restored.kiosk.allowed("b"), false);
+    restored.source("offline:another-profile");
+    assert.equal(restored.kiosk.allowed("c"), false);
+    assert.equal(restored.kiosk.folderNext("c", ["a", "c"]), null);
+    r.w.channels.d = {
+        __ottLocalSource: "folder-3",
+        __ottLocalSourceName: "Winnie",
+        channel_name: "Ambiguous",
+    };
+    r.w.cList.push("d");
+    sources.push({ id: "folder-3", kind: "folder", name: "Winnie" });
+    assert.equal(
+        r.request({ mode: "set", query: "folder:Winnie" }).status,
+        "rejected"
+    );
+    assert.equal(
+        r.kiosk.snapshot().channel.id,
+        "c",
+        "failed selection keeps the current policy"
+    );
+    assert.equal(
+        r.request({ mode: "set", query: "folder:missing" }).status,
+        "rejected"
+    );
+}
+console.log(
+    "PASS strict local-folder membership, wrapping, persistence, ambiguity and source isolation"
+);
+async function testFolderRecovery() {
+    const r = rig();
+    r.w.__ottActiveProviderDriver = { id: "offline" };
+    r.source("offline:device");
+    r.w.channels.a.__ottLocalSource = "folder-1";
+    r.w.channels.a.__ottLocalSourceName = "Winnie";
+    r.w.channels.c = {
+        __ottLocalSource: "folder-1",
+        __ottLocalSourceName: "Winnie",
+        channel_name: "Last",
+    };
+    r.w.cats.all = r.w.cList = r.w.curList = ["a", "b", "c"];
+    r.w.__ottLocalMedia = {
+        completedSources: () => [
+            { id: "folder-1", kind: "folder", name: "Winnie" },
+        ],
+    };
+    r.request({ mode: "on", query: "folder:Winnie", strict: true });
+    delete r.w.channels.a;
+    let scanning = true;
+    r.w.__ottLocalMedia = {
+        snapshot: () =>
+            scanning ? Promise.reject(Error("scanning")) : Promise.resolve({}),
+    };
+    const flush = () => new Promise((resolve) => setImmediate(resolve));
+    const before = r.played.length;
+    r.advance(10);
+    await flush();
+    assert.equal(
+        r.played.length,
+        before,
+        "partial scan cannot replace saved file"
+    );
+    scanning = false;
+    r.advance(10);
+    await flush();
+    assert.equal(r.played.at(-1), "c", "completed scan recovers within folder");
+    assert.equal(JSON.parse(r.storage.__ottKioskV1).channel.id, "c");
+    delete r.w.channels.c;
+    const recovered = r.played.length;
+    r.advance(10);
+    await flush();
+    assert.equal(
+        r.played.length,
+        recovered,
+        "empty folder cannot play outside entry"
+    );
+    r.w.channels.c = {
+        __ottLocalSource: "folder-1",
+        channel_name: "Last",
+    };
+    let finish;
+    r.w.__ottLocalMedia.snapshot = () =>
+        new Promise((resolve) => {
+            finish = resolve;
+        });
+    delete r.w.channels.c;
+    r.advance(10);
+    await flush();
+    r.source("offline:other-profile");
+    r.w.channels.c = { __ottLocalSource: "folder-1" };
+    finish({});
+    await flush();
+    assert.equal(
+        r.played.length,
+        recovered,
+        "late recovery cannot cross profile"
+    );
+    console.log(
+        "PASS folder recovery waits for complete scan and stays source-scoped"
+    );
+}
+testFolderRecovery().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+{
+    const r = rig();
+    r.w.__ottActiveProviderDriver = { id: "offline" };
+    r.source("offline:device");
+    Object.assign(r.w.channels.a, {
+        __ottLocalSource: "folder-1",
+        __ottLocalSourceName: "Winnie",
+    });
+    let sources = null;
+    r.w.__ottLocalMedia = { completedSources: () => sources };
+    const bind = () =>
+        r.request({ mode: "on", query: "folder:Winnie", strict: true });
+    assert.equal(
+        bind().status,
+        "rejected",
+        "partial catalog cannot authorize folder"
+    );
+    assert.equal(r.kiosk.enabled(), false);
+    sources = [
+        { id: "folder-1", kind: "folder", name: "Winnie" },
+        { id: "folder-empty", kind: "folder", name: "wInNiE" },
+    ];
+    assert.equal(
+        bind().status,
+        "rejected",
+        "empty same-name folder is still ambiguous"
+    );
+    assert.equal(r.kiosk.enabled(), false);
+    sources.pop();
+    assert.equal(bind().status, "ok");
+    assert.equal(r.kiosk.snapshot().folder.total, 1);
+    assert.equal(r.kiosk.allowed("b"), false);
+}
+console.log(
+    "PASS folder binding waits for full catalog and rejects empty duplicate sources"
+);

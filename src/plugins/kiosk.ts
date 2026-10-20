@@ -18,12 +18,15 @@ export function createKiosk(w: any): any {
     var screenAwake = true;
     var sleepingHandle: any = null;
     var sleepingPolicy: any = null;
+    var sleepingSource: string | null = null;
+    var screenEnd: (() => void) | null = null;
     var deferredPolicy: any = null;
     var sleepBackend: any = null;
     var sleepUnsubscribe: any = null;
     var applyingScreenPause = false;
     var frameRecovery = false;
     var frameHealthySince: number | null = null;
+    var folderRecovery: any = null;
     var videoProgress = createKioskVideoProgress(w);
     var strictInput = createStrictKioskInput(w, strict);
     function now(): number {
@@ -94,10 +97,19 @@ export function createKiosk(w: any): any {
                 : source() === policy.source)
         );
     }
+    function screenManaged(): boolean {
+        return locked() || provider() === "offline";
+    }
+    function screenBlocked(): boolean {
+        return !screenAwake && screenManaged();
+    }
     function pauseForScreen(): void {
-        if (screenAwake || !locked() || applyingScreenPause) return;
+        if (!screenBlocked() || applyingScreenPause) return;
         applyingScreenPause = true;
         try {
+            // The native initial sleep state may precede provider startup.
+            if (sleepingSource === null && provider() === "offline")
+                sleepingSource = source();
             var backend = w.__ottCoreBackendPeek && w.__ottCoreBackendPeek();
             if (backend !== sleepBackend) {
                 if (sleepUnsubscribe) sleepUnsubscribe();
@@ -133,6 +145,7 @@ export function createKiosk(w: any): any {
         if (screenAwake === awake) return;
         screenAwake = awake;
         if (!awake) {
+            sleepingSource = provider() === "offline" ? source() : null;
             var currentBackend =
                 w.__ottCoreBackendPeek && w.__ottCoreBackendPeek();
             var currentHandle = currentBackend && currentBackend.current();
@@ -148,11 +161,26 @@ export function createKiosk(w: any): any {
         var handle = sleepingHandle;
         var selected = sleepingPolicy;
         var deferred = deferredPolicy;
+        var selectedSource = sleepingSource;
+        var end = screenEnd;
+        screenEnd = null;
+        sleepingSource = null;
         sleepingHandle = sleepingPolicy = deferredPolicy = null;
         reset();
-        if (!locked() || !currentSource()) return;
+        if (
+            w.__ottStandby?.blocked() ||
+            !(
+                (locked() && currentSource()) ||
+                (provider() === "offline" && source() === selectedSource)
+            )
+        )
+            return;
+        if (end) {
+            end();
+            return;
+        }
         var backend = w.__ottCoreBackendPeek && w.__ottCoreBackendPeek();
-        if (policy === deferred) {
+        if (locked() && policy === deferred) {
             play();
         } else if (
             handle &&
@@ -167,6 +195,7 @@ export function createKiosk(w: any): any {
             var state =
                 w.__ottClassicPlayback && w.__ottClassicPlayback.snapshot();
             if (
+                policy &&
                 policy.channel &&
                 state &&
                 state.target &&
@@ -194,24 +223,54 @@ export function createKiosk(w: any): any {
             ...((policy && policy.media) || mediaPlaylistChannel()
                 ? { startup_grace_seconds: 60 }
                 : {}),
+            ...(folderLoop()
+                ? {
+                      folder: {
+                          name: policy.folder.name,
+                          total: Object.keys(w.channels || {}).filter(allowed)
+                              .length,
+                      },
+                  }
+                : {}),
             enabled: enabled(),
             health: health,
             provider: policy ? policy.provider : null,
             retries: retries,
             retry_seconds: 10,
-            screen_suspended: locked() && !screenAwake,
+            screen_suspended: screenBlocked(),
             state: locked() ? "locked" : policy ? "waiting" : "off",
             strict: !!(policy && policy.strict),
             video_progress: videoProgress.snapshot(),
         };
     }
+    function folderLoop(): boolean {
+        return !!(policy && policy.folder && policy.provider === "offline");
+    }
     function allowed(id: any): boolean {
+        if (!locked()) return true;
+        if (folderLoop()) {
+            var row = (w.channels || {})[String(id)];
+            return !!(
+                currentSource() &&
+                row &&
+                row.__ottLocalSource === policy.folder.id
+            );
+        }
         return (
-            !locked() ||
-            (!!policy.channel &&
-                source() === policy.source &&
-                String(id) === policy.channel.id)
+            !!policy.channel &&
+            source() === policy.source &&
+            String(id) === policy.channel.id
         );
+    }
+    function folderNext(id: any, members: any[]): any {
+        if (!folderLoop() || !currentSource()) return null;
+        var index = members.map(String).indexOf(String(id));
+        if (index < 0) return null;
+        for (var step = 1; step <= members.length; step++) {
+            var next = members[(index + step) % members.length];
+            if (allowed(next)) return next;
+        }
+        return null;
     }
     function validMedia(value: any): boolean {
         try {
@@ -268,6 +327,18 @@ export function createKiosk(w: any): any {
     }
     function admit(id: any): boolean {
         if (!allowed(id)) return false;
+        if (folderLoop() && policy.channel.id !== String(id)) {
+            if (
+                !save({
+                    ...policy,
+                    channel: {
+                        id: String(id),
+                        name: String(w.channels[id].channel_name || ""),
+                    },
+                })
+            )
+                return false;
+        }
         if (policy && !policy.channel && !policy.media) {
             // Arming does not capture the already playing channel or a boot callback.
             if (w.commandChannelsReady !== true || source() !== policy.source)
@@ -341,6 +412,46 @@ export function createKiosk(w: any): any {
         var indices = locate(policy.channel.id);
         if (!indices || !(w.channels || {})[policy.channel.id]) {
             health = "channel-unavailable";
+            if (
+                folderLoop() &&
+                !folderRecovery &&
+                w.__ottLocalMedia &&
+                typeof w.__ottLocalMedia.snapshot === "function"
+            ) {
+                // A missing ID during progressive loading is not a deleted file.
+                // snapshot rejects until the complete local catalog is known.
+                var selected = policy;
+                folderRecovery = selected;
+                Promise.resolve()
+                    .then(function () {
+                        return w.__ottLocalMedia.snapshot();
+                    })
+                    .then(function () {
+                        if (
+                            policy !== selected ||
+                            !currentSource() ||
+                            !screenAwake ||
+                            w.__ottStandby?.blocked() ||
+                            w.commandChannelsReady !== true ||
+                            (locate(selected.channel.id) &&
+                                (w.channels || {})[selected.channel.id])
+                        )
+                            return;
+                        var ids = w.cList || w.curList || [];
+                        for (var i = 0; i < ids.length; i++) {
+                            var replacement =
+                                allowed(ids[i]) && locate(String(ids[i]));
+                            if (replacement) {
+                                w.playChannel(replacement[0], replacement[1]);
+                                break;
+                            }
+                        }
+                    })
+                    .catch(function () {})
+                    .then(function () {
+                        if (folderRecovery === selected) folderRecovery = null;
+                    });
+            }
             return;
         }
         if (mediaPlaylistChannel()) {
@@ -384,7 +495,10 @@ export function createKiosk(w: any): any {
     }
     function tick(): void {
         if (w.__ottStandby?.blocked()) return;
-        if (!locked()) return;
+        if (!locked()) {
+            pauseForScreen();
+            return;
+        }
         var time = now();
         if (time < lastProgress) lastProgress = time;
         var mediaAdmitted = false;
@@ -544,7 +658,8 @@ export function createKiosk(w: any): any {
         lastProgress = time;
         lastPosition = null;
         health = "retrying";
-        if (w.navigator && w.navigator.onLine === false) return;
+        if (w.navigator && w.navigator.onLine === false && !folderLoop())
+            return;
         if (recoveryAttempts >= 3 && restartPlayer()) return;
         retries++;
         recoveryAttempts++;
@@ -723,7 +838,66 @@ export function createKiosk(w: any): any {
                 return;
             }
             var selected: any = null;
-            if (params.query !== undefined) {
+            var folder: any = null;
+            if (
+                provider() === "offline" &&
+                typeof params.query === "string" &&
+                params.query.indexOf("folder:") === 0
+            ) {
+                var folderName = caselessKey(params.query.slice(7).trim());
+                var connected = w.__ottLocalMedia?.completedSources?.();
+                if (!connected) {
+                    fail(
+                        "Wait for the local media scan to finish before locking a folder."
+                    );
+                    return;
+                }
+                var sources = connected.filter(function (source: any) {
+                    return (
+                        source.kind === "folder" &&
+                        caselessKey(String(source.name || "")) === folderName
+                    );
+                });
+                if (!folderName || sources.length !== 1) {
+                    fail(
+                        "Select one uniquely named local folder with playable videos."
+                    );
+                    return;
+                }
+                var ids = (w.cList || w.curList || []).filter(function (
+                    id: any
+                ) {
+                    var row = (w.channels || {})[id];
+                    return row && row.__ottLocalSource === sources[0].id;
+                });
+                if (!ids.length) {
+                    fail(
+                        "Select one uniquely named local folder with playable videos."
+                    );
+                    return;
+                }
+                if (
+                    ids.some(function (id: any) {
+                        return Number(w.channels[id].adult) === 1;
+                    }) &&
+                    w.sPSchannels &&
+                    w.parentPIN !== "*" &&
+                    !w.parentAccess
+                ) {
+                    fail("Unlock parental access before locking this folder.");
+                    return;
+                }
+                var currentId = (w.curList || [])[w.primaryIndex];
+                var first = ids.indexOf(currentId) >= 0 ? currentId : ids[0];
+                selected = {
+                    id: String(first),
+                    name: String(w.channels[first].channel_name || ""),
+                };
+                folder = {
+                    id: sources[0].id,
+                    name: String(sources[0].name),
+                };
+            } else if (params.query !== undefined) {
                 var text = params.query.trim();
                 var rows = (w.cList || w.curList || [])
                     .filter(function (id: any, i: number, ids: any[]) {
@@ -763,6 +937,7 @@ export function createKiosk(w: any): any {
             if (
                 !save({
                     channel: selected,
+                    ...(folder ? { folder: folder } : {}),
                     provider: provider(),
                     source: source(),
                     strict:
@@ -795,6 +970,14 @@ export function createKiosk(w: any): any {
                 typeof saved.provider === "string" &&
                 (saved.strict === undefined ||
                     typeof saved.strict === "boolean") &&
+                (saved.folder === undefined ||
+                    (saved.provider === "offline" &&
+                        saved.channel &&
+                        typeof saved.folder.id === "string" &&
+                        saved.folder.id.length > 0 &&
+                        saved.folder.id.length <= 1024 &&
+                        typeof saved.folder.name === "string" &&
+                        saved.folder.name.length <= 1024)) &&
                 (saved.media
                     ? (saved.provider === "vportal" ||
                           saved.provider === "plex") &&
@@ -988,7 +1171,12 @@ export function createKiosk(w: any): any {
         allowed: allowed,
         allowedMedia: allowedMedia,
         beginSeek: beginSeek,
+        deferScreenEnd: function (end: () => void): void {
+            if (screenBlocked()) screenEnd = end;
+        },
         enabled: enabled,
+        folderLoop: folderLoop,
+        folderNext: folderNext,
         init: init,
         locked: locked,
         request: request,
@@ -998,6 +1186,7 @@ export function createKiosk(w: any): any {
             play();
             return true;
         },
+        screenBlocked: screenBlocked,
         setScreenAwake: setScreenAwake,
         snapshot: snapshot,
         stopDiagnostics: stopDiagnostics,
