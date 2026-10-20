@@ -713,7 +713,7 @@ try {
             ),
             loadProv: () => providers++,
             PLAYER_VERSION: "test",
-            selectLang: (force) => picker.push(force),
+            selectLang: (force, startup) => picker.push([force, startup]),
             setTimeout: (callback, delay) => {
                 if (delay === 0) deferred.push(callback);
                 else {
@@ -779,6 +779,7 @@ try {
     );
     for (const options of [
         {}, // Unsupported language, failed download or timeout: no boot result.
+        { existingProvider: true }, // Same-page wake must retain startup semantics.
         { boot: { automatic: false, code: "_rus" } }, // Saved preference cleared.
         { boot: { automatic: true, code: "constructor" } },
         { boot: { automatic: true, code: "_rus" }, changedDictionary: true },
@@ -787,7 +788,7 @@ try {
         assert.equal(result.proceeded, false);
         assert.deepEqual(result.writes, []);
         assert.deepEqual(result.requests, []);
-        assert.deepEqual(result.picker, [undefined]);
+        assert.deepEqual(result.picker, [[undefined, true]]);
         assert.equal(result.launch.style.display, "none");
         assert.equal(result.snapshot().providers, 0);
     }
@@ -882,11 +883,16 @@ try {
     changedPreference.requests[0].success();
     assert.equal(changedPreference.snapshot().providers, 1);
     assert.equal(changedPreference.snapshot().saved, "_fra");
-    const failedSaved = startupLanguage({ saved: "_rus" });
-    failedSaved.requests[0].error();
-    assert.deepEqual(failedSaved.picker, [true]);
-    assert.deepEqual(failedSaved.writes, []);
-    assert.equal(failedSaved.snapshot().saved, "_rus");
+    for (const existingProvider of [false, true]) {
+        const failedSaved = startupLanguage({
+            existingProvider,
+            saved: "_rus",
+        });
+        failedSaved.requests[0].error();
+        assert.deepEqual(failedSaved.picker, [[true, true]]);
+        assert.deepEqual(failedSaved.writes, []);
+        assert.equal(failedSaved.snapshot().saved, "_rus");
+    }
 
     // A persisted system mode follows a changed OS preference, while legacy
     // saved choices (no mode record) remain explicit.
@@ -903,7 +909,7 @@ try {
         mode: "system",
         saved: "_rus",
     });
-    assert.deepEqual(unsupportedSystem.picker, [undefined]);
+    assert.deepEqual(unsupportedSystem.picker, [[undefined, true]]);
     assert.equal(
         unsupportedSystem.snapshot().saved,
         "_rus",
@@ -1015,7 +1021,7 @@ try {
     const stalledSaved = startupLanguage({ saved: "_rus" });
     assert.equal(stalledSaved.deadlines.length, 1);
     stalledSaved.deadlines[0]();
-    assert.deepEqual(stalledSaved.picker, [true]);
+    assert.deepEqual(stalledSaved.picker, [[true, true]]);
     const retainedDictionary = stalledSaved.window.keyStrings;
     stalledSaved.window.keyStrings = { lang: "late" };
     stalledSaved.requests[0].success();
