@@ -315,15 +315,28 @@ impl Library {
         record: &Record,
         work: Option<&crate::background_work::WorkLease>,
     ) -> Result<PathBuf, Failure> {
-        let path = record.linked_path.clone().unwrap_or_else(|| {
-            self.root
-                .join(format!("{}.{}", record.id, record.extension))
-        });
-        if record.linked_path.is_some()
-            && checked(work, fs::canonicalize(&path)).await?.ok().as_ref() != Some(&path)
-        {
-            return Err((StatusCode::GONE, "Original source unavailable"));
-        }
+        let path = if let Some(path) = &record.linked_path {
+            // Native-picked originals may live outside the private library.
+            // They must still name the same canonical, non-symlinked file.
+            if checked(work, fs::canonicalize(path)).await?.ok().as_ref() != Some(path) {
+                return Err((StatusCode::GONE, "Original source unavailable"));
+            }
+            path.clone()
+        } else {
+            // Keep this boundary local to the filesystem operation, even if a
+            // future caller has not passed through metadata validation first.
+            if !valid_id(&record.id) || media_type(&record.extension) != Some(record.mime.as_str())
+            {
+                return Err((StatusCode::NOT_FOUND, "Media not found"));
+            }
+            let path = self
+                .root
+                .join(format!("{}.{}", record.id, record.extension));
+            if !path.starts_with(&self.root) || path.parent() != Some(self.root.as_path()) {
+                return Err((StatusCode::NOT_FOUND, "Media not found"));
+            }
+            path
+        };
         let metadata = checked(work, fs::symlink_metadata(&path))
             .await?
             .map_err(|_| (StatusCode::NOT_FOUND, "Media not found"))?;
@@ -346,6 +359,9 @@ impl Library {
         // A range request must not rescan every metadata record before it can
         // return the first video byte from a large library.
         let path = self.root.join(format!("{id}.json"));
+        if !path.starts_with(&self.root) || path.parent() != Some(self.root.as_path()) {
+            return Err((StatusCode::NOT_FOUND, "Media not found"));
+        }
         let metadata = checked(work, fs::symlink_metadata(&path))
             .await?
             .map_err(|_| (StatusCode::NOT_FOUND, "Media not found"))?;
@@ -2438,6 +2454,60 @@ mod tests {
         assert_eq!(library.catalog().await.unwrap().items[0].id, saved_id);
         fs::remove_dir_all(root).await.unwrap();
         fs::remove_file(outside).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generated_media_boundary_rejects_unvalidated_records_and_keeps_picked_originals() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let library = Library::new(root.join("library"), "k".repeat(32), "device")
+            .await
+            .unwrap();
+        let id = "a".repeat(32);
+        let managed = library.root.join(format!("{id}.mp4"));
+        fs::write(&managed, b"managed").await.unwrap();
+        let original = root.join("outside.mp4");
+        fs::write(&original, b"picked original").await.unwrap();
+        let original = fs::canonicalize(original).await.unwrap();
+        let good = Record {
+            id: id.clone(),
+            name: "movie.mp4".into(),
+            size: 7,
+            mime: "video/mp4".into(),
+            extension: "mp4".into(),
+            linked_path: None,
+            source_id: None,
+        };
+        assert_eq!(library.path(&good).await.unwrap(), managed);
+        // These direct callers deliberately bypass read_record/read_records,
+        // proving the generated-file boundary validates its own input.
+        for bad_id in [
+            "../outside".into(),
+            "..\\outside".into(),
+            original.to_string_lossy().into_owned(),
+            "a".repeat(31),
+        ] {
+            let mut bad = good.clone();
+            bad.id = bad_id;
+            assert!(library.path(&bad).await.is_err());
+        }
+        for bad_extension in ["../mp4", "mp4/../../outside", "..\\mp4", "", "json"] {
+            let mut bad = good.clone();
+            bad.extension = bad_extension.into();
+            assert!(library.path(&bad).await.is_err());
+        }
+        let mut bad_mime = good.clone();
+        bad_mime.mime = "text/plain".into();
+        assert!(library.path(&bad_mime).await.is_err());
+        let mut picked = good;
+        picked.linked_path = Some(original.clone());
+        let work = library.background.enter().unwrap();
+        assert_eq!(
+            library.read_path(&picked, Some(&work)).await.unwrap(),
+            original
+        );
+        assert_eq!(fs::read(&original).await.unwrap(), b"picked original");
+        assert_eq!(fs::read(&managed).await.unwrap(), b"managed");
+        fs::remove_dir_all(root).await.unwrap();
     }
 
     #[tokio::test]
