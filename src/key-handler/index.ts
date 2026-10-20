@@ -382,7 +382,11 @@ function handleMainKey(keyCode: number, event: KeyboardEvent): void {
     if (w.playType < 0 && /^(up|down|left|right)$/.test(command.id)) {
         var media = w.__ottMedia && w.__ottMedia.current();
         // A remote Plex queue keeps the selected TV provider unchanged.
-        if (media && /^plex(?:@|$)/.test(media.ref.sourceId)) {
+        if (
+            media &&
+            (/^plex(?:@|$)/.test(media.ref.sourceId) ||
+                (media.sequence && media.sequence.channel))
+        ) {
             if (command.id === "left" || command.id === "right")
                 call("shiftArchive", command.id === "left" ? -10 : 10);
             else w.__ottMedia.skip(command.id === "up" ? 1 : -1);
@@ -558,6 +562,8 @@ export function dispatchKey(keyCode: number, event?: Event): void {
 export function keyFun(fn: number): void {
     var w = window as any;
     var id = w.__ottInputRouter.binding(fn);
+    // Local videos are finite media, but these bindings still change files.
+    var localVideos = w.__ottActiveProviderDriver?.id === "offline";
     function call(name: string, ...args: any[]) {
         if (typeof w[name] === "function") return w[name].apply(w, args);
     }
@@ -599,11 +605,11 @@ export function keyFun(fn: number): void {
             call("popupList");
         },
         "navigation.backward": function () {
-            if (w.playType) call("shiftArchiveSelect", 0);
+            if (w.playType && !localVideos) call("shiftArchiveSelect", 0);
             else call("minusProg");
         },
         "navigation.forward": function () {
-            if (w.playType) call("shiftArchiveSelect", 60);
+            if (w.playType && !localVideos) call("shiftArchiveSelect", 60);
             else call("plusProg");
         },
         "navigation.quick": function () {

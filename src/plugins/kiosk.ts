@@ -46,6 +46,19 @@ export function createKiosk(w: any): any {
     function strict(): boolean {
         return locked() && policy.strict === true;
     }
+    function mediaPlaylistChannel(): boolean {
+        if (!policy || !policy.channel) return false;
+        var driver = w.__ottActiveProviderDriver;
+        // A restored policy may precede provider asset loading on a cold start.
+        if (!driver)
+            return policy.provider === "plex" || policy.provider === "vportal";
+        return !!(
+            driver.id === policy.provider &&
+            driver.capabilities &&
+            driver.capabilities.mediaPlaylist &&
+            source() === policy.source
+        );
+    }
     function reset(): void {
         videoProgress.reset();
         frameRecovery = false;
@@ -55,7 +68,7 @@ export function createKiosk(w: any): any {
         lastProgress = now();
         lastSaved = lastProgress;
         lastMediaId = "";
-        mediaStarting = !!(policy && policy.media);
+        mediaStarting = !!(policy && policy.media) || mediaPlaylistChannel();
         health = locked() ? "starting" : policy ? "waiting" : "idle";
         strictInput.sync();
     }
@@ -176,8 +189,10 @@ export function createKiosk(w: any): any {
                           title: policy.media.records[policy.media.index].title,
                           total: policy.media.records.length,
                       },
-                      startup_grace_seconds: 60,
                   }
+                : {}),
+            ...((policy && policy.media) || mediaPlaylistChannel()
+                ? { startup_grace_seconds: 60 }
                 : {}),
             enabled: enabled(),
             health: health,
@@ -328,6 +343,11 @@ export function createKiosk(w: any): any {
             health = "channel-unavailable";
             return;
         }
+        if (mediaPlaylistChannel()) {
+            mediaStarting = true;
+            lastProgress = now();
+            lastPosition = null;
+        }
         // Resolve the channel again, including expiring provider URLs. Never reuse
         // an old stream URL, list position, or a different provider's identical ID.
         w.playChannel(indices[0], indices[1]);
@@ -368,6 +388,25 @@ export function createKiosk(w: any): any {
         var time = now();
         if (time < lastProgress) lastProgress = time;
         var mediaAdmitted = false;
+        try {
+            if (!mediaStarting && mediaPlaylistChannel()) {
+                var channelMedia = w.__ottMedia && w.__ottMedia.current();
+                var channelSequence = channelMedia && channelMedia.sequence;
+                if (
+                    channelMedia &&
+                    channelMedia.ended &&
+                    channelSequence &&
+                    channelSequence.channel &&
+                    String(channelSequence.channel.id) === policy.channel.id
+                ) {
+                    mediaStarting = true;
+                    lastProgress = time;
+                    lastPosition = null;
+                }
+            }
+        } catch (_) {
+            health = "error";
+        }
         if (policy.media) {
             try {
                 // Health polling reads the current identity/position, never copies the queue.
@@ -587,7 +626,24 @@ export function createKiosk(w: any): any {
                 done({ data: snapshot(), status: "ok" });
                 return;
             }
-            if (provider() === "vportal" || provider() === "plex") {
+            var driver = w.__ottActiveProviderDriver;
+            var currentMedia =
+                w.__ottMedia && w.__ottMedia.current && w.__ottMedia.current();
+            var mediaPlaylist =
+                driver &&
+                driver.capabilities &&
+                driver.capabilities.mediaPlaylist;
+            // Selected roots use ordinary channel policy. An explicitly
+            // launched media queue keeps its independent queue kiosk policy.
+            if (
+                (provider() === "vportal" || provider() === "plex") &&
+                (!mediaPlaylist ||
+                    (currentMedia &&
+                        !(
+                            currentMedia.sequence &&
+                            currentMedia.sequence.channel
+                        )))
+            ) {
                 if (params.query !== undefined) {
                     fail(
                         "Start the required media playback, then use kiosk on without a channel query."
