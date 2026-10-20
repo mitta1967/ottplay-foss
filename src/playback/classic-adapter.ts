@@ -299,6 +299,9 @@ function classicPlaybackCommand(command: any): void {
                     ? command.sourceId || w.__ottMedia.sourceId()
                     : classicPlaybackSource(w),
         };
+        // Category positions can change while this Local file is playing.
+        if (localChannel)
+            history.payload.groupId = w.__ottChannels?.group(w.catIndex);
         var target: PlaybackVisit = finiteChannel
             ? {
                   channelId: "channel:" + id,
@@ -617,6 +620,7 @@ function classicPlaybackSelect(
                         classicPlaybackChannelHint(visit.channelId),
                     channelId: visit.channelId,
                     groupId:
+                        payload.groupId ||
                         (w.__ottChannels && w.__ottChannels.group(payload.c)) ||
                         (w.catsArray || [])[payload.c],
                     kind: visit.kind,
@@ -912,6 +916,7 @@ function classicPlaybackHydrate(): void {
                 channelHint: entry.channelHint,
                 ci: found ? found.id : entry.channelId,
                 e: entry.label,
+                groupId: entry.groupId,
                 i: found ? found.index : -1,
             };
             if (entry.kind === "archive") result.t = entry.archiveStart;
@@ -1006,6 +1011,7 @@ function classicPlaybackCheckpoint(snapshot: any, force = false): void {
             channelHint: classicPlaybackChannelHint(target.channelId),
             channelId: target.channelId,
             groupId:
+                payload.groupId ||
                 (w.__ottChannels && w.__ottChannels.group(payload.c)) ||
                 (w.catsArray || [])[payload.c],
             kind: target.kind,
