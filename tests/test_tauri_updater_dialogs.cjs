@@ -246,6 +246,39 @@ function fixture(options = {}) {
         0,
         "Late native check cannot open a prompt"
     );
+    let rejectCheck;
+    const timedCheck = fixture({
+        checkPromise: new Promise((_, reject) => {
+            rejectCheck = reject;
+        }),
+    });
+    assert.equal(timedCheck.calls.length, 1);
+    assert.equal(timedCheck.calls[0].command, "plugin:updater|check");
+    assert.equal(
+        timedCheck.calls[0].args.timeout,
+        10000,
+        "The native updater must bound its metadata request, not only a JS waiter"
+    );
+    timedCheck.standby.set(true);
+    await settle();
+    assert.equal(
+        timedCheck.standby.snapshot().pending,
+        1,
+        "Standby must retain the request until native settlement"
+    );
+    assert.equal(timedCheck.standby.snapshot().state, "suspending");
+    rejectCheck(new Error("Native updater request timed out"));
+    await settle();
+    assert.equal(timedCheck.standby.snapshot().pending, 0);
+    assert.equal(timedCheck.standby.snapshot().state, "suspended");
+    assert.equal(timedCheck.errors.length, 1);
+    assert.equal(timedCheck.confirmations.length, 0);
+    assert.equal(timedCheck.notices.length, 0);
+    assert.equal(
+        timedCheck.calls.length,
+        1,
+        "A failed metadata check is not retried or converted to an installation"
+    );
     const lateConsent = fixture();
     await settle();
     lateConsent.standby.set(true);
@@ -280,7 +313,7 @@ function fixture(options = {}) {
         0,
         "Late download cannot trigger relaunch"
     );
-    console.log("Tauri updater DOM dialog contracts passed (13 scenarios)");
+    console.log("Tauri updater DOM dialog contracts passed (14 scenarios)");
 })().catch((error) => {
     console.error(error);
     process.exitCode = 1;

@@ -1600,7 +1600,7 @@ function loadInterfaceLanguage(
     };
 }
 
-function selectLang(forceReload?: boolean): void {
+function selectLang(forceReload?: boolean, startup?: boolean): void {
     var langCodes = [
         "_eng",
         "_arm",
@@ -1703,7 +1703,7 @@ function selectLang(forceReload?: boolean): void {
             : "";
     }
     function resumeAfterLanguage(exit?: boolean): void {
-        if (typeof duneAddSettings !== "function") {
+        if (startup || typeof duneAddSettings !== "function") {
             if (exit === true) {
                 closeList();
                 stbExit();
@@ -1821,7 +1821,8 @@ function selectLang(forceReload?: boolean): void {
                     );
                 return true;
             case keys.EXIT:
-                if (typeof duneAddSettings === "function") return false;
+                if (!startup && typeof duneAddSettings === "function")
+                    return false;
             case keys.RETURN:
                 cancelled = true;
                 if (cancelLanguageLoad) cancelLanguageLoad();
@@ -2004,7 +2005,28 @@ export function startPlayer(): void {
 
 /** Reuse the successful early dictionary and commit first-run auto selection. */
 function loadStartupLanguage(): boolean {
+    var languageHost = window as any;
+    // Retire any pre-standby language picker/download, including when startup
+    // reuses the active dictionary and therefore starts no replacement request.
+    languageHost.__ottLanguagePending = null;
+    var standby = languageHost.__ottStandby;
+    var generation = standby && standby.generation();
+    function current(): boolean {
+        return (
+            !standby ||
+            (languageHost.__ottStandby === standby &&
+                standby.current(generation))
+        );
+    }
     var lang = stbGetItem("ottplaylang");
+    // A wake reuses this session's verified dictionary, not a stale saved code
+    // from an unsupported system language or a failed first-boot download.
+    var active =
+        Object.prototype.hasOwnProperty.call(languageNames, lang) &&
+        languageHost.__ottInterfaceLanguage === lang &&
+        languageHost.__ottBootDictionary === languageHost.keyStrings
+            ? lang
+            : "";
     var bootLanguage = (window as any).__ottBootLanguage;
     (window as any).__ottBootLanguage = null;
     var preloaded =
@@ -2019,7 +2041,7 @@ function loadStartupLanguage(): boolean {
         lang =
             preloaded && bootLanguage.automatic
                 ? String(bootLanguage.code)
-                : "";
+                : active;
         if (lang) {
             stbSetItem("ottplaylang", lang);
             stbSetItem("ottplaylangmode", "system");
@@ -2033,19 +2055,20 @@ function loadStartupLanguage(): boolean {
             if (typeof (window as any).clearBootHide === "function")
                 (window as any).clearBootHide();
         }
-        selectLang();
+        if (current()) selectLang(undefined, true);
         return false;
     }
 
     function ready(): void {
-        if ((window as any).__ottStandby?.blocked()) return;
+        if (!current()) return;
         (window as any).__ottBootDictionary = (window as any).keyStrings;
-        if (typeof duneAddSettings !== "function") loadProv();
-        else if (typeof (window as any).optionsList === "function")
-            (window as any).optionsList(selectLang);
+        loadProv();
         checkTauriUpdatesAfterLanguage();
     }
-    if (preloaded && bootLanguage.code === lang) {
+    if (
+        (preloaded && bootLanguage.code === lang) ||
+        (active && active === lang)
+    ) {
         // Keep the script-load callback's ordering: onStbReady must install
         // native HTTP/EPG shims before a saved provider starts its first request.
         applyLanguageMetadata(lang);
@@ -2054,13 +2077,14 @@ function loadStartupLanguage(): boolean {
     }
     console.log("TRACE lang=" + lang + ", loading langJS");
     loadInterfaceLanguage(lang, function (loaded) {
+        if (!current()) return;
         if (loaded) ready();
         else {
             var el = document.getElementById("launch");
             if (el) el.style.display = "none";
             if (typeof (window as any).clearBootHide === "function")
                 (window as any).clearBootHide();
-            selectLang(true);
+            selectLang(true, true);
         }
     });
     return true;
@@ -2073,13 +2097,13 @@ function loadStartupLanguage(): boolean {
  * - Syncing PlayerSettings to window.* globals
  * - Initialising UI references and applying visual settings
  * - Saving the current popup state for provider-switch restoration
- * - Loading the language file and then launching the provider / options
+ * - Loading the language file and then launching the provider
  * - Preparing TMDb if available
  *
  * Side effects: Extensive — calls loadSettings(), installSettingsFacade(),
  * setTimezone(), setFontSize(), setListPos(), setColor(), setEditor(),
  * setPipPosBuf(), setSleepTimeout(); loads language JS; calls loadProv()
- * or optionsList().
+ * to resume the configured source.
  *
  * Edge case: If no language is set, calls selectLang() directly and returns.
  * Wrapped in try/catch — exceptions are displayed in #launch.
@@ -2135,11 +2159,14 @@ function onStbReady(): void {
         if (typeof (window as any).showEditKey === "undefined")
             (window as any).showEditKey = (window as any).showEditKey1;
 
-        // Save current popup state (read by loadProv when switching providers)
-        savedPopup.popupActions = popupActions.slice();
-        savedPopup.popupArray = popupArray.slice();
-        savedPopup.popupDetail = popupDetail.slice();
-        savedPopup.ver = version;
+        // Retain the pristine menu across wake; provider-owned/hidden entries
+        // must not become the baseline for the next provider mount.
+        if (!savedPopup.popupActions.length) {
+            savedPopup.popupActions = popupActions.slice();
+            savedPopup.popupArray = popupArray.slice();
+            savedPopup.popupDetail = popupDetail.slice();
+            savedPopup.ver = version;
+        }
 
         // Install native transports even if startup pauses for language selection.
         // Re-apply Tauri IPC override after provider script loads.
@@ -7425,7 +7452,7 @@ function checkTauriUpdatesAfterLanguage(): void {
             if (standby) release = standby.track(function () {});
             const update = await tauriInvoke<UpdaterMeta | null>(
                 "plugin:updater|check",
-                {}
+                { timeout: 10000 }
             );
             release();
             if (!update || (standby && !standby.current(generation))) return;

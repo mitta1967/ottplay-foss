@@ -92,8 +92,11 @@ async function fixture(page, context, baseURL, media = {}) {
     });
     await context.routeWebSocket("**/*", (socket) => socket.close());
     await context.addInitScript(
-        ({ playlist, playerMode }) => {
+        ({ playlist, playerMode, languageMode, hideProviderSettings }) => {
             localStorage.setItem("ottplaylang", "_eng");
+            if (languageMode)
+                localStorage.setItem("ottplaylangmode", languageMode);
+            if (hideProviderSettings) localStorage.setItem("noProvParam", "1");
             localStorage.setItem("ottplayprov", "m3u");
             localStorage.setItem("m3usPlayers", playerMode);
             localStorage.setItem(
@@ -108,6 +111,8 @@ async function fixture(page, context, baseURL, media = {}) {
             };
         },
         {
+            hideProviderSettings: !!media.hideProviderSettings,
+            languageMode: media.languageMode || "",
             playerMode: media.playerMode || "1",
             playlist: origin + "/doctor-fixture/channels.m3u",
         }
@@ -272,6 +277,98 @@ async function standbyRequest(page, operation = "standby") {
         if (reply?.status === "ok" && effect) effect();
         return reply;
     }, operation);
+}
+
+for (const languageMode of ["manual", "system"]) {
+    test(
+        "standby/go resumes the configured M3U twice with " +
+            languageMode +
+            " language",
+        async ({ page, context, baseURL }) => {
+            const media = await streamingMedia("native");
+            media.languageMode = languageMode;
+            media.hideProviderSettings = languageMode === "system";
+            try {
+                const observed = await fixture(page, context, baseURL, media);
+                async function selection() {
+                    return page.evaluate(() => ({
+                        channel:
+                            window.__ottClassicPlayback.snapshot().target
+                                ?.channelId,
+                        language: localStorage.getItem("ottplaylang"),
+                        languageMode: localStorage.getItem("ottplaylangmode"),
+                        popupCount: window.popupActions.length,
+                        profile: localStorage.getItem("m3um3uArr"),
+                        provider: localStorage.getItem("ottplayprov"),
+                        providerSettings: window.popupActions.includes(
+                            window.doEditM3Ua
+                        ),
+                        settingsActions: window.popupActions.filter(
+                            (action) => action === window.optionsList
+                        ).length,
+                    }));
+                }
+                const before = await selection();
+                expect(before.channel).toBeTruthy();
+                expect(before.languageMode).toBe(languageMode);
+                expect(before.settingsActions).toBe(1);
+                expect(before.providerSettings).toBe(
+                    !media.hideProviderSettings
+                );
+                for (let cycle = 0; cycle < 2; cycle++) {
+                    expect((await standbyRequest(page)).status).toBe("ok");
+                    await expect.poll(() => media.lanes.main.active).toBe(0);
+                    await page.waitForFunction(
+                        () =>
+                            window.__ottStandby.snapshot().state === "suspended"
+                    );
+                    const stoppedBytes = media.lanes.main.bytes;
+                    // No page reload, direct playback, or UI key may repair this wake.
+                    expect((await standbyRequest(page, "wake")).status).toBe(
+                        "ok"
+                    );
+                    await page.waitForFunction(
+                        () => {
+                            const video = document.getElementById("video");
+                            return (
+                                !window.stbIsStandby() &&
+                                window.commandChannelsReady &&
+                                video?.readyState >= 2 &&
+                                !video.paused &&
+                                video.currentTime > 0.1
+                            );
+                        },
+                        null,
+                        { timeout: 10000 }
+                    );
+                    await expect
+                        .poll(() => media.lanes.main.bytes)
+                        .toBeGreaterThan(stoppedBytes);
+                    const time = await page.evaluate(
+                        () => document.getElementById("video").currentTime
+                    );
+                    await expect
+                        .poll(() =>
+                            page.evaluate(
+                                () =>
+                                    document.getElementById("video").currentTime
+                            )
+                        )
+                        .toBeGreaterThan(time);
+                    expect(await selection()).toEqual(before);
+                    await expect(page.locator("#launch")).toBeHidden();
+                    await expect(
+                        page.getByText("Change interface language", {
+                            exact: true,
+                        })
+                    ).toBeHidden();
+                }
+                expect(observed.errors).toEqual([]);
+            } finally {
+                await media.close();
+            }
+        }
+    );
 }
 
 for (const kind of ["native", "hls"]) {

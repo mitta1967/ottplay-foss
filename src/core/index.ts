@@ -477,6 +477,7 @@ function createCoreHlsBitrateMeter(): {
 }
 
 export function updateCoreVideoInfo(): void {
+    if ((window as any).__ottStandby?.blocked()) return;
     if (!video || !video.videoWidth || video.error) return;
     var res = "<br/>" + video.videoWidth + "x" + video.videoHeight;
     var mbps = 0;
@@ -2595,8 +2596,8 @@ function showViewportSizeIndicator(): void {
  * Initialise the STB player: inject video DOM elements, attach event handlers,
  * go fullscreen, and set the global key handler.
  *
- * This is the bootstrap entry point for the player UI. It must be called once
- * after the document is ready.
+ * This is the bootstrap entry point for the player UI, also used after standby.
+ * Reuse listeners on existing nodes and replace the owned information timer.
  *
  * Side effects:
  * - Creates #vdiv, #video, and #videopip elements in the DOM if they do not exist.
@@ -2607,30 +2608,33 @@ function showViewportSizeIndicator(): void {
  * - Installs the remote key listener through stbBindKeyHandler().
  */
 export function stbInit(): void {
+    var host = window as any;
     $("body").css({ "background-color": "#111" });
-    window.addEventListener("resize", function () {
-        showViewportSizeIndicator();
-        if (typeof window.setFontSize === "function") window.setFontSize();
-        if (typeof window.setListPos === "function") window.setListPos();
-        if (typeof window.setColor === "function") window.setColor();
-        // Re-apply video fit/center after layout — sync path alone left explicit
-        // px sizes from 1.1.29 stuck at the pre-resize crop.
-        var refreshVideo = function () {
-            if (isFullscreen) stbToFullScreen();
-            else {
-                applyAspectRatio();
-                applyZoom();
+    if (!host.__ottCoreResizeListener)
+        host.__ottCoreResizeListener = function () {
+            showViewportSizeIndicator();
+            if (typeof window.setFontSize === "function") window.setFontSize();
+            if (typeof window.setListPos === "function") window.setListPos();
+            if (typeof window.setColor === "function") window.setColor();
+            // Re-apply video fit/center after layout — sync path alone left explicit
+            // px sizes from 1.1.29 stuck at the pre-resize crop.
+            var refreshVideo = function () {
+                if (isFullscreen) stbToFullScreen();
+                else {
+                    applyAspectRatio();
+                    applyZoom();
+                }
+            };
+            refreshVideo();
+            try {
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(refreshVideo);
+                });
+            } catch (_raf) {
+                refreshVideo();
             }
         };
-        refreshVideo();
-        try {
-            requestAnimationFrame(function () {
-                requestAnimationFrame(refreshVideo);
-            });
-        } catch (_raf) {
-            refreshVideo();
-        }
-    });
+    window.addEventListener("resize", host.__ottCoreResizeListener);
     try {
         if (!document.getElementById("vdiv")) {
             $("body").prepend(
@@ -2643,119 +2647,149 @@ export function stbInit(): void {
             "poster",
             "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAkQBADs="
         );
-        try {
-            // Intrinsic size arrives async; re-center contain letterbox once known.
-            video!.addEventListener("loadedmetadata", function () {
-                applyAspectRatio();
-                applyZoom();
+        if (!(video as any).__ottCoreEventsBound) {
+            try {
+                // Intrinsic size arrives async; re-center contain letterbox once known.
+                video!.addEventListener("loadedmetadata", function () {
+                    applyAspectRatio();
+                    applyZoom();
+                });
+            } catch (_meta) {}
+            try {
+                // Keep focus off native <video> so L/Escape reach the document
+                // key path in full-video mode (list overlay already did).
+                video!.setAttribute("tabindex", "-1");
+                var _blurVid = function () {
+                    try {
+                        video!.blur();
+                    } catch (_b) {}
+                };
+                video!.addEventListener("playing", _blurVid);
+                video!.addEventListener("click", _blurVid);
+            } catch (_tab) {}
+            video!.addEventListener("waiting", function () {
+                $("#buffering").show();
+                $("#video_res").text(_("Connecting..."));
             });
-        } catch (_meta) {}
-        try {
-            // Keep focus off native <video> so L/Escape reach the document
-            // key path in full-video mode (list overlay already did).
-            video!.setAttribute("tabindex", "-1");
-            var _blurVid = function () {
-                try {
-                    video!.blur();
-                } catch (_b) {}
-            };
-            video!.addEventListener("playing", _blurVid);
-            video!.addEventListener("click", _blurVid);
-        } catch (_tab) {}
-        video!.addEventListener("waiting", function () {
-            $("#buffering").show();
-            $("#video_res").text(_("Connecting..."));
-        });
-        video!.addEventListener("loadstart", function () {
-            $("#buffering").show();
-            $("#video_res").text(_("Loading..."));
-        });
-        video!.addEventListener("loadeddata", function () {
-            console.log("Event: loadeddata");
-        });
-        video!.addEventListener("loadedmetadata", function () {
-            console.log("Event: loadedmetadata");
-        });
-        video!.addEventListener("canplay", function () {
-            $("#buffering").hide();
-            $("#video_res").text("");
-            updateCoreVideoInfo();
-            if (typeof applyChannelPreference === "function") {
-                applyChannelPreference("aAspects", setAspect);
-                applyChannelPreference("aZooms", setZoom);
-                applyChannelPreference("aSubs", setSubtitleTrack);
-                applyChannelPreference("aAudios", setAudioTrack);
-            }
-        });
-        video!.addEventListener("playing", function () {
-            $("#buffering").hide();
-        });
-        video!.addEventListener("error", function () {
-            var _p =
-                coreDeviceEffects.engineName ||
-                (_corePlaybackMode === 1
-                    ? "hls.js"
-                    : _corePlaybackMode === 2
-                      ? "shaka"
-                      : "html5");
-            var err = video?.error;
-            var me = ["", "ABORTED", "NETWORK", "DECODE", "SRC_NOT_SUPPORTED"];
-            var errName = err?.code ? me[err.code] || String(err.code) : "";
-            console.log(
-                "video > error: " +
-                    (err?.code || "") +
-                    (errName ? "-" + errName : "") +
-                    (err?.message ? " (" + err.message + ")" : "") +
-                    " player=" +
-                    _p
-            );
-            $("#buffering").hide();
-            $("#video_res").html(
-                "<br/>error " +
-                    (err?.code ?? 0) +
-                    (errName ? " " + errName : "") +
-                    " (" +
-                    _p +
-                    ")"
-            );
-        });
-        video!.addEventListener("resize", function () {
-            updateCoreVideoInfo();
-        });
-        // Seeks may finish between footer ticks; discard any sample spanning one.
-        video!.addEventListener("seeking", resetCoreNativeBitrate);
-        video!.addEventListener("seeked", resetCoreNativeBitrate);
-        [
-            "waiting",
-            "loadstart",
-            "loadeddata",
-            "loadedmetadata",
-            "durationchange",
-            "canplay",
-            "canplaythrough",
-            "playing",
-            "error",
-            "progress",
-            "ratechange",
-            "ended",
-            "suspend",
-            "emptied",
-            "stalled",
-            "abort",
-            "play",
-            "pause",
-            "resize",
-        ].forEach(function (e) {
-            video!.addEventListener(e, videoEvent);
-        });
-        setInterval(updateCoreVideoInfo, 1000);
+            video!.addEventListener("loadstart", function () {
+                $("#buffering").show();
+                $("#video_res").text(_("Loading..."));
+            });
+            video!.addEventListener("loadeddata", function () {
+                console.log("Event: loadeddata");
+            });
+            video!.addEventListener("loadedmetadata", function () {
+                console.log("Event: loadedmetadata");
+            });
+            video!.addEventListener("canplay", function () {
+                $("#buffering").hide();
+                $("#video_res").text("");
+                updateCoreVideoInfo();
+                if (typeof applyChannelPreference === "function") {
+                    applyChannelPreference("aAspects", setAspect);
+                    applyChannelPreference("aZooms", setZoom);
+                    applyChannelPreference("aSubs", setSubtitleTrack);
+                    applyChannelPreference("aAudios", setAudioTrack);
+                }
+            });
+            video!.addEventListener("playing", function () {
+                $("#buffering").hide();
+            });
+            video!.addEventListener("error", function () {
+                var _p =
+                    coreDeviceEffects.engineName ||
+                    (_corePlaybackMode === 1
+                        ? "hls.js"
+                        : _corePlaybackMode === 2
+                          ? "shaka"
+                          : "html5");
+                var err = video?.error;
+                var me = [
+                    "",
+                    "ABORTED",
+                    "NETWORK",
+                    "DECODE",
+                    "SRC_NOT_SUPPORTED",
+                ];
+                var errName = err?.code ? me[err.code] || String(err.code) : "";
+                console.log(
+                    "video > error: " +
+                        (err?.code || "") +
+                        (errName ? "-" + errName : "") +
+                        (err?.message ? " (" + err.message + ")" : "") +
+                        " player=" +
+                        _p
+                );
+                $("#buffering").hide();
+                $("#video_res").html(
+                    "<br/>error " +
+                        (err?.code ?? 0) +
+                        (errName ? " " + errName : "") +
+                        " (" +
+                        _p +
+                        ")"
+                );
+            });
+            video!.addEventListener("resize", function () {
+                updateCoreVideoInfo();
+            });
+            // Seeks may finish between footer ticks; discard any sample spanning one.
+            video!.addEventListener("seeking", resetCoreNativeBitrate);
+            video!.addEventListener("seeked", resetCoreNativeBitrate);
+            [
+                "waiting",
+                "loadstart",
+                "loadeddata",
+                "loadedmetadata",
+                "durationchange",
+                "canplay",
+                "canplaythrough",
+                "playing",
+                "error",
+                "progress",
+                "ratechange",
+                "ended",
+                "suspend",
+                "emptied",
+                "stalled",
+                "abort",
+                "play",
+                "pause",
+                "resize",
+            ].forEach(function (e) {
+                video!.addEventListener(e, videoEvent);
+            });
+            (video as any).__ottCoreEventsBound = true;
+        }
+        var previousTimer = host.__ottCoreVideoInfoTimer;
+        if (previousTimer) clearInterval(previousTimer.id);
+        var infoTimer: any = (host.__ottCoreVideoInfoTimer = { id: null });
+        var startInfoTimer = function (): void {
+            if (host.__ottCoreVideoInfoTimer !== infoTimer || stbIsStandby())
+                return;
+            infoTimer.id = setInterval(function () {
+                if (
+                    host.__ottCoreVideoInfoTimer !== infoTimer ||
+                    stbIsStandby()
+                )
+                    return;
+                updateCoreVideoInfo();
+            }, 1000);
+        };
+        if (host.__ottStandby && typeof host.__ottStandby.ready === "function")
+            host.__ottStandby.ready(startInfoTimer);
+        else startInfoTimer();
         videoPip = document.getElementById("videopip") as HTMLVideoElement;
-        videoPip!.addEventListener("loadstart", function () {
-            if (videoPip!.style.display != "none") $("#pip_buffering").show();
-        });
-        videoPip!.addEventListener("playing", function () {
-            $("#pip_buffering").hide();
-        });
+        if (!(videoPip as any).__ottCoreEventsBound) {
+            videoPip!.addEventListener("loadstart", function () {
+                if (videoPip!.style.display != "none")
+                    $("#pip_buffering").show();
+            });
+            videoPip!.addEventListener("playing", function () {
+                $("#pip_buffering").hide();
+            });
+            (videoPip as any).__ottCoreEventsBound = true;
+        }
     } catch (e) {
         console.error(e);
     }
@@ -2981,6 +3015,9 @@ export function stbSetStandby(standby: boolean): void {
         if (coreDeviceEffects.standby) coreDeviceEffects.standby(_standby);
     });
     if (_standby) {
+        var infoTimer = w.__ottCoreVideoInfoTimer;
+        w.__ottCoreVideoInfoTimer = null;
+        if (infoTimer) clearInterval(infoTimer.id);
         // Closing a browsing overlay must not restore its preview or PiP stream.
         clearTimeout(w.previewTimer);
         w.previewChan = null;

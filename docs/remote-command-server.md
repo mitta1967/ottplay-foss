@@ -314,11 +314,17 @@ locked; app restart, exit, reboot and configuration keep their existing restrict
 Remote polling, command replies and diagnostics remain available while the OS
 keeps the app running. On iOS/Android the OS may suspend the app in the background;
 `go` cannot wake a closed or suspended app, or an offline device. Standby controls
-the player's work without shutting down the operating system.
+the player's work without shutting down the operating system. On browser and TV
+runtimes without the native standby bridge, drain reporting covers tracked frontend
+work; it does not stop shared OTT Server jobs or other clients. Native cancellation
+requires an updated Tauri or Capacitor shell.
 
 The player checkpoints its confirmed playback cursor before retiring the source.
 Go reopens the saved source/profile through normal startup and resume rules; live
-streams obtain a fresh URL. Repeated go does not launch a second startup. Standby
+streams obtain a fresh URL. Repeated go does not launch a second startup. When a
+valid interface language is already loaded, repeated standby/go reuses it and resumes
+the configured provider without opening language settings. First-run setup and genuine
+language-load failures retain their normal recovery flow. Standby
 is saved only on this installation, so page/app reload stays asleep. Portable
 settings and cloud backups neither import nor remove that state.
 The normal Exit/Q action saves the playback position and closes the player
@@ -328,7 +334,9 @@ without entering standby; an awake player can resume normally on its next launch
 `status.player.background` contains `state` and `pending`: `suspending` means tracked
 work is still draining, `suspended` confirms zero tracked frontend/native jobs,
 `running` means the player is awake, and `unsupported` or `error` does not promise
-native quiescence. An accepted command only confirms delivery. Older native shells
+native quiescence. `running` confirms that the standby gate reopened, not catalogue
+readiness or resumed playback; verify the saved selection and playback progress
+separately. An accepted command only confirms delivery. Older native shells
 must be updated for native HTTP, XMLTV and filesystem cancellation; the updated
 frontend still blocks its own new work. A native acknowledgement timeout leaves
 wake blocked with an error instead of silently starting against a sleeping backend.
@@ -339,6 +347,9 @@ and its late result cannot relaunch an asleep player. New update checks/download
 blocked during standby.
 Already-started browser script downloads and filesystem reads likewise remain
 pending until their completion; their retired owners cannot resume playback.
+An abandoned local-media request stops after its current filesystem operation.
+An idle local HTTP response retained by an external client can remain pending
+until that client reads or closes it; standby prevents further media reads.
 
 If the backend supports restarting but has no current restartable stream, the
 request returns `rejected` with `reason: "no_restartable_stream"`. This can happen
