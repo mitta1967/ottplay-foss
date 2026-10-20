@@ -49,7 +49,24 @@ struct ScanState {
     scanned: u64,
     records: std::collections::HashMap<String, (Record, bool)>,
     cached: bool,
+    revision: u64,
     error: Option<String>,
+}
+impl ScanState {
+    fn invalidate(&mut self) {
+        self.cached = false;
+        self.revision = self.revision.wrapping_add(1);
+    }
+
+    fn cache_preferred(&mut self, preferred: Option<(u64, Record)>) {
+        if let Some((revision, record)) = preferred {
+            // A source can be disconnected while the direct lookup is awaiting
+            // filesystem I/O. Never resurrect that entry in a newer snapshot.
+            if self.cached && self.revision == revision {
+                self.records.insert(record.id.clone(), (record, true));
+            }
+        }
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct Record {
@@ -303,7 +320,12 @@ impl Library {
         self.start_link_paths_tracked(paths, folder, work).await
     }
 
-    pub async fn start_link_paths_tracked(&self, paths: Vec<PathBuf>, folder: bool, work: crate::background_work::WorkLease) -> anyhow::Result<()> {
+    pub async fn start_link_paths_tracked(
+        &self,
+        paths: Vec<PathBuf>,
+        folder: bool,
+        work: crate::background_work::WorkLease,
+    ) -> anyhow::Result<()> {
         work.check().map_err(anyhow::Error::msg)?;
         anyhow::ensure!(
             self.storage == "device",
@@ -332,40 +354,145 @@ impl Library {
     }
 
     pub async fn start_refresh_sources(&self) {
-        if self.storage != "device" {
-            return;
+        self.start_refresh_sources_with_preferred(None).await;
+    }
+
+    async fn preferred_record(
+        &self,
+        id: &str,
+        work: &crate::background_work::WorkLease,
+    ) -> Option<(u64, Record)> {
+        if self.storage != "device" || !valid_id(id) {
+            return None;
         }
+        // Read one persisted opaque ID independently of directory traversal.
+        // Both an unavailable volume and standby must promptly release the
+        // caller, and an old work generation must never publish after wake.
+        work.run(tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            async {
+                let revision = self.scan.lock().await.revision;
+                let record = self.record(id).await.ok()?;
+                self.path(&record).await.ok()?;
+                Some((revision, record))
+            },
+        ))
+        .await
+        .ok()?
+        .ok()?
+    }
+
+    /// Make the saved item available without restarting an existing scan.
+    pub async fn prioritize_item(&self, id: &str) {
         let Ok(work) = self.background.enter() else {
             return;
         };
-        self.start_refresh_sources_tracked(work).await;
+        self.prioritize_item_tracked(id, work).await;
+    }
+
+    pub async fn prioritize_item_tracked(&self, id: &str, work: crate::background_work::WorkLease) {
+        self.ensure_catalog_tracked(Some(id), work).await;
+    }
+
+    /// Reuse a valid snapshot, or restart discovery after cancellation without
+    /// making endpoint readers wait for a synchronous full-directory catalog.
+    pub async fn ensure_catalog_tracked(
+        &self,
+        preferred_id: Option<&str>,
+        work: crate::background_work::WorkLease,
+    ) {
+        if self.storage != "device" || work.check().is_err() {
+            return;
+        }
+        let preferred = match preferred_id {
+            Some(id) => self.preferred_record(id, &work).await,
+            None => None,
+        };
+        let Ok(mut scan) = work.run(self.scan.lock()).await else {
+            return;
+        };
+        // Standby invalidates a cancelled snapshot. Wake may discover an
+        // existing endpoint without an explicit refresh, so rebuild that
+        // snapshot in the background instead of falling back to a full catalog
+        // read before the preferred item becomes playable.
+        if !scan.cached && scan.jobs == 0 {
+            drop(scan);
+            self.start_refresh_sources_seeded(preferred, work, false)
+                .await;
+            return;
+        }
+        let _ = work.publish(|| scan.cache_preferred(preferred));
+    }
+
+    pub async fn start_refresh_sources_with_preferred(&self, preferred_id: Option<&str>) {
+        let Ok(work) = self.background.enter() else {
+            return;
+        };
+        self.start_refresh_sources_with_preferred_tracked(preferred_id, work)
+            .await;
     }
 
     pub async fn start_refresh_sources_tracked(&self, work: crate::background_work::WorkLease) {
-        if self.storage != "device" || work.check().is_err() { return; }
+        self.start_refresh_sources_with_preferred_tracked(None, work)
+            .await;
+    }
+
+    pub async fn start_refresh_sources_with_preferred_tracked(
+        &self,
+        preferred_id: Option<&str>,
+        work: crate::background_work::WorkLease,
+    ) {
+        if self.storage != "device" || work.check().is_err() {
+            return;
+        }
+        let preferred = match preferred_id {
+            Some(id) => self.preferred_record(id, &work).await,
+            None => None,
+        };
+        self.start_refresh_sources_seeded(preferred, work, true)
+            .await;
+    }
+
+    async fn start_refresh_sources_seeded(
+        &self,
+        preferred: Option<(u64, Record)>,
+        work: crate::background_work::WorkLease,
+        force_refresh: bool,
+    ) {
         let library = self.clone();
         // Register before returning so the first HTTP catalog cannot mistake an
-        // empty startup snapshot for a finished library.
+        // empty startup snapshot for a finished library. Registration and the
+        // preferred seed share the standby publication gate.
         {
-            let mut scan = self.scan.lock().await;
-            if scan.jobs > 0 {
+            let Ok(mut scan) = work.run(self.scan.lock()).await else {
+                return;
+            };
+            let start = work.publish(|| {
+                if scan.jobs > 0 || (!force_refresh && scan.cached) {
+                    scan.cache_preferred(preferred);
+                    return false;
+                }
+                scan.jobs = 1;
+                scan.records.clear();
+                scan.cached = true;
+                scan.scanned = 0;
+                scan.error = None;
+                scan.cache_preferred(preferred);
+                true
+            });
+            if start != Ok(true) {
                 return;
             }
-            scan.jobs = 1;
-            scan.records.clear();
-            scan.cached = true;
-            scan.scanned = 0;
-            scan.error = None;
         }
         tokio::spawn(async move {
-            if library.records().await.is_err() {
+            if !matches!(work.run(library.records()).await, Ok(Ok(_))) {
                 library.scan.lock().await.error =
                     Some("Local media metadata could not be read".into());
             }
             library.refresh_sources_inner(&work).await;
             let mut scan = library.scan.lock().await;
             if work.check().is_err() {
-                scan.cached = false;
+                scan.invalidate();
                 scan.error = Some("Local media scan cancelled".into());
             }
             scan.jobs -= 1;
@@ -394,9 +521,10 @@ impl Library {
             .run(self.mutation.lock())
             .await
             .map_err(anyhow::Error::msg)?;
-        let records = self
-            .records()
+        let records = work
+            .run(self.records())
             .await
+            .map_err(anyhow::Error::msg)?
             .map_err(|_| anyhow::anyhow!("Cannot read media metadata"))?;
         let mut known_paths: std::collections::HashSet<PathBuf> = records
             .iter()
@@ -575,7 +703,10 @@ impl Library {
     pub async fn disconnect_source(&self, id: &str) -> anyhow::Result<()> {
         let work = self.background.enter().map_err(anyhow::Error::msg)?;
         anyhow::ensure!(valid_id(id), "Invalid source ID");
-        let _lock = work.run(self.mutation.lock()).await.map_err(anyhow::Error::msg)?;
+        let _lock = work
+            .run(self.mutation.lock())
+            .await
+            .map_err(anyhow::Error::msg)?;
         for record in self
             .records()
             .await
@@ -596,7 +727,7 @@ impl Library {
         if fs::try_exists(&path).await? {
             fs::remove_file(path).await?;
         }
-        self.scan.lock().await.cached = false;
+        self.scan.lock().await.invalidate();
         Ok(())
     }
 
@@ -624,7 +755,12 @@ impl Library {
             None => {
                 let mut validated = Vec::new();
                 for record in self.records().await? {
-                    work.check().map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player background work cancelled"))?;
+                    work.check().map_err(|_| {
+                        (
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            "Player background work cancelled",
+                        )
+                    })?;
                     let available = self.path(&record).await.is_ok();
                     validated.push((record, available));
                 }
@@ -663,7 +799,12 @@ impl Library {
         }
         let mut sources = Vec::new();
         for source in self.source_records().await? {
-            work.check().map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player background work cancelled"))?;
+            work.check().map_err(|_| {
+                (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Player background work cancelled",
+                )
+            })?;
             let available = fs::symlink_metadata(&source.path)
                 .await
                 .map(|m| {
@@ -698,7 +839,12 @@ impl Library {
                 });
             }
         }
-        work.check().map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player background work cancelled"))?;
+        work.check().map_err(|_| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Player background work cancelled",
+            )
+        })?;
         Ok(Catalog {
             available: true,
             items,
@@ -910,14 +1056,22 @@ async fn import_inner(
         let _ = fs::remove_file(target).await;
         return Err(storage_error(e));
     }
-    l.scan.lock().await.cached = false;
+    l.scan.lock().await.invalidate();
     l.catalog().await
 }
 async fn remove(State(l): State<Library>, Path((token, id)): Path<(String, String)>) -> Response {
     let result: Result<Catalog, Failure> = async {
         l.authorize(&token)?;
-        let work = l.background.enter().map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?;
-        let _lock = work.run(l.mutation.lock()).await.map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player background work cancelled"))?;
+        let work = l
+            .background
+            .enter()
+            .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "Player is in standby"))?;
+        let _lock = work.run(l.mutation.lock()).await.map_err(|_| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Player background work cancelled",
+            )
+        })?;
         let record = l.record(&id).await?;
         if record.linked_path.is_none() {
             fs::remove_file(l.path(&record).await?)
@@ -927,7 +1081,7 @@ async fn remove(State(l): State<Library>, Path((token, id)): Path<(String, Strin
         fs::remove_file(l.root.join(format!("{id}.json")))
             .await
             .map_err(storage_error)?;
-        l.scan.lock().await.cached = false;
+        l.scan.lock().await.invalidate();
         l.catalog().await
     }
     .await;
@@ -1072,35 +1226,456 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn saved_native_item_is_ready_before_unrelated_records_are_scanned() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = root.with_extension("originals");
+        fs::create_dir_all(&originals).await.unwrap();
+        for index in 0..128 {
+            fs::write(originals.join(format!("movie-{index:03}.mp4")), b"video")
+                .await
+                .unwrap();
+        }
+        let library = Library::new(root.clone(), "p".repeat(32), "device")
+            .await
+            .unwrap();
+        library
+            .link_paths(vec![originals.clone()], true)
+            .await
+            .unwrap();
+        let catalog = library.catalog().await.unwrap();
+        let last_id = catalog.items.last().unwrap().id.clone();
+        let reopened = Library::new(root.clone(), "r".repeat(32), "device")
+            .await
+            .unwrap();
+        reopened
+            .start_refresh_sources_with_preferred(Some(&last_id))
+            .await;
+        {
+            // On this single-thread runtime the scheduled traversal has not
+            // run yet: the last playlist item must already be playable.
+            let scan = reopened.scan.lock().await;
+            assert_eq!(scan.jobs, 1);
+            assert_eq!(scan.scanned, 0);
+            assert_eq!(scan.records.len(), 1);
+            assert!(scan.records.get(&last_id).unwrap().1);
+        }
+        let response = media(
+            State(reopened.clone()),
+            Path(("r".repeat(32), last_id.clone())),
+            HeaderMap::new(),
+            Method::GET,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while reopened.scan.lock().await.jobs != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let completed = reopened.catalog().await.unwrap();
+        assert_eq!(completed.items.len(), 128);
+        assert_eq!(
+            completed
+                .items
+                .iter()
+                .filter(|item| item.id == last_id)
+                .count(),
+            1
+        );
+        let scanned = completed.scanned;
+        reopened.prioritize_item(&last_id).await;
+        let repeated = reopened.catalog().await.unwrap();
+        assert!(
+            !repeated.scanning,
+            "a saved-item lookup must not restart discovery"
+        );
+        assert_eq!(repeated.scanned, scanned);
+        assert_eq!(repeated.items.len(), 128);
+        fs::remove_dir_all(root).await.unwrap();
+        fs::remove_dir_all(originals).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn preferred_item_does_not_wait_for_or_reset_an_active_native_scan() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = root.with_extension("originals");
+        fs::create_dir_all(&originals).await.unwrap();
+        fs::write(originals.join("first.mp4"), b"first")
+            .await
+            .unwrap();
+        fs::write(originals.join("last.mp4"), b"last")
+            .await
+            .unwrap();
+        let library = Library::new(root.clone(), "p".repeat(32), "device")
+            .await
+            .unwrap();
+        library
+            .link_paths(vec![originals.clone()], true)
+            .await
+            .unwrap();
+        let items = library.catalog().await.unwrap().items;
+        // Discovery takes this lock for the whole source. Direct resume must
+        // remain independent even when that background traversal is blocked.
+        let mutation = library.mutation.lock().await;
+        library
+            .start_link_paths(vec![originals.clone()], true)
+            .await
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            library.prioritize_item(&items[0].id).await;
+            library
+                .start_refresh_sources_with_preferred(Some(&items[1].id))
+                .await;
+        })
+        .await
+        .unwrap();
+        {
+            let scan = library.scan.lock().await;
+            assert_eq!(
+                scan.jobs, 1,
+                "repeated discovery must not enqueue a second job"
+            );
+            assert_eq!(scan.scanned, 0);
+            assert_eq!(
+                scan.records.len(),
+                2,
+                "an existing snapshot must not be cleared"
+            );
+        }
+        let catalog = library.catalog().await.unwrap();
+        assert!(catalog.scanning);
+        assert!(catalog.items.iter().all(|item| item.available));
+        drop(mutation);
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while library.scan.lock().await.jobs != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(library.catalog().await.unwrap().items.len(), 2);
+        fs::remove_dir_all(root).await.unwrap();
+        fs::remove_dir_all(originals).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn preferred_lookup_rejects_unknown_deleted_and_other_instance_items() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let library = Library::new(root.join("one"), "p".repeat(32), "device")
+            .await
+            .unwrap();
+        let other = Library::new(root.join("two"), "q".repeat(32), "device")
+            .await
+            .unwrap();
+        let items = import_inner(&library, &"p".repeat(32), "movie.mp4", Body::from("movie"))
+            .await
+            .unwrap()
+            .items;
+        let id = &items[0].id;
+        assert!(library
+            .preferred_record(id, &library.background.enter().unwrap())
+            .await
+            .is_some());
+        assert!(other
+            .preferred_record(id, &other.background.enter().unwrap())
+            .await
+            .is_none());
+        for invalid in [
+            "../movie",
+            "/tmp/movie.mp4",
+            "local-movie",
+            "",
+            &"0".repeat(32),
+        ] {
+            assert!(library
+                .preferred_record(invalid, &library.background.enter().unwrap())
+                .await
+                .is_none());
+        }
+        fs::remove_file(library.root.join(format!("{id}.mp4")))
+            .await
+            .unwrap();
+        assert!(library
+            .preferred_record(id, &library.background.enter().unwrap())
+            .await
+            .is_none());
+        fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn preferred_lookup_rejects_replaced_original_and_metadata_symlinks() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = root.with_extension("originals");
+        fs::create_dir_all(&originals).await.unwrap();
+        let movie = originals.join("movie.mp4");
+        fs::write(&movie, b"video").await.unwrap();
+        let library = Library::new(root.clone(), "p".repeat(32), "device")
+            .await
+            .unwrap();
+        library
+            .link_paths(vec![originals.clone()], true)
+            .await
+            .unwrap();
+        let id = library.catalog().await.unwrap().items[0].id.clone();
+        let target = originals.join("replacement.mp4");
+        fs::rename(&movie, &target).await.unwrap();
+        std::os::unix::fs::symlink(&target, &movie).unwrap();
+        assert!(library
+            .preferred_record(&id, &library.background.enter().unwrap())
+            .await
+            .is_none());
+        fs::remove_file(&movie).await.unwrap();
+        fs::rename(target, movie).await.unwrap();
+        let metadata = root.join(format!("{id}.json"));
+        let metadata_target = root.join("metadata.backup");
+        fs::rename(&metadata, &metadata_target).await.unwrap();
+        std::os::unix::fs::symlink(metadata_target, metadata).unwrap();
+        assert!(library
+            .preferred_record(&id, &library.background.enter().unwrap())
+            .await
+            .is_none());
+        fs::remove_dir_all(root).await.unwrap();
+        fs::remove_dir_all(originals).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn disconnect_during_preferred_lookup_cannot_restore_an_old_snapshot_entry() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let library = Library::new(root.clone(), "p".repeat(32), "device")
+            .await
+            .unwrap();
+        let item = import_inner(&library, &"p".repeat(32), "movie.mp4", Body::from("movie"))
+            .await
+            .unwrap()
+            .items
+            .remove(0);
+        // Finish validation, then disconnect before that result is published.
+        let preferred = library
+            .preferred_record(&item.id, &library.background.enter().unwrap())
+            .await;
+        assert!(preferred.is_some());
+        library.disconnect_source(&item.source_id).await.unwrap();
+        library.start_refresh_sources().await;
+        library.scan.lock().await.cache_preferred(preferred);
+        assert!(library.catalog().await.unwrap().items.is_empty());
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while library.scan.lock().await.jobs != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn standby_cancels_preferred_startup_and_old_lookup_cannot_publish_after_wake() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let background = crate::background_work::BackgroundWork::default();
+        let library = Library::new(root.clone(), "p".repeat(32), "device")
+            .await
+            .unwrap()
+            .with_background(background.clone());
+        let id = import_inner(&library, &"p".repeat(32), "movie.mp4", Body::from("movie"))
+            .await
+            .unwrap()
+            .items
+            .remove(0)
+            .id;
+        // Keep the lookup awaiting its first snapshot access. It must cancel
+        // promptly rather than register a scan when this old request resumes.
+        let held = library.scan.lock().await;
+        let lookup_library = library.clone();
+        let lookup_id = id.clone();
+        let lookup = tokio::spawn(async move {
+            lookup_library
+                .start_refresh_sources_with_preferred(Some(&lookup_id))
+                .await;
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while background.status().pending == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        background.set_standby(true);
+        library.prioritize_item(&id).await;
+        library
+            .start_refresh_sources_with_preferred(Some(&id))
+            .await;
+        background.set_standby(false);
+        tokio::time::timeout(std::time::Duration::from_secs(2), lookup)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(background.status().pending, 0);
+        assert_eq!(held.jobs, 0);
+        assert!(held.records.is_empty());
+        drop(held);
+        // A new wake generation can still use the direct seed normally.
+        library
+            .start_refresh_sources_with_preferred(Some(&id))
+            .await;
+        assert!(library.scan.lock().await.records.get(&id).unwrap().1);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while background.status().pending != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn ordinary_preferred_lookup_restarts_a_cancelled_snapshot_after_wake() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let background = crate::background_work::BackgroundWork::default();
+        let library = Library::new(root.clone(), "p".repeat(32), "device")
+            .await
+            .unwrap()
+            .with_background(background.clone());
+        let id = import_inner(&library, &"p".repeat(32), "movie.mp4", Body::from("movie"))
+            .await
+            .unwrap()
+            .items
+            .remove(0)
+            .id;
+        library.start_refresh_sources().await;
+        background.set_standby(true);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while background.status().pending != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(!library.scan.lock().await.cached);
+        background.set_standby(false);
+        // This is the ordinary endpoint lookup: no explicit refresh flag.
+        library.prioritize_item(&id).await;
+        {
+            let scan = library.scan.lock().await;
+            assert!(scan.cached);
+            assert_eq!(scan.jobs, 1);
+            assert_eq!(scan.scanned, 0);
+            assert_eq!(scan.records.len(), 1);
+            assert!(scan.records.get(&id).unwrap().1);
+        }
+        library.prioritize_item(&id).await;
+        assert!(library.scan.lock().await.jobs <= 1);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while background.status().pending != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let scanned = library.scan.lock().await.scanned;
+        // Another endpoint can finish rebuilding between an ensure caller's
+        // invalid-cache check and its registration lock. That stale decision
+        // must not clear the now-complete snapshot and launch a second scan.
+        let work = background.enter().unwrap();
+        let preferred = library.preferred_record(&id, &work).await;
+        library
+            .start_refresh_sources_seeded(preferred, work, false)
+            .await;
+        library.prioritize_item(&id).await;
+        assert_eq!(library.scan.lock().await.jobs, 0);
+        assert_eq!(library.scan.lock().await.scanned, scanned);
+        assert_eq!(library.catalog().await.unwrap().items.len(), 1);
+        // Legacy profiles and the source manager may have no saved item.
+        // Their ordinary endpoint discovery must also rebuild asynchronously.
+        library.start_refresh_sources().await;
+        background.set_standby(true);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while background.status().pending != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        background.set_standby(false);
+        library
+            .ensure_catalog_tracked(None, background.enter().unwrap())
+            .await;
+        {
+            let scan = library.scan.lock().await;
+            assert!(scan.cached);
+            assert_eq!(scan.jobs, 1);
+            assert_eq!(scan.scanned, 0);
+        }
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while background.status().pending != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(library.catalog().await.unwrap().items.len(), 1);
+        fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
     async fn standby_cancels_a_queued_scan_and_wake_does_not_revive_its_generation() {
         let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
         let originals = root.with_extension("originals");
         fs::create_dir_all(&originals).await.unwrap();
-        fs::write(originals.join("movie.mp4"), b"video").await.unwrap();
+        fs::write(originals.join("movie.mp4"), b"video")
+            .await
+            .unwrap();
         let background = crate::background_work::BackgroundWork::default();
-        let library = Library::new(root.clone(), "q".repeat(32), "device").await.unwrap()
+        let library = Library::new(root.clone(), "q".repeat(32), "device")
+            .await
+            .unwrap()
             .with_background(background.clone());
         let held = library.mutation.lock().await;
-        library.start_link_paths(vec![originals.clone()], true).await.unwrap();
+        library
+            .start_link_paths(vec![originals.clone()], true)
+            .await
+            .unwrap();
         assert_eq!(background.status().pending, 1);
         background.set_standby(true);
-        assert!(library.start_link_paths(vec![originals.clone()], true).await.is_err());
+        assert!(library
+            .start_link_paths(vec![originals.clone()], true)
+            .await
+            .is_err());
         assert!(library.catalog().await.is_err());
         background.set_standby(false);
         drop(held);
         tokio::time::timeout(std::time::Duration::from_secs(2), async {
-            while background.status().pending != 0 { tokio::task::yield_now().await; }
-        }).await.unwrap();
+            while background.status().pending != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
         assert!(library.source_records().await.unwrap().is_empty());
-        library.start_link_paths(vec![originals.clone()], true).await.unwrap();
+        library
+            .start_link_paths(vec![originals.clone()], true)
+            .await
+            .unwrap();
         tokio::time::timeout(std::time::Duration::from_secs(2), async {
-            while background.status().pending != 0 { tokio::task::yield_now().await; }
-        }).await.unwrap();
+            while background.status().pending != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
         assert_eq!(library.catalog().await.unwrap().items.len(), 1);
         background.set_standby(true);
         let shared_root = root.with_extension("shared");
-        let shared = Library::new(shared_root.clone(), "z".repeat(32), "server").await.unwrap();
-        assert!(shared.catalog().await.is_ok(), "another server library is independent");
+        let shared = Library::new(shared_root.clone(), "z".repeat(32), "server")
+            .await
+            .unwrap();
+        assert!(
+            shared.catalog().await.is_ok(),
+            "another server library is independent"
+        );
         assert!(background.status().quiescent);
         fs::remove_dir_all(root).await.unwrap();
         fs::remove_dir_all(originals).await.unwrap();
