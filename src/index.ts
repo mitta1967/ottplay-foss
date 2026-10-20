@@ -2005,21 +2005,31 @@ export function startPlayer(): void {
 /** Reuse the successful early dictionary and commit first-run auto selection. */
 function loadStartupLanguage(): boolean {
     var lang = stbGetItem("ottplaylang");
-    var bootLanguage = (window as any).__ottBootLanguage;
-    (window as any).__ottBootLanguage = null;
+    var host = window as any;
+    var bootLanguage = host.__ottBootLanguage;
+    host.__ottBootLanguage = null;
     var preloaded =
         bootLanguage &&
         Object.prototype.hasOwnProperty.call(
             languageNames,
             bootLanguage.code
         ) &&
-        bootLanguage.dictionary === (window as any).keyStrings;
-    var automatic = stbGetItem("ottplaylangmode") === "system" || !lang;
+        bootLanguage.dictionary === host.keyStrings;
+    var mode = stbGetItem("ottplaylangmode");
+    var activeLanguage = host.__ottInterfaceLanguage;
+    var warm =
+        Object.prototype.hasOwnProperty.call(languageNames, activeLanguage) &&
+        host.keyStrings &&
+        typeof host.keyStrings.lang === "string" &&
+        host.__ottBootDictionary === host.keyStrings;
+    var automatic = mode === "system" || !lang;
     if (automatic) {
         lang =
             preloaded && bootLanguage.automatic
                 ? String(bootLanguage.code)
-                : "";
+                : mode === "system" && lang && warm && activeLanguage === lang
+                  ? lang
+                  : "";
         if (lang) {
             stbSetItem("ottplaylang", lang);
             stbSetItem("ottplaylangmode", "system");
@@ -2040,12 +2050,15 @@ function loadStartupLanguage(): boolean {
     function ready(): void {
         if ((window as any).__ottStandby?.blocked()) return;
         (window as any).__ottBootDictionary = (window as any).keyStrings;
-        if (typeof duneAddSettings !== "function") loadProv();
-        else if (typeof (window as any).optionsList === "function")
-            (window as any).optionsList(selectLang);
+        // A previous provider leaves its settings hook installed after standby.
+        // Startup always reloads that provider; the language menu owns its exit.
+        loadProv();
         checkTauriUpdatesAfterLanguage();
     }
-    if (preloaded && bootLanguage.code === lang) {
+    if (
+        (preloaded && bootLanguage.code === lang) ||
+        (warm && activeLanguage === lang)
+    ) {
         // Keep the script-load callback's ordering: onStbReady must install
         // native HTTP/EPG shims before a saved provider starts its first request.
         applyLanguageMetadata(lang);

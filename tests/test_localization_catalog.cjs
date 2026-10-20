@@ -676,12 +676,21 @@ try {
             picker = [];
         let providers = 0,
             updates = 0,
-            hidden = 0;
+            hidden = 0,
+            optionsOpened = 0;
         const dictionary = { lang: "fixture" };
         const window = {
             clearBootHide: () => hidden++,
             keyStrings: dictionary,
+            optionsList: () => optionsOpened++,
         };
+        if (options.warm) {
+            window.__ottInterfaceLanguage = options.warm;
+            window.__ottBootDictionary = options.changedDictionary
+                ? {}
+                : dictionary;
+        }
+        if (options.invalidDictionary) delete dictionary.lang;
         if (options.boot)
             window.__ottBootLanguage = {
                 ...options.boot,
@@ -689,7 +698,9 @@ try {
             };
         const launch = { style: {} };
         const context = {
-            applyLanguageMetadata() {},
+            applyLanguageMetadata(code) {
+                window.__ottInterfaceLanguage = code;
+            },
             checkTauriUpdatesAfterLanguage: () => updates++,
             clearTimeout: () => {},
             console: { log() {} },
@@ -719,6 +730,7 @@ try {
             },
             window,
         };
+        if (options.providerHook) context.duneAddSettings = () => {};
         vm.runInNewContext(
             ts.transpileModule(
                 loadInterface.getText(selectionSource) +
@@ -733,10 +745,12 @@ try {
             deadlines,
             deferred,
             launch,
+            optionsOpened: () => optionsOpened,
             picker,
             proceeded,
             requests,
             snapshot: () => ({ hidden, providers, saved, updates }),
+            start: () => context.loadStartupLanguage(),
             window,
             writes,
         };
@@ -785,6 +799,54 @@ try {
     assert.equal(savedBoot.snapshot().providers, 0);
     savedBoot.deferred[0]();
     assert.equal(savedBoot.snapshot().providers, 1);
+    const previousProvider = startupLanguage({
+        boot: { automatic: false, code: "_eng" },
+        providerHook: true,
+        saved: "_eng",
+    });
+    previousProvider.deferred[0]();
+    assert.equal(
+        previousProvider.snapshot().providers,
+        1,
+        "startup loads the provider despite its previous settings hook"
+    );
+    assert.equal(previousProvider.optionsOpened(), 0);
+    assert.equal(previousProvider.start(), true);
+    assert.equal(previousProvider.requests.length, 0);
+    assert.equal(previousProvider.deferred.length, 2);
+    previousProvider.deferred[1]();
+    assert.equal(previousProvider.snapshot().providers, 2);
+    assert.equal(previousProvider.optionsOpened(), 0);
+
+    assert.equal(auto.start(), true, "system language survives same-page wake");
+    assert.equal(auto.requests.length, 0);
+    assert.equal(auto.picker.length, 0);
+    assert.equal(auto.snapshot().providers, 1, "warm startup stays deferred");
+    auto.deferred[1]();
+    assert.equal(auto.snapshot().providers, 2);
+    for (const options of [
+        { warm: "constructor" },
+        { changedDictionary: true, warm: "_rus" },
+        { invalidDictionary: true, warm: "_rus" },
+        {},
+    ]) {
+        const invalidWarm = startupLanguage({
+            ...options,
+            mode: "system",
+            saved: "_rus",
+        });
+        assert.equal(invalidWarm.proceeded, false);
+        assert.deepEqual(invalidWarm.picker, [undefined]);
+        assert.equal(invalidWarm.requests.length, 0);
+        assert.equal(invalidWarm.snapshot().providers, 0);
+    }
+    const clearedWarm = startupLanguage({ mode: "system", warm: "_rus" });
+    assert.equal(clearedWarm.proceeded, false);
+    assert.deepEqual(clearedWarm.picker, [undefined]);
+    assert.deepEqual(clearedWarm.writes, []);
+    const changedWarm = startupLanguage({ saved: "_fra", warm: "_rus" });
+    assert.match(changedWarm.requests[0].url, /\/locales\/french\.js\?/);
+    assert.equal(changedWarm.snapshot().providers, 0);
     const changedPreference = startupLanguage({
         boot: { automatic: true, code: "_rus" },
         saved: "_fra",
