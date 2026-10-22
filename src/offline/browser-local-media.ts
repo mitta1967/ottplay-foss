@@ -89,6 +89,7 @@ export function installBrowserLocalMedia(w: any): any {
         var error: any = new Error("Local file did not respond");
         error.name = "TimeoutError";
         error.localMediaLimit = limit;
+        error.localMediaReconnectRequired = true;
         return error;
     }
     function readFile(id: string, handle: any): Promise<any> {
@@ -137,27 +138,49 @@ export function installBrowserLocalMedia(w: any): any {
     }
     function firstDirectoryRead(id: string, handle: any): any {
         if (pendingDirectories[id]) return pendingDirectories[id];
-        var entry: any = { iterator: handle.values() };
+        var entry: any = {};
         pendingDirectories[id] = entry;
-        var pending: Promise<any>;
-        try {
-            pending = Promise.resolve(entry.iterator.next());
-        } catch (error) {
-            pending = Promise.reject(error);
-        }
-        // Only the unresolved first read is shared. Once it settles, a later
-        // scan must start a fresh iterator so it can replay every directory entry.
-        entry.pending = pending.then(
-            function (value) {
-                delete pendingDirectories[id];
-                return value;
-            },
-            function (error) {
-                delete pendingDirectories[id];
-                throw error;
+        entry.pending = new Promise(function (resolve, reject) {
+            var settled = false;
+            // Chrome may enumerate an entire network directory before returning
+            // its first entry. Keep that allowance, but do not share a dead read
+            // forever after a mount disappears and comes back.
+            var timer = w.setTimeout(function () {
+                if (settled) return;
+                settled = true;
+                var error: any = new Error("Local folder did not respond");
+                error.name = "TimeoutError";
+                error.localMediaReconnectRequired = true;
+                reject(error);
+            }, 600000);
+            var pending: Promise<any>;
+            try {
+                entry.iterator = handle.values();
+                pending = Promise.resolve(entry.iterator.next());
+            } catch (error) {
+                pending = Promise.reject(error);
             }
-        );
-        if (w.__ottStandby) w.__ottStandby.observe(pending);
+            if (w.__ottStandby) w.__ottStandby.observe(pending);
+            function finish(error: any, value?: any): void {
+                if (pendingDirectories[id] === entry)
+                    delete pendingDirectories[id];
+                w.clearTimeout(timer);
+                if (settled) return;
+                settled = true;
+                if (error) reject(error);
+                else resolve(value);
+            }
+            pending.then(
+                function (value) {
+                    finish(null, value);
+                },
+                function (error) {
+                    finish(error);
+                }
+            );
+        });
+        // A timed-out promise stays cached until the browser call really settles.
+        // Retrying reports recovery immediately instead of queuing native reads.
         return entry;
     }
     function item(
@@ -234,7 +257,10 @@ export function installBrowserLocalMedia(w: any): any {
             : undefined;
         var readErrorName = "";
         var readErrorPhase = "";
+        var reconnectRequired = false;
         function readFailure(error: any): void {
+            if (error && error.localMediaReconnectRequired)
+                reconnectRequired = true;
             readErrorName =
                 /^(NotFoundError|NotAllowedError|SecurityError|NotReadableError|AbortError|InvalidStateError|QuotaExceededError|TimeoutError|TypeError|UnknownError)$/.test(
                     error && error.name
@@ -267,6 +293,7 @@ export function installBrowserLocalMedia(w: any): any {
                 phase: scanning ? phase : "complete",
                 readErrorName: readErrorName,
                 readErrorPhase: readErrorPhase,
+                reconnectRequired: reconnectRequired,
                 scanned: scanned,
                 scanning: scanning,
                 sources: sources.map(function (source) {
@@ -621,6 +648,8 @@ export function installBrowserLocalMedia(w: any): any {
                                     preferredResult.state = "missing";
                                 (source as any).readErrorName = readErrorName;
                                 (source as any).readErrorPhase = readErrorPhase;
+                                (source as any).reconnectRequired =
+                                    !!error?.localMediaReconnectRequired;
                                 source.access =
                                     error && error.name === "NotAllowedError"
                                         ? "permission-required"
@@ -772,6 +801,80 @@ export function installBrowserLocalMedia(w: any): any {
                 return cancelled(error, !!options?.deferScan);
             });
     }
+    function reconnectSource(id: string): Promise<any> {
+        var source = knownSources.filter(function (record) {
+            return record.id === id;
+        })[0];
+        if (!source || source.handle.kind !== "directory")
+            return Promise.reject(
+                new Error("Local folder source is unavailable")
+            );
+        if (!w.showDirectoryPicker)
+            return Promise.reject(
+                new Error("Direct folder access is unavailable")
+            );
+        var picked: Promise<any>;
+        try {
+            // Open synchronously in the user gesture. Reading IndexedDB first
+            // can lose the activation required by the browser's native picker.
+            picked = w.showDirectoryPicker({ mode: "read" });
+        } catch (error) {
+            return cancelled(error, true);
+        }
+        return Promise.resolve(picked).then(
+            function (handle) {
+                if (!handle || handle.kind !== "directory")
+                    throw new Error("Choose a local folder");
+                return open().then(function (db) {
+                    return new Promise(function (resolve, reject) {
+                        var tx = db.transaction("files", "readwrite");
+                        var store = tx.objectStore("files");
+                        var request = store.get(id);
+                        var replacement: any = null;
+                        request.onsuccess = function () {
+                            var record = request.result;
+                            if (
+                                !record ||
+                                !record.handle ||
+                                record.handle.kind !== "directory"
+                            ) {
+                                tx.abort();
+                                return;
+                            }
+                            replacement = Object.assign({}, record, {
+                                handle: handle,
+                                name: handle.name,
+                            });
+                            delete replacement.access;
+                            store.put(replacement);
+                        };
+                        tx.oncomplete = function () {
+                            scanGeneration++;
+                            knownSources = knownSources.map(function (record) {
+                                return record.id === id ? replacement : record;
+                            });
+                            // Reload starts a fresh browsing context for native reads
+                            // still pending on the previous, disconnected mount. Do
+                            // not pretend that those browser calls were cancelled.
+                            resolve({
+                                requiresReload: true,
+                                sourceIds: [id],
+                                sourceReconnected: true,
+                            });
+                        };
+                        tx.onerror = tx.onabort = function () {
+                            reject(
+                                new Error("Could not reconnect local folder")
+                            );
+                        };
+                    });
+                });
+            },
+            function (error) {
+                return cancelled(error, true);
+            }
+        );
+    }
     function requestAccess(
         onProgress?: (catalog: any) => boolean | void,
         preferredId?: string
@@ -814,6 +917,7 @@ export function installBrowserLocalMedia(w: any): any {
         importFiles: importFiles,
         importFolder: importFolder,
         list: list,
+        reconnectSource: reconnectSource,
         remove: remove,
         removeSource: remove,
         requestAccess: requestAccess,

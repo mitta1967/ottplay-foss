@@ -31,7 +31,8 @@ function fixture(count, extension = "mp4", brokenIndex = -1, mime, waits = {}) {
         iteratorCreations = 0,
         revoked = 0,
         nextUrl = 0,
-        permissionRequests = 0;
+        permissionRequests = 0,
+        writes = 0;
     const files = Array.from({ length: count }, (_, index) => ({
         getFile: async () => {
             reads++;
@@ -95,8 +96,18 @@ function fixture(count, extension = "mp4", brokenIndex = -1, mime, waits = {}) {
     ];
     const db = {
         transaction: () => {
-            const tx = {};
+            const tx = { abort: () => queueMicrotask(() => tx.onabort()) };
             tx.objectStore = () => ({
+                get: (id) => {
+                    const request = {};
+                    queueMicrotask(() => {
+                        request.result = saved.find(
+                            (record) => record.id === id
+                        );
+                        request.onsuccess();
+                    });
+                    return request;
+                },
                 openCursor: () => {
                     const cursor = {};
                     let index = 0;
@@ -119,6 +130,18 @@ function fixture(count, extension = "mp4", brokenIndex = -1, mime, waits = {}) {
                     advance();
                     return cursor;
                 },
+                put: (record) => {
+                    const index = saved.findIndex(
+                        (item) => item.id === record.id
+                    );
+                    assert.ok(
+                        index >= 0,
+                        "reconnect updates an existing source"
+                    );
+                    saved[index] = record;
+                    writes++;
+                    queueMicrotask(() => tx.oncomplete());
+                },
             });
             return tx;
         },
@@ -138,7 +161,7 @@ function fixture(count, extension = "mp4", brokenIndex = -1, mime, waits = {}) {
         },
         navigator: {},
         setTimeout,
-        showDirectoryPicker: () => {},
+        showDirectoryPicker: () => Promise.resolve(folder),
         URL: {
             createObjectURL: () => "blob:fixture-" + ++nextUrl,
             revokeObjectURL: () => revoked++,
@@ -170,8 +193,14 @@ function fixture(count, extension = "mp4", brokenIndex = -1, mime, waits = {}) {
         iteratorReads: () => iteratorReads,
         permissionRequests: () => permissionRequests,
         reads: () => reads,
+        reinstall: () => {
+            delete w.__ottBrowserLocalMedia;
+            return context.installBrowserLocalMedia(w);
+        },
         revoked: () => revoked,
+        saved: () => saved,
         w,
+        writes: () => writes,
     };
 }
 async function settle(pending) {
@@ -242,6 +271,149 @@ async function flushScans() {
         2,
         "a completed first result is never reused as an advanced iterator"
     );
+
+    let releaseDeadDirectory;
+    const deadDirectory = fixture(1, "mp4", -1, undefined, {
+        iterator: new Promise((resolve) => {
+            releaseDeadDirectory = resolve;
+        }),
+    });
+    let directoryDeadline;
+    deadDirectory.w.setTimeout = (fn, delay) => {
+        if (delay === 600000) {
+            directoryDeadline = { fn };
+            return directoryDeadline;
+        }
+        return setTimeout(fn, delay);
+    };
+    deadDirectory.w.clearTimeout = (timer) => {
+        if (timer !== directoryDeadline) clearTimeout(timer);
+    };
+    const deadScan = deadDirectory.api.list();
+    await flushScans();
+    assert.ok(directoryDeadline, "initial enumeration has a finite deadline");
+    directoryDeadline.fn();
+    const timedOutDirectory = await settle(deadScan);
+    assert.equal(timedOutDirectory.reconnectRequired, true);
+    assert.equal(timedOutDirectory.sources[0].readErrorName, "TimeoutError");
+    assert.equal(timedOutDirectory.sources[0].readErrorPhase, "enumerating");
+    assert.equal(
+        (await settle(deadDirectory.api.list())).reconnectRequired,
+        true
+    );
+    assert.equal(
+        deadDirectory.iteratorCreations(),
+        1,
+        "a timed-out browser call is not replaced with more uncancellable reads"
+    );
+    releaseDeadDirectory();
+    await flushScans();
+    assert.equal((await settle(deadDirectory.api.list())).items.length, 1);
+
+    let releaseDeadFiles;
+    const deadFiles = fixture(3, "mp4", -1, undefined, {
+        file: new Promise((resolve) => {
+            releaseDeadFiles = resolve;
+        }),
+    });
+    const fileDeadlines = new Set();
+    deadFiles.w.setTimeout = (fn, delay) => {
+        if (delay === 10000) {
+            const timer = { fn };
+            fileDeadlines.add(timer);
+            return timer;
+        }
+        return setTimeout(fn, delay);
+    };
+    deadFiles.w.clearTimeout = (timer) => {
+        if (!fileDeadlines.delete(timer)) clearTimeout(timer);
+    };
+    const deadFileScan = deadFiles.api.list();
+    for (let i = 0; i < 2; i++) {
+        await flushScans();
+        const timer = Array.from(fileDeadlines)[i];
+        assert.ok(timer, "each native file read has a deadline");
+        timer.fn();
+    }
+    const exhaustedFiles = await settle(deadFileScan);
+    assert.equal(exhaustedFiles.reconnectRequired, true);
+    assert.equal(
+        deadFiles.reads(),
+        2,
+        "uncancellable file reads remain bounded"
+    );
+    assert.equal((await settle(deadFiles.api.list())).reconnectRequired, true);
+    assert.equal(
+        deadFiles.reads(),
+        2,
+        "ordinary retry does not hide native reads"
+    );
+    const remounted = {
+        kind: "directory",
+        name: "Remounted movies",
+        queryPermission: async () => "granted",
+        values() {
+            let done = false;
+            return {
+                next: async () => {
+                    if (done) return { done: true };
+                    done = true;
+                    return {
+                        done: false,
+                        value: {
+                            getFile: async () => ({
+                                lastModified: 2,
+                                name: "fresh.mp4",
+                                size: 10,
+                                type: "video/mp4",
+                            }),
+                            kind: "file",
+                            name: "fresh.mp4",
+                        },
+                    };
+                },
+            };
+        },
+    };
+    let pickerCalled = false;
+    deadFiles.w.showDirectoryPicker = () => {
+        pickerCalled = true;
+        return Promise.resolve(remounted);
+    };
+    const reconnect = deadFiles.api.reconnectSource("source-movies");
+    assert.equal(
+        pickerCalled,
+        true,
+        "picker opens within the click activation"
+    );
+    assert.equal((await reconnect).requiresReload, true);
+    assert.equal(
+        deadFiles.saved().length,
+        1,
+        "reconnect never duplicates sources"
+    );
+    assert.equal(deadFiles.saved()[0].id, "source-movies");
+    assert.equal(deadFiles.saved()[0].created, 1);
+    assert.equal(deadFiles.saved()[0].handle, remounted);
+    assert.equal(deadFiles.reads(), 2, "reconnect does not scan or copy files");
+    const reloaded = deadFiles.reinstall();
+    const repaired = await settle(reloaded.list());
+    assert.equal(repaired.items[0].id, "source-movies:fresh.mp4");
+    deadFiles.w.showDirectoryPicker = () =>
+        Promise.reject(
+            Object.assign(new Error("cancelled"), { name: "AbortError" })
+        );
+    assert.equal(
+        (await reloaded.reconnectSource("source-movies")).pickerCancelled,
+        true
+    );
+    assert.equal(deadFiles.writes(), 1, "cancel preserves the existing grant");
+    await assert.rejects(
+        reloaded.reconnectSource("not-a-source"),
+        /unavailable/
+    );
+    releaseDeadFiles();
+    await flushScans();
 
     let failInitial;
     const failedWait = {

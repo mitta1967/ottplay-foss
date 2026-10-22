@@ -12,7 +12,8 @@ the production directory.
 additional OTT copy. Open **Settings → Local videos**, or select **Local videos**
 from the provider list. Its controls use the player's normal settings list:
 **Add folder**, **Add files**, **Grant access** when needed, **Refresh**,
-**Play local videos**, and **Disconnect** for each source. There is no separate
+**Play local videos**, **Reconnect** for browser folders, and **Disconnect**
+for each source. There is no separate
 file-manager dialog. The operating system's file/folder picker still appears to
 let you choose what OTT may read.
 
@@ -68,6 +69,25 @@ cannot display an entry which the browser has not returned yet. A previously
 selected file can start through the direct lookup described above; a first-time
 folder selection must wait for that initial browser result. Repeated Refresh or
 page reloads do not bypass this operating-system work.
+
+SMB/AFP volumes can reappear at the same macOS path after changing networks or
+VPN connections while Chrome still holds an unusable reference to the previous
+mount. A granted browser permission does not prove that the saved reference can
+still read files. If **Reading folder entries** or **Reading file information**
+stalls after the volume is available again, cancel the scan and choose
+**Local videos → Reconnect: folder name**. Select that same folder in the native
+browser picker. OTT replaces its saved handle under the existing source ID and
+reloads the player once; saved profiles, file references, selection and resume
+position remain associated with that source. Cancelling the picker leaves the
+source unchanged. This action neither copies videos nor creates a duplicate
+source. It is currently available for browser-owned folders, not native app or
+remote server libraries.
+
+Reconnection does not mount the NAS or change VPN settings. Restore the volume
+in the operating system first. JavaScript cannot abort a filesystem call already
+inside Chrome; refreshing the catalog is therefore not allowed to discard the
+outstanding-call budget and silently create more blocked reads. The explicit
+folder reconnection and one-time page reload renew the browser reference instead.
 
 Closing the page, pressing **Q** on a PC, or exiting the native app saves the
 current video position before stopping playback. On the next start, the exact

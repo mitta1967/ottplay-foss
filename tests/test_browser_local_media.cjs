@@ -1712,11 +1712,102 @@ async function builtUi(devicePath) {
                 delete window.__missingProfileCatalog;
             });
         }
+        // A stale NAS mount can retain permission while its old native
+        // handle no longer responds. Rebind through the real manager action;
+        // retain profile references and source identity, then start one fresh
+        // document so unabortable reads cannot poison the replacement handle.
+        await page.evaluate(() => window.__ottLocalMedia.open());
+        await action("reconnect-source").waitFor({ state: "visible" });
+        async function reconnectSnapshot() {
+            return page.evaluate(async () => {
+                const catalog = await window.__ottBrowserLocalMedia.list();
+                const exported = await window.__ottOfflineProfiles.request({
+                    action: "profile_export",
+                    params: { number: 1 },
+                });
+                return {
+                    profile: exported.data.profile,
+                    sources: catalog.sources.map(({ id, name, kind }) => ({
+                        id,
+                        kind,
+                        name,
+                    })),
+                };
+            });
+        }
+        const beforeReconnect = await reconnectSnapshot();
+        await page.evaluate(() => {
+            window.__reconnectDocumentMarker = true;
+            window.showDirectoryPicker = () => {
+                localStorage.setItem(
+                    "reconnect-picker-activation",
+                    String(navigator.userActivation.isActive)
+                );
+                return Promise.reject(
+                    new DOMException("Cancelled", "AbortError")
+                );
+            };
+        });
+        await selectAction("reconnect-source");
+        await action("reconnect-source").waitFor({ state: "visible" });
+        assert.equal(
+            await page.evaluate(() => window.__reconnectDocumentMarker),
+            true,
+            "cancelled reconnect must not reload the document"
+        );
+        assert.deepEqual(await reconnectSnapshot(), beforeReconnect);
+        assert.equal(
+            await page.evaluate(() =>
+                localStorage.getItem("reconnect-picker-activation")
+            ),
+            "true",
+            "reconnect picker receives the keyboard user activation"
+        );
+        const folderName = beforeReconnect.sources.find(
+            (source) => source.kind === "folder"
+        ).name;
+        await page.evaluate((name) => {
+            window.showDirectoryPicker = () => {
+                localStorage.setItem(
+                    "reconnect-picker-activation",
+                    String(navigator.userActivation.isActive)
+                );
+                return navigator.storage
+                    .getDirectory()
+                    .then((root) => root.getDirectoryHandle(name));
+            };
+        }, folderName);
+        const reconnectedNavigation = page.waitForNavigation({
+            waitUntil: "domcontentloaded",
+        });
+        await selectAction("reconnect-source");
+        await reconnectedNavigation;
+        await page.waitForFunction(
+            () =>
+                window.__ottLocalMedia &&
+                !document.body.classList.contains("booting")
+        );
+        assert.equal(
+            await page.evaluate(() => window.__reconnectDocumentMarker),
+            undefined,
+            "successful reconnect starts a fresh document"
+        );
+        assert.deepEqual(
+            await reconnectSnapshot(),
+            beforeReconnect,
+            "reconnect preserves all source IDs and saved profile references"
+        );
+        assert.equal(
+            await page.evaluate(() =>
+                localStorage.getItem("reconnect-picker-activation")
+            ),
+            "true"
+        );
         assert.deepEqual(errors, []);
         console.log(
             "PASS built UI " +
                 devicePath +
-                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Ctrl/Meta seek and plain PC arrow volume with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy), profile save/export/import/load, progressive first-batch playback and append without restart/pause loss"
+                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Ctrl/Meta seek and plain PC arrow volume with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy), profile save/export/import/load, progressive first-batch playback and append without restart/pause loss, same-ID folder reconnect/cancel with profile preservation and reload"
         );
     } finally {
         await browser.close();

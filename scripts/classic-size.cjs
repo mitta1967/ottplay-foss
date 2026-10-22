@@ -313,7 +313,10 @@ const { gzipSync } = require("node:zlib");
 // PC random selection adds 3199 raw / 788 gzip bytes to the largest entry.
 // Node 22.23.3 measures 991859/306650 web and 991817/306708 native;
 // retain about 700 raw / 600 gzip bytes for release identity variation.
-const BUDGET = Object.freeze({ bytes: 992600, gzipBytes: 307350 });
+// Same-ID browser folder reconnection and bounded stale directory recovery add
+// 2379 raw / 639 gzip entry bytes on Node 22.23.3. Web is 994238/307289;
+// native is 994196/307346. Retain ~700 raw / 600 gzip bytes for release identity.
+const BUDGET = Object.freeze({ bytes: 995000, gzipBytes: 308000 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -462,7 +465,9 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Node 22 measures 1115298/352559 web and 1115256/352616 native.
 // The same PC shortcut is counted once across all shipped artifacts.
 // Node 22.23.3 totals 1124049/354978 web and 1124007/355036 native.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1124800, gzipBytes: 355650 });
+// Count that same reviewed reconnect cost once in the complete payload:
+// Node 22.23.3 web 1126428/355617; native 1126386/355674.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1127200, gzipBytes: 356300 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
