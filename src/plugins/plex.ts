@@ -1303,13 +1303,15 @@ function createPlexClient(
                             row.Media === undefined
                         ) {
                             var rawLeafCount = row.leafCount;
-                            var leafCount = Number(rawLeafCount);
+                            var validLeafType =
+                                typeof rawLeafCount === "number" ||
+                                (typeof rawLeafCount === "string" &&
+                                    /^[0-9]+$/.test(rawLeafCount));
+                            var leafCount = validLeafType
+                                ? Number(rawLeafCount)
+                                : NaN;
                             if (
-                                !(
-                                    typeof rawLeafCount === "number" ||
-                                    (typeof rawLeafCount === "string" &&
-                                        /^[0-9]+$/.test(rawLeafCount))
-                                ) ||
+                                !validLeafType ||
                                 !isFinite(leafCount) ||
                                 Math.floor(leafCount) !== leafCount ||
                                 leafCount < 0

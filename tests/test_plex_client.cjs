@@ -2971,6 +2971,8 @@ test("allLeaves leafCount accepts only finite nonnegative numbers or decimal dig
         [],
         [1],
         {},
+        { toString: "invalid" },
+        { toString: "invalid", valueOf: "invalid" },
         "",
         " ",
         "1.5",
@@ -3004,7 +3006,7 @@ test("allLeaves leafCount accepts only finite nonnegative numbers or decimal dig
             },
         });
         f.tick(0);
-        assert.equal(done.length, 1, String(leafCount));
+        assert.equal(done.length, 1, JSON.stringify(leafCount));
         assert(done[0]);
         assert.equal(f.client.scanDiagnostics().code, "invalid_response");
         assert.equal(f.requests.length, 1);
