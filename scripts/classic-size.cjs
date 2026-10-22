@@ -325,8 +325,8 @@ const { gzipSync } = require("node:zlib");
 // Read-only local helper controls add 322 raw bytes; reserve 600 raw bytes
 // for the reviewed UI and unchanged release identity allowance.
 // TV media category memberships and bounded remote category catalogs add
-// about 12.2 KB raw (1012421 total on Node 22). Keep a small release reserve.
-const BUDGET = Object.freeze({ bytes: 1013000, gzipBytes: 313200 });
+// about 12.6 KB raw (1012845 total on Node 22). Keep the release suffix reserve.
+const BUDGET = Object.freeze({ bytes: 1013500, gzipBytes: 313200 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -481,7 +481,7 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // web 1127857/355992; native 1127815/356050, with unchanged provider bytes.
 // Count explicit relative-file bootstrap once: web 1131288/356833,
 // native 1131246/356889 on Node 22.23.3; optional provider bytes are unchanged.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1145200, gzipBytes: 361500 });
+const TOTAL_BUDGET = Object.freeze({ bytes: 1145700, gzipBytes: 361500 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
