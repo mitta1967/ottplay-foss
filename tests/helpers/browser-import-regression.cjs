@@ -855,6 +855,81 @@ async function browserImportRegression(
         if (name === "NotAllowedError")
             assert.match(denied.detail(), /Fixture rejection/);
     }
+    for (const readOnly of [true, false]) {
+        const remote = fixture({ existing: true, secondPlayable: true });
+        remote.storage.set(
+            "localMediaEndpoint",
+            "http://127.0.0.1:8448/offline-media/private-token"
+        );
+        const remoteRequests = [];
+        remote.host.fetch = async (url) => {
+            remoteRequests.push(url);
+            return {
+                json: async () => ({
+                    items: [
+                        {
+                            id: "remote",
+                            name: "video.mp4",
+                            source: "imported",
+                            url: "/video",
+                        },
+                    ],
+                    readOnly,
+                    scanning: false,
+                    sources: [
+                        {
+                            available: false,
+                            id: "remote-source",
+                            kind: "folder",
+                            name: "NAS",
+                        },
+                    ],
+                }),
+                ok: true,
+            };
+        };
+        remote.api.open();
+        await flush();
+        const actions = remote.host.listArray.map((row) => row.id);
+        for (const mutation of [
+            "add-folder",
+            "add-files",
+            "grant-access",
+            "disconnect-source",
+            "remove-copy",
+        ])
+            assert.equal(
+                actions.includes(mutation),
+                !readOnly,
+                mutation + " follows read-only server capability"
+            );
+        assert.ok(
+            actions.includes("server-library"),
+            "read-only library can still be cleared"
+        );
+        assert.ok(actions.includes("refresh"));
+        assert.ok(actions.includes("play"));
+        remote.click("refresh");
+        await flush();
+        assert.equal(
+            remoteRequests.filter((url) => url.includes("refresh=true")).length,
+            readOnly ? 1 : 0,
+            "read-only refresh starts exactly one rescan"
+        );
+        remote.click("server-library");
+        remote.host.editvar = "";
+        remote.host.setEdit();
+        await flush();
+        assert.ok(remote.host.listArray.some((row) => row.id === "add-folder"));
+        assert.ok(
+            remote.host.listArray.some((row) => row.id === "disconnect-source")
+        );
+        assert.equal(
+            (await remote.api.snapshot()).sources[0].id,
+            "source-existing",
+            "clearing server URL restores the untouched browser source"
+        );
+    }
     const pendingKey = "localMediaPendingFile";
     async function directFixture(result) {
         const f = fixture({

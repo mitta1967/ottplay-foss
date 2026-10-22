@@ -42,6 +42,7 @@ pub struct Library {
     mutation: Arc<Mutex<()>>,
     scan: Arc<Mutex<ScanState>>,
     background: crate::background_work::BackgroundWork,
+    read_only_paths: Option<Arc<Vec<PathBuf>>>,
 }
 #[derive(Default)]
 struct ScanState {
@@ -128,6 +129,7 @@ pub struct Catalog {
     pub persistent: bool,
     pub upload_url: String,
     pub direct_sources: bool,
+    pub read_only: bool,
     pub sources: Vec<Source>,
     pub scanning: bool,
     pub scanned: u64,
@@ -140,6 +142,12 @@ pub struct Catalog {
 #[derive(Deserialize)]
 struct ImportQuery {
     name: String,
+}
+#[derive(Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct CatalogQuery {
+    refresh: bool,
+    preferred_id: Option<String>,
 }
 
 type Failure = (StatusCode, &'static str);
@@ -255,6 +263,49 @@ impl Library {
             mutation: Arc::new(Mutex::new(())),
             scan: Arc::new(Mutex::new(ScanState::default())),
             background: Default::default(),
+            read_only_paths: None,
+        })
+    }
+    /// A token-protected, operator-configured library of original files. The
+    /// private metadata directory must be outside every served media tree.
+    pub async fn new_read_only(
+        root: PathBuf,
+        token: String,
+        paths: Vec<PathBuf>,
+    ) -> anyhow::Result<Self> {
+        anyhow::ensure!(!paths.is_empty() && paths.len() <= 32, "Configure 1 to 32 read-only folders");
+        anyhow::ensure!(root.is_absolute(), "Read-only metadata directory must be absolute");
+        let mut canonical_paths = Vec::new();
+        for path in paths {
+            anyhow::ensure!(path.is_absolute(), "Read-only folders must be absolute paths");
+            let path = fs::canonicalize(path).await?;
+            anyhow::ensure!(fs::metadata(&path).await?.is_dir(), "Read-only source must be a folder");
+            if !canonical_paths.contains(&path) {
+                canonical_paths.push(path);
+            }
+        }
+        // Check before creating anything: this mode never writes metadata to
+        // the media source, including through a symlinked cache parent.
+        let canonical_root = match fs::canonicalize(&root).await {
+            Ok(path) => path,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let parent = root.parent().ok_or_else(|| anyhow::anyhow!("Invalid metadata directory"))?;
+                fs::canonicalize(parent).await?.join(root.file_name().ok_or_else(|| anyhow::anyhow!("Invalid metadata directory"))?)
+            }
+            Err(error) => return Err(error.into()),
+        };
+        anyhow::ensure!(canonical_paths.iter().all(|path| !canonical_root.starts_with(path) && !path.starts_with(&canonical_root)), "Metadata directory must be outside read-only media folders");
+        let mut library = Self::new(canonical_root, token, "device").await?;
+        library.read_only_paths = Some(Arc::new(canonical_paths.clone()));
+        library.start_link_paths(canonical_paths, true).await?;
+        Ok(library)
+    }
+
+    fn allows_record(&self, record: &Record) -> bool {
+        self.read_only_paths.as_ref().is_none_or(|roots| {
+            record.linked_path.as_ref().is_some_and(|path| {
+                roots.iter().any(|root| path.starts_with(root) && path != root)
+            })
         })
     }
     /// Only native instances attach a player gate. A shared server keeps its own
@@ -267,6 +318,16 @@ impl Library {
         format!("/offline-media/{}", self.token)
     }
     pub fn routes(self) -> Router {
+        if self.read_only_paths.is_some() {
+            return Router::new()
+                .route("/offline-media/:token", get(catalog).options(preflight))
+                .route("/offline-media/:token/:id", get(media).options(preflight))
+                .layer(axum::middleware::map_response(|mut response: Response| async move {
+                    response.headers_mut().insert("access-control-allow-methods", HeaderValue::from_static("GET, HEAD, OPTIONS"));
+                    response
+                }))
+                .with_state(self);
+        }
         Router::new()
             .route("/offline-media/:token", get(catalog).options(preflight))
             .route(
@@ -350,6 +411,7 @@ impl Library {
             if let Ok(record) = serde_json::from_slice::<Record>(&bytes) {
                 if valid_id(&record.id)
                     && media_type(&record.extension) == Some(record.mime.as_str())
+                    && self.allows_record(&record)
                 {
                     let available = self.read_path(&record, Some(work)).await.is_ok();
                     work.check().map_err(|_| BACKGROUND_CANCELLED)?;
@@ -388,6 +450,9 @@ impl Library {
         record: &Record,
         work: Option<&ReadWork>,
     ) -> Result<PathBuf, Failure> {
+        if !self.allows_record(record) {
+            return Err((StatusCode::NOT_FOUND, "Media not found"));
+        }
         let path = if let Some(path) = &record.linked_path {
             // Native-picked originals may live outside the private library.
             // They must still name the same canonical, non-symlinked file.
@@ -444,6 +509,7 @@ impl Library {
         if bytes.len() > 4096
             || record.id != id
             || media_type(&record.extension) != Some(record.mime.as_str())
+            || !self.allows_record(&record)
         {
             return Err((StatusCode::NOT_FOUND, "Media not found"));
         }
@@ -486,7 +552,7 @@ impl Library {
             }
             if let Ok(bytes) = checked(work, fs::read(entry.path())).await? {
                 if let Ok(source) = serde_json::from_slice::<SourceRecord>(&bytes) {
-                    if valid_id(&source.id) {
+                    if valid_id(&source.id) && self.read_only_paths.as_ref().is_none_or(|roots| source.kind == "folder" && roots.contains(&source.path)) {
                         sources.push(source);
                     }
                 }
@@ -753,6 +819,7 @@ impl Library {
         for picked in paths {
             work.check().map_err(anyhow::Error::msg)?;
             let root = fs::canonicalize(&picked).await?;
+            anyhow::ensure!(self.read_only_paths.as_ref().is_none_or(|roots| folder && roots.contains(&root)), "Source is outside the configured read-only folders");
             let metadata = fs::metadata(&root).await?;
             anyhow::ensure!(
                 if folder {
@@ -917,6 +984,7 @@ impl Library {
     }
 
     pub async fn disconnect_source(&self, id: &str) -> anyhow::Result<()> {
+        anyhow::ensure!(self.read_only_paths.is_none(), "Read-only sources cannot be disconnected");
         let work = self.background.enter().map_err(anyhow::Error::msg)?;
         anyhow::ensure!(valid_id(id), "Invalid source ID");
         let _lock = work
@@ -1066,10 +1134,11 @@ impl Library {
         Ok(Catalog {
             available: true,
             items,
-            storage: self.storage.clone(),
+            storage: if self.read_only_paths.is_some() { "server".into() } else { self.storage.clone() },
             persistent: true,
-            upload_url: format!("{base}/import"),
-            direct_sources: self.storage == "device",
+            upload_url: if self.read_only_paths.is_some() { String::new() } else { format!("{base}/import") },
+            direct_sources: self.storage == "device" && self.read_only_paths.is_none(),
+            read_only: self.read_only_paths.is_some(),
             sources,
             scanning,
             scanned,
@@ -1132,11 +1201,20 @@ async fn preflight(
     cors(&mut r);
     r
 }
-async fn catalog(State(l): State<Library>, Path(token): Path<String>) -> Response {
+async fn catalog(State(l): State<Library>, Path(token): Path<String>, Query(query): Query<CatalogQuery>) -> Response {
     let mut r = match l.authorize(&token) {
-        Ok(()) => match l.catalog().await {
+        Ok(()) => {
+            if l.read_only_paths.is_some() {
+                if query.refresh {
+                    l.start_refresh_sources_with_preferred(query.preferred_id.as_deref()).await;
+                } else if let Ok(work) = l.background.enter() {
+                    l.ensure_catalog_tracked(query.preferred_id.as_deref(), work).await;
+                }
+            }
+            match l.catalog().await {
             Ok(c) => Json(c).into_response(),
             Err(e) => e.into_response(),
+            }
         },
         Err(e) => e.into_response(),
     };
@@ -1471,6 +1549,99 @@ async fn media(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn readonly_http_streams_early_without_import_or_delete_routes() {
+        let base_dir = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = base_dir.join("originals");
+        let root = base_dir.join("state");
+        fs::create_dir_all(&originals).await.unwrap();
+        for index in 0..192 {
+            fs::write(originals.join(format!("movie-{index:03}.mp4")), b"0123456789")
+                .await.unwrap();
+        }
+        let token = "r".repeat(32);
+        let library = Library::new_read_only(root.clone(), token.clone(), vec![originals.clone()])
+            .await.unwrap();
+        let initial = library.catalog().await.unwrap();
+        assert!(initial.scanning, "constructor must not await the full source scan");
+        assert!(initial.read_only);
+        assert!(!initial.direct_sources);
+        assert!(initial.upload_url.is_empty());
+        assert_eq!(initial.storage, "server");
+        let early = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                let snapshot = library.catalog().await.unwrap();
+                if !snapshot.items.is_empty() { break snapshot; }
+                tokio::task::yield_now().await;
+            }
+        }).await.unwrap();
+        assert!(early.scanning && early.items.len() < 192);
+        let id = early.items[0].id.clone();
+        let source_id = early.items[0].source_id.clone();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let endpoint = format!("{origin}{}", library.endpoint());
+        let routes = library.clone().routes();
+        let server = tokio::spawn(async move { axum::serve(listener, routes).await.unwrap() });
+        let client = reqwest::Client::new();
+        let range = tokio::time::timeout(std::time::Duration::from_secs(2),
+            client.get(format!("{endpoint}/{id}")).header("Range", "bytes=2-5").send())
+            .await.unwrap().unwrap();
+        assert_eq!(range.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(range.headers()["content-range"], "bytes 2-5/10");
+        assert_eq!(range.bytes().await.unwrap(), "2345");
+        let head = client.head(format!("{endpoint}/{id}")).send().await.unwrap();
+        assert_eq!(head.status(), StatusCode::OK);
+        assert_eq!(head.headers()["content-length"], "10");
+        assert!(head.bytes().await.unwrap().is_empty());
+        assert_eq!(client.get(format!("{origin}/offline-media/{}/{id}", "x".repeat(32)))
+            .send().await.unwrap().status(), StatusCode::NOT_FOUND);
+        assert_eq!(client.post(format!("{endpoint}/import?name=copy.mp4"))
+            .body("data").send().await.unwrap().status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(client.delete(format!("{endpoint}/{id}"))
+            .send().await.unwrap().status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert!(library.disconnect_source(&source_id).await.is_err());
+        let preflight = client.request(reqwest::Method::OPTIONS, &endpoint).send().await.unwrap();
+        assert_eq!(preflight.headers()["access-control-allow-methods"], "GET, HEAD, OPTIONS");
+        let response = client.get(&endpoint).send().await.unwrap();
+        let body = response.text().await.unwrap();
+        assert!(!body.contains(&base_dir.to_string_lossy().to_string()));
+        assert!(!body.contains("linked_path"));
+        assert!(!root.join("copy.mp4").exists());
+        while library.scan.lock().await.jobs != 0 { tokio::task::yield_now().await; }
+        assert_eq!(std::fs::read_dir(&originals).unwrap().count(), 192);
+        assert_eq!(fs::read(originals.join("movie-000.mp4")).await.unwrap(), b"0123456789");
+        server.abort();
+        fs::remove_dir_all(base_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn readonly_configuration_cannot_serve_previous_or_unconfigured_sources() {
+        let base_dir = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let first = base_dir.join("first");
+        let second = base_dir.join("second");
+        let root = base_dir.join("state");
+        fs::create_dir_all(&first).await.unwrap();
+        fs::create_dir_all(&second).await.unwrap();
+        fs::write(first.join("old.mp4"), b"old").await.unwrap();
+        fs::write(second.join("new.mp4"), b"new").await.unwrap();
+        let old = Library::new_read_only(root.clone(), "s".repeat(32), vec![first.clone()]).await.unwrap();
+        while old.scan.lock().await.jobs != 0 { tokio::task::yield_now().await; }
+        let old_id = old.catalog().await.unwrap().items[0].id.clone();
+        let current = Library::new_read_only(root, "s".repeat(32), vec![second.clone()]).await.unwrap();
+        while current.scan.lock().await.jobs != 0 { tokio::task::yield_now().await; }
+        assert_eq!(current.record(&old_id).await.err().unwrap().0, StatusCode::NOT_FOUND);
+        let snapshot = current.catalog().await.unwrap();
+        assert_eq!(snapshot.items.len(), 1);
+        assert_eq!(snapshot.items[0].name, "new.mp4");
+        assert_eq!(snapshot.sources.len(), 1);
+        assert!(current.link_paths(vec![first.clone()], true).await.is_err());
+        let inside = first.join("forbidden-cache");
+        assert!(Library::new_read_only(inside.clone(), "s".repeat(32), vec![first]).await.is_err());
+        assert!(!inside.exists());
+        fs::remove_dir_all(base_dir).await.unwrap();
+    }
 
     async fn bounded<T>(operation: impl std::future::Future<Output = T>) -> T {
         tokio::time::timeout(std::time::Duration::from_secs(2), operation)

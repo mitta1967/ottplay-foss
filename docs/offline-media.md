@@ -266,6 +266,12 @@ references and old private copies; it does not delete linked originals.
 
 ## Optional server library
 
+For a large NAS folder that blocks Chrome's direct file access, a separate
+[read-only local media helper](local-media-helper.md) can serve the original
+files on this Mac through the same **Server library…** setting. It keeps the
+browser's saved sources intact and exposes no upload/delete operations. The
+configuration below describes the older writable server-library mode.
+
 Configure both variables before starting `ottplay-server`:
 
 ```sh

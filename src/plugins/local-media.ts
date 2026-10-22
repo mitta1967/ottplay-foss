@@ -761,6 +761,7 @@ export function installLocalMedia(w: any): any {
             message =
                 (message ? message + " " : "") +
                 "Reconnect the saved folder to renew its access after a drive or network change.";
+        var readOnly = !!(remoteEndpoint() && last?.readOnly);
         var selected = w.selIndex || 0;
         var rows: any[] = [];
         function row(
@@ -788,29 +789,32 @@ export function installLocalMedia(w: any): any {
                     : "Reconnect the original folder or drive, then continue playback. The saved source and video selection are preserved.",
                 restorePlayback
             );
-        row(
-            "add-folder",
-            "Add folder",
-            !isNative() && !isTauri()
-                ? "Chrome may ask to view and copy files. This grants read access; OTT plays the originals without storing another media copy."
-                : "Play files directly from the selected folder without copying them.",
-            function () {
-                run(function () {
-                    return importFiles(true);
-                }, !isNative());
-            }
-        );
-        row(
-            "add-files",
-            "Add files",
-            "Play selected files directly without copying them.",
-            function () {
-                run(function () {
-                    return importFiles();
-                }, !isNative());
-            }
-        );
+        if (!readOnly) {
+            row(
+                "add-folder",
+                "Add folder",
+                !isNative() && !isTauri()
+                    ? "Chrome may ask to view and copy files. This grants read access; OTT plays the originals without storing another media copy."
+                    : "Play files directly from the selected folder without copying them.",
+                function () {
+                    run(function () {
+                        return importFiles(true);
+                    }, !isNative());
+                }
+            );
+            row(
+                "add-files",
+                "Add files",
+                "Play selected files directly without copying them.",
+                function () {
+                    run(function () {
+                        return importFiles();
+                    }, !isNative());
+                }
+            );
+        }
         if (
+            !readOnly &&
             last &&
             (last.sources || []).some(function (source: any) {
                 return !source.available;
@@ -839,6 +843,18 @@ export function installLocalMedia(w: any): any {
             );
         row("refresh", "Refresh", "Read connected folders again.", function () {
             run(function () {
+                if (readOnly) {
+                    var request = ++catalogRevision;
+                    var url = new URL(remoteEndpoint());
+                    url.searchParams.set("refresh", "true");
+                    return boundedCatalogRequest(url.href, 60000).then(
+                        function () {
+                            return request === catalogRevision
+                                ? list()
+                                : { cancelled: true, items: [] };
+                        }
+                    );
+                }
                 return isTauri()
                     ? getEndpoint(true).then(function () {
                           return list();
@@ -857,6 +873,15 @@ export function installLocalMedia(w: any): any {
             }
         );
         ((last && last.sources) || []).forEach(function (source: any) {
+            if (readOnly) {
+                row(
+                    "readonly-source",
+                    source.name,
+                    "Read-only source. Manage folders in the helper configuration.",
+                    function () {}
+                );
+                return;
+            }
             if (
                 source.kind === "folder" &&
                 !isNative() &&
@@ -906,7 +931,7 @@ export function installLocalMedia(w: any): any {
             );
         });
         ((last && last.items) || []).forEach(function (item: any) {
-            if (item.source === "linked") return;
+            if (readOnly || item.source === "linked") return;
             row(
                 "remove-copy",
                 "Remove copy: " + item.name,
