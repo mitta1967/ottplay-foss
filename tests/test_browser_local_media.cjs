@@ -542,9 +542,19 @@ async function builtUi(devicePath) {
         );
         await page.locator("#listEdit").waitFor({ state: "hidden" });
         await action("add-folder").waitFor();
+        // A visible old row does not mean the next catalog read has released
+        // input ownership. Do not spin forever against the loading dialog.
+        await page.locator("#dialogbox").waitFor({ state: "hidden" });
         // Start at the first row to verify normal remote navigation.
-        while (await page.evaluate(() => window.selIndex > 0))
+        for (let step = 0; step < 30; step++) {
+            if ((await page.evaluate(() => window.selIndex)) === 0) break;
             await page.keyboard.press("ArrowUp");
+        }
+        assert.equal(
+            await page.evaluate(() => window.selIndex),
+            0,
+            "local manager must release navigation before the first-row check"
+        );
         await page.keyboard.press("ArrowDown");
         assert.equal(
             await page.evaluate(() => window.listArray[window.selIndex].id),
