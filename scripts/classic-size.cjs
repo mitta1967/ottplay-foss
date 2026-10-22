@@ -496,7 +496,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // measure 1148243 / 361821 gzip on Node 22.23.3. Retain bounded release room.
 // Count the bounded whole-portal scanner once in the complete payload.
 // The same seek/fallback changes measure 1151707 total raw on Node 22.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1153200, gzipBytes: 363200 });
+// External-seek hooks measure 363232 gzip on clean Node 22 builds.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1153200, gzipBytes: 363600 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
