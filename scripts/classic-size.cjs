@@ -481,7 +481,11 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // web 1127857/355992; native 1127815/356050, with unchanged provider bytes.
 // Count explicit relative-file bootstrap once: web 1131288/356833,
 // native 1131246/356889 on Node 22.23.3; optional provider bytes are unchanged.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1145700, gzipBytes: 361500 });
+// Compact whole-Plex metadata, flat music ancestry, Unicode-safe labels and
+// VPortal wire-compatible titles add 1762 raw bytes to the reviewed catalog
+// build. Node 22.23.3 measures 1147384 / 361587 gzip for the complete web
+// payload; preserve bounded native and release-suffix headroom.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1148000, gzipBytes: 362000 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
