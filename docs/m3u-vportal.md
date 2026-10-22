@@ -41,7 +41,8 @@ A whole-portal scan retries the exact same request once after a transport
 timeout. The retry keeps the existing inactivity deadline; cancelled requests,
 malformed responses and invalid catalog identities are never retried.
 Request-backed videos retain their exact playback request instead of a temporary
-stream URL; starting or repeating a video resolves a fresh URL. Videos supplied
+stream URL or a duplicated internal URL placeholder; starting or repeating a video
+resolves a fresh URL. The channel list supplies its own playback placeholder. Videos supplied
 only as direct URLs keep their original URL and catalog origin.
 Diagnostics report only counters and failure codes, never account links or
 request parameters.

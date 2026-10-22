@@ -1565,7 +1565,7 @@ export function createVPortalClient(
                                 record.__ottPlaylistId = key;
                                 // Request-backed entries resolve a fresh playback URL on play.
                                 if (whole && record.request)
-                                    record.stream_url = "vportal:request";
+                                    delete record.stream_url;
                                 record.__ottMediaCategories =
                                     task.categories.slice();
                                 if (!whole)

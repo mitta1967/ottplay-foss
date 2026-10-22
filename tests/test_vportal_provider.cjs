@@ -234,7 +234,6 @@ function create(initial = {}) {
             {
                 __ottPlaylistId: "second",
                 request: { cmd: "play", id: 2 },
-                stream_url: "vportal:request",
                 title: "Second",
             },
         ],
@@ -244,6 +243,12 @@ function create(initial = {}) {
     assert.equal(f.host.cList.length, 2);
     assert.equal(f.host.cList[0], firstId);
     assert.equal(f.driver.mediaItem(f.host.cList[1]).title, "Second");
+    assert.equal(f.host.chanels[f.host.cList[1]].url, "vportal:request");
+    assert.equal(f.driver.mediaItem(f.host.cList[1]).stream_url, undefined);
+    assert.deepEqual(f.driver.mediaItem(f.host.cList[1]).request, {
+        cmd: "play",
+        id: 2,
+    });
     const old = f.clients[0];
     const value = f.driver.configuration();
     value.portals[0].sections = [{ request: { cmd: "other" }, title: "Other" }];

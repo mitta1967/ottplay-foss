@@ -2365,7 +2365,7 @@ console.log(
             ],
             type: "videoportal",
         });
-        f.requests[1].receive({
+        const sourcePage = {
             items: [
                 {
                     request: { cmd: "play", fid: 7 },
@@ -2381,7 +2381,14 @@ console.log(
                 },
             ],
             type: "category",
-        });
+        };
+        const sourceSnapshot = JSON.stringify(sourcePage);
+        f.requests[1].receive(sourcePage);
+        assert.equal(
+            JSON.stringify(sourcePage),
+            sourceSnapshot,
+            "catalog compaction must not mutate the provider response"
+        );
         f.requests[2].receive({
             items: [
                 {
@@ -2398,7 +2405,7 @@ console.log(
     const whole = catalog(true);
     const scoped = catalog(false);
     const item = whole.items[0];
-    assert.equal(item.stream_url, "vportal:request");
+    assert.equal(item.stream_url, undefined);
     assert.equal(
         scoped.items[0].stream_url,
         "https://cdn.example/stale-request.mp4"
@@ -2476,7 +2483,7 @@ console.log(
     );
     assert.equal(
         item.stream_url,
-        "vportal:request",
+        undefined,
         "fresh URL is never written back into catalog metadata"
     );
 }
