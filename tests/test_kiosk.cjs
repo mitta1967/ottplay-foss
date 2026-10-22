@@ -1895,10 +1895,41 @@ console.log(
         pointerType: "mouse",
     });
     assert.deepEqual(seeks, [0.8, 0.25]);
+    const footer = w.document.getElementById("info1");
+    time += 1000;
+    touch(footer, "touchstart", [point(140, 88)]);
+    touch(footer, "touchend", [], [point(140, 88)]);
+    assert.deepEqual(
+        seeks,
+        [0.8, 0.25, 0.5],
+        "admitted upper half-height boundary seeks once"
+    );
+    touch(footer, "touchstart", [point(140, 87.9)]);
+    touch(footer, "touchend", [], [point(140, 87.9)]);
+    assert.equal(seeks.length, 3, "outside upper boundary does not seek");
+    const allowed = w.__ottKiosk.beginSeek;
+    w.__ottKiosk.beginSeek = () => null;
+    touch(footer, "touchstart", [point(140, 88)]);
+    touch(footer, "touchend", [], [point(140, 88)]);
+    assert.equal(
+        seeks.length,
+        3,
+        "expanded geometry cannot bypass seek admission"
+    );
+    w.__ottKiosk.beginSeek = allowed;
+    const button = w.document.createElement("button");
+    footer.appendChild(button);
+    touch(button, "touchstart", [point(140, 88)]);
+    touch(button, "touchend", [], [point(140, 88)]);
+    assert.equal(
+        seeks.length,
+        3,
+        "other footer controls cannot become seek targets"
+    );
     touch(child, "touchstart", [point(90)]);
     bar.id = "old-progress";
     touch(child, "touchend", [], [point(90)]);
-    assert.equal(seeks.length, 2, "retired footer cannot commit");
+    assert.equal(seeks.length, 3, "retired footer cannot commit");
     assert.equal(
         leaked,
         0,

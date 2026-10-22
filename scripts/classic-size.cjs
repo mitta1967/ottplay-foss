@@ -333,7 +333,8 @@ const { gzipSync } = require("node:zlib");
 // Persistent seek feedback/pending decoder targets and bounded metadata
 // fallback measure 1016906 raw on Node 22; retain ~600 identity bytes.
 // External seek admission/acknowledgment adds ~0.9 KB raw; retain identity room.
-const BUDGET = Object.freeze({ bytes: 1018400, gzipBytes: 314000 });
+// Footer seek hit testing adds 50 compressed bytes over the previous cap.
+const BUDGET = Object.freeze({ bytes: 1018400, gzipBytes: 314100 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle

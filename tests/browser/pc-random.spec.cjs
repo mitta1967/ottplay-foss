@@ -312,3 +312,53 @@ test("PC modifier seeks accumulate across debounce flushes without reapplying th
         .toBe(130);
     expect(errors).toEqual([]);
 });
+
+test.describe("Footer timeline hit area", () => {
+    test.use({ hasTouch: true });
+    test("mouse and touch above the painted bar seek without expanding info", async ({
+        page,
+        context,
+        baseURL,
+    }) => {
+        const errors = await boot(page, context, baseURL);
+        await page.evaluate(() => {
+            window.video.pause();
+            window.__ottClassicPlayback.command({
+                duration: 1000,
+                type: "finite-channel",
+            });
+            window.__ottClassicPlayback.command({ type: "pause" });
+            window.stbGetLen = () => 1000;
+            window.__timelineSeeks = [];
+            window.stbSetPosTime = (value) =>
+                window.__timelineSeeks.push(value);
+            const show = window.showChannelInfo;
+            window.__timelineInfo = 0;
+            window.showChannelInfo = function () {
+                window.__timelineInfo++;
+                return show.apply(this, arguments);
+            };
+        });
+        for (const touch of [false, true]) {
+            await page.evaluate(() => {
+                window.showChannelInfo(1);
+                window.$("#info1").finish();
+                window.__timelineInfo = 0;
+                window.__timelineSeeks = [];
+            });
+            await expect(page.locator("#progress_div")).toBeVisible();
+            const bar = await page.locator("#progress_div").boundingBox();
+            expect(bar).not.toBeNull();
+            const x = bar.x + bar.width / 4;
+            const y = bar.y - bar.height / 2 + 0.5;
+            if (touch) await page.touchscreen.tap(x, y);
+            else await page.mouse.click(x, y);
+            await expect
+                .poll(() => page.evaluate(() => window.__timelineSeeks))
+                .toEqual([250]);
+            expect(await page.evaluate(() => window.__timelineInfo)).toBe(0);
+            await expect(page.locator("#descr")).toBeHidden();
+        }
+        expect(errors).toEqual([]);
+    });
+});

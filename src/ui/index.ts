@@ -395,6 +395,10 @@ export function uiInit(): void {
     $infoBar.on("click.ottUi", function (e: any) {
         if (!e) e = event;
         e.stopPropagation();
+        if (canSeekProgress() && progressHit(e)) {
+            seekProgress(e, "click");
+            return;
+        }
         if (typeof (window as any).showChannelInfo === "function")
             (window as any).showChannelInfo();
     });
@@ -582,6 +586,37 @@ export function uiInit(): void {
     var $progressDiv = $("#progress_div");
     var seekInProgress = false;
 
+    function canSeekProgress(): boolean {
+        var w = window as any;
+        var channel =
+            w.channels && w.curList && w.channels[w.curList[w.primaryIndex]];
+        return !!(w.playType || (channel && channel.rec));
+    }
+    function progressHit(e: any): boolean {
+        var element = $progressDiv[0];
+        if (
+            !element ||
+            (e.target &&
+                $(e.target).closest(
+                    "button,a,input,select,textarea,[data-ott-key]"
+                ).length)
+        )
+            return false;
+        var rect = element.getBoundingClientRect();
+        return (
+            rect.width > 0 &&
+            rect.height > 0 &&
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top - rect.height / 2 &&
+            e.clientY <= rect.bottom
+        );
+    }
+    function progressFraction(clientX: number): number {
+        var rect = $progressDiv[0].getBoundingClientRect();
+        return rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
+    }
+
     $progressDiv.on("mousedown.ottUi", function (e: any) {
         if (!e) e = event;
         if (e.clientX === undefined) {
@@ -601,18 +636,8 @@ export function uiInit(): void {
         }
         e.stopPropagation();
         var w = window as any;
-        if (
-            !(
-                w.playType ||
-                (w.channels &&
-                    w.curList &&
-                    w.channels[w.curList[w.primaryIndex]] &&
-                    w.channels[w.curList[w.primaryIndex]].rec)
-            )
-        )
-            return;
-        var t =
-            (e.clientX - $progressDiv.position().left) / $progressDiv.width();
+        if (!canSeekProgress()) return;
+        var t = progressFraction(e.clientX);
         if (w.playType < 0) {
             var r = Math.max(Math.round(t * w.stbGetLen()), 0);
             var hr = Math.floor(r / 3600);
@@ -679,16 +704,7 @@ export function uiInit(): void {
             return;
         }
         var w = window as any;
-        if (
-            !(
-                w.playType ||
-                (w.channels &&
-                    w.curList &&
-                    w.channels[w.curList[w.primaryIndex]] &&
-                    w.channels[w.curList[w.primaryIndex]].rec)
-            )
-        )
-            return;
+        if (!canSeekProgress()) return;
         var clientX = e.clientX;
         if (tooltipEl) {
             tooltipEl.style.display = "block";
@@ -697,8 +713,7 @@ export function uiInit(): void {
             tooltipEl.style.left = clientX - tooltipEl.offsetWidth / 2 + "px";
         }
         var $tooltipSpan = $("span", tooltipEl);
-        var frac =
-            (clientX - $progressDiv.position().left) / $progressDiv.width();
+        var frac = progressFraction(clientX);
         if (w.playType < 0) {
             var r = Math.max(Math.round(frac * w.stbGetLen()), 0);
             var hr = Math.floor(r / 3600);

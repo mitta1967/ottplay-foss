@@ -43,7 +43,18 @@ export function createStrictKioskInput(w: any, active: () => boolean): any {
     function footerSeek(event: any, point: any): any {
         try {
             var bar = w.document.getElementById("progress_div");
-            if (!bar || !bar.contains(event.target) || !w.__ottKiosk.beginSeek)
+            var footer = w.document.getElementById("info1");
+            var target = event.target;
+            if (
+                !bar ||
+                !footer ||
+                !footer.contains(target) ||
+                !w.__ottKiosk.beginSeek ||
+                (target.closest &&
+                    target.closest(
+                        "button,a,input,select,textarea,[data-ott-key]"
+                    ))
+            )
                 return null;
             var rect = bar.getBoundingClientRect();
             if (
@@ -51,7 +62,7 @@ export function createStrictKioskInput(w: any, active: () => boolean): any {
                 rect.height <= 0 ||
                 point.clientX < rect.left ||
                 point.clientX > rect.right ||
-                point.clientY < rect.top ||
+                point.clientY < rect.top - rect.height / 2 ||
                 point.clientY > rect.bottom
             )
                 return null;
