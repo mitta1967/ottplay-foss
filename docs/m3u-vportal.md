@@ -20,6 +20,18 @@ configured only in its standalone provider; M3U is reserved for television.
 
 The standard channel list provides search, favorites, ordering and Actions. Videos can start from the first usable batch while the rest of the portal loads in the background. Selecting a file shows an owned loading dialog; Back cancels it. **Actions → Repeat** controls All / One / Off; **Shuffle / Reset order** uses the existing channel-list actions. See the [shared playlist flow](plex-provider.md).
 
+Whole-portal discovery is bounded separately from explicit section and search
+queues. It accepts up to 100,000 returned rows, 10,000 pages/containers and 64 MiB
+of retained catalog metadata. Long optional descriptions use a 1,024-character
+preview; titles, playable requests and stable identities remain intact. A scan
+stops after one minute without a validated response; empty successful pages
+also count as progress. Each request has its own timeout, while page, row and
+metadata limits bound the complete traversal. Discovered videos remain usable while scanning, but a failed or
+cancelled scan is never reported as a complete catalog to remote commands.
+Explicit section and search queues retain their existing smaller limits.
+Diagnostics report only counters and failure codes, never account links or
+request parameters.
+
 The playback footer shows the playing item's folder or collection above its
 current and next titles. Current time is the actual local playback-start clock,
 including seconds; next time is that clock plus the current item's full duration.

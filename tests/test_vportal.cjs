@@ -144,6 +144,7 @@ function fixture(overrides = {}, options = {}, hooks = {}) {
         return request;
     };
     const context = {
+        Date: hooks.Date || Date,
         exports: {},
         require: (name) =>
             name.includes("caseless") ? caseless.exports : helpers.exports,
@@ -1874,4 +1875,267 @@ require("./test_vportal_search.cjs");
         Array.from(result[0].__ottMediaCategories, (c) => c.name),
         ["Public", "Protected"]
     );
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ request: { cmd: "list", fid: 42, offset: 0 }, title: "Folder" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "play", id: 1 }, title: "First", type: "stream" },
+            { request: { limit: 0, offset: 300 }, type: "next" },
+        ],
+        type: "category",
+    });
+    assert.equal(
+        f.requests.length,
+        2,
+        "default limit sentinel keeps the same folder cursor usable"
+    );
+    const request = JSON.parse(f.requests[1].options.data).params;
+    assert.equal(request.cmd, "list");
+    assert.equal(request.fid, 42);
+    assert.equal(request.offset, 300);
+    assert.equal(request.limit, 300, "the actual next request stays bounded");
+    f.requests[1].receive({
+        items: [
+            { request: { cmd: "play", id: 2 }, title: "Last", type: "stream" },
+        ],
+        type: "category",
+    });
+    assert.equal(result.complete, true);
+    assert.equal(result.error, undefined);
+    assert.deepEqual(
+        Array.from(result.items, (item) => item.title),
+        ["First", "Last"]
+    );
+    assert.equal(
+        result.items[0].__ottMediaCategories[0].id,
+        result.items[1].__ottMediaCategories[0].id
+    );
+}
+
+// Whole-root TV catalogs have separate, bounded budgets from scoped queues.
+{
+    function collectMany(whole) {
+        const f = fixture();
+        let result;
+        let incremental = 0;
+        f.client.playlist(
+            [{ __ottCategoryRoot: whole, request: {}, title: "Folder" }],
+            (items, complete, error) => {
+                result = { complete, error, items };
+                if (!complete) incremental++;
+            }
+        );
+        for (let page = 0; page < 71 && !result?.complete; page++) {
+            const items = Array.from({ length: 300 }, (_, index) => ({
+                request: { cmd: "play", id: page * 300 + index },
+                title: `Video ${page * 300 + index}`,
+                type: "stream",
+            }));
+            if (page < 70)
+                items.push({
+                    request: { limit: 0, offset: (page + 1) * 300 },
+                    type: "next",
+                });
+            f.requests[page].receive({ items, type: "category" });
+        }
+        return { f, incremental, result };
+    }
+    const whole = collectMany(true);
+    assert.equal(whole.result.error, undefined);
+    assert.equal(whole.result.complete, true);
+    assert.equal(whole.result.items.length, 21300);
+    assert(
+        whole.incremental >= 70,
+        "large scans publish playable pages progressively"
+    );
+    assert.equal(whole.f.client.scanDiagnostics().state, "complete");
+    const scoped = collectMany(false);
+    assert(
+        scoped.result.error,
+        "scoped queues retain their original smaller budget"
+    );
+    assert.equal(scoped.f.client.scanDiagnostics().code, "row_limit");
+    assert.equal(
+        whole.result.items[0].__ottPlaylistId,
+        scoped.result.items[0].__ottPlaylistId,
+        "scale mode must not change direct-play identity"
+    );
+}
+
+{
+    const timers = new Map();
+    let sequence = 0;
+    const f = fixture({
+        clearTimeout(id) {
+            timers.delete(id);
+        },
+        setTimeout(callback, duration) {
+            const id = ++sequence;
+            timers.set(id, { callback, duration });
+            return id;
+        },
+    });
+    let result;
+    const stop = f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    const originalWatchdog = [...timers.keys()].find(
+        (id) => timers.get(id).duration === 60000
+    );
+    assert(![...timers.values()].some((timer) => timer.duration === 600000));
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "folder" }, title: "Folder", type: "category" },
+        ],
+        type: "videoportal",
+    });
+    assert(
+        !timers.has(originalWatchdog),
+        "accepted nonempty response resets inactivity deadline"
+    );
+    [...timers.values()].find((timer) => timer.duration === 60000).callback();
+    assert(result.error && result.complete);
+    assert.equal(f.client.scanDiagnostics().code, "inactive_timeout");
+    assert.equal(f.requests[1].aborted, true);
+    assert.equal(timers.size, 0);
+    stop();
+    const cancel = f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        () => {
+            throw Error("cancelled scan cannot publish");
+        }
+    );
+    cancel();
+    assert.equal(f.client.scanDiagnostics().state, "cancelled");
+    assert.equal(timers.size, 0);
+    f.requests.at(-1).receive({ items: [], type: "videoportal" });
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    const title = "Movie 😀";
+    const request = { cmd: "play", id: "exact-original-identity" };
+    f.requests[0].receive({
+        items: [
+            {
+                description: "😀long description ".repeat(1000),
+                request,
+                title,
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.items[0].title, title);
+    assert.equal(
+        JSON.stringify(result.items[0].request),
+        JSON.stringify(request)
+    );
+    assert(result.items[0].description.length <= 1024);
+    assert(!/[\uD800-\uDBFF]$/.test(result.items[0].description));
+    const diagnostic = f.client.scanDiagnostics();
+    assert(diagnostic.retainedBytes > 0);
+    diagnostic.state = "changed";
+    assert.equal(
+        f.client.scanDiagnostics().state,
+        "complete",
+        "diagnostics are copied"
+    );
+}
+console.log(
+    "PASS VPortal bounded whole-catalog scale, incremental pages, inactivity cancellation and stable identities"
+);
+
+{
+    const timers = new Map();
+    let sequence = 0;
+    let now = 0;
+    const clock = { now: () => now };
+    const f = fixture(
+        {
+            clearTimeout(id) {
+                timers.delete(id);
+            },
+            setTimeout(callback, duration) {
+                const id = ++sequence;
+                timers.set(id, { callback, duration });
+                return id;
+            },
+        },
+        {},
+        { Date: clock }
+    );
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].receive({
+        items: Array.from({ length: 61 }, (_, i) => ({
+            request: { cmd: "list", id: i },
+            title: `Folder ${i}`,
+            type: "category",
+        })),
+        type: "videoportal",
+    });
+    for (let i = 1; i <= 61; i++) {
+        const previousTimer = [...timers.keys()][0];
+        now += 1000;
+        f.requests[i].receive({ items: [], type: "category" });
+        assert(
+            !timers.has(previousTimer),
+            "validated empty response renews watchdog"
+        );
+    }
+    assert.equal(now, 61000);
+    assert.equal(result.complete, true);
+    assert.equal(result.error, undefined);
+    assert.equal(timers.size, 0);
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    for (let i = 0; i < 10000; i++) {
+        f.requests[i].receive({
+            items: [{ request: { offset: (i + 1) * 300 }, type: "next" }],
+            type: "category",
+        });
+        if (result?.complete) break;
+    }
+    assert.equal(
+        f.requests.length,
+        10000,
+        "ever-advancing cursors remain bounded"
+    );
+    assert(result.complete && result.error);
+    assert.equal(f.client.scanDiagnostics().code, "page_limit");
 }
