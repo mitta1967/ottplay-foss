@@ -295,10 +295,11 @@ test("PC modifier seeks accumulate across debounce flushes without reapplying th
             window.channels = { ...window.channels };
             window.catsArray = window.catsArray.slice();
             const category = window.catsArray[window.catIndex];
-            window.cats = {
-                ...window.cats,
-                [category]: window.cats[category].slice(),
-            };
+            const selected = window.cats[category][window.primaryIndex];
+            const list = window.cats[category].slice().reverse();
+            window.cats = { ...window.cats, [category]: list };
+            window.curList = list;
+            window.primaryIndex = list.indexOf(selected);
         });
     }
     expect(await page.evaluate(() => window.__seekPositions)).toEqual([

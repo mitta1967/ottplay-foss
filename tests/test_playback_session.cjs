@@ -969,6 +969,11 @@ for (const replace of [
     (c) => {
         c.cats = { ...c.cats, one: c.cats.one.slice() };
     },
+    (c) => {
+        const selected = c.cats.one[c.primaryIndex];
+        c.cats = { ...c.cats, one: c.cats.one.slice().reverse() };
+        c.primaryIndex = c.cats.one.indexOf(selected);
+    },
 ]) {
     const c = republishingFixture();
     const before = c.__ottClassicPlayback.snapshot();
@@ -994,6 +999,43 @@ for (const replace of [
         before.generation
     );
 }
+// Explicit media can have no numeric channel-list position at all. NaN is
+// not equal to itself and must not invalidate the unchanged owned decoder.
+{
+    const c = fixture();
+    c.primaryIndex = NaN;
+    c.__ottCoreTransport = { play: function () {} };
+    c.stbPlay = c.__ottCoreTransport.play;
+    c.__ottCoreBackend = () => ({ current: () => null });
+    c.__ottClassicPlayback.command({
+        channelId: "local-file",
+        item: {},
+        type: "vod",
+    });
+    c.__ottClassicPlayback.command({ type: "playing" });
+    c.__ottClassicPlayback.command({
+        duration: 600,
+        position: 100,
+        type: "position",
+    });
+    c.stbGetPosTime = () => 100;
+    c.__ottClassicPlayback.shift(10);
+    c.flush();
+    c.__ottClassicPlayback.shift(10);
+    c.flush();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "seek"),
+        [
+            ["seek", 110],
+            ["seek", 120],
+        ]
+    );
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "message").map((row) => row[1]),
+        ["10", "10", "20", "20"]
+    );
+}
+
 for (const replace of [
     (c) => {
         c.channels[101] = { ...c.channels[101] };

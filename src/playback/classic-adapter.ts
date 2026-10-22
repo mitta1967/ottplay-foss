@@ -451,14 +451,14 @@ function classicPlaybackObservation(): PlaybackObservation & {
             return (
                 isCurrentBackend() &&
                 categoryIndex === w.catIndex &&
-                selectionIndex === w.primaryIndex &&
                 // Owned finite media keeps its decoder across publication;
                 // legacy/live callbacks retain their stricter container fence.
                 (ownedMedia
                     ? categoryId === (w.catsArray || [])[w.catIndex] &&
                       selectedId ===
                           ((w.cats || {})[categoryId] || [])[w.primaryIndex]
-                    : catalog === w.channels &&
+                    : selectionIndex === w.primaryIndex &&
+                      catalog === w.channels &&
                       categories === w.catsArray &&
                       lists === w.cats &&
                       list ===
