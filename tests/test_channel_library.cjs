@@ -1055,3 +1055,192 @@ console.log(
         "retired catalog cannot supply stale metadata"
     );
 }
+
+// A media item belongs to its library and each ancestor folder without
+// duplication in All, even while later pages add more folders.
+{
+    const saved = new Map();
+    const ports = {
+        current: () => true,
+        get: (k) => saved.get(k) || null,
+        set: (k, v) => saved.set(k, v),
+        sourceId: "media-hierarchy",
+    };
+    const row = (id, groups) => ({
+        groupId: "fallback",
+        groupLabel: "Fallback",
+        groups,
+        id,
+        itemId: "media:" + id,
+        label: "Video " + id,
+    });
+    let model = create(ports, [
+        row(1, [
+            { id: "section:a", label: "Cartoons" },
+            { id: "show:1", label: "Cartoons / Tom and Jerry" },
+            { id: "show:1", label: "duplicate" },
+        ]),
+    ]);
+    assert.deepEqual(plain(model.snapshot().all), [1]);
+    assert.deepEqual(
+        plain(model.snapshot().groups).map((g) => [g.id, g.members]),
+        [
+            ["section:a", [1]],
+            ["show:1", [1]],
+        ]
+    );
+    assert(model.select("show:1", 1));
+    model.append([
+        row(2, [
+            { id: "section:a", label: "Cartoons" },
+            { id: "show:2", label: "Cartoons / Other" },
+        ]),
+    ]);
+    assert.deepEqual(plain(model.snapshot().all), [1, 2]);
+    assert.deepEqual(
+        plain(model.snapshot().groups).find((g) => g.id === "section:a")
+            .members,
+        [1, 2]
+    );
+    assert.deepEqual(
+        plain(model.snapshot().groups).find((g) => g.id === "show:1").members,
+        [1]
+    );
+    assert.equal(model.snapshot().selected.groupId, "show:1");
+    model.persist();
+    model = create(ports, [
+        row(1, [
+            { id: "section:a", label: "Renamed" },
+            { id: "show:1", label: "Renamed / Tom" },
+        ]),
+        row(2, [
+            { id: "section:a", label: "Renamed" },
+            { id: "show:2", label: "Renamed / Other" },
+        ]),
+    ]);
+    assert.equal(model.snapshot().selected.groupId, "show:1");
+    assert.equal(
+        model.snapshot().groups.find((g) => g.id === "section:a").label,
+        "Renamed"
+    );
+    assert(model.lock(1, true));
+    assert(model.shuffleGroup("section:a"));
+    assert.deepEqual(
+        plain(model.snapshot().groups).find((g) => g.id === "show:1").members,
+        [1]
+    );
+    assert(model.resetShuffle("section:a"));
+}
+
+{
+    const host = vm.createContext({ window: {} });
+    runtime(host, "src/channels/library.ts");
+    runtime(host, "src/channels/classic-library.ts");
+    const w = host.window;
+    const values = new Map();
+    const groups = [
+        { id: "section:a", name: "Cartoons" },
+        { id: "show:a", name: "Cartoons / Tom" },
+    ];
+    Object.assign(w, {
+        _: (x) => x,
+        __ottSourceIdentity: { current: () => "media-test" },
+        catIndex: 0,
+        channels: {
+            1: {
+                __ottMediaCategories: groups,
+                category: { name: "Tom" },
+                channel_name: "Episode",
+                itemId: "episode:1",
+            },
+        },
+        channelsList: (category) => {
+            w.listCatIndex = category;
+        },
+        cList: [1],
+        curList: [],
+        primaryIndex: 0,
+        providerGetItem: (k) => values.get(k) || null,
+        providerSetItem: (k, v) => values.set(k, v),
+    });
+    w.__ottChannels.mount(w);
+    const first = w.__ottChannels.remoteCatalog();
+    assert.equal(first.active(), true);
+    assert.equal(
+        w.__ottChannels.remoteCatalog(),
+        first,
+        "catalog owner is stable between queries"
+    );
+    assert.deepEqual(
+        plain(first.groups).map((g) => g.id),
+        ["system:all", "section:a", "show:a"]
+    );
+    const playing = [w.catIndex, w.primaryIndex, w.curList];
+    assert(w.__ottChannels.browse("show:a"));
+    assert.equal(w.__ottChannels.browsingGroup(), "show:a");
+    assert.deepEqual(
+        [w.catIndex, w.primaryIndex, w.curList],
+        playing,
+        "browse cannot change current playback"
+    );
+    assert.equal(
+        first.active(),
+        true,
+        "browsing does not expire a catalog token"
+    );
+    w.channels[1].__ottMediaCategories = groups.concat({
+        id: "extra:a",
+        name: "Other",
+    });
+    w.__ottChannels.append([1]);
+    assert.equal(
+        first.active(),
+        false,
+        "new membership expires prior catalog token"
+    );
+    assert.deepEqual(plain(w.__ottChannels.remoteCatalog().all), [1]);
+    assert.deepEqual(
+        plain(w.__ottChannels.remoteCatalog().groups).find(
+            (g) => g.id === "extra:a"
+        ).members,
+        [1]
+    );
+    w.__ottChannels.reset();
+    assert.equal(w.__ottChannels.remoteCatalog(), null);
+}
+
+{
+    const a = create(
+        {
+            current: () => true,
+            get: () => null,
+            set: () => {},
+            sourceId: "late-protection",
+        },
+        [
+            {
+                groupId: "first",
+                groupLabel: "First",
+                id: 1,
+                itemId: "one",
+                label: "One",
+            },
+        ]
+    );
+    a.append([
+        {
+            groupId: "second",
+            groupLabel: "Second",
+            id: 1,
+            itemId: "one",
+            label: "One",
+            locked: true,
+        },
+    ]);
+    assert.deepEqual(plain(a.snapshot().all), [1]);
+    assert.deepEqual(
+        plain(a.snapshot().locks),
+        [1],
+        "later protected ancestry must lock existing video"
+    );
+}

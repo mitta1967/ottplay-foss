@@ -266,6 +266,11 @@ async fn serve_listeners(
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+    let readonly_paths = match std::env::var("OTT_OFFLINE_MEDIA_READONLY_PATHS") {
+        Ok(value) => Some(parse_readonly_paths(&value, &cli.host)?),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(error) => return Err(error.into()),
+    };
     let (http_ports, https_ports) = cli.listen_ports()?;
     // rustls 0.23: both aws-lc-rs and ring end up linked (reqwest + tokio-rustls feature
     // unification). Install an explicit process default before ServerConfig::builder(),
@@ -279,6 +284,14 @@ async fn main() -> anyhow::Result<()> {
         _ => None,
     };
     let listeners = bind_listeners(&cli.host, &http_ports, &https_ports).await?;
+    if readonly_paths.is_some() {
+        // A local media bridge exposes no proxy, player assets, import or
+        // control endpoints. Its capability token scopes every media request.
+        let app = Router::new()
+            .route("/health", get(health))
+            .merge(offline_media_routes(readonly_paths).await?);
+        return serve_listeners(listeners, app, tls_config).await;
+    }
     if hosted_epg::enabled()? {
         return serve_listeners(listeners, hosted_epg::start()?, tls_config).await;
     }
@@ -324,19 +337,35 @@ async fn main() -> anyhow::Result<()> {
         .merge(swop::routes_from_env()?)
         .merge(nas_library::routes_from_env()?)
         .merge(control_discovery::routes())
-        .merge(offline_media_routes().await?);
+        .merge(offline_media_routes(None).await?);
 
     serve_listeners(listeners, app, tls_config).await
 }
 
 /// Media import is disabled unless an operator configures both storage and a secret.
-async fn offline_media_routes() -> anyhow::Result<Router> {
+fn parse_readonly_paths(value: &str, host: &str) -> anyhow::Result<Vec<std::path::PathBuf>> {
+    anyhow::ensure!(host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback()),
+        "Read-only local media requires an explicit loopback --host (127.0.0.1 or ::1)");
+    let paths: Vec<std::path::PathBuf> = serde_json::from_str(value)
+        .context("OTT_OFFLINE_MEDIA_READONLY_PATHS must be a JSON array of absolute folder paths")?;
+    anyhow::ensure!(!paths.is_empty() && paths.len() <= 32 && paths.iter().all(|path| path.is_absolute()),
+        "Configure 1 to 32 absolute read-only folder paths");
+    Ok(paths)
+}
+
+async fn offline_media_routes(readonly_paths: Option<Vec<std::path::PathBuf>>) -> anyhow::Result<Router> {
     let Some(directory) = std::env::var_os("OTT_OFFLINE_MEDIA_DIR") else {
+        anyhow::ensure!(readonly_paths.is_none(), "Read-only local media requires OTT_OFFLINE_MEDIA_DIR for private metadata");
         return Ok(Router::new());
     };
     let token = std::env::var("OTT_OFFLINE_MEDIA_TOKEN")
         .map_err(|_| anyhow::anyhow!("OTT_OFFLINE_MEDIA_DIR requires OTT_OFFLINE_MEDIA_TOKEN"))?;
-    Ok(ottplay_core::offline_media::Library::new(directory.into(), token, "server").await?.routes())
+    let library = if let Some(paths) = readonly_paths {
+        ottplay_core::offline_media::Library::new_read_only(directory.into(), token, paths).await?
+    } else {
+        ottplay_core::offline_media::Library::new(directory.into(), token, "server").await?
+    };
+    Ok(library.routes())
 }
 
 async fn refresh_epg_snapshot(
@@ -485,6 +514,20 @@ fn player_asset_routes(directory: &std::path::Path) -> Router {
 #[cfg(test)]
 mod listener_tests {
     use super::*;
+
+    #[test]
+    fn readonly_library_requires_explicit_loopback_and_absolute_folder_list() {
+        // Use a native absolute path; /tmp is not absolute on Windows.
+        let paths = serde_json::to_string(&vec![std::env::temp_dir().join("media")]).unwrap();
+        assert_eq!(parse_readonly_paths(&paths, "127.0.0.1").unwrap().len(), 1);
+        assert!(parse_readonly_paths(&paths, "::1").is_ok());
+        for host in ["0.0.0.0", "::", "localhost", "192.168.1.2"] {
+            assert!(parse_readonly_paths(&paths, host).is_err());
+        }
+        for value in ["[]", r#"["relative"]"#, r#""/tmp/media""#, "invalid"] {
+            assert!(parse_readonly_paths(value, "127.0.0.1").is_err());
+        }
+    }
 
     #[test]
     fn repeated_http_ports_replace_the_default_and_https_remains_explicit() {

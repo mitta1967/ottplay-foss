@@ -313,7 +313,28 @@ const { gzipSync } = require("node:zlib");
 // PC random selection adds 3199 raw / 788 gzip bytes to the largest entry.
 // Node 22.23.3 measures 991859/306650 web and 991817/306708 native;
 // retain about 700 raw / 600 gzip bytes for release identity variation.
-const BUDGET = Object.freeze({ bytes: 992600, gzipBytes: 307350 });
+// Same-ID browser folder reconnection and bounded stale directory recovery add
+// 2379 raw / 639 gzip entry bytes on Node 22.23.3. Web is 994238/307289;
+// native is 994196/307346. Retain ~700 raw / 600 gzip bytes for release identity.
+// Bounded cached folder candidates and honest network enumeration progress add
+// 1429 raw / 376 gzip bytes. Node 22.23.3 web measures 995667/307664,
+// native 995625/307722; retain about 700 raw / 600 gzip release headroom.
+// Explicit source-relative file bootstrap and its standard editor add 3431 raw
+// / 841 gzip bytes on Node 22.23.3: web 999098/308505, native 999056/308561.
+// Keep about 700 raw / 600 gzip bytes of native/release identity headroom.
+// Read-only local helper controls add 322 raw bytes; reserve 600 raw bytes
+// for the reviewed UI and unchanged release identity allowance.
+// TV media category memberships and bounded remote category catalogs add
+// about 12.6 KB raw (1012845 total on Node 22). Keep the release suffix reserve.
+// Successful-page receipt renewal adds 342 raw bytes; retain candidate
+// version and native-transform room after the measured 1013442-byte entry.
+// Whole-portal progressive limits, compact metadata and idle diagnostics add
+// 1944 raw entry bytes (1015386 on Node 22.23.3); retain candidate headroom.
+// Persistent seek feedback/pending decoder targets and bounded metadata
+// fallback measure 1016906 raw on Node 22; retain ~600 identity bytes.
+// External seek admission/acknowledgment adds ~0.9 KB raw; retain identity room.
+// Footer hit testing with the verified beta.999 identity measures 1018418/314088.
+const BUDGET = Object.freeze({ bytes: 1018500, gzipBytes: 314200 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -462,7 +483,23 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Node 22 measures 1115298/352559 web and 1115256/352616 native.
 // The same PC shortcut is counted once across all shipped artifacts.
 // Node 22.23.3 totals 1124049/354978 web and 1124007/355036 native.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1124800, gzipBytes: 355650 });
+// Count that same reviewed reconnect cost once in the complete payload:
+// Node 22.23.3 web 1126428/355617; native 1126386/355674.
+// Include the same bounded-candidate and progress cost once: Node 22.23.3
+// web 1127857/355992; native 1127815/356050, with unchanged provider bytes.
+// Count explicit relative-file bootstrap once: web 1131288/356833,
+// native 1131246/356889 on Node 22.23.3; optional provider bytes are unchanged.
+// Compact whole-Plex metadata, flat music ancestry, Unicode-safe labels and
+// VPortal wire-compatible titles add 1762 raw bytes to the reviewed catalog
+// build. Node 22.23.3 measures 1147384 / 361587 gzip for the complete web
+// payload; preserve bounded native and release-suffix headroom.
+// Exact PMS navigation accounting, C1 cleanup and successful-page renewal
+// measure 1148243 / 361821 gzip on Node 22.23.3. Retain bounded release room.
+// Count the bounded whole-portal scanner once in the complete payload.
+// The same seek/fallback changes measure 1151707 total raw on Node 22.
+// External-seek hooks measure 363232 gzip on clean Node 22 builds.
+// The same beta identity measures 1153219 raw bytes including provider bundles.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1153300, gzipBytes: 363600 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

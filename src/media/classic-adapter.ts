@@ -2196,6 +2196,18 @@ function classicMediaRuntime(): any {
                 sequence: start && start.sequence,
                 ticket: ticket,
             };
+            var driver = w.__ottActiveProviderDriver;
+            if (
+                driver &&
+                driver.id === "plex" &&
+                typeof driver.rememberPlayback === "function"
+            ) {
+                try {
+                    driver.rememberPlayback(item.payload);
+                } catch (_) {
+                    // A failed optional cursor write cannot prevent playback.
+                }
+            }
             return {
                 channel: start && start.sequence && start.sequence.channel,
                 item: item.payload,

@@ -72,7 +72,7 @@ async function expectProgramme(page, expected, openedAt) {
 
 for (const provider of ["plex", "vportal"]) {
     for (const layout of ["/f/pc/", "/f/"]) {
-        test(`${provider} selected folders stream into ordinary channels ${layout}`, async ({
+        test(`${provider} whole catalog streams into ordinary channels ${layout}`, async ({
             page,
             context,
             baseURL,
@@ -80,6 +80,7 @@ for (const provider of ["plex", "vportal"]) {
             const origin = new URL(baseURL).origin;
             const first = [],
                 second = [],
+                third = [],
                 metadata = [];
             const errors = [];
             let holdMetadata = false;
@@ -150,14 +151,14 @@ for (const provider of ["plex", "vportal"]) {
                         Directory: [
                             { key: "1", title: "Selected one", type: "movie" },
                             { key: "2", title: "Selected two", type: "movie" },
-                            { key: "3", title: "Not selected", type: "movie" },
+                            { key: "3", title: "Extra", type: "movie" },
                         ],
                     });
                 if (/^\/library\/sections\/\d+\/all$/.test(url.pathname)) {
                     if (url.pathname.includes("/1/")) first.push(route);
                     else if (url.pathname.includes("/2/")) second.push(route);
-                    else
-                        throw new Error("Unselected Plex folder was requested");
+                    else if (url.pathname.includes("/3/")) third.push(route);
+                    else throw new Error("Unknown Plex folder was requested");
                     return;
                 }
                 if (/^\/library\/metadata\/\d+$/.test(url.pathname)) {
@@ -171,6 +172,15 @@ for (const provider of ["plex", "vportal"]) {
                 }
                 if (url.pathname.endsWith("/vportal/api")) {
                     const params = route.request().postDataJSON().params;
+                    if (!params.folder && !params.cmd)
+                        return json(route, {
+                            items: ["one", "two", "extra"].map((folder) => ({
+                                request: { folder },
+                                title: folder,
+                                type: "category",
+                            })),
+                            type: "videoportal",
+                        });
                     if (params.cmd === "play") {
                         metadata.push(params.id);
                         if (holdMetadata) {
@@ -181,9 +191,10 @@ for (const provider of ["plex", "vportal"]) {
                     }
                     if (params.folder === "one") first.push(route);
                     else if (params.folder === "two") second.push(route);
+                    else if (params.folder === "extra") third.push(route);
                     else
                         throw new Error(
-                            "Unselected VPortal section was requested"
+                            "Unknown VPortal section was requested"
                         );
                     return;
                 }
@@ -302,10 +313,71 @@ for (const provider of ["plex", "vportal"]) {
             ).toEqual(playing);
             await expect(page.locator("#list")).toContainText("Film 1");
             await expect(page.locator("#list")).toContainText("Film 2");
+            await expect.poll(() => third.length).toBe(1);
+            const beforeExtra = metadata.length;
+            await catalog(third.shift(), 3);
+            await expect
+                .poll(() => page.evaluate(() => window.cList.length))
+                .toBe(3);
+            await expect
+                .poll(() =>
+                    page.evaluate(() =>
+                        window.__ottActiveProviderDriver.catalogLoading()
+                    )
+                )
+                .toBe(false);
+            const catalogIds = await page.evaluate(() => window.cList.slice());
+            expect(metadata.length).toBe(beforeExtra);
+            expect(
+                await page.evaluate(
+                    () => window.__ottClassicPlayback.snapshot().generation
+                )
+            ).toBe(playing.generation);
+            await expect(page.locator("#list")).toContainText("Film 3");
+            // Existing saved folder choices must not exclude the third section.
+            // Category selection changes visibility without starting another decoder.
+            await page.evaluate(() => window.bucketsList(window.catIndex));
+            await expect(page.locator("#listCaption")).toHaveText(
+                "Category selection"
+            );
+            await page.evaluate(
+                (name) => {
+                    window.selIndex = window.listArray.findIndex(
+                        (value) => value === name
+                    );
+                    window.listKeyHandler(window.keys.ENTER);
+                },
+                provider === "plex" ? "Extra" : "extra"
+            );
+            await expect(page.locator("#list")).toContainText("Film 3");
+            await expect(page.locator("#list")).not.toContainText("Film 1");
+            await expect(page.locator("#list")).not.toContainText("Film 2");
+            expect(metadata.length).toBe(beforeExtra);
+            expect(
+                await page.evaluate(
+                    () => window.__ottClassicPlayback.snapshot().generation
+                )
+            ).toBe(playing.generation);
+            expect(
+                await page.evaluate(
+                    () => window.__ottMedia.current()?.payload.title
+                )
+            ).toBe("Film 1");
+            expect(await page.evaluate(() => window.cList.slice())).toEqual(
+                catalogIds
+            );
+            await page.evaluate(() => window.bucketsList(window.catIndex));
+            await page.evaluate(() => {
+                window.selIndex = window.listArray.indexOf(window._("All"));
+                window.listKeyHandler(window.keys.ENTER);
+            });
+            await expect(page.locator("#list")).toContainText("Film 1");
+            await expect(page.locator("#list")).toContainText("Film 2");
+            await expect(page.locator("#list")).toContainText("Film 3");
             await expectProgramme(
                 page,
                 {
-                    collection: provider === "plex" ? "Selected 1" : "one",
+                    collection: provider === "plex" ? "Selected one" : "one",
                     nextTitle: "Film 2",
                     title: "Film 1",
                 },
@@ -367,12 +439,14 @@ for (const provider of ["plex", "vportal"]) {
                     window.__ottMedia.current()?.payload.title === "Film 2" &&
                     window.__ottClassicPlayback.snapshot().phase === "playing"
             );
+            // Up advances and Down goes back; three items distinguish direction
+            // (with two items both directions used to land on Film 1).
             await page.keyboard.press("ArrowUp");
-            await expect.poll(() => metadata[metadata.length - 1]).toBe(1);
+            await expect.poll(() => metadata[metadata.length - 1]).toBe(3);
             await page.waitForFunction(
                 () =>
                     window.video?.currentTime > 0.2 &&
-                    window.__ottMedia.current()?.payload.title === "Film 1" &&
+                    window.__ottMedia.current()?.payload.title === "Film 3" &&
                     window.__ottClassicPlayback.snapshot().phase === "playing"
             );
             await page.keyboard.press("ArrowDown");
@@ -390,12 +464,17 @@ for (const provider of ["plex", "vportal"]) {
             await expect(page.locator("#dialogbox .ott-spinner")).toBeVisible();
             expect(metadata.length).toBe(beforeReload);
             await catalog(second.shift(), 2);
+            await expect.poll(() => third.length).toBe(1);
+            await catalog(third.shift(), 3);
             await page.waitForFunction(
                 () =>
                     window.__ottMedia.current()?.payload.title === "Film 2" &&
                     window.__ottClassicPlayback.snapshot().phase === "playing"
             );
             expect(metadata[metadata.length - 1]).toBe(2);
+            expect(await page.evaluate(() => window.cList.slice())).toEqual(
+                catalogIds
+            );
             // A removed saved video leaves an accessible list after boot cleanup,
             // without silently replacing it with the first remaining file.
             const beforeMissing = metadata.length;
@@ -409,6 +488,8 @@ for (const provider of ["plex", "vportal"]) {
                     ? { Metadata: [], offset: 0, size: 0, totalSize: 0 }
                     : { items: [], type: "videoportal" }
             );
+            await expect.poll(() => third.length).toBe(1);
+            await catalog(third.shift(), 3);
             await expect(page.locator("#list")).toBeVisible();
             await expect(page.locator("#list")).toContainText("Film 1");
             await expect(page.locator("#launch")).toBeHidden();

@@ -989,6 +989,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalkeri portaali pakkuja",
     "Stalker portal settings": "Stalkeri portaali seaded",
     "Stalker portals": "Stalker-portaalid",
+    "Start with file": "Alusta failiga",
     "Starting...": "Alustatakse…",
     Status: "Olek",
     Stop: "Peata",
@@ -1023,6 +1024,8 @@ var keyStrings = {
         "Tekst on liiga pikk. Palun lühendage seda enne saatmist.",
     "Text sent. Check your TV to confirm it appeared.":
         "Tekst saadetud. Kontrollige oma telerit, et veenduda, et see ilmus.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Brauser kontrollib enne failide näitamist kausta metaandmeid. Suurte võrgukaustade puhul võib see võtta mitu minutit.",
     "The browser screenshot source is ready.":
         "Brauseri ekraanipildi allikas on valmis.",
     "The command server discovery URL is invalid.":

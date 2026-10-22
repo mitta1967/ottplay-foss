@@ -1099,7 +1099,7 @@ Use o [fluxo video-use](docs/demo-video.md) local para preparar e editar gravaç
 
 ## Biblioteca multimédia Plex
 
-Cada leitor pode ligar a uma conta Plex ou Plex Media Server através do fornecedor **Plex**. A integração usa Plex; Synology é um possível anfitrião do servidor multimédia. Selecione pastas no perfil para preencher a lista normal de canais. A reprodução começa com o primeiro lote utilizável, com carregamento em segundo plano, pesquisa padrão e Ações de ordem aleatória/repetição, sem configurar Plex no servidor OTT. Consulte [autenticação Plex e reprodução direta](docs/plex-provider.md).
+Cada leitor pode ligar a uma conta Plex ou Plex Media Server através do fornecedor **Plex**. A integração usa Plex; Synology é um possível anfitrião do servidor multimédia. Todos os vídeos e faixas musicais acessíveis aparecem automaticamente na lista de canais; a seleção de categoria filtra por biblioteca, pasta ou série. A reprodução começa com o primeiro lote utilizável, com carregamento em segundo plano, pesquisa padrão e Ações de ordem aleatória/repetição, sem configurar Plex no servidor OTT. Consulte [autenticação Plex e reprodução direta](docs/plex-provider.md).
 
 ![Ciclo de carregamento, navegação em ficheiros e encerramento Plex](docs/images/plex-playback-lifecycle.svg)
 

@@ -24,6 +24,316 @@ import { executeRemoteScreenshot } from "./remote-screenshot";
 // receipt crosses the control transport. It authorizes no additional access.
 var remoteEpgCatalog: any = null;
 
+// Receipts share the producer's immutable snapshot; no receipt copies its rows.
+// Retain only the current snapshot and a bounded number of small query bindings.
+var remoteMediaCatalogs: any[] = [];
+var remoteMediaCatalogSequence = 0;
+function remoteMediaText(value: any, limit: number): boolean {
+    if (
+        typeof value !== "string" ||
+        !value.trim() ||
+        /[\x00-\x1f\x7f-\x9f]/.test(value)
+    )
+        return false;
+    try {
+        return (
+            encodeURIComponent(value).replace(/%[0-9A-F]{2}/g, "x").length <=
+            limit
+        );
+    } catch (_) {
+        return false;
+    }
+}
+/** Project only a category's display label; never serialize its provider request. */
+function remoteMediaCategoryName(value: any): string | null {
+    if (
+        typeof value !== "string" ||
+        !value.trim() ||
+        /[\x00-\x1f\x7f-\x9f]/.test(value)
+    )
+        return null;
+    var bytes = 0;
+    var prefixBytes = 0;
+    var prefix = "";
+    var collecting = true;
+    for (var index = 0; index < value.length; index++) {
+        var code = value.charCodeAt(index);
+        var width = 1;
+        var size = code < 0x80 ? 1 : code < 0x800 ? 2 : 3;
+        if (code >= 0xd800 && code <= 0xdbff) {
+            var low = value.charCodeAt(index + 1);
+            if (!(low >= 0xdc00 && low <= 0xdfff)) return null;
+            width = 2;
+            size = 4;
+        } else if (code >= 0xdc00 && code <= 0xdfff) return null;
+        bytes += size;
+        // Reserve the three UTF-8 bytes of the ellipsis before keeping a code point.
+        if (collecting && prefixBytes + size <= 509) {
+            prefix += value.slice(index, index + width);
+            prefixBytes += size;
+        } else collecting = false;
+        index += width - 1;
+    }
+    return bytes <= 512 ? value : prefix + "…";
+}
+function remoteMediaInteger(value: any, maximum: number): boolean {
+    return (
+        typeof value === "number" &&
+        isFinite(value) &&
+        Math.floor(value) === value &&
+        value >= 0 &&
+        value <= maximum
+    );
+}
+function remoteMediaKeys(
+    value: any,
+    required: string[],
+    optional: string[] = []
+): boolean {
+    return (
+        !!value &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        required.every(function (key) {
+            return Object.prototype.hasOwnProperty.call(value, key);
+        }) &&
+        Object.keys(value).every(function (key) {
+            return required.indexOf(key) >= 0 || optional.indexOf(key) >= 0;
+        })
+    );
+}
+function remoteMediaId(value: string): string {
+    return value === "system:all" ? "all" : value;
+}
+function remoteMediaIncomplete(w: any): boolean {
+    var driver = w.__ottActiveProviderDriver;
+    try {
+        return !!(
+            driver &&
+            typeof driver.catalogError === "function" &&
+            driver.catalogError() === true
+        );
+    } catch (_) {
+        // A failed completeness check cannot authorize a complete-catalogue claim.
+        return true;
+    }
+}
+function remoteMediaRead(w: any): any {
+    var provider =
+        w.__ottActiveProviderDriver && w.__ottActiveProviderDriver.id;
+    var channels = w.__ottChannels;
+    if (
+        (provider !== "plex" && provider !== "vportal") ||
+        !channels ||
+        typeof channels.remoteCatalog !== "function"
+    )
+        return null;
+    try {
+        var snapshot = channels.remoteCatalog();
+        if (
+            !snapshot ||
+            typeof snapshot.active !== "function" ||
+            !snapshot.active() ||
+            !Array.isArray(snapshot.all) ||
+            !Array.isArray(snapshot.canonicalIds) ||
+            !Array.isArray(snapshot.groups) ||
+            snapshot.all.length > 1000000 ||
+            snapshot.canonicalIds.length > 1000000 ||
+            snapshot.groups.length >= 1000000
+        )
+            return null;
+        return snapshot;
+    } catch (_) {
+        return null;
+    }
+}
+function remoteMediaPrune(snapshot: any): void {
+    remoteMediaCatalogs = remoteMediaCatalogs.filter(function (entry) {
+        return (
+            entry.snapshot === snapshot &&
+            entry.expires > Date.now() &&
+            entry.snapshot.active()
+        );
+    });
+}
+function remoteMediaReceipt(
+    snapshot: any,
+    runtime: string,
+    provider: string,
+    category?: string,
+    search?: string
+): any {
+    remoteMediaPrune(snapshot);
+    var entry = {
+        category: category,
+        expires: Date.now() + 120000,
+        provider: provider,
+        runtime: runtime,
+        search: search,
+        snapshot: snapshot,
+        token:
+            "media-" +
+            Date.now().toString(36) +
+            "-" +
+            (++remoteMediaCatalogSequence).toString(36) +
+            "-" +
+            Math.random().toString(36).slice(2),
+    };
+    if (remoteMediaCatalogs.length >= 32) remoteMediaCatalogs.shift();
+    remoteMediaCatalogs.push(entry);
+    return entry;
+}
+function remoteMediaFind(
+    token: any,
+    snapshot: any,
+    runtime: string,
+    provider: string
+): any {
+    remoteMediaPrune(snapshot);
+    return remoteMediaCatalogs.filter(function (entry) {
+        return (
+            entry.token === token &&
+            entry.runtime === runtime &&
+            entry.provider === provider
+        );
+    })[0];
+}
+// Only a fully validated page read extends the receipt's inactivity window.
+function remoteMediaRenew(w: any, entry: any): boolean {
+    if (
+        !entry.snapshot.active() ||
+        remotePlayerInfo(w).runtime !== entry.runtime ||
+        !w.__ottActiveProviderDriver ||
+        w.__ottActiveProviderDriver.id !== entry.provider
+    )
+        return false;
+    entry.expires = Date.now() + 120000;
+    return true;
+}
+function remoteMediaGroup(snapshot: any, category: string): any {
+    if (category === "all")
+        return { id: "all", members: snapshot.all, name: "All" };
+    return snapshot.groups.filter(function (group: any) {
+        return remoteMediaId(group.id) === category;
+    })[0];
+}
+function remoteMediaSelected(w: any, snapshot: any): string {
+    var selected =
+        typeof w.__ottChannels.browsingGroup === "function"
+            ? w.__ottChannels.browsingGroup()
+            : typeof w.__ottChannels.group === "function"
+              ? w.__ottChannels.group(w.listCatIndex)
+              : null;
+    selected = typeof selected === "string" ? remoteMediaId(selected) : "all";
+    return remoteMediaGroup(snapshot, selected) ? selected : "all";
+}
+function remoteMediaRows(
+    w: any,
+    snapshot: any,
+    group: any,
+    search: string,
+    offset: number,
+    limit: number,
+    wanted?: string
+): any {
+    var members: Record<string, boolean> = Object.create(null);
+    var seen: Record<string, boolean> = Object.create(null);
+    var result: any = { channels: [], selected: null, total: 0 };
+    var valid = true;
+    if (!group || !Array.isArray(group.members)) return null;
+    group.members.forEach(function (key: any) {
+        members[String(key)] = true;
+    });
+    var folded = caselessKey(search);
+    snapshot.canonicalIds.forEach(function (key: any, index: number) {
+        var channel = (w.channels || {})[key];
+        if (!channel) {
+            valid = false;
+            return;
+        }
+        var id = String(channel.itemId || key);
+        var name =
+            typeof channel.channel_name === "string"
+                ? channel.channel_name
+                : "";
+        if (
+            !remoteMediaText(id, 2048) ||
+            !remoteMediaText(name, 512) ||
+            seen[id]
+        ) {
+            valid = false;
+            return;
+        }
+        seen[id] = true;
+        if (
+            !members[String(key)] ||
+            (folded && caselessKey(name).indexOf(folded) < 0)
+        )
+            return;
+        var row = { id: id, name: name, number: index + 1 };
+        if (result.total >= offset && result.channels.length < limit)
+            result.channels.push(row);
+        if (id === wanted) result.selected = { key: key, row: row };
+        result.total++;
+    });
+    return valid && snapshot.active() ? result : null;
+}
+function remoteMediaRestricted(w: any): boolean {
+    try {
+        if (
+            (w.__ottKiosk && w.__ottKiosk.enabled()) ||
+            (typeof w.stbIsStandby === "function" && w.stbIsStandby()) ||
+            (w.__ottParental
+                ? w.__ottParental.needs("providers") ||
+                  w.__ottParental.needs("settings") ||
+                  w.__ottParental.needs("channels")
+                : (w.sPSprovs || w.sPSoptions || w.sPSchannels) &&
+                  w.parentPIN !== "*" &&
+                  !w.parentAccess)
+        )
+            return true;
+        var port = w.__ottClassicScreenPort;
+        if (
+            !port ||
+            !port.screens ||
+            typeof port.screens.current !== "function"
+        )
+            return true;
+        var owner = port.screens.current();
+        var list = port.listOwner && port.listOwner();
+        if (
+            (owner &&
+                (owner.kind !== "list" ||
+                    (owner.model && owner.model.localOnlyInput))) ||
+            (list && list.model && list.model.localOnlyInput)
+        )
+            return true;
+        if (
+            w.$ &&
+            w
+                .$(
+                    "#pin, #remoteDiagnosticsToggle, #remoteDiagnosticsTrust, #remoteScreenshotToggle, #dialogbox, #listAbout, #listEdit, #numprog"
+                )
+                .is(":visible")
+        )
+            return true;
+        return !!(
+            w.isListVisible &&
+            (w.listArray || []).some(function (row: any) {
+                return (
+                    row &&
+                    (row.editorAction === "parentalEnabled" ||
+                        /^(psChannels|psOptions|requirePinForProviderSelection)$/.test(
+                            row.settingId
+                        ))
+                );
+            })
+        );
+    } catch (_) {
+        return true;
+    }
+}
+
 /** Read only producer-owned, allowlisted snapshots; never raw diagnostics or logs. */
 function remoteSnapshot(read: any): any {
     if (typeof read !== "function") return { available: false };
@@ -78,6 +388,7 @@ export function executeRemoteRequest(
             "status",
             "screenshot",
             "channels",
+            "categories",
             "providers",
             "profiles",
             "settings_compare",
@@ -166,6 +477,385 @@ export function executeRemoteRequest(
                   w.parentPIN !== "*" &&
                   !w.parentAccess;
     }
+    var modernChannels =
+        request.action === "channels" &&
+        ["runtime", "catalog", "category", "offset", "limit"].some(
+            function (key) {
+                return Object.prototype.hasOwnProperty.call(params, key);
+            }
+        );
+    if (request.action === "categories" || modernChannels) {
+        var runtime = remotePlayerInfo(w).runtime;
+        var operation = modernChannels
+            ? "channels"
+            : params.op === "select"
+              ? "select"
+              : "list";
+        var mediaFailure = function (error: string): void {
+            done({
+                data: {
+                    error: error,
+                    op: operation,
+                    runtime:
+                        typeof params.runtime === "string" &&
+                        /^[a-z0-9-]{1,64}$/.test(params.runtime)
+                            ? params.runtime
+                            : runtime,
+                    state: "error",
+                    version: 1,
+                },
+                status: error === "unsupported" ? "unsupported" : "rejected",
+            });
+        };
+        var listing = operation === "list";
+        var selecting = operation === "select";
+        var valid = modernChannels
+            ? remoteMediaKeys(
+                  params,
+                  ["runtime", "catalog", "category", "offset", "limit"],
+                  ["search"]
+              )
+            : selecting
+              ? remoteMediaKeys(params, [
+                    "op",
+                    "runtime",
+                    "catalog",
+                    "category",
+                ])
+              : remoteMediaKeys(
+                    params,
+                    ["op", "runtime", "offset", "limit"],
+                    ["catalog"]
+                ) && params.op === "list";
+        if (
+            !valid ||
+            typeof params.runtime !== "string" ||
+            !/^[a-z0-9-]{1,64}$/.test(params.runtime) ||
+            (!selecting &&
+                (!remoteMediaInteger(params.offset, 1000000) ||
+                    !remoteMediaInteger(params.limit, 200) ||
+                    params.limit < 1)) ||
+            ((params.catalog !== undefined ||
+                selecting ||
+                modernChannels ||
+                params.offset > 0) &&
+                (typeof params.catalog !== "string" ||
+                    !/^[A-Za-z0-9_.:-]{1,128}$/.test(params.catalog))) ||
+            (!listing && !remoteMediaText(params.category, 1024)) ||
+            (params.search !== undefined &&
+                (typeof params.search !== "string" ||
+                    (params.search !== "" &&
+                        !remoteMediaText(params.search, 1024))))
+        ) {
+            mediaFailure("invalid_request");
+            return;
+        }
+        if (params.runtime !== runtime) {
+            mediaFailure("runtime_mismatch");
+            return;
+        }
+        if (activeProvider() !== "plex" && activeProvider() !== "vportal") {
+            mediaFailure("unsupported");
+            return;
+        }
+        if (remoteMediaIncomplete(w)) {
+            remoteMediaPrune(null);
+            mediaFailure("catalog_incomplete");
+            return;
+        }
+        var mediaSnapshot = remoteMediaRead(w);
+        if (!mediaSnapshot) {
+            remoteMediaPrune(null);
+            mediaFailure("unavailable");
+            return;
+        }
+        var provider = activeProvider();
+        var receipt =
+            params.catalog === undefined
+                ? null
+                : remoteMediaFind(
+                      params.catalog,
+                      mediaSnapshot,
+                      runtime,
+                      provider
+                  );
+        if (params.catalog !== undefined && !receipt) {
+            mediaFailure("catalog_changed");
+            return;
+        }
+        if (receipt && listing && receipt.category !== undefined) {
+            mediaFailure("catalog_changed");
+            return;
+        }
+        var loading = false;
+        try {
+            loading = !!(
+                w.__ottActiveProviderDriver &&
+                typeof w.__ottActiveProviderDriver.catalogLoading ===
+                    "function" &&
+                w.__ottActiveProviderDriver.catalogLoading()
+            );
+        } catch (_) {
+            mediaFailure("unavailable");
+            return;
+        }
+        if (listing) {
+            var categoryRows: any[] = [];
+            var categorySeen: Record<string, boolean> = Object.create(null);
+            var categoryValid = true;
+            [
+                {
+                    id: "system:all",
+                    members: mediaSnapshot.all,
+                    name:
+                        (
+                            mediaSnapshot.groups.filter(function (group: any) {
+                                return group.id === "system:all";
+                            })[0] || {}
+                        ).name || "All",
+                },
+            ]
+                .concat(
+                    mediaSnapshot.groups.filter(function (group: any) {
+                        return group.id !== "system:all";
+                    })
+                )
+                .forEach(function (group: any) {
+                    var id =
+                        typeof group.id === "string"
+                            ? remoteMediaId(group.id)
+                            : "";
+                    var categoryName = remoteMediaCategoryName(group.name);
+                    if (
+                        !remoteMediaText(id, 1024) ||
+                        categoryName === null ||
+                        categorySeen[id] ||
+                        !Array.isArray(group.members) ||
+                        group.members.length > 1000000
+                    ) {
+                        categoryValid = false;
+                        return;
+                    }
+                    categorySeen[id] = true;
+                    categoryRows.push({
+                        count: group.members.length,
+                        id: id,
+                        name: categoryName,
+                    });
+                });
+            if (!categoryValid) {
+                mediaFailure("unavailable");
+                return;
+            }
+            if (params.offset > categoryRows.length) {
+                mediaFailure("invalid_request");
+                return;
+            }
+            var mediaSelected = remoteMediaSelected(w, mediaSnapshot);
+            if (!receipt)
+                receipt = remoteMediaReceipt(mediaSnapshot, runtime, provider);
+            if (!remoteMediaRenew(w, receipt)) {
+                mediaFailure("catalog_changed");
+                return;
+            }
+            reply({
+                catalog: receipt.token,
+                categories: categoryRows.slice(
+                    params.offset,
+                    params.offset + params.limit
+                ),
+                has_more: params.offset + params.limit < categoryRows.length,
+                loading: loading,
+                offset: params.offset,
+                op: "list",
+                provider: provider,
+                runtime: runtime,
+                selected: mediaSelected,
+                total: categoryRows.length,
+                version: 1,
+            });
+            return;
+        }
+        var mediaGroup = remoteMediaGroup(mediaSnapshot, params.category);
+        if (!mediaGroup) {
+            mediaFailure("category_not_found");
+            return;
+        }
+        if (selecting) {
+            if (remoteMediaRestricted(w)) {
+                mediaFailure("restricted");
+                return;
+            }
+            if (
+                !w.__ottChannels ||
+                typeof w.__ottChannels.browse !== "function"
+            ) {
+                mediaFailure("unavailable");
+                return;
+            }
+            try {
+                if (
+                    !mediaSnapshot.active() ||
+                    w.__ottChannels.browse(
+                        params.category === "all"
+                            ? "system:all"
+                            : params.category
+                    ) !== true ||
+                    remoteMediaSelected(w, mediaSnapshot) !== params.category
+                ) {
+                    mediaFailure("unavailable");
+                    return;
+                }
+            } catch (_) {
+                mediaFailure("unavailable");
+                return;
+            }
+            reply({
+                catalog: receipt.token,
+                dispatched: true,
+                op: "select",
+                provider: provider,
+                runtime: runtime,
+                selected: params.category,
+                version: 1,
+            });
+            return;
+        }
+        var mediaSearch = params.search || "";
+        if (
+            receipt.category !== undefined &&
+            (receipt.category !== params.category ||
+                receipt.search !== mediaSearch)
+        ) {
+            mediaFailure("catalog_changed");
+            return;
+        }
+        var page = remoteMediaRows(
+            w,
+            mediaSnapshot,
+            mediaGroup,
+            mediaSearch,
+            params.offset,
+            params.limit
+        );
+        if (!page) {
+            mediaFailure("unavailable");
+            return;
+        }
+        if (params.offset > page.total) {
+            mediaFailure("invalid_request");
+            return;
+        }
+        if (receipt.category === undefined) {
+            if (params.offset !== 0) {
+                mediaFailure("catalog_changed");
+                return;
+            }
+            receipt = remoteMediaReceipt(
+                mediaSnapshot,
+                runtime,
+                provider,
+                params.category,
+                mediaSearch
+            );
+        }
+        if (!remoteMediaRenew(w, receipt)) {
+            mediaFailure("catalog_changed");
+            return;
+        }
+        reply({
+            catalog: receipt.token,
+            category: params.category,
+            channels: page.channels,
+            has_more: params.offset + page.channels.length < page.total,
+            loading: loading,
+            offset: params.offset,
+            runtime: runtime,
+            total: page.total,
+            version: 1,
+        });
+        return;
+    }
+    if (
+        request.action === "play_catalog" &&
+        typeof params.catalog === "string" &&
+        params.catalog.indexOf("media-") === 0
+    ) {
+        if (remoteMediaIncomplete(w)) {
+            remoteMediaPrune(null);
+            reject(
+                "The media catalogue scan failed. Reload the catalogue before playing."
+            );
+            return;
+        }
+        var playRuntime = remotePlayerInfo(w).runtime;
+        var playSnapshot = remoteMediaRead(w);
+        var playReceipt =
+            playSnapshot &&
+            remoteMediaFind(
+                params.catalog,
+                playSnapshot,
+                playRuntime,
+                activeProvider()
+            );
+        if (
+            !remoteMediaKeys(params, ["catalog", "id"]) ||
+            !remoteMediaText(params.id, 2048) ||
+            !playReceipt ||
+            playReceipt.category === undefined ||
+            !playSnapshot.active()
+        ) {
+            reject(
+                "Media catalogue changed. List the category again before playing."
+            );
+            return;
+        }
+        if (remoteMediaRestricted(w)) {
+            reject("Media playback is restricted by the player.");
+            return;
+        }
+        if (w.commandChannelsReady !== true) {
+            reject("Media catalogue is unavailable.");
+            return;
+        }
+        var playGroup = remoteMediaGroup(playSnapshot, playReceipt.category);
+        var playPage =
+            playGroup &&
+            remoteMediaRows(
+                w,
+                playSnapshot,
+                playGroup,
+                playReceipt.search,
+                0,
+                0,
+                params.id
+            );
+        if (!playPage || !playPage.selected) {
+            reject("The selected media item is no longer available.");
+            return;
+        }
+        var groupIndex = w.__ottChannels.index(
+            playReceipt.category === "all" ? "system:all" : playReceipt.category
+        );
+        var members = groupIndex >= 0 && w.cats[w.catsArray[groupIndex]];
+        var memberIndex = Array.isArray(members)
+            ? members.map(String).indexOf(String(playPage.selected.key))
+            : -1;
+        if (
+            memberIndex < 0 ||
+            typeof w.playChannel !== "function" ||
+            !playSnapshot.active()
+        ) {
+            reject("The selected media item is no longer available.");
+            return;
+        }
+        if (w.playChannel(groupIndex, memberIndex, true) === false) {
+            reject("Playback was rejected by the player.");
+            return;
+        }
+        reply({ channel: playPage.selected.row, dispatched: true });
+        return;
+    }
     if (
         request.action === "profile_save" ||
         request.action === "profile_export" ||
@@ -197,7 +887,26 @@ export function executeRemoteRequest(
             w,
             request.action,
             params,
-            done,
+            request.action === "capabilities"
+                ? function (result: any) {
+                      if (
+                          result.status === "ok" &&
+                          result.data &&
+                          (activeProvider() === "plex" ||
+                              activeProvider() === "vportal") &&
+                          w.__ottChannels &&
+                          typeof w.__ottChannels.remoteCatalog === "function" &&
+                          typeof w.__ottChannels.browse === "function"
+                      ) {
+                          result.data.categories = {
+                              maxPageSize: 200,
+                              operations: ["list", "select"],
+                              version: 1,
+                          };
+                      }
+                      done(result);
+                  }
+                : done,
             afterReply,
             request.expires_at
         );
@@ -812,7 +1521,27 @@ export function executeRemoteRequest(
             );
             return;
         }
-        for (var c = 0; c < (w.catsArray || []).length; c++) {
+        var categoryOrder = (w.catsArray || []).map(function (
+            _value: any,
+            index: number
+        ) {
+            return index;
+        });
+        var numericSnapshot = /^\d+$/.test(text) && remoteMediaRead(w);
+        if (numericSnapshot) {
+            var browsed = remoteMediaSelected(w, numericSnapshot);
+            var preferred = w.__ottChannels.index(
+                browsed === "all" ? "system:all" : browsed
+            );
+            if (preferred >= 0)
+                categoryOrder = [preferred].concat(
+                    categoryOrder.filter(function (index: number) {
+                        return index !== preferred;
+                    })
+                );
+        }
+        for (var position = 0; position < categoryOrder.length; position++) {
+            var c = categoryOrder[position];
             var list = w.cats[w.catsArray[c]] || [];
             for (var i = 0; i < list.length; i++) {
                 if (String(list[i]) === String(matches[0].id)) {

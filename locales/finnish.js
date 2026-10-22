@@ -991,6 +991,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker-portaalin tarjoaja",
     "Stalker portal settings": "Stalker-portaalin asetukset",
     "Stalker portals": "Stalker-portaalit",
+    "Start with file": "Aloita tiedostosta",
     "Starting...": "Alkaen…",
     Status: "Tila",
     Stop: "Pysäytä",
@@ -1025,6 +1026,8 @@ var keyStrings = {
         "Teksti on liian pitkä. Lyhennä sitä ennen lähettämistä.",
     "Text sent. Check your TV to confirm it appeared.":
         "Teksti lähetetty. Tarkista televisiostasi, että se ilmestyi.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Selain tarkistaa kansion metatiedot ennen tiedostojen näyttämistä. Suurissa verkkokansioissa tämä voi kestää useita minuutteja.",
     "The browser screenshot source is ready.":
         "Selaimen kuvakaappauslähde on valmis.",
     "The command server discovery URL is invalid.":

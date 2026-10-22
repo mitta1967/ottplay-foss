@@ -989,6 +989,7 @@ var keyStrings = {
     "Stalker Portal Provider": "ارائه دهنده پورتال Stalker",
     "Stalker portal settings": "تنظیمات پورتال Stalker",
     "Stalker portals": "پورتال های Stalker",
+    "Start with file": "شروع با فایل",
     "Starting...": "شروع…",
     Status: "وضعیت",
     Stop: "توقف کنید",
@@ -1022,6 +1023,8 @@ var keyStrings = {
         "متن خیلی طولانی است. لطفا قبل از ارسال آن را کوتاه کنید.",
     "Text sent. Check your TV to confirm it appeared.":
         "متن ارسال شد. تلویزیون خود را بررسی کنید تا مطمئن شوید ظاهر شده است.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "مرورگر پیش از نمایش فایل‌ها فرادادهٔ پوشه را بررسی می‌کند. پوشه‌های بزرگ شبکه ممکن است چند دقیقه زمان ببرند.",
     "The browser screenshot source is ready.":
         "منبع اسکرین شات مرورگر آماده است.",
     "The command server discovery URL is invalid.":

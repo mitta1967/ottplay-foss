@@ -13,21 +13,22 @@ export function formatLocalMediaProgress(
     var result = translate("Local videos") + ": " + playable;
     if (typeof value.discovered === "number")
         result += " · " + translate("Entries found") + ": " + value.discovered;
-    if (value.phase === "enumerating")
+    if (value.phase === "enumerating") {
         result += " · " + translate("Reading folder entries");
-    else if (value.phase === "metadata")
+        if (!playable)
+            result +=
+                " · " +
+                translate(
+                    "The browser checks folder metadata before returning files. Large network folders can take several minutes."
+                );
+    } else if (value.phase === "metadata")
         result += " · " + translate("Reading file information");
     else if (value.phase === "permission")
         result += " · " + translate("Checking folder permission");
     return result;
 }
 
-/** Initial browser enumeration may warm a large network directory's metadata. */
+/** Native enumeration can warm network metadata even after cached playback starts. */
 export function localMediaProgressTimeout(value: any): number {
-    return value.phase === "enumerating" &&
-        !(value.items || []).some(function (item: any) {
-            return item.available !== false && !!item.url;
-        })
-        ? 600000
-        : 60000;
+    return value.phase === "enumerating" ? 2700000 : 60000;
 }

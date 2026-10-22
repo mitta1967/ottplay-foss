@@ -3161,6 +3161,10 @@ export function getCoreMediaBackend(): any {
         admitted: function () {
             return !stbIsStandby();
         },
+        beforeSeek: function (position: number): void {
+            var playback = (window as any).__ottClassicPlayback;
+            if (playback && playback.beforeSeek) playback.beforeSeek(position);
+        },
         clearInterval: function (timer: any) {
             clearInterval(timer);
         },
@@ -3197,6 +3201,11 @@ export function getCoreMediaBackend(): any {
                 if (type === "ended" && context.kind === "vod" && media)
                     media.ended(context.generation + 1);
             }
+        },
+        observedPosition: function (position: number): void {
+            var playback = (window as any).__ottClassicPlayback;
+            if (playback && playback.observedPosition)
+                playback.observedPosition(position);
         },
         open: openCoreEngineLease,
         resolve: function (url: string, done: (url: string | null) => void) {

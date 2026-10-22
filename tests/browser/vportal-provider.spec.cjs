@@ -82,7 +82,7 @@ test("VPortal flat channel playlist locks playback and restores after reload", a
                     portals: Array.from({ length: 15 }, (_, i) => ({
                         link: i ? "" : link,
                         name: i ? "" : "Кино",
-                        sections: i ? [] : [{ request: {}, title: "Root" }],
+                        sections: [],
                     })),
                 })
             );
@@ -164,3 +164,162 @@ test("VPortal flat channel playlist locks playback and restores after reload", a
     await page.evaluate(() => window.showProviderSelection());
     await expect(page.locator("#list")).toContainText("VPortal");
 });
+
+for (const device of ["pc", ""]) {
+    test(`VPortal whole portal and category visibility ${device || "generic"}`, async ({
+        page,
+        context,
+        baseURL,
+    }) => {
+        const origin = new URL(baseURL).origin;
+        let releaseFilms;
+        const filmsGate = new Promise((resolve) => {
+            releaseFilms = resolve;
+        });
+        await context.route("**/vportal/api", async (route) => {
+            const params = route.request().postDataJSON().params;
+            let response;
+            if (params.cmd === "play") {
+                response = {
+                    type: "stream",
+                    url: origin + "/fixture/video.m3u8",
+                };
+            } else if (params.cmd === "cartoons") {
+                response = {
+                    items: [
+                        {
+                            request: { cmd: "play", id: 1 },
+                            title: "Cartoon",
+                            type: "stream",
+                        },
+                        {
+                            request: { cmd: "series" },
+                            title: "Series",
+                            type: "multistream",
+                        },
+                    ],
+                    type: "category",
+                };
+            } else if (params.cmd === "series") {
+                response = {
+                    items: [
+                        {
+                            request: { cmd: "play", id: 2 },
+                            title: "Episode",
+                            type: "stream",
+                        },
+                    ],
+                    type: "multistream",
+                };
+            } else if (params.cmd === "films") {
+                await filmsGate;
+                response = {
+                    items: [
+                        {
+                            request: { cmd: "play", id: 3 },
+                            title: "Film",
+                            type: "stream",
+                        },
+                    ],
+                    type: "category",
+                };
+            } else {
+                response = {
+                    items: [
+                        {
+                            request: { cmd: "cartoons" },
+                            title: "Cartoons",
+                            type: "category",
+                        },
+                        {
+                            request: { cmd: "films" },
+                            title: "Films",
+                            type: "category",
+                        },
+                    ],
+                    type: "videoportal",
+                };
+            }
+            await route.fulfill({ json: response });
+        });
+        await context.route("**/fixture/video.m3u8", (route) =>
+            route.fulfill({
+                body:
+                    "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:2\n#EXT-X-PLAYLIST-TYPE:VOD\n" +
+                    Array.from(
+                        { length: 60 },
+                        (_, i) =>
+                            (i ? "#EXT-X-DISCONTINUITY\n" : "") +
+                            "#EXTINF:2.000000,\nsegment00.ts?segment=" +
+                            i +
+                            "\n"
+                    ).join("") +
+                    "#EXT-X-ENDLIST\n",
+                contentType: "application/vnd.apple.mpegurl",
+            })
+        );
+        await context.route("**/fixture/segment00.ts?*", (route) =>
+            route.fulfill({
+                body: fs.readFileSync(
+                    path.resolve(
+                        __dirname,
+                        "../fixtures/media-runtime/segment00.ts"
+                    )
+                ),
+                contentType: "video/mp2t",
+            })
+        );
+        await context.routeWebSocket("**/*", (socket) => socket.close());
+        await context.addInitScript((portal) => {
+            localStorage.setItem("ottplaylang", "_eng");
+            localStorage.setItem("ottplayprov", "vportal");
+            localStorage.setItem(
+                "vportalprofiles",
+                JSON.stringify({
+                    active: 0,
+                    portals: Array.from({ length: 15 }, (_, index) => ({
+                        link: index ? "" : portal,
+                        name: index ? "" : "Portal",
+                        // Old selected roots are retained but do not constrain visibility.
+                        sections: index
+                            ? []
+                            : [
+                                  {
+                                      request: { cmd: "obsolete" },
+                                      title: "Old selection",
+                                  },
+                              ],
+                    })),
+                })
+            );
+        }, link);
+        await page.goto(`/f/${device ? device + "/" : ""}`);
+        await expect
+            .poll(() => page.evaluate(() => window.commandChannelsReady))
+            .toBe(true);
+        expect(await page.evaluate(() => window.cList.length)).toBe(1);
+        releaseFilms();
+        await expect
+            .poll(() => page.evaluate(() => window.cList.length))
+            .toBe(3);
+        expect(
+            await page.evaluate(() => window.cats[window._("All")].length)
+        ).toBe(3);
+        await page.evaluate(() => window.bucketsList(window.catIndex));
+        await expect(page.locator("#listCaption")).toHaveText(
+            "Category selection"
+        );
+        await expect(page.locator("#list")).toContainText("Cartoons / Series");
+        await page.evaluate(() => {
+            window.selIndex = window.catsArray.indexOf("Cartoons");
+            window.listKeyHandler(window.keys.ENTER);
+        });
+        await expect(page.locator("#list")).toContainText("Cartoon");
+        await expect(page.locator("#list")).toContainText("Episode");
+        await expect(page.locator("#list")).not.toContainText("Film");
+        expect(await page.evaluate(() => window.cList.length)).toBe(3);
+        await page.screenshot({
+            path: test.info().outputPath("vportal-category-list.png"),
+        });
+    });
+}

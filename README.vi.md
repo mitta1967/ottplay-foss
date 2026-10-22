@@ -1098,7 +1098,7 @@ Dùng [quy trình video-use](docs/demo-video.md) cục bộ để chuẩn bị v
 
 ## Thư viện nội dung Plex
 
-Mỗi trình phát có thể kết nối tài khoản Plex hoặc Plex Media Server qua nhà cung cấp **Plex**. Tích hợp dùng Plex; Synology là một máy chủ nội dung có thể dùng. Chọn thư mục trong hồ sơ để điền danh sách kênh thường. Phát bắt đầu từ lô đầu có thể dùng, với tải nền, tìm kiếm tiêu chuẩn và Hành động trộn/lặp, không cần cấu hình Plex trên máy chủ OTT. Xem [đăng nhập Plex và phát trực tiếp](docs/plex-provider.md).
+Mỗi trình phát có thể kết nối tài khoản Plex hoặc Plex Media Server qua nhà cung cấp **Plex**. Tích hợp dùng Plex; Synology là một máy chủ nội dung có thể dùng. Tất cả video và bản nhạc có thể truy cập tự động xuất hiện trong danh sách kênh; chọn danh mục để lọc theo thư viện, thư mục hoặc loạt phim. Phát bắt đầu từ lô đầu có thể dùng, với tải nền, tìm kiếm tiêu chuẩn và Hành động trộn/lặp, không cần cấu hình Plex trên máy chủ OTT. Xem [đăng nhập Plex và phát trực tiếp](docs/plex-provider.md).
 
 ![Vòng đời tải Plex, duyệt tệp và đóng](docs/images/plex-playback-lifecycle.svg)
 

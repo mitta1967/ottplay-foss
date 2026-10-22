@@ -987,6 +987,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Провайдер портала Stalker",
     "Stalker portal settings": "Настройки портала Stalker",
     "Stalker portals": "Сталкер порталы",
+    "Start with file": "Начать с файла",
     "Starting...": "Запуск…",
     Status: "Состояние",
     Stop: "Остановить",
@@ -1021,6 +1022,8 @@ var keyStrings = {
         "Слишком длинный текст. Сократите его перед отправкой.",
     "Text sent. Check your TV to confirm it appeared.":
         "Текст отправлен. Проверьте, появился ли он на телевизоре.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Браузер проверяет метаданные папки перед показом файлов. Большие сетевые папки могут потребовать нескольких минут.",
     "The browser screenshot source is ready.":
         "Источник снимков в браузере готов.",
     "The command server discovery URL is invalid.":

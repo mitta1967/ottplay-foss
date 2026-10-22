@@ -1005,6 +1005,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker atariaren hornitzailea",
     "Stalker portal settings": "Stalker atariaren ezarpenak",
     "Stalker portals": "Stalker atariak",
+    "Start with file": "Hasi fitxategiarekin",
     "Starting...": "Abiarazten…",
     Status: "Egoera",
     Stop: "Gelditu",
@@ -1039,6 +1040,8 @@ var keyStrings = {
         "Testua luzeegia da. Mesedez, laburtu bidali aurretik.",
     "Text sent. Check your TV to confirm it appeared.":
         "Testua bidali da. Begiratu telebista testua agertu dela egiaztatzeko.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Arakatzaileak karpetaren metadatuak egiaztatzen ditu fitxategiak erakutsi aurretik. Sareko karpeta handiek hainbat minutu behar ditzakete.",
     "The browser screenshot source is ready.":
         "Arakatzailearen pantaila-argazkiaren iturria prest dago.",
     "The command server discovery URL is invalid.":

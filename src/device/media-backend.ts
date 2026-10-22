@@ -45,6 +45,7 @@ interface MediaEngineLease {
 }
 interface MediaBackendPorts {
     admitted?(): boolean;
+    beforeSeek?(position: number): void;
     clearInterval(timer: any): void;
     context(): MediaBackendContext | null;
     emit(
@@ -53,6 +54,7 @@ interface MediaBackendPorts {
         position?: number,
         duration?: number
     ): void;
+    observedPosition?(position: number): void;
     open(
         request: MediaBackendRequest,
         event: (type: string) => void
@@ -288,7 +290,15 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 var measured = sample.position + offset;
                 if (isFinite(measured) && measured >= 0) position = measured;
                 duration = sample.duration;
-                if (!context || context.kind !== "live") command("position");
+                if (!context || context.kind !== "live") {
+                    if (
+                        lane === "main" &&
+                        ports.observedPosition &&
+                        domainCurrent()
+                    )
+                        ports.observedPosition(position);
+                    command("position");
+                }
             }
             updateTimer();
             if (current()) announce(type || "position");
@@ -312,6 +322,16 @@ function createMediaBackend(ports: MediaBackendPorts) {
             if (
                 !handle.active() &&
                 (!next || !context || next.kind !== context.kind)
+            )
+                return;
+            if (lane === "main" && ports.beforeSeek) ports.beforeSeek(value);
+            var afterSeekGuard = ports.context();
+            if (
+                !current() ||
+                (next &&
+                    (!afterSeekGuard ||
+                        next.generation !== afterSeekGuard.generation ||
+                        next.kind !== afterSeekGuard.kind))
             )
                 return;
             if (next)

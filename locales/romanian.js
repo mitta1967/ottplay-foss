@@ -1014,6 +1014,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Furnizor de portal Stalker",
     "Stalker portal settings": "Setările portalului Stalker",
     "Stalker portals": "Portaluri Stalker",
+    "Start with file": "Începe cu un fișier",
     "Starting...": "Se pornește…",
     Status: "Stare",
     Stop: "Stop",
@@ -1048,6 +1049,8 @@ var keyStrings = {
         "Textul este prea lung. Vă rugăm să îl scurtați înainte de a trimite.",
     "Text sent. Check your TV to confirm it appeared.":
         "Text trimis. Verificați televizorul pentru a confirma că a apărut.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Browserul verifică metadatele folderului înainte de a afișa fișierele. Folderele mari din rețea pot necesita câteva minute.",
     "The browser screenshot source is ready.":
         "Sursa capturii de ecran a browserului este gata.",
     "The command server discovery URL is invalid.":

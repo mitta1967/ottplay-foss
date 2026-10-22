@@ -10,6 +10,7 @@ export function installRemoteInspection(w: any): any {
     var order: string[] = [];
     var actions = [
         "command",
+        "categories",
         "play",
         "provider",
         "profile",
@@ -195,6 +196,7 @@ export function installRemoteInspection(w: any): any {
             /^[a-f0-9]{32}$/.test(item.id || "") &&
             actions.indexOf(item.action) >= 0 &&
             item.action !== "vportal_search" &&
+            !(item.action === "categories" && params.op !== "select") &&
             !(item.action === "plex_library" && params.op !== "play") &&
             !(item.action === "favorites" && params.op !== "play") &&
             !(item.action === "aspect" && params.operation !== "set") &&
@@ -216,8 +218,21 @@ export function installRemoteInspection(w: any): any {
         accept: function (item: any): boolean {
             // Filtering avoids a second updated document consuming a request
             // meant for this one. Server-side validation fences legacy replies.
+            var modernChannels =
+                item.action === "channels" &&
+                item.params &&
+                ["runtime", "catalog", "category", "offset", "limit"].some(
+                    function (key) {
+                        return Object.prototype.hasOwnProperty.call(
+                            item.params,
+                            key
+                        );
+                    }
+                );
             return (
-                (item.action !== "inspect" &&
+                (!modernChannels &&
+                    item.action !== "categories" &&
+                    item.action !== "inspect" &&
                     item.action !== "aspect" &&
                     item.action !== "plex_library" &&
                     item.action !== "favorites") ||

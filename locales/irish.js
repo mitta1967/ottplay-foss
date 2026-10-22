@@ -1007,6 +1007,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Soláthraí tairsí Stalker",
     "Stalker portal settings": "Socruithe tairsí Stalker",
     "Stalker portals": "Tairseacha Stalker",
+    "Start with file": "Tosaigh le comhad",
     "Starting...": "Á thosú…",
     Status: "Stádas",
     Stop: "Stad",
@@ -1041,6 +1042,8 @@ var keyStrings = {
         "Tá an téacs rófhada. Giorraigh é le do thoil roimh é a sheoladh.",
     "Text sent. Check your TV to confirm it appeared.":
         "Téacs seolta. Seiceáil do theilifíseán chun a dheimhniú go raibh sé le feiceáil.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Seiceálann an brabhsálaí meiteashonraí an fhillteáin sula dtaispeántar comhaid. D’fhéadfadh sé roinnt nóiméad a ghlacadh i gcás fillteáin mhóra líonra.",
     "The browser screenshot source is ready.":
         "Tá foinse scáileáin an bhrabhsálaí réidh.",
     "The command server discovery URL is invalid.":

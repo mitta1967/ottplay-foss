@@ -994,6 +994,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker პორტალის პროვაიდერი",
     "Stalker portal settings": "Stalker პორტალის პარამეტრები",
     "Stalker portals": "Stalker პორტალები",
+    "Start with file": "ფაილით დაწყება",
     "Starting...": "იწყება…",
     Status: "სტატუსი",
     Stop: "გაჩერება",
@@ -1028,6 +1029,8 @@ var keyStrings = {
         "ტექსტი ძალიან გრძელია. გთხოვთ, შეამოკლეთ გაგზავნამდე.",
     "Text sent. Check your TV to confirm it appeared.":
         "გაგზავნილი ტექსტი. შეამოწმეთ თქვენი ტელევიზორი, რათა დაადასტუროთ, რომ ის გამოჩნდა.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "ბრაუზერი ფაილების ჩვენებამდე საქაღალდის მეტამონაცემებს ამოწმებს. დიდ ქსელურ საქაღალდეებს შეიძლება რამდენიმე წუთი დასჭირდეს.",
     "The browser screenshot source is ready.":
         "ბრაუზერის ეკრანის წყარო მზად არის.",
     "The command server discovery URL is invalid.":

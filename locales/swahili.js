@@ -1004,6 +1004,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Mtoa huduma wa tovuti ya Stalker",
     "Stalker portal settings": "Mipangilio ya portal ya Stalker",
     "Stalker portals": "Malango ya Stalker",
+    "Start with file": "Anza na faili",
     "Starting...": "Inaanza...",
     Status: "Hali",
     Stop: "Simamisha",
@@ -1038,6 +1039,8 @@ var keyStrings = {
         "Maandishi ni marefu sana. Tafadhali kifupishe kabla ya kutuma.",
     "Text sent. Check your TV to confirm it appeared.":
         "Maandishi yametumwa. Angalia TV yako ili uthibitishe kuwa inaonekana.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Kivinjari hukagua metadata ya folda kabla ya kuonyesha faili. Folda kubwa za mtandao zinaweza kuchukua dakika kadhaa.",
     "The browser screenshot source is ready.":
         "Chanzo cha picha ya skrini ya kivinjari kiko tayari.",
     "The command server discovery URL is invalid.":

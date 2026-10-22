@@ -992,6 +992,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Penyedia portal Stalker",
     "Stalker portal settings": "Pengaturan portal Stalker",
     "Stalker portals": "Portal Stalker",
+    "Start with file": "Mulai dengan berkas",
     "Starting...": "Memulai…",
     Status: "Status",
     Stop: "Berhenti",
@@ -1026,6 +1027,8 @@ var keyStrings = {
         "Teks terlalu panjang. Harap dipersingkat sebelum dikirim.",
     "Text sent. Check your TV to confirm it appeared.":
         "Teks terkirim. Periksa TV Anda untuk memastikan teksnya muncul.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Browser memeriksa metadata folder sebelum menampilkan berkas. Folder jaringan yang besar dapat memerlukan beberapa menit.",
     "The browser screenshot source is ready.":
         "Sumber tangkapan layar browser sudah siap.",
     "The command server discovery URL is invalid.":

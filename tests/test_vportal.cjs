@@ -130,8 +130,8 @@ function fixture(overrides = {}, options = {}, hooks = {}) {
                 options.error({}, "abort");
                 options.complete();
             },
-            fail() {
-                options.error({ responseText: "fixture-private-key" }, "error");
+            fail(status = "error") {
+                options.error({ responseText: "fixture-private-key" }, status);
                 options.complete();
             },
             options,
@@ -144,12 +144,17 @@ function fixture(overrides = {}, options = {}, hooks = {}) {
         return request;
     };
     const context = {
+        Date: hooks.Date || Date,
         exports: {},
         require: (name) =>
             name.includes("caseless") ? caseless.exports : helpers.exports,
         window: w,
     };
-    vm.runInNewContext(compiled, context);
+    // Exercise exact retention boundaries without allocating a 64 MiB fixture.
+    const fixtureCode = hooks.catalogMetadataBudget
+        ? compiled.replace(/\b67108864\b/g, String(hooks.catalogMetadataBudget))
+        : compiled;
+    vm.runInNewContext(fixtureCode, context);
     client = context.exports.createVPortalClient(link, {
         isCurrent: () => active,
         title: "Fixture Library",
@@ -1432,6 +1437,17 @@ for (const response of [
         ["Chosen", "Season", "Chosen"],
         "collection follows the selected section and nested folder, not the profile or pagination label"
     );
+    assert.deepEqual(
+        Array.from(batches.at(-1).items, (item) =>
+            Array.from(item.__ottMediaCategories, (category) => category.name)
+        ),
+        [
+            ["Chosen", "Chosen / Season"],
+            ["Chosen", "Chosen / Season"],
+            ["Chosen"],
+        ],
+        "pagination retains ancestry and duplicate videos inherit each containing category"
+    );
     assert.equal(
         f.requests.length,
         3,
@@ -1732,3 +1748,979 @@ console.log(
 );
 
 require("./test_vportal_search.cjs");
+
+{
+    const f = fixture({}, { sourceId: "all-categories" });
+    const batches = [];
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete) => batches.push({ complete, items })
+    );
+    f.requests[0].receive({
+        items: [
+            {
+                request: { cmd: "cartoons" },
+                title: "Cartoons",
+                type: "category",
+            },
+            { request: { cmd: "films" }, title: "Films", type: "category" },
+        ],
+        type: "videoportal",
+    });
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Cartoon",
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    assert.equal(
+        batches.at(-1).complete,
+        false,
+        "first category publishes before others load"
+    );
+    f.requests[2].receive({
+        items: [
+            { request: { cmd: "play", id: 2 }, title: "Film", type: "stream" },
+        ],
+        type: "category",
+    });
+    assert.equal(batches.at(-1).complete, true);
+    assert.deepEqual(
+        Array.from(batches.at(-1).items, (item) => item.title),
+        ["Cartoon", "Film"]
+    );
+    assert.deepEqual(
+        Array.from(batches.at(-1).items, (item) =>
+            Array.from(item.__ottMediaCategories, (category) => category.name)
+        ),
+        [["Cartoons"], ["Films"]]
+    );
+    const ids = batches
+        .at(-1)
+        .items.map((item) => item.__ottMediaCategories[0].id);
+    assert.notEqual(ids[0], ids[1]);
+    assert(!ids.join("").includes("PRIVATE"));
+}
+
+{
+    const secret = "PRIVATE_FOLDER_TOKEN_" + "x".repeat(4096);
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ request: { cmd: "folder", token: secret }, title: "Long folder" }],
+        (items, complete) => {
+            if (complete) result = items;
+        }
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "play", id: 1 }, title: "Video", type: "stream" },
+        ],
+        type: "category",
+    });
+    const category = result[0].__ottMediaCategories[0];
+    assert.match(category.id, /^vportal-category:[0-9a-f]{16}$/);
+    assert(!category.id.includes("PRIVATE"));
+    assert.equal(category.name, "Long folder");
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete) => {
+            if (complete) result = items;
+        }
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "public" }, title: "Public", type: "category" },
+            {
+                adult: 1,
+                request: { cmd: "protected" },
+                title: "Protected",
+                type: "category",
+            },
+        ],
+        type: "videoportal",
+    });
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Same video",
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    f.requests[2].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Same video",
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    assert.equal(result.length, 1);
+    assert.equal(
+        result[0].adult,
+        1,
+        "a protected duplicate can only strengthen parental restrictions"
+    );
+    assert.deepEqual(
+        Array.from(result[0].__ottMediaCategories, (c) => c.name),
+        ["Public", "Protected"]
+    );
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ request: { cmd: "list", fid: 42, offset: 0 }, title: "Folder" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "play", id: 1 }, title: "First", type: "stream" },
+            { request: { limit: 0, offset: 300 }, type: "next" },
+        ],
+        type: "category",
+    });
+    assert.equal(
+        f.requests.length,
+        2,
+        "default limit sentinel keeps the same folder cursor usable"
+    );
+    const request = JSON.parse(f.requests[1].options.data).params;
+    assert.equal(request.cmd, "list");
+    assert.equal(request.fid, 42);
+    assert.equal(request.offset, 300);
+    assert.equal(request.limit, 300, "the actual next request stays bounded");
+    f.requests[1].receive({
+        items: [
+            { request: { cmd: "play", id: 2 }, title: "Last", type: "stream" },
+        ],
+        type: "category",
+    });
+    assert.equal(result.complete, true);
+    assert.equal(result.error, undefined);
+    assert.deepEqual(
+        Array.from(result.items, (item) => item.title),
+        ["First", "Last"]
+    );
+    assert.equal(
+        result.items[0].__ottMediaCategories[0].id,
+        result.items[1].__ottMediaCategories[0].id
+    );
+}
+
+// Whole-root TV catalogs have separate, bounded budgets from scoped queues.
+{
+    function collectMany(whole) {
+        const f = fixture();
+        let result;
+        let incremental = 0;
+        f.client.playlist(
+            [{ __ottCategoryRoot: whole, request: {}, title: "Folder" }],
+            (items, complete, error) => {
+                result = { complete, error, items };
+                if (!complete) incremental++;
+            }
+        );
+        for (let page = 0; page < 71 && !result?.complete; page++) {
+            const items = Array.from({ length: 300 }, (_, index) => ({
+                request: { cmd: "play", id: page * 300 + index },
+                title: `Video ${page * 300 + index}`,
+                type: "stream",
+            }));
+            if (page < 70)
+                items.push({
+                    request: { limit: 0, offset: (page + 1) * 300 },
+                    type: "next",
+                });
+            f.requests[page].receive({ items, type: "category" });
+        }
+        return { f, incremental, result };
+    }
+    const whole = collectMany(true);
+    assert.equal(whole.result.error, undefined);
+    assert.equal(whole.result.complete, true);
+    assert.equal(whole.result.items.length, 21300);
+    assert.equal(whole.result.items[0].__ottMediaCategory, undefined);
+    assert(
+        whole.incremental >= 70,
+        "large scans publish playable pages progressively"
+    );
+    assert.equal(whole.f.client.scanDiagnostics().state, "complete");
+    const scoped = collectMany(false);
+    assert(
+        scoped.result.items[0].__ottMediaCategory,
+        "explicit scoped catalogs retain their primary-category compatibility field"
+    );
+    assert(
+        scoped.result.error,
+        "scoped queues retain their original smaller budget"
+    );
+    assert.equal(scoped.f.client.scanDiagnostics().code, "row_limit");
+    assert.equal(
+        whole.result.items[0].__ottPlaylistId,
+        scoped.result.items[0].__ottPlaylistId,
+        "scale mode must not change direct-play identity"
+    );
+}
+
+{
+    const timers = new Map();
+    let sequence = 0;
+    const f = fixture({
+        clearTimeout(id) {
+            timers.delete(id);
+        },
+        setTimeout(callback, duration) {
+            const id = ++sequence;
+            timers.set(id, { callback, duration });
+            return id;
+        },
+    });
+    let result;
+    const stop = f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    const originalWatchdog = [...timers.keys()].find(
+        (id) => timers.get(id).duration === 60000
+    );
+    assert(![...timers.values()].some((timer) => timer.duration === 600000));
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "folder" }, title: "Folder", type: "category" },
+        ],
+        type: "videoportal",
+    });
+    assert(
+        !timers.has(originalWatchdog),
+        "accepted nonempty response resets inactivity deadline"
+    );
+    [...timers.values()].find((timer) => timer.duration === 60000).callback();
+    assert(result.error && result.complete);
+    assert.equal(f.client.scanDiagnostics().code, "inactive_timeout");
+    assert.equal(f.requests[1].aborted, true);
+    assert.equal(timers.size, 0);
+    stop();
+    const cancel = f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        () => {
+            throw Error("cancelled scan cannot publish");
+        }
+    );
+    cancel();
+    assert.equal(f.client.scanDiagnostics().state, "cancelled");
+    assert.equal(timers.size, 0);
+    f.requests.at(-1).receive({ items: [], type: "videoportal" });
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    const title = "Movie 😀";
+    const request = { cmd: "play", id: "exact-original-identity" };
+    f.requests[0].receive({
+        items: [
+            {
+                description: "😀long description ".repeat(1000),
+                request,
+                title,
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.items[0].title, title);
+    assert.equal(
+        JSON.stringify(result.items[0].request),
+        JSON.stringify(request)
+    );
+    assert(Buffer.byteLength(result.items[0].description, "utf8") <= 128);
+    assert(!/[\uD800-\uDBFF]$/.test(result.items[0].description));
+    const diagnostic = f.client.scanDiagnostics();
+    assert(diagnostic.retainedBytes > 0);
+    diagnostic.state = "changed";
+    assert.equal(
+        f.client.scanDiagnostics().state,
+        "complete",
+        "diagnostics are copied"
+    );
+}
+console.log(
+    "PASS VPortal bounded whole-catalog scale, incremental pages, inactivity cancellation and stable identities"
+);
+
+{
+    const timers = new Map();
+    let sequence = 0;
+    let now = 0;
+    const clock = { now: () => now };
+    const f = fixture(
+        {
+            clearTimeout(id) {
+                timers.delete(id);
+            },
+            setTimeout(callback, duration) {
+                const id = ++sequence;
+                timers.set(id, { callback, duration });
+                return id;
+            },
+        },
+        {},
+        { Date: clock }
+    );
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].receive({
+        items: Array.from({ length: 61 }, (_, i) => ({
+            request: { cmd: "list", id: i },
+            title: `Folder ${i}`,
+            type: "category",
+        })),
+        type: "videoportal",
+    });
+    for (let i = 1; i <= 61; i++) {
+        const previousTimer = [...timers.keys()][0];
+        now += 1000;
+        f.requests[i].receive({ items: [], type: "category" });
+        assert(
+            !timers.has(previousTimer),
+            "validated empty response renews watchdog"
+        );
+    }
+    assert.equal(now, 61000);
+    assert.equal(result.complete, true);
+    assert.equal(result.error, undefined);
+    assert.equal(timers.size, 0);
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    for (let i = 0; i < 10000; i++) {
+        f.requests[i].receive({
+            items: [{ request: { offset: (i + 1) * 300 }, type: "next" }],
+            type: "category",
+        });
+        if (result?.complete) break;
+    }
+    assert.equal(
+        f.requests.length,
+        10000,
+        "ever-advancing cursors remain bounded"
+    );
+    assert(result.complete && result.error);
+    assert.equal(f.client.scanDiagnostics().code, "page_limit");
+}
+
+// Only whole-catalog transport timeouts receive one bounded retry.
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].fail("timeout");
+    assert.equal(f.requests.length, 2);
+    assert.equal(
+        f.requests[0].options.data,
+        f.requests[1].options.data,
+        "timeout retries the exact request without changing its identity"
+    );
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Recovered",
+                type: "stream",
+            },
+        ],
+        type: "videoportal",
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.items.length, 1);
+    assert.equal(f.client.scanDiagnostics().pages, 1);
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].fail("timeout");
+    f.requests[1].fail("timeout");
+    assert.equal(
+        f.requests.length,
+        2,
+        "a second timeout cannot loop indefinitely"
+    );
+    assert(result.complete && result.error);
+    assert.equal(f.client.scanDiagnostics().code, "transport_timeout");
+}
+
+for (const failure of [
+    "abort",
+    "parsererror",
+    "error",
+    "malformed",
+    "scoped-timeout",
+]) {
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [
+            {
+                __ottCategoryRoot: failure !== "scoped-timeout",
+                request: {},
+                title: "Portal",
+            },
+        ],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    if (failure === "malformed") f.requests[0].receive({ items: "invalid" });
+    else f.requests[0].fail(failure === "scoped-timeout" ? "timeout" : failure);
+    assert.equal(f.requests.length, 1, `${failure} must not start a retry`);
+    assert(result.complete && result.error);
+}
+
+{
+    const timers = new Map();
+    let sequence = 0;
+    const f = fixture({
+        clearTimeout(id) {
+            timers.delete(id);
+        },
+        setTimeout(callback, duration) {
+            const id = ++sequence;
+            timers.set(id, { callback, duration });
+            return id;
+        },
+    });
+    let result;
+    const cancel = f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    const watchdog = [...timers.keys()][0];
+    f.requests[0].fail("timeout");
+    assert(
+        timers.has(watchdog),
+        "a timeout/retry cannot extend inactivity lifetime"
+    );
+    cancel();
+    assert.equal(f.requests[1].aborted, true);
+    assert.equal(timers.size, 0);
+    assert.equal(result, undefined);
+    f.requests[1].receive({ items: [], type: "videoportal" });
+    assert.equal(
+        result,
+        undefined,
+        "cancelled retry cannot publish a late result"
+    );
+
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[2].fail("timeout");
+    [...timers.values()][0].callback();
+    assert.equal(f.client.scanDiagnostics().code, "inactive_timeout");
+    assert.equal(f.requests[3].aborted, true);
+    assert(result.complete && result.error);
+}
+console.log(
+    "PASS VPortal single whole-catalog timeout retry, exact identity, cancellation and unchanged idle bound"
+);
+
+{
+    for (const description of [
+        "<scr<script>ipt>alert(1)</scr</script>ipt>".repeat(100),
+        "😀".repeat(300),
+        "a".repeat(120) + "<img src=x onerror=bad()>",
+        "a".repeat(120) + "&amp;" + "😀".repeat(50),
+        "\uD800".repeat(400),
+    ]) {
+        const f = fixture();
+        let result;
+        const request = { cmd: "play", id: "preview-safe-identity" };
+        f.client.playlist(
+            [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+            (items, complete, error) => {
+                result = { complete, error, items };
+            }
+        );
+        f.requests[0].receive({
+            items: [{ description, request, title: "Film", type: "stream" }],
+            type: "category",
+        });
+        assert.equal(result.error, undefined);
+        assert.equal(result.complete, true);
+        const preview = result.items[0].description;
+        assert(Buffer.byteLength(preview, "utf8") <= 128);
+        assert(!/[<>]/.test(preview), "preview must never expose an HTML tag");
+        assert(
+            !/[\uD800-\uDFFF]/u.test(preview),
+            "preview must not retain unpaired surrogates"
+        );
+        assert(!/&[^;]*$/.test(preview), "preview must not cut an entity");
+        assert.equal(result.items[0].title, "Film");
+        assert.deepEqual(
+            JSON.parse(JSON.stringify(result.items[0].request)),
+            request
+        );
+    }
+}
+console.log(
+    "PASS VPortal safe UTF8 description previews preserve request identity"
+);
+
+{
+    const f = fixture();
+    let published = false;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        () => {
+            published = true;
+        }
+    );
+    f.setActive(false);
+    f.requests[0].fail("timeout");
+    assert.equal(
+        f.requests.length,
+        1,
+        "stale source cannot initiate a timeout retry"
+    );
+    assert.equal(published, false);
+    f.client.cancel();
+}
+
+// Whole-catalog request entries retain identities, not stale playback URLs.
+{
+    function catalog(whole) {
+        const f = fixture({}, { sourceId: "memory-source" });
+        let items;
+        f.client.playlist(
+            [{ __ottCategoryRoot: whole, request: {}, title: "Portal" }],
+            (value, complete) => {
+                if (complete) items = value;
+            }
+        );
+        f.requests[0].receive({
+            items: [
+                { request: { cmd: "first" }, title: "First", type: "category" },
+                {
+                    request: { cmd: "second" },
+                    title: "Second",
+                    type: "category",
+                },
+            ],
+            type: "videoportal",
+        });
+        const sourcePage = {
+            items: [
+                {
+                    request: { cmd: "play", fid: 7 },
+                    title: "Request item",
+                    type: "stream",
+                    url: "https://cdn.example/stale-request.mp4",
+                },
+                {
+                    id: 8,
+                    title: "Direct item",
+                    type: "stream",
+                    url: "https://cdn.example/direct.mp4",
+                },
+            ],
+            type: "category",
+        };
+        const sourceSnapshot = JSON.stringify(sourcePage);
+        f.requests[1].receive(sourcePage);
+        assert.equal(
+            JSON.stringify(sourcePage),
+            sourceSnapshot,
+            "catalog compaction must not mutate the provider response"
+        );
+        f.requests[2].receive({
+            items: [
+                {
+                    request: { cmd: "play", fid: 7 },
+                    title: "Request item",
+                    type: "stream",
+                    url: "https://cdn.example/different-stale.mp4",
+                },
+            ],
+            type: "category",
+        });
+        return { f, items };
+    }
+    const whole = catalog(true);
+    const scoped = catalog(false);
+    const item = whole.items[0];
+    assert.equal(item.stream_url, undefined);
+    assert.equal(
+        scoped.items[0].stream_url,
+        "https://cdn.example/stale-request.mp4"
+    );
+    for (const field of [
+        "title",
+        "request",
+        "__ottPlaylistId",
+        "__ottMediaOrigin",
+        "__ottVPortalDirect",
+    ])
+        assert.equal(
+            JSON.stringify(item[field]),
+            JSON.stringify(scoped.items[0][field]),
+            field
+        );
+    assert.equal(
+        item.__ottMediaCategories.length,
+        2,
+        "duplicate request still merges both categories"
+    );
+    const direct = whole.items[1];
+    assert.equal(direct.stream_url, "https://cdn.example/direct.mp4");
+    for (const field of [
+        "title",
+        "__ottPlaylistId",
+        "__ottMediaOrigin",
+        "__ottVPortalDirect",
+    ])
+        assert.equal(
+            JSON.stringify(direct[field]),
+            JSON.stringify(scoped.items[1][field]),
+            field
+        );
+    assert(direct.__ottMediaOrigin && direct.__ottVPortalDirect);
+    const retained = JSON.stringify(item);
+    for (const automatic of [false, true]) {
+        for (const iteration of [0, 1]) {
+            let resolved;
+            whole.f.client.resolve(
+                item,
+                (value) => {
+                    resolved = value;
+                },
+                automatic
+            );
+            assert.equal(resolved, undefined);
+            assert.deepEqual(
+                JSON.parse(whole.f.requests.at(-1).options.data).params,
+                {
+                    app: "ott-play",
+                    cmd: "play",
+                    fid: 7,
+                    key: "fixture-private-key",
+                }
+            );
+            const url = `https://cdn.example/fresh-${automatic}-${iteration}.mp4`;
+            whole.f.requests.at(-1).receive({ url });
+            assert.equal(resolved.stream_url, url);
+            assert.equal(
+                JSON.stringify(item),
+                retained,
+                "manual, automatic and repeat resolution preserve the retained entry"
+            );
+        }
+    }
+    whole.f.client.play(item);
+    assert.equal(whole.f.played.length, 0);
+    whole.f.requests
+        .at(-1)
+        .receive({ url: "https://cdn.example/fresh-play.mp4" });
+    assert.equal(
+        whole.f.played[0].stream_url,
+        "https://cdn.example/fresh-play.mp4"
+    );
+    assert.equal(
+        item.stream_url,
+        undefined,
+        "fresh URL is never written back into catalog metadata"
+    );
+}
+console.log(
+    "PASS VPortal compact request URLs keep fresh playback, direct origins and duplicate categories"
+);
+
+// Retention fallback mutates optional fields in place and accounts each key once.
+{
+    function pages(budget) {
+        const f = fixture({}, {}, { catalogMetadataBudget: budget });
+        let result, first, initial;
+        f.client.playlist(
+            [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+            (items, complete, error) => {
+                if (!first && items.length) {
+                    first = items[0];
+                    initial = JSON.stringify(first);
+                }
+                result = { complete, error, items };
+            }
+        );
+        for (let i = 1; i <= 3; i++) {
+            const items = [
+                {
+                    description: "Long description ".repeat(30),
+                    request: { cmd: "play", id: i },
+                    title: `Video ${i}`,
+                    type: "stream",
+                },
+            ];
+            if (i < 3)
+                items.push({ request: { offset: i * 300 }, type: "next" });
+            f.requests[i - 1].receive({ items, type: "category" });
+        }
+        return { f, first, initial, result };
+    }
+    const baseline = pages();
+    const size = (item) => Buffer.byteLength(JSON.stringify(item));
+    const budget =
+        baseline.result.items
+            .slice(0, 2)
+            .reduce((sum, item) => sum + size(item), 0) - 1;
+    const fallback = pages(budget);
+    assert.equal(fallback.result.error, undefined);
+    assert.equal(fallback.result.complete, true);
+    assert.equal(fallback.result.items.length, 3);
+    assert.equal(fallback.f.client.scanDiagnostics().descriptionsOmitted, true);
+    assert.strictEqual(
+        fallback.result.items[0],
+        fallback.first,
+        "previously published references survive fallback"
+    );
+    assert(
+        JSON.parse(fallback.initial).description,
+        "first batch initially retains its preview"
+    );
+    for (let i = 0; i < 3; i++) {
+        const expected = { ...baseline.result.items[i] };
+        delete expected.description;
+        assert.equal(
+            JSON.stringify(fallback.result.items[i]),
+            JSON.stringify(expected)
+        );
+    }
+    assert.equal(
+        fallback.f.client.scanDiagnostics().retainedBytes,
+        fallback.result.items.reduce((sum, item) => sum + size(item), 0)
+    );
+    assert.equal(
+        baseline.f.client.scanDiagnostics().descriptionsOmitted,
+        false
+    );
+}
+
+{
+    function duplicate(budget) {
+        const f = fixture({}, {}, { catalogMetadataBudget: budget });
+        let result, first, secondSize;
+        f.client.playlist(
+            [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+            (items, complete, error) => {
+                if (items.length && !first) first = items[0];
+                if (items[0]?.__ottMediaCategories.length === 2)
+                    secondSize = Buffer.byteLength(JSON.stringify(items[0]));
+                result = { complete, error, items };
+            }
+        );
+        f.requests[0].receive({
+            items: ["A", "B", "C"].map((title) => ({
+                request: { cmd: title },
+                title,
+                type: "category",
+            })),
+            type: "videoportal",
+        });
+        for (let i = 1; i <= 3; i++)
+            f.requests[i].receive({
+                items: [
+                    {
+                        adult: i === 2 ? 1 : 0,
+                        description: "Long description ".repeat(30),
+                        request: { cmd: "play", id: 1 },
+                        title: "Same video",
+                        type: "stream",
+                    },
+                ],
+                type: "category",
+            });
+        return { f, first, result, secondSize };
+    }
+    const baseline = duplicate();
+    const fallback = duplicate(baseline.secondSize - 1);
+    assert.equal(fallback.result.error, undefined);
+    assert.equal(fallback.f.client.scanDiagnostics().descriptionsOmitted, true);
+    assert.equal(fallback.result.items.length, 1);
+    assert.strictEqual(fallback.result.items[0], fallback.first);
+    assert.equal(fallback.first.description, undefined);
+    assert.equal(fallback.first.adult, 1);
+    assert.equal(fallback.first.__ottMediaCategories.length, 3);
+    assert.equal(
+        fallback.first.__ottPlaylistId,
+        baseline.first.__ottPlaylistId
+    );
+    assert.equal(
+        fallback.f.client.scanDiagnostics().retainedBytes,
+        Buffer.byteLength(JSON.stringify(fallback.first)),
+        "duplicate updates replace their accounted size"
+    );
+}
+
+{
+    const f = fixture({}, {}, { catalogMetadataBudget: 400 });
+    let result, first;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            first ||= items[0];
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].receive({
+        items: [
+            {
+                description: "Description ".repeat(30),
+                request: { cmd: "play", id: 1 },
+                title: "First",
+                type: "stream",
+            },
+            { request: { offset: 300 }, type: "next" },
+        ],
+        type: "category",
+    });
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 2 },
+                title: "M".repeat(1000),
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    assert(
+        result.complete && result.error,
+        "mandatory metadata still fails closed"
+    );
+    assert.equal(f.client.scanDiagnostics().code, "metadata_limit");
+    assert.equal(f.client.scanDiagnostics().descriptionsOmitted, true);
+    assert.equal(result.items.length, 1);
+    assert.strictEqual(result.items[0], first);
+    assert.equal(first.description, undefined);
+    assert.equal(first.title, "First");
+    assert.equal(
+        f.client.scanDiagnostics().retainedBytes,
+        Buffer.byteLength(JSON.stringify(first))
+    );
+}
+console.log(
+    "PASS VPortal one-time optional-description fallback, reference stability, duplicate accounting and mandatory cap"
+);
+
+// Returned folder/duplicate rows and retained videos use separate fixed budgets.
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    const same = {
+        request: { cmd: "play", id: 1 },
+        title: "One retained video",
+        type: "stream",
+    };
+    for (let page = 0; page < 664; page++) {
+        f.requests[page].receive({
+            items: Array(300)
+                .fill(same)
+                .concat([
+                    { request: { offset: (page + 1) * 300 }, type: "next" },
+                ]),
+            type: "category",
+        });
+        if (page === 333) {
+            assert(f.client.scanDiagnostics().rows > 100000);
+            assert.equal(
+                result.complete,
+                false,
+                "valid duplicates may exceed 100k returned rows"
+            );
+        }
+    }
+    assert.equal(f.client.scanDiagnostics().rows, 199864);
+    f.requests[664].receive({
+        items: Array(135)
+            .fill(same)
+            .concat([{ request: { offset: 199500 }, type: "next" }]),
+        type: "category",
+    });
+    assert.equal(f.client.scanDiagnostics().rows, 200000);
+    assert.equal(
+        result.complete,
+        false,
+        "exactly 200k rows remain within the fixed budget"
+    );
+    assert.equal(result.items.length, 1);
+    assert(f.client.scanDiagnostics().retainedBytes < 1024);
+    f.requests[665].receive({ items: [same], type: "category" });
+    assert.equal(result.complete, true);
+    assert(result.error);
+    assert.equal(f.client.scanDiagnostics().code, "row_limit");
+    assert.equal(f.client.scanDiagnostics().rows, 200001);
+    assert.equal(result.items.length, 1);
+}
+console.log(
+    "PASS VPortal separate 200k whole-row and retained-metadata budgets"
+);

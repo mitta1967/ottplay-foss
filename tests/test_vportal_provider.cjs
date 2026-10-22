@@ -49,6 +49,7 @@ function create(initial = {}) {
                 load() {},
                 options,
                 playlist(sections, done) {
+                    this.roots = sections;
                     this.progress = done;
                     done(
                         [
@@ -206,11 +207,17 @@ function create(initial = {}) {
     const value = config();
     value.portals[0].sections = [];
     const f = create({ vportalprofiles: JSON.stringify(value) });
-    f.host.getChannelsArray(() =>
-        assert.fail("Unselected library must not auto-load")
+    let loads = 0;
+    f.host.getChannelsArray(() => loads++);
+    assert.equal(
+        loads,
+        1,
+        "configured links load every category without selecting roots"
     );
-    assert.equal(f.clients.length, 0);
-    assert.equal(f.host.listCaption.innerHTML, "VPortal profiles");
+    assert.equal(f.clients.length, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(f.clients[0].roots)), [
+        { __ottCategoryRoot: true, request: {}, title: "Films" },
+    ]);
 }
 {
     const f = create({ vportalprofiles: JSON.stringify(config()) });
@@ -227,7 +234,6 @@ function create(initial = {}) {
             {
                 __ottPlaylistId: "second",
                 request: { cmd: "play", id: 2 },
-                stream_url: "vportal:request",
                 title: "Second",
             },
         ],
@@ -237,6 +243,12 @@ function create(initial = {}) {
     assert.equal(f.host.cList.length, 2);
     assert.equal(f.host.cList[0], firstId);
     assert.equal(f.driver.mediaItem(f.host.cList[1]).title, "Second");
+    assert.equal(f.host.chanels[f.host.cList[1]].url, "vportal:request");
+    assert.equal(f.driver.mediaItem(f.host.cList[1]).stream_url, undefined);
+    assert.deepEqual(f.driver.mediaItem(f.host.cList[1]).request, {
+        cmd: "play",
+        id: 2,
+    });
     const old = f.clients[0];
     const value = f.driver.configuration();
     value.portals[0].sections = [{ request: { cmd: "other" }, title: "Other" }];
@@ -253,18 +265,26 @@ function create(initial = {}) {
     f.host.__ottEditProvider();
     f.host.selIndex = 0;
     f.host.listKeyHandler(f.host.keys.ENTER);
+    assert.equal(
+        f.host.listArray.length,
+        3,
+        "profile editor only asks for name/link and save"
+    );
+    assert(
+        !f.host.listArray.some((value) => value.includes("Category selection"))
+    );
+    let reloads = 0;
+    f.host.loadChannels = () => reloads++;
     f.host.selIndex = 2;
     f.host.listKeyHandler(f.host.keys.ENTER);
-    assert.equal(f.host.listCaption.innerHTML, "Category selection");
-    assert.match(f.host.listArray[0], /☑/);
-    f.host.selIndex = 1;
-    f.host.listKeyHandler(f.host.keys.ENTER);
-    f.host.listKeyHandler(f.host.keys.RETURN);
-    f.host.selIndex = 3;
-    f.host.listKeyHandler(f.host.keys.ENTER);
-    assert.equal(f.driver.configuration().portals[0].sections.length, 2);
-    assert.equal(f.clients[0].disposed, 1);
+    assert.equal(reloads, 1, "save requests loading without a section chooser");
+    f.host.getChannelsArray(() => {});
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(f.clients[0].roots[0].request)),
+        {}
+    );
 }
+
 {
     const f = create({ vportalprofiles: JSON.stringify(config()) });
     for (const sections of [
@@ -282,10 +302,14 @@ function create(initial = {}) {
     const value = config();
     value.portals[0].sections = [{}];
     const f = create({ vportalprofiles: JSON.stringify(value) });
-    f.host.getChannelsArray(() =>
-        assert.fail("Corrupt selection must not become implicit root access")
+    let loads = 0;
+    f.host.getChannelsArray(() => loads++);
+    assert.equal(
+        loads,
+        1,
+        "obsolete section metadata cannot block a configured portal"
     );
-    assert.equal(f.clients.length, 0);
+    assert.equal(f.clients.length, 1);
 }
 {
     const f = create({ vportalprofiles: JSON.stringify(config()) });
@@ -497,3 +521,161 @@ function create(initial = {}) {
 console.log(
     "VPortal provider profiles, isolation, validation, redaction and editor lifetime tests passed"
 );
+
+{
+    const f = create({ vportalprofiles: JSON.stringify(config()) });
+    f.host.getChannelsArray(() => {});
+    const first = f.host.cList[0];
+    f.clients[0].progress(
+        [
+            {
+                __ottMediaCategories: [],
+                __ottPlaylistId: "film",
+                title: "Film",
+            },
+            {
+                __ottMediaCategories: [
+                    { id: "section:cartoons", name: "Cartoons" },
+                    { id: "folder:series", name: "Cartoons / Series" },
+                ],
+                __ottPlaylistId: "cartoon",
+                title: "Episode",
+            },
+        ],
+        false
+    );
+    assert.equal(
+        f.host.cList[0],
+        first,
+        "category discovery preserves existing channel identity"
+    );
+    const channel = f.host.chanels[f.host.cList[1]];
+    assert.equal(channel.category.name, "Cartoons / Series");
+    assert.equal(channel.groupId, "folder:series");
+    assert.deepEqual(
+        Array.from(channel.__ottMediaCategories, (x) => x.id),
+        ["section:cartoons", "folder:series"]
+    );
+}
+
+{
+    const f = create({ vportalprofiles: JSON.stringify(config()) });
+    f.host.getChannelsArray(() => {});
+    assert.equal(f.driver.catalogLoading(), true);
+    const firstId = f.host.cList[0];
+    f.clients[0].progress(
+        [
+            {
+                __ottMediaCategories: [{ id: "other", name: "Other folder" }],
+                __ottPlaylistId: "film",
+                title: "Film",
+            },
+        ],
+        false
+    );
+    assert.equal(
+        f.host.cList.length,
+        1,
+        "new category membership does not duplicate All"
+    );
+    assert.equal(f.host.cList[0], firstId);
+    assert.equal(f.host.chanels[firstId].__ottMediaCategories[0].id, "other");
+    f.clients[0].progress(
+        [
+            {
+                __ottMediaCategories: [{ id: "other", name: "Other folder" }],
+                __ottPlaylistId: "film",
+                title: "Film",
+            },
+        ],
+        true
+    );
+    assert.equal(f.driver.catalogLoading(), false);
+}
+
+{
+    const f = create({ vportalprofiles: JSON.stringify(config()) });
+    f.host.getChannelsArray(() => {});
+    assert.equal(f.driver.catalogError(), false);
+    f.clients[0].progress(
+        [{ __ottPlaylistId: "film", title: "Film" }],
+        true,
+        "partial failure"
+    );
+    assert.equal(
+        f.driver.catalogError(),
+        true,
+        "partial catalog remains explicitly incomplete"
+    );
+    assert.equal(f.driver.catalogLoading(), false);
+    assert.equal(
+        f.host.cList.length,
+        1,
+        "partial UI playback remains available"
+    );
+    f.host.getChannelsArray(() => {});
+    assert.equal(
+        f.driver.catalogError(),
+        false,
+        "new scan resets terminal failure"
+    );
+    const id = f.host.cList[0];
+    f.clients
+        .at(-1)
+        .progress(
+            [{ __ottPlaylistId: "film", adult: 1, title: "Film" }],
+            false
+        );
+    assert.equal(
+        f.driver.mediaItem(id).adult,
+        1,
+        "protected duplicate upgrades the driver record"
+    );
+}
+
+for (const title of [
+    "Cartoon — 第1話 🐈",
+    "м".repeat(300),
+    "猫".repeat(300),
+    "🐈".repeat(200),
+    "a".repeat(512),
+    "a".repeat(509) + "🐈",
+]) {
+    const f = create({ vportalprofiles: JSON.stringify(config()) });
+    f.host.getChannelsArray(() => {});
+    const item = {
+        __ottPlaylistId: "stable-long-title",
+        request: { cmd: "play", id: 92, query: title },
+        title,
+    };
+    f.clients[0].progress(
+        [{ __ottPlaylistId: "film", title: "Film" }, item],
+        false
+    );
+    const id = f.host.cList[1];
+    const channel = f.host.chanels[id];
+    assert(Buffer.byteLength(channel.channel_name, "utf8") <= 512);
+    assert.equal(
+        channel.tn,
+        channel.channel_name,
+        "list and search share one bounded canonical label"
+    );
+    assert.doesNotThrow(
+        () => encodeURIComponent(channel.channel_name),
+        "label cannot split surrogate pairs"
+    );
+    assert.equal(channel.itemId, "vportal:stable-long-title");
+    assert.equal(
+        f.driver.mediaItem(id),
+        item,
+        "full playback metadata is not truncated or rewritten"
+    );
+    assert.equal(item.title, title);
+    assert.equal(item.request.query, title);
+    if (Buffer.byteLength(title, "utf8") <= 512)
+        assert.equal(channel.channel_name, title);
+    else {
+        assert(channel.channel_name.endsWith("…"));
+        assert(title.startsWith(channel.channel_name.slice(0, -1)));
+    }
+}

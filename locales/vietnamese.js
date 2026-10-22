@@ -984,6 +984,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Nhà cung cấp cổng Stalker",
     "Stalker portal settings": "Cài đặt cổng Stalker",
     "Stalker portals": "Cổng Stalker",
+    "Start with file": "Bắt đầu bằng tệp",
     "Starting...": "Đang khởi động…",
     Status: "Trạng thái",
     Stop: "Dừng lại",
@@ -1016,6 +1017,8 @@ var keyStrings = {
         "Văn bản quá dài. Hãy rút ngắn nó trước khi gửi.",
     "Text sent. Check your TV to confirm it appeared.":
         "Đã gửi tin nhắn. Kiểm tra TV của bạn để xác nhận nó đã xuất hiện.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Trình duyệt kiểm tra siêu dữ liệu thư mục trước khi hiển thị tệp. Thư mục mạng lớn có thể mất vài phút.",
     "The browser screenshot source is ready.":
         "Nguồn ảnh chụp màn hình trình duyệt đã sẵn sàng.",
     "The command server discovery URL is invalid.":

@@ -1008,6 +1008,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Провајдер со Stalker портал",
     "Stalker portal settings": "Поставки за Stalker портал",
     "Stalker portals": "Stalker портали",
+    "Start with file": "Започни со датотека",
     "Starting...": "Се стартува…",
     Status: "Состојба",
     Stop: "Запри",
@@ -1041,6 +1042,8 @@ var keyStrings = {
         "Текстот е предолг. Ве молиме скратете го пред да испратите.",
     "Text sent. Check your TV to confirm it appeared.":
         "Текст испратен. Проверете го вашиот телевизор за да потврдите дека се појавил.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Прелистувачот ги проверува метаподатоците на папката пред да ги прикаже датотеките. Големите мрежни папки може да потраат неколку минути.",
     "The browser screenshot source is ready.":
         "Изворот на екранот на прелистувачот е подготвен.",
     "The command server discovery URL is invalid.":

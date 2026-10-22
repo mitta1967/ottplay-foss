@@ -1003,6 +1003,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker portali provayderi",
     "Stalker portal settings": "Stalker portali sozlamalari",
     "Stalker portals": "Stalker portallari",
+    "Start with file": "Fayldan boshlash",
     "Starting...": "Ishga tushirilmoqda…",
     Status: "Holat",
     Stop: "To'xtating",
@@ -1037,6 +1038,8 @@ var keyStrings = {
         "Matn juda uzun. Iltimos, yuborishdan oldin uni qisqartiring.",
     "Text sent. Check your TV to confirm it appeared.":
         "Matn yuborildi. Uning paydo bo'lishini tasdiqlash uchun televizoringizni tekshiring.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Brauzer fayllarni ko‘rsatishdan oldin jild metama’lumotlarini tekshiradi. Katta tarmoq jildlari bir necha daqiqa olishi mumkin.",
     "The browser screenshot source is ready.":
         "Brauzer skrinshoti manbasi tayyor.",
     "The command server discovery URL is invalid.":

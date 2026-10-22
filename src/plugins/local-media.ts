@@ -33,6 +33,7 @@ export function installLocalMedia(w: any): any {
     var endpoint = "";
     var importedSelection = "";
     var nextImportSelection = "";
+    var pendingFileKey = "localMediaPendingFile";
     function isNative(): boolean {
         return !!(
             w.Capacitor &&
@@ -242,7 +243,13 @@ export function installLocalMedia(w: any): any {
                   if (request !== catalogRevision)
                       return { cancelled: true, items: [] };
                   return base
-                      ? pollCatalog(base, request, accept, !!onProgress)
+                      ? pollCatalog(
+                            base,
+                            request,
+                            accept,
+                            !!onProgress,
+                            preferredId
+                        )
                       : boundedLocalRead(function (progress) {
                             return browser.list(
                                 progress,
@@ -275,9 +282,17 @@ export function installLocalMedia(w: any): any {
                         timer = null;
                         if (request === catalogRevision) {
                             catalogRevision++;
-                            last = null;
+                            // Retain the saved source rows so a stalled read
+                            // can be reconnected without deleting its identity.
+                            if (last)
+                                last = {
+                                    ...last,
+                                    reconnectRequired: true,
+                                    scanning: false,
+                                };
+                            cancelNativeList();
+                            browser.suspend();
                         }
-                        cancelNativeList();
                         reject(new Error("Local source did not respond"));
                     }, timeout);
                 }
@@ -337,25 +352,37 @@ export function installLocalMedia(w: any): any {
         base: string,
         request: number,
         accept: (value: any) => boolean,
-        progressive: boolean
+        progressive: boolean,
+        preferredId?: string
     ): Promise<any> {
+        var catalogUrl = base;
+        var preferredSent = !preferredId || isTauri();
         var signature = "";
         var changedAt = Date.now();
         function read(): Promise<any> {
             return boundedCatalogRequest(
-                base,
+                catalogUrl,
                 Math.max(1, 60000 - (Date.now() - changedAt))
             ).then(function (value) {
                 if (!value || !Array.isArray(value.items))
                     throw new Error("Invalid local media catalog");
                 if (request !== catalogRevision)
                     return { ...value, cancelled: true };
+                if (!preferredSent && value.readOnly) {
+                    var url = new URL(base);
+                    url.searchParams.set("preferredId", preferredId!);
+                    catalogUrl = url.href;
+                    preferredSent = true;
+                    return read();
+                }
                 var next = JSON.stringify([
                     value.scanning,
                     value.scanned,
                     value.total,
                     value.items.length,
                     value.scanError,
+                    value.preferred && value.preferred.id,
+                    value.preferred && value.preferred.state,
                 ]);
                 if (next !== signature) {
                     signature = next;
@@ -474,6 +501,85 @@ export function installLocalMedia(w: any): any {
                 new Error("Manage sources on the server itself.")
             );
         return remember(browser.removeSource(id));
+    }
+    function reconnectSource(id: string): Promise<any> {
+        if (locked() || settingsLocked())
+            return Promise.reject(
+                new Error("Unlock settings to reconnect sources")
+            );
+        if (isNative() || isTauri() || remoteEndpoint())
+            return Promise.reject(
+                new Error("Reconnect this folder on the device that owns it.")
+            );
+        var request = ++catalogRevision;
+        progressState = { items: [], phase: "picker-folder" };
+        // Invoke the picker synchronously inside the user's Enter/click action.
+        return browser.reconnectSource(id).then(function (value: any) {
+            if (request !== catalogRevision || value?.pickerCancelled)
+                return value;
+            if (value?.sourceReconnected && value.requiresReload) {
+                // Old native filesystem reads cannot be aborted by JavaScript.
+                // A fresh document uses the new handle without pretending that
+                // those old reads have drained or freeing their safety budget.
+                w.location.reload();
+            }
+            return value;
+        });
+    }
+    function startWithFile(sourceId: string): void {
+        if (locked() || settingsLocked()) return;
+        finishLoading();
+        revision++;
+        w.editCaption = w._("Start with file");
+        w.editvar = "";
+        w.setEdit = function () {
+            if (!current() || locked() || settingsLocked()) return;
+            var path = String(w.editvar || "").trim();
+            if (!path) {
+                render("Enter a file path relative to this folder.");
+                return;
+            }
+            run(function () {
+                var request = ++catalogRevision;
+                importedSelection = "";
+                var namespace = w.__ottOfflineProfiles.namespace();
+                return browser.bootstrapFile(sourceId, path).then(
+                    function (value: any) {
+                        if (request !== catalogRevision)
+                            return { cancelled: true, items: [] };
+                        last = value;
+                        var item = value.items.filter(function (entry: any) {
+                            return entry.available !== false && !!entry.url;
+                        })[0];
+                        importedSelection = item ? "local-" + item.id : "";
+                        return value;
+                    },
+                    function (error: any) {
+                        if (
+                            request === catalogRevision &&
+                            current() &&
+                            !locked() &&
+                            !settingsLocked() &&
+                            error?.name === "TimeoutError" &&
+                            namespace === w.__ottOfflineProfiles.namespace()
+                        ) {
+                            w.stbSetItem(
+                                pendingFileKey,
+                                JSON.stringify({
+                                    id: "local-" + sourceId + ":" + path,
+                                    namespace: namespace,
+                                })
+                            );
+                            throw new Error(
+                                "The file is remembered. Restart Chrome completely, then reopen the player."
+                            );
+                        }
+                        throw error;
+                    }
+                );
+            }, true);
+        };
+        w.showEditKey(null);
     }
     function requestAccess(
         onProgress?: (value: any) => boolean | void
@@ -669,6 +775,11 @@ export function installLocalMedia(w: any): any {
             close();
             return;
         }
+        if (last?.reconnectRequired && !isNative() && !isTauri())
+            message =
+                (message ? message + " " : "") +
+                "Reconnect the saved folder to renew its access after a drive or network change.";
+        var readOnly = !!(remoteEndpoint() && last?.readOnly);
         var selected = w.selIndex || 0;
         var rows: any[] = [];
         function row(
@@ -696,29 +807,32 @@ export function installLocalMedia(w: any): any {
                     : "Reconnect the original folder or drive, then continue playback. The saved source and video selection are preserved.",
                 restorePlayback
             );
-        row(
-            "add-folder",
-            "Add folder",
-            !isNative() && !isTauri()
-                ? "Chrome may ask to view and copy files. This grants read access; OTT plays the originals without storing another media copy."
-                : "Play files directly from the selected folder without copying them.",
-            function () {
-                run(function () {
-                    return importFiles(true);
-                }, !isNative());
-            }
-        );
-        row(
-            "add-files",
-            "Add files",
-            "Play selected files directly without copying them.",
-            function () {
-                run(function () {
-                    return importFiles();
-                }, !isNative());
-            }
-        );
+        if (!readOnly) {
+            row(
+                "add-folder",
+                "Add folder",
+                !isNative() && !isTauri()
+                    ? "Chrome may ask to view and copy files. This grants read access; OTT plays the originals without storing another media copy."
+                    : "Play files directly from the selected folder without copying them.",
+                function () {
+                    run(function () {
+                        return importFiles(true);
+                    }, !isNative());
+                }
+            );
+            row(
+                "add-files",
+                "Add files",
+                "Play selected files directly without copying them.",
+                function () {
+                    run(function () {
+                        return importFiles();
+                    }, !isNative());
+                }
+            );
+        }
         if (
+            !readOnly &&
             last &&
             (last.sources || []).some(function (source: any) {
                 return !source.available;
@@ -747,6 +861,18 @@ export function installLocalMedia(w: any): any {
             );
         row("refresh", "Refresh", "Read connected folders again.", function () {
             run(function () {
+                if (readOnly) {
+                    var request = ++catalogRevision;
+                    var url = new URL(remoteEndpoint());
+                    url.searchParams.set("refresh", "true");
+                    return boundedCatalogRequest(url.href, 60000).then(
+                        function () {
+                            return request === catalogRevision
+                                ? list()
+                                : { cancelled: true, items: [] };
+                        }
+                    );
+                }
                 return isTauri()
                     ? getEndpoint(true).then(function () {
                           return list();
@@ -765,6 +891,47 @@ export function installLocalMedia(w: any): any {
             }
         );
         ((last && last.sources) || []).forEach(function (source: any) {
+            if (readOnly) {
+                row(
+                    "readonly-source",
+                    source.name,
+                    "Read-only source. Manage folders in the helper configuration.",
+                    function () {}
+                );
+                return;
+            }
+            if (
+                source.kind === "folder" &&
+                !isNative() &&
+                !isTauri() &&
+                !remoteEndpoint() &&
+                typeof browser.reconnectSource === "function"
+            )
+                row(
+                    "reconnect-source",
+                    "Reconnect: " + source.name,
+                    "Choose the same folder again after reconnecting the drive or NAS. The player reloads with renewed access; saved profiles and file references are preserved.",
+                    function () {
+                        run(function () {
+                            return reconnectSource(source.id);
+                        });
+                    }
+                );
+            if (
+                source.kind === "folder" &&
+                !isNative() &&
+                !isTauri() &&
+                !remoteEndpoint() &&
+                typeof browser.bootstrapFile === "function"
+            )
+                row(
+                    "start-with-file",
+                    "Start with file…: " + source.name,
+                    "Enter a known video path inside this folder, for example Movies/video.mp4. Play it without waiting for the full folder scan; no files are copied.",
+                    function () {
+                        startWithFile(source.id);
+                    }
+                );
             row(
                 "disconnect-source",
                 "Disconnect: " + source.name,
@@ -782,7 +949,7 @@ export function installLocalMedia(w: any): any {
             );
         });
         ((last && last.items) || []).forEach(function (item: any) {
-            if (item.source === "linked") return;
+            if (readOnly || item.source === "linked") return;
             row(
                 "remove-copy",
                 "Remove copy: " + item.name,
@@ -940,7 +1107,13 @@ export function installLocalMedia(w: any): any {
             browser.suspend();
         },
         completedSources: function () {
-            if (!last || last.cancelled || last.scanning) return null;
+            if (
+                !last ||
+                last.cancelled ||
+                last.scanning ||
+                last.reconnectRequired
+            )
+                return null;
             return (last.sources || []).map(function (source: any) {
                 return { id: source.id, kind: source.kind, name: source.name };
             });
@@ -1005,7 +1178,12 @@ export function installLocalMedia(w: any): any {
         snapshot: function () {
             // Profile operations must never replace the provider's active scan.
             // Only a completed catalog describes every connected source.
-            if (!last || last.cancelled || last.scanning)
+            if (
+                !last ||
+                last.cancelled ||
+                last.scanning ||
+                last.reconnectRequired
+            )
                 return Promise.reject(
                     new Error(
                         "Wait for the local media scan to finish before saving or binding a profile"
@@ -1022,6 +1200,21 @@ export function installLocalMedia(w: any): any {
         takeImportSelection: function () {
             var selected = nextImportSelection;
             nextImportSelection = "";
+            try {
+                var pending = w.stbGetItem(pendingFileKey);
+                if (pending) {
+                    var hint = JSON.parse(pending);
+                    if (hint.namespace === w.__ottOfflineProfiles.namespace()) {
+                        w.stbSetItem(pendingFileKey, "");
+                        if (
+                            !selected &&
+                            typeof hint.id === "string" &&
+                            hint.id.indexOf("local-") === 0
+                        )
+                            selected = hint.id;
+                    }
+                }
+            } catch (_) {}
             return selected;
         },
         title: title,

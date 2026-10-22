@@ -1017,6 +1017,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Provedor do portal Stalker",
     "Stalker portal settings": "Configuración do portal Stalker",
     "Stalker portals": "Portais Stalker",
+    "Start with file": "Comezar cun ficheiro",
     "Starting...": "Iniciando…",
     Status: "Estado",
     Stop: "Deter",
@@ -1051,6 +1052,8 @@ var keyStrings = {
         "O texto é demasiado longo. Por favor, acúrtao antes de envialo.",
     "Text sent. Check your TV to confirm it appeared.":
         "Texto enviado. Comproba o teu televisor para confirmar que apareceu.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "O navegador comproba os metadatos do cartafol antes de mostrar os ficheiros. Os cartafoles grandes de rede poden tardar varios minutos.",
     "The browser screenshot source is ready.":
         "A fonte da captura de pantalla do navegador está lista.",
     "The command server discovery URL is invalid.":

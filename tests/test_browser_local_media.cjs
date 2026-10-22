@@ -542,9 +542,19 @@ async function builtUi(devicePath) {
         );
         await page.locator("#listEdit").waitFor({ state: "hidden" });
         await action("add-folder").waitFor();
+        // A visible old row does not mean the next catalog read has released
+        // input ownership. Do not spin forever against the loading dialog.
+        await page.locator("#dialogbox").waitFor({ state: "hidden" });
         // Start at the first row to verify normal remote navigation.
-        while (await page.evaluate(() => window.selIndex > 0))
+        for (let step = 0; step < 30; step++) {
+            if ((await page.evaluate(() => window.selIndex)) === 0) break;
             await page.keyboard.press("ArrowUp");
+        }
+        assert.equal(
+            await page.evaluate(() => window.selIndex),
+            0,
+            "local manager must release navigation before the first-row check"
+        );
         await page.keyboard.press("ArrowDown");
         assert.equal(
             await page.evaluate(() => window.listArray[window.selIndex].id),
@@ -1712,11 +1722,166 @@ async function builtUi(devicePath) {
                 delete window.__missingProfileCatalog;
             });
         }
+        // A stale NAS mount can retain permission while its old native
+        // handle no longer responds. Rebind through the real manager action;
+        // retain profile references and source identity, then start one fresh
+        // document so unabortable reads cannot poison the replacement handle.
+        await page.evaluate(() => window.__ottLocalMedia.open());
+        // open() renders saved rows before its owned scan finishes. Do not
+        // start a second browser.list() from the fixture while that scan owns
+        // the manager: it would cancel the very snapshot under test.
+        await page.locator("#dialogbox").waitFor({ state: "hidden" });
+        await action("reconnect-source").waitFor({ state: "visible" });
+        async function reconnectSnapshot() {
+            return page.evaluate(async () => {
+                const catalog = await window.__ottBrowserLocalMedia.list();
+                const exported = await window.__ottOfflineProfiles.request({
+                    action: "profile_export",
+                    params: { number: 1 },
+                });
+                return {
+                    profile: exported.data.profile,
+                    sources: catalog.sources.map(({ id, name, kind }) => ({
+                        id,
+                        kind,
+                        name,
+                    })),
+                };
+            });
+        }
+        const beforeReconnect = await reconnectSnapshot();
+        await page.evaluate(() => {
+            window.__reconnectDocumentMarker = true;
+            window.showDirectoryPicker = () => {
+                localStorage.setItem(
+                    "reconnect-picker-activation",
+                    String(navigator.userActivation.isActive)
+                );
+                return Promise.reject(
+                    new DOMException("Cancelled", "AbortError")
+                );
+            };
+        });
+        await selectAction("reconnect-source");
+        await action("reconnect-source").waitFor({ state: "visible" });
+        assert.equal(
+            await page.evaluate(() => window.__reconnectDocumentMarker),
+            true,
+            "cancelled reconnect must not reload the document"
+        );
+        assert.deepEqual(await reconnectSnapshot(), beforeReconnect);
+        assert.equal(
+            await page.evaluate(() =>
+                localStorage.getItem("reconnect-picker-activation")
+            ),
+            "true",
+            "reconnect picker receives the keyboard user activation"
+        );
+        const folderName = beforeReconnect.sources.find(
+            (source) => source.kind === "folder"
+        ).name;
+        await page.evaluate((name) => {
+            window.showDirectoryPicker = () => {
+                localStorage.setItem(
+                    "reconnect-picker-activation",
+                    String(navigator.userActivation.isActive)
+                );
+                return navigator.storage
+                    .getDirectory()
+                    .then((root) => root.getDirectoryHandle(name));
+            };
+        }, folderName);
+        const reconnectedNavigation = page.waitForNavigation({
+            waitUntil: "domcontentloaded",
+        });
+        await selectAction("reconnect-source");
+        await reconnectedNavigation;
+        await page.waitForFunction(
+            () =>
+                window.__ottLocalMedia &&
+                !document.body.classList.contains("booting")
+        );
+        assert.equal(
+            await page.evaluate(() => window.__reconnectDocumentMarker),
+            undefined,
+            "successful reconnect starts a fresh document"
+        );
+        assert.deepEqual(
+            await reconnectSnapshot(),
+            beforeReconnect,
+            "reconnect preserves all source IDs and saved profile references"
+        );
+        assert.equal(
+            await page.evaluate(() =>
+                localStorage.getItem("reconnect-picker-activation")
+            ),
+            "true"
+        );
+        await page.evaluate(() => window.__ottLocalMedia.open());
+        await action("start-with-file").waitFor({ state: "visible" });
+        await selectAction("start-with-file");
+        await page.locator("#editvar").fill("discarded/video.mp4");
+        await page.keyboard.press("Escape");
+        await page.locator("#listEdit").waitFor({ state: "hidden" });
+        await action("start-with-file").waitFor({ state: "visible" });
+        const afterCancelledDirect = await page.evaluate(async () => {
+            const catalog = await window.__ottLocalMedia.snapshot();
+            const exported = await window.__ottOfflineProfiles.request({
+                action: "profile_export",
+                params: { number: 1 },
+            });
+            return {
+                profile: exported.data.profile,
+                sources: catalog.sources.map(({ id, name, kind }) => ({
+                    id,
+                    kind,
+                    name,
+                })),
+            };
+        });
+        assert.deepEqual(
+            afterCancelledDirect,
+            beforeReconnect,
+            "cancelling a direct-file editor preserves sources and profiles"
+        );
+        await page.evaluate(() => {
+            const prototype = FileSystemDirectoryHandle.prototype;
+            const original = prototype.values;
+            window.__directStartEnumeration = { calls: 0, original };
+            prototype.values = function () {
+                if (this.name !== "selected-folder") return original.call(this);
+                window.__directStartEnumeration.calls++;
+                return {
+                    next: () => new Promise(() => {}),
+                    [Symbol.asyncIterator]() {
+                        return this;
+                    },
+                };
+            };
+        });
+        await selectAction("start-with-file");
+        await page.locator("#editvar").fill("nested/folder-video.mp4");
+        await page.keyboard.press("Enter");
+        await expectImportedPlayback("start-with-file");
+        assert.equal(
+            await page.evaluate(() =>
+                window.__ottLocalMedia.snapshot().then(
+                    () => false,
+                    () => true
+                )
+            ),
+            true,
+            "a direct bootstrap cannot be saved as a complete folder catalog"
+        );
+        await page.evaluate(() => {
+            FileSystemDirectoryHandle.prototype.values =
+                window.__directStartEnumeration.original;
+        });
         assert.deepEqual(errors, []);
         console.log(
             "PASS built UI " +
                 devicePath +
-                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Ctrl/Meta seek and plain PC arrow volume with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy), profile save/export/import/load, progressive first-batch playback and append without restart/pause loss"
+                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Ctrl/Meta seek and plain PC arrow volume with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy), profile save/export/import/load, progressive first-batch playback and append without restart/pause loss, same-ID folder reconnect/cancel with profile preservation and reload, direct-file editor cancellation and playback with blocked enumeration"
         );
     } finally {
         await browser.close();

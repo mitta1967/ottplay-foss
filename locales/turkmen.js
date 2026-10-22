@@ -985,6 +985,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker portal üpjün edijisi",
     "Stalker portal settings": "Stalker portal sazlamalary",
     "Stalker portals": "Stalker portallary",
+    "Start with file": "Faýldan başla",
     "Starting...": "Başlaýar…",
     Status: "Ýagdaý",
     Stop: "Duruz",
@@ -1018,6 +1019,8 @@ var keyStrings = {
         "Tekst gaty uzyn. Ibermezden ozal gysgaldyň.",
     "Text sent. Check your TV to confirm it appeared.":
         "Tekst iberildi. Onuň telewizoryňyzda görünýändigini barlaň.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Brauzer faýllary görkezmezden öň bukjanyň metamaglumatlaryny barlaýar. Uly tor bukjalary birnäçe minut alyp biler.",
     "The browser screenshot source is ready.":
         "Brauzeriň skrinshot çeşmesi taýýar.",
     "The command server discovery URL is invalid.":

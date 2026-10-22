@@ -1098,7 +1098,7 @@ Tanıtım kayıtlarını hazırlamak ve düzenlemek için yerel [video-use iş a
 
 ## Plex medya kitaplığı
 
-Her oynatıcı **Plex** sağlayıcısıyla bir Plex hesabına veya Plex Media Server'a bağlanabilir. Entegrasyon Plex kullanır; Synology medya sunucusu için olası ana makinelerden biridir. Normal kanal listesini doldurmak için profilde klasörler seçin. Oynatma ilk kullanılabilir partiden başlar; arka plan yüklemesi, standart arama ve karıştır/tekrarla Eylemleri vardır, OTT sunucusunda Plex ayarlamak gerekmez. [Plex girişi ve doğrudan oynatmaya](docs/plex-provider.md) bakın.
+Her oynatıcı **Plex** sağlayıcısıyla bir Plex hesabına veya Plex Media Server'a bağlanabilir. Entegrasyon Plex kullanır; Synology medya sunucusu için olası ana makinelerden biridir. Erişilebilir tüm videolar ve müzik parçaları kanal listesine otomatik eklenir; kategori seçimi kitaplık, klasör veya diziye göre filtreler. Oynatma ilk kullanılabilir partiden başlar; arka plan yüklemesi, standart arama ve karıştır/tekrarla Eylemleri vardır, OTT sunucusunda Plex ayarlamak gerekmez. [Plex girişi ve doğrudan oynatmaya](docs/plex-provider.md) bakın.
 
 ![Plex yükleme, dosya gezinme ve kapanış yaşam döngüsü](docs/images/plex-playback-lifecycle.svg)
 

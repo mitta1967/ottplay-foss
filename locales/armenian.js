@@ -999,6 +999,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker պորտալի մատակարար",
     "Stalker portal settings": "Stalker պորտալի կարգավորումներ",
     "Stalker portals": "Stalker պորտալներ",
+    "Start with file": "Սկսել ֆայլից",
     "Starting...": "Գործարկվում է…",
     Status: "Վիճակ",
     Stop: "Կանգ",
@@ -1033,6 +1034,8 @@ var keyStrings = {
         "Տեքստը չափազանց երկար է: Խնդրում ենք կրճատել այն ուղարկելուց առաջ:",
     "Text sent. Check your TV to confirm it appeared.":
         "Տեքստն ուղարկված է: Ստուգեք ձեր հեռուստացույցը՝ հաստատելու, որ այն հայտնվել է:",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Զննարկիչը ֆայլերը ցույց տալուց առաջ ստուգում է պանակի մետատվյալները։ Ցանցային մեծ պանակների համար կարող է պահանջվել մի քանի րոպե։",
     "The browser screenshot source is ready.":
         "Բրաուզերի սքրինշոթի աղբյուրը պատրաստ է:",
     "The command server discovery URL is invalid.":

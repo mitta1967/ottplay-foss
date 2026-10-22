@@ -299,10 +299,12 @@ function createOfflineDriver(
                     profiles && profiles.selection
                         ? profiles.selection()
                         : null;
-                if (profileSelection !== null) {
-                    wanted = profileSelection || "local-profile-unbound";
-                } else if (imported) {
+                if (imported) {
+                    // An explicit file choice wins over a remembered cursor;
+                    // profile filtering below still bounds allowed sources.
                     wanted = imported;
+                } else if (profileSelection !== null) {
+                    wanted = profileSelection || "local-profile-unbound";
                 } else if (saved && saved.selected && saved.selected.itemId) {
                     wanted = String(saved.selected.itemId).replace(
                         /^channel:/,
@@ -509,7 +511,9 @@ function createOfflineDriver(
                 closeLoading();
                 var snapshot = driverCatalogSnapshot(catalog);
                 snapshot.incremental = incremental;
-                if (missingPreferred && !catalog.channels[wanted])
+                if (!incremental && imported && catalog.channels[wanted])
+                    snapshot.selectedId = wanted;
+                else if (missingPreferred && !catalog.channels[wanted])
                     snapshot.selectedId = catalog.ids[0];
                 done(snapshot, undefined, incremental);
                 if (!current()) return false;
@@ -2531,8 +2535,31 @@ function mountProviderDriver(
                 catalog.ids.forEach(function (key) {
                     if (
                         Object.prototype.hasOwnProperty.call(host.channels, key)
-                    )
+                    ) {
+                        var prior = host.channels[key];
+                        var update = catalog.channels[key];
+                        var changed = false;
+                        if (
+                            update &&
+                            Array.isArray(update.__ottMediaCategories) &&
+                            JSON.stringify(prior.__ottMediaCategories) !==
+                                JSON.stringify(update.__ottMediaCategories)
+                        ) {
+                            prior.__ottMediaCategories =
+                                update.__ottMediaCategories;
+                            changed = true;
+                        }
+                        if (
+                            update &&
+                            Number(update.adult) === 1 &&
+                            Number(prior.adult) !== 1
+                        ) {
+                            prior.adult = 1;
+                            changed = true;
+                        }
+                        if (changed) added.push(key);
                         return;
+                    }
                     host.channels[key] = catalog.channels[key];
                     host.cList.push(key);
                     added.push(key);

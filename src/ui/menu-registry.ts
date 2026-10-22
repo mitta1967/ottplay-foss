@@ -222,7 +222,14 @@ function createScreenMenuRegistry() {
                     host.stbSubtitleExists()
                 );
             case "media.open":
-                return typeof host.getMediaArray === "function";
+                return (
+                    typeof host.getMediaArray === "function" &&
+                    !(
+                        host.__ottActiveProviderDriver &&
+                        (host.__ottActiveProviderDriver.id === "plex" ||
+                            host.__ottActiveProviderDriver.id === "vportal")
+                    )
+                );
             case "pip.close":
                 return host.pipIndex != null;
             default:

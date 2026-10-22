@@ -990,6 +990,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker-portalleverantör",
     "Stalker portal settings": "Inställningar för Stalker-portal",
     "Stalker portals": "Stalker-portaler",
+    "Start with file": "Börja med fil",
     "Starting...": "Startar…",
     Status: "Status",
     Stop: "Stopp",
@@ -1024,6 +1025,8 @@ var keyStrings = {
         "Texten är för lång. Förkorta den innan du skickar.",
     "Text sent. Check your TV to confirm it appeared.":
         "Texten har skickats. Kontrollera att den visas på din TV.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Webbläsaren kontrollerar mappens metadata innan filerna visas. Stora nätverksmappar kan ta flera minuter.",
     "The browser screenshot source is ready.":
         "Källan för webbläsarens skärmdump är klar.",
     "The command server discovery URL is invalid.":
