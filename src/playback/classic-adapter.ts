@@ -392,12 +392,19 @@ function classicPlaybackObservation(): PlaybackObservation & {
             : classicPlaybackChannel(w, w.catIndex, w.primaryIndex);
     var channel = (w.channels || {})[id];
     var catalog = w.channels;
+    var categories = w.catsArray;
+    var lists = w.cats;
     var mode = w.playType;
     var categoryIndex = w.catIndex;
     var selectionIndex = w.primaryIndex;
-    var categories = w.catsArray;
-    var lists = w.cats;
-    var list = (lists || {})[(categories || [])[w.catIndex]];
+    var categoryId = (w.catsArray || [])[categoryIndex];
+    var list = (lists || {})[categoryId];
+    var selectedId = (list || [])[selectionIndex];
+    var ownedMedia =
+        target &&
+        target.kind === "vod" &&
+        w.__ottCoreTransport &&
+        w.stbPlay === w.__ottCoreTransport.play;
     var get = w.providerGetItem;
     var set = w.providerSetItem;
     var prefix = w.p_pref;
@@ -443,12 +450,19 @@ function classicPlaybackObservation(): PlaybackObservation & {
         isCurrent: function (): boolean {
             return (
                 isCurrentBackend() &&
-                catalog === w.channels &&
                 categoryIndex === w.catIndex &&
                 selectionIndex === w.primaryIndex &&
-                categories === w.catsArray &&
-                lists === w.cats &&
-                list === (w.cats || {})[(w.catsArray || [])[w.catIndex]] &&
+                // Owned finite media keeps its decoder across publication;
+                // legacy/live callbacks retain their stricter container fence.
+                (ownedMedia
+                    ? categoryId === (w.catsArray || [])[w.catIndex] &&
+                      selectedId ===
+                          ((w.cats || {})[categoryId] || [])[w.primaryIndex]
+                    : catalog === w.channels &&
+                      categories === w.catsArray &&
+                      lists === w.cats &&
+                      list ===
+                          (w.cats || {})[(w.catsArray || [])[w.catIndex]]) &&
                 mode === w.playType
             );
         },

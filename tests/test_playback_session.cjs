@@ -941,6 +941,87 @@ for (const hook of ["onPreview", "onSchedule"]) {
     );
 }
 
+// Local progressive publication replaces containers without changing the
+// playing row, source or decoder. Neither pending seeks nor the HUD reset.
+function republishingFixture() {
+    const c = fixture();
+    c.__ottCoreTransport = { play: function () {} };
+    c.stbPlay = c.__ottCoreTransport.play;
+    c.__ottCoreBackend = () => ({ current: () => null });
+    c.__ottClassicPlayback.command({ channelId: 101, type: "live" });
+    c.__ottClassicPlayback.command({ type: "playing" });
+    c.__ottClassicPlayback.command({ duration: 600, type: "finite-channel" });
+    let position = 100;
+    c.stbGetPosTime = () => position;
+    c.stbSetPosTime = (value) => {
+        position = value;
+        c.effects.push(["seek", value]);
+    };
+    return c;
+}
+for (const replace of [
+    (c) => {
+        c.channels = { ...c.channels };
+    },
+    (c) => {
+        c.catsArray = c.catsArray.slice();
+    },
+    (c) => {
+        c.cats = { ...c.cats, one: c.cats.one.slice() };
+    },
+]) {
+    const c = republishingFixture();
+    const before = c.__ottClassicPlayback.snapshot();
+    c.__ottClassicPlayback.shift(10);
+    replace(c);
+    c.flush();
+    c.__ottClassicPlayback.shift(10);
+    replace(c);
+    c.flush();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "seek"),
+        [
+            ["seek", 110],
+            ["seek", 120],
+        ]
+    );
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "message").map((row) => row[1]),
+        ["10", "10", "20", "20"]
+    );
+    assert.equal(
+        c.__ottClassicPlayback.snapshot().generation,
+        before.generation
+    );
+}
+for (const replace of [
+    (c) => {
+        c.channels[101] = { ...c.channels[101] };
+    },
+    (c) => {
+        c.p_pref = "other-source";
+    },
+    (c) => {
+        c.catIndex = 1;
+    },
+    (c) => {
+        c.cats.one = [202, 101, 303];
+    },
+    (c) => {
+        c.__ottClassicPlayback.command({ type: "stop" });
+    },
+]) {
+    const c = republishingFixture();
+    c.__ottClassicPlayback.shift(10);
+    replace(c);
+    c.late();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "seek"),
+        [],
+        "real row/source/selection/backend change rejects queued work"
+    );
+}
+
 // Actual decoder samples retire a completed target, while admitted absolute
 // seeks cancel pending offsets and carry their new base through decoder lag.
 {

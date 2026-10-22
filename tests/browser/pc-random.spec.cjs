@@ -262,9 +262,17 @@ test("PC modifier seeks accumulate across debounce flushes without reapplying th
         });
         window.__ottClassicPlayback.command({ type: "pause" });
         window.__seekPositions = [];
-        // Use compatibility observations instead of the real decoder's short
-        // fixture timeline; the actual key handler/controller stay unchanged.
-        window.stbPlay = function () {};
+        // Keep the owned finite-media path while its decoder sample lags.
+        window.__ottCoreBackend = () => ({
+            current: () => ({
+                sample: () =>
+                    window.__ottClassicPlayback.command({
+                        duration: 1000,
+                        position: 100,
+                        type: "position",
+                    }),
+            }),
+        });
         window.stbGetPosTime = () => 100;
         window.stbGetLen = () => 1000;
         window.stbSetPosTime = (position) =>
@@ -281,6 +289,17 @@ test("PC modifier seeks accumulate across debounce flushes without reapplying th
         await expect
             .poll(() => page.evaluate(() => window.__seekPositions.length))
             .toBe(index + 1);
+        // Native local catalog publication replaces these containers without
+        // changing the playing row, selected category, or decoder generation.
+        await page.evaluate(() => {
+            window.channels = { ...window.channels };
+            window.catsArray = window.catsArray.slice();
+            const category = window.catsArray[window.catIndex];
+            window.cats = {
+                ...window.cats,
+                [category]: window.cats[category].slice(),
+            };
+        });
     }
     expect(await page.evaluate(() => window.__seekPositions)).toEqual([
         110, 120, 130, 140,

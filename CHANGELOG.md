@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Keep cumulative Ctrl/Alt/Command-arrow seek feedback across 500 ms transport batches. A valid external seek cancels earlier pending keyboard work and supplies the next seek base; rejected requests leave pending work intact.
+- Keep cumulative Ctrl/Alt/Command-arrow seek feedback across 500 ms transport batches. A valid external seek cancels earlier pending keyboard work and supplies the next seek base; rejected requests leave pending work intact. Preserve finite-media seek feedback and pending offsets when background catalog publication replaces only list containers.
 
 - Open Plex and VPortal directly as complete TV-style channel catalogs. Use
   Category selection to filter by library, folder, series and nested sections;
