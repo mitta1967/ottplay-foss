@@ -40,7 +40,7 @@ Capacitor builds.
 
 Selecting a video opens the standard loading dialog immediately while its playable URL is resolved. **Back** cancels and returns to the list. Late replies cannot launch a cancelled selection. The decoder's normal buffering indicator follows stream preparation.
 
-During full-screen Plex playback on PC, **Alt/Ctrl/Command + Left/Right** seek backward/forward by ten seconds; unmodified **Left/Right** adjust volume. **Up/Down** play the previous/next file in the current list. TV devices retain their configured remote-key mappings. Open lists and dialogs retain their own navigation. Explicit remote Plex queues keep their own requested order and completion policy.
+During full-screen Plex playback on PC, **Alt/Ctrl/Command + Left/Right** seek backward/forward by ten seconds; unmodified **Left/Right** adjust volume. **Up** plays the next file and **Down** the previous file in the current list. TV devices retain their configured remote-key mappings. Open lists and dialogs retain their own navigation. Explicit remote Plex queues keep their own requested order and completion policy.
 
 The most recently admitted Plex playback is saved as a source-scoped media ID, whether started from Channel list, favorites, a remote queue or the older Media browser. Reload restores that item directly in the TV catalog; an older channel selection cannot replace it. The standard channel selection and per-file watch position are saved independently of expiring media URLs. Reopening resolves the selected video again through Plex. Startup resumes its saved position automatically; choosing a file manually offers the existing Continue watching prompt. Arrow navigation and natural completion start the next file at zero. Older Plex profiles can restore their unfinished last video from the same server’s media journal after catalog discovery. Parental admission still applies.
 
@@ -232,7 +232,7 @@ For access away from home, the selected Plex server must have a reachable remote
 ![Plex playback lifecycle: an owned loading screen, explicit file selection across natural completion, and early session cleanup](images/plex-playback-lifecycle.svg)
 
 A loading screen belongs to the request that opened it. During startup, the
-player scans the profile’s selected roots and resolves a fresh stream for the
+player scans all accessible libraries and resolves a fresh stream for the
 saved video (or the first available video on a new profile). It can start before
 other libraries and folders finish loading. Replacing that screen cancels pending work; a late result cannot start a video
 behind a newer dialog. Cancellation preserves the saved playback position.
@@ -241,7 +241,7 @@ During a full-screen file change, repeated **Up/Down** presses update the pendin
 destination. If the old video ends meanwhile, the player carries that exact
 destination into the new playback generation. Responses from the previous
 request are ignored. Navigation performed during cancellation also wins over
-the old request. **Left/Right** remain seek controls for the current video.
+the old request. On PC, **Alt/Option, Ctrl, or Command + Left/Right** seek within the current video; unmodified **Left/Right** adjust volume. TV devices retain their configured remote-key mappings.
 
 Folder scanning continues after a full 200-row page even when Plex omits
 `totalSize`. A known total or an empty page finishes that traversal; a server-capped short

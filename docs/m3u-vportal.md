@@ -152,6 +152,12 @@ In particular, an HTTPS browser page needs usable HTTPS media URLs. A local
 fixture verifies the integration, but an actual subscription, its streams, and
 physical TV devices require separate playback validation.
 
+The real-catalog acceptance check validated 113,972 videos by replaying saved
+responses through the production collector, retaining about 60.69 MiB within
+the unchanged 64 MiB metadata limit. Two series containers remain unverified
+because requests were blocked by an access policy with HTTP 503. This is not
+a claim of a completed live catalog traversal.
+
 ## Remote title search and repeat playback
 
 With the updated command server, CLI and player connected, run:
