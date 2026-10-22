@@ -2324,7 +2324,7 @@ test("whole-library scan discovers video and music sections with stable categori
     assert.equal(track.__ottMediaCollection, "Music");
     assert.equal(
         track.__ottMediaCategories[0].id,
-        "plex:/library/sections/3/all"
+        "plex:/library/sections/3/all?type=10"
     );
     f.tick(5000);
     assert.equal(parsed(f).pathname, "/library/metadata/20/children");
@@ -2430,6 +2430,206 @@ test("later duplicate adult metadata upgrades a retained item even without new c
     });
     assert.equal(batches[1][0].adult, 1);
     assert.equal(batches[1][0].__ottMediaCategories.length, 1);
+});
+
+test("whole catalog compacts previews and completes beyond the old 8 MiB selected-folder limit", () => {
+    const f = fixture(),
+        done = [];
+    let count = 0;
+    f.client.scanFolders(
+        [],
+        (batch) => {
+            count += batch.length;
+            for (const row of batch) {
+                assert(row.description.length <= 1024);
+                assert(row.title.length <= 1024);
+            }
+        },
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [
+                { key: "1", title: "Small", type: "movie" },
+                { key: "2", title: "Films", type: "movie" },
+            ],
+            size: 2,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: Array.from({ length: 165 }, (_, i) => ({
+                ratingKey: String(20000 + i),
+                title: "Short " + i,
+                type: "movie",
+            })),
+            size: 165,
+            totalSize: 165,
+        },
+    });
+    f.tick(0);
+    for (let offset = 0; offset < 9000; offset += 200) {
+        const rows = Array.from(
+            { length: Math.min(200, 9000 - offset) },
+            (_, i) => ({
+                Media: [
+                    {
+                        Part: [
+                            { file: "/private/source/collection/movie.mp4" },
+                        ],
+                    },
+                ],
+                ratingKey: String(offset + i + 1),
+                summary: "x".repeat(2000),
+                title: "Film " + (offset + i),
+                type: "movie",
+            })
+        );
+        last(f).reply({
+            MediaContainer: {
+                Metadata: rows,
+                offset,
+                size: rows.length,
+                totalSize: 9000,
+            },
+        });
+        f.tick(0);
+    }
+    assert.equal(count, 9165);
+    assert.deepEqual(done, [undefined]);
+    const status = f.client.scanDiagnostics();
+    assert.equal(status.state, "complete");
+    assert(status.bytes > 8 * 1024 * 1024);
+    assert(status.bytes < 64 * 1024 * 1024);
+    assert.equal(status.items, 9165);
+    assert.equal(status.maxBytes, 64 * 1024 * 1024);
+});
+
+test("automatic music catalog uses a flat track query beyond one thousand artists", () => {
+    const f = fixture(),
+        done = [];
+    let count = 0;
+    f.client.scanFolders(
+        [],
+        (batch) => (count += batch.length),
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [{ key: "3", title: "Music", type: "artist" }],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    for (let offset = 0; offset < 1200; offset += 200) {
+        assert.equal(parsed(f).pathname, "/library/sections/3/all");
+        assert.equal(parsed(f).searchParams.get("type"), "10");
+        last(f).reply({
+            MediaContainer: {
+                Metadata: Array.from({ length: 200 }, (_, i) => ({
+                    ratingKey: String(offset + i + 1),
+                    title: "Track " + (offset + i),
+                    type: "track",
+                })),
+                offset,
+                size: 200,
+                totalSize: 1200,
+            },
+        });
+        f.tick(0);
+    }
+    assert.equal(count, 1200);
+    assert.deepEqual(done, [undefined]);
+    assert.equal(f.requests.length, 7);
+    assert.equal(f.client.scanDiagnostics().containers, 2);
+    assert(
+        !f.requests.some((request) =>
+            new URL(request.options.url).pathname.endsWith("/children")
+        )
+    );
+});
+
+test("whole catalog keeps oversized previews bounded and reports only safe failure counters", () => {
+    const f = fixture(),
+        done = [],
+        warnings = [];
+    f.host.console = { warn: (value) => warnings.push(value) };
+    f.client.scanFolders(
+        [],
+        (batch) => {
+            if (!batch.length) return;
+            assert.equal(batch[0].title.length, 1024);
+            assert(batch[0].description.length <= 1024);
+            assert(!/&[^;]*$/.test(batch[0].description));
+        },
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [{ key: "1", title: "Films", type: "movie" }],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ratingKey: "1",
+                    summary: "<&".repeat(5000),
+                    title: "n".repeat(5000),
+                    type: "movie",
+                },
+            ],
+            size: 1,
+            totalSize: 2,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: { Metadata: [], offset: 1, size: 0, totalSize: 2 },
+    });
+    assert.deepEqual(done, ["Invalid Plex response"]);
+    const status = f.client.scanDiagnostics();
+    assert.equal(status.state, "failed");
+    assert.equal(status.code, "invalid_response");
+    assert.equal(status.items, 1);
+    assert.equal(warnings.length, 1);
+    assert(!warnings[0].includes("https:"));
+    assert(!warnings[0].includes("Films"));
+    assert(!warnings[0].includes(token));
+});
+
+test("repeated membership cannot grow one catalog record beyond its hard limit", () => {
+    const f = fixture(),
+        done = [];
+    const roots = Array.from({ length: 100 }, (_, i) => ({
+        path: "/library/sections/" + (i + 1) + "/all",
+        title: "Category " + i + " " + "x".repeat(1000),
+    }));
+    f.client.scanFolders(
+        roots,
+        (batch) => {
+            for (const item of batch)
+                assert(Buffer.byteLength(JSON.stringify(item)) <= 64 * 1024);
+        },
+        (error) => done.push(error)
+    );
+    for (let i = 0; i < roots.length && !done.length; i++) {
+        last(f).reply({
+            MediaContainer: {
+                Metadata: [
+                    { ratingKey: "1", title: "Same item", type: "movie" },
+                ],
+                size: 1,
+                totalSize: 1,
+            },
+        });
+        f.tick(0);
+    }
+    assert.deepEqual(done, ["Plex playlist is too large"]);
+    assert.equal(f.client.scanDiagnostics().code, "record_limit");
 });
 
 console.log(`PASS Plex client (${passed} scenarios)`);

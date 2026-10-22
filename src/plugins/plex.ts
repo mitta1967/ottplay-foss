@@ -178,6 +178,7 @@ function createPlexClient(
     var cancelPage: (() => void) | null = null;
     var cancelScan: (() => void) | null = null;
     var scanRevision = 0;
+    var scanDiagnostic: any = null;
     var pageRevision = 0;
     var sections: any = null;
     var sectionsAt = 0;
@@ -1093,6 +1094,7 @@ function createPlexClient(
         var paths: any = Object.create(null);
         var labels: any = Object.create(null);
         var categories: any = Object.create(null);
+        var directoryGroups: any = Object.create(null);
         var seen: any = Object.create(null);
         var signatures: any = Object.create(null);
         var offset = 0;
@@ -1100,6 +1102,44 @@ function createPlexClient(
         var pages = 0;
         var characters = 0;
         var total: number | null = null;
+        var whole = Array.isArray(folders) && !folders.length;
+        var maxBytes = (whole ? 64 : 8) * 1024 * 1024;
+        var maxContainers = whole ? 10000 : 1000;
+        var maxPages = whole ? 10000 : 1000;
+        function measure(value: any): number {
+            var text = JSON.stringify(value),
+                size = 0;
+            for (var i = 0; i < text.length; i++) {
+                var code = text.charCodeAt(i);
+                if (code < 128) size++;
+                else if (code < 2048) size += 2;
+                else if (
+                    code >= 0xd800 &&
+                    code <= 0xdbff &&
+                    i + 1 < text.length &&
+                    text.charCodeAt(i + 1) >= 0xdc00 &&
+                    text.charCodeAt(i + 1) <= 0xdfff
+                ) {
+                    size += 4;
+                    i++;
+                } else size += 3;
+            }
+            return size;
+        }
+        function diagnostic(state: string, code = ""): any {
+            scanDiagnostic = {
+                bytes: characters,
+                code: code,
+                containers: Object.keys(paths).length,
+                items: Object.keys(seen).length,
+                maxBytes: maxBytes,
+                pages: pages,
+                scanned: scanned,
+                state: state,
+            };
+            return scanDiagnostic;
+        }
+        diagnostic("scanning");
         function cancelOwned(): void {
             if (ended) return;
             ended = true;
@@ -1123,15 +1163,23 @@ function createPlexClient(
             }
             return true;
         }
-        function finish(error?: string): void {
+        function finish(error?: string, code = "catalog_error"): void {
             if (!active()) return;
+            var details = diagnostic(
+                error ? "failed" : "complete",
+                error ? code : ""
+            );
+            if (error && w.console && typeof w.console.warn === "function")
+                w.console.warn(
+                    "Plex catalog scan failed: " + JSON.stringify(details)
+                );
             cancelOwned();
             done(error);
         }
         function heartbeat(): void {
             if (watchdog !== null) w.clearTimeout(watchdog);
             watchdog = w.setTimeout(function () {
-                finish("Plex source did not respond");
+                finish("Plex source did not respond", "stalled");
             }, 60000);
         }
         function enqueue(path: string, title: string, parent?: string): void {
@@ -1143,9 +1191,9 @@ function createPlexClient(
                 parent && labels[parent]
                     ? labels[parent] + " / " + title
                     : title;
-            labels[path] = name;
+            labels[path] = name.slice(0, 4096);
             if (path !== "/library/sections")
-                ancestors.push({ id: "plex:" + path, name: name });
+                ancestors.push({ id: "plex:" + path, name: labels[path] });
             categories[path] = ancestors;
             roots.push(path);
         }
@@ -1159,8 +1207,10 @@ function createPlexClient(
         function next(attempt = 1): void {
             if (!active()) return;
             if (!roots.length) return finish();
-            if (pages >= 1000 || Object.keys(paths).length > 1000)
-                return finish("Plex playlist is too large");
+            if (pages >= maxPages)
+                return finish("Plex playlist is too large", "page_limit");
+            if (Object.keys(paths).length > maxContainers)
+                return finish("Plex playlist is too large", "container_limit");
             var path = roots[0];
             var owner: any = { xhr: null };
             pendingScan = owner;
@@ -1176,7 +1226,7 @@ function createPlexClient(
                         return later(function () {
                             next(attempt + 1);
                         }, attempt * 500);
-                    return finish("Plex connection failed");
+                    return finish("Plex connection failed", "transport");
                 }
                 var data: any;
                 var rows: any[];
@@ -1184,7 +1234,7 @@ function createPlexClient(
                     data = plexContainer(raw, w);
                     rows = items(data);
                 } catch (_) {
-                    return finish("Invalid Plex response");
+                    return finish("Invalid Plex response", "invalid_response");
                 }
                 var count =
                     data.size === undefined ? rows.length : Number(data.size);
@@ -1204,7 +1254,7 @@ function createPlexClient(
                             reported < offset + count ||
                             (total !== null && total !== reported)))
                 )
-                    return finish("Invalid Plex response");
+                    return finish("Invalid Plex response", "invalid_response");
                 var signature =
                     path +
                     ":" +
@@ -1214,25 +1264,37 @@ function createPlexClient(
                         })
                     );
                 if (count && signatures[signature])
-                    return finish("Invalid Plex response");
+                    return finish("Invalid Plex response", "invalid_response");
                 signatures[signature] = true;
                 pages++;
                 if (count) heartbeat();
                 scanned += count;
                 if (scanned > 100000)
-                    return finish("Plex playlist is too large");
+                    return finish("Plex playlist is too large", "row_limit");
                 if (reported !== null) total = reported;
                 var batch: any[] = [];
                 if (path === "/library/sections") {
                     data = Object.assign({}, data, {
-                        Directory: items(data).filter(function (item) {
-                            return (
-                                item &&
-                                (item.type === "movie" ||
-                                    item.type === "show" ||
-                                    item.type === "artist")
-                            );
-                        }),
+                        Directory: items(data)
+                            .filter(function (item) {
+                                return (
+                                    item &&
+                                    (item.type === "movie" ||
+                                        item.type === "show" ||
+                                        item.type === "artist")
+                                );
+                            })
+                            .map(function (item) {
+                                return item.type === "artist" &&
+                                    /^[1-9][0-9]*$/.test(String(item.key))
+                                    ? Object.assign({}, item, {
+                                          key:
+                                              "/library/sections/" +
+                                              item.key +
+                                              "/all?type=10",
+                                      })
+                                    : item;
+                            }),
                         Hub: [],
                         Metadata: [],
                         Track: [],
@@ -1251,22 +1313,42 @@ function createPlexClient(
                     var id = record.request && record.request.path;
                     if (!id) return;
                     record.__ottMediaCollection = labels[path] || "Plex";
-                    record.__ottMediaCategories = (
-                        categories[path] || []
-                    ).slice();
+                    record.__ottMediaCategories = categories[path] || [];
                     var directory = record.__ottMediaFileDirectory;
                     delete record.__ottMediaFileDirectory;
                     if (directory) {
                         var directoryName = labels[path]
                             ? labels[path] + " / " + directory.name
                             : directory.name;
-                        record.__ottMediaCategories.push({
-                            id: "plex:" + path + ":directory:" + directory.id,
-                            name: directoryName,
-                        });
+                        var directoryId =
+                            "plex:" + path + ":directory:" + directory.id;
+                        if (!directoryGroups[directoryId])
+                            directoryGroups[directoryId] =
+                                record.__ottMediaCategories.concat([
+                                    { id: directoryId, name: directoryName },
+                                ]);
+                        record.__ottMediaCategories =
+                            directoryGroups[directoryId];
                         if (!record.__ottMediaSequence)
                             record.__ottMediaCollection = directoryName;
                     }
+                    if (whole) {
+                        record.title = String(record.title || "").slice(
+                            0,
+                            1024
+                        );
+                        // Descriptions are optional in the discovery list. Keep a
+                        // safe bounded preview; original metadata remains on PMS.
+                        record.description = String(record.description || "")
+                            .slice(0, 1024)
+                            .replace(/&[^;]*$/, "");
+                    }
+                    var size = measure(record);
+                    if (size > 64 * 1024)
+                        return finish(
+                            "Plex playlist is too large",
+                            "record_limit"
+                        );
                     var previous = seen[id];
                     if (previous) {
                         var merged = previous.__ottMediaCategories.slice();
@@ -1291,19 +1373,31 @@ function createPlexClient(
                             adult === previous.adult
                         )
                             return;
-                        characters -= JSON.stringify(previous).length;
+                        var updated = Object.assign({}, previous, {
+                            __ottMediaCategories: merged,
+                            adult: adult,
+                        });
+                        var updatedSize = measure(updated);
+                        if (updatedSize > 64 * 1024)
+                            return finish(
+                                "Plex playlist is too large",
+                                "record_limit"
+                            );
+                        characters -= measure(previous);
                         previous.adult = adult;
                         previous.__ottMediaCategories = merged;
-                        characters += JSON.stringify(previous).length;
+                        characters += updatedSize;
                         batch.push(previous);
                     } else {
                         seen[id] = record;
-                        characters += JSON.stringify(record).length;
+                        characters += size;
                         batch.push(record);
                     }
                 });
-                if (characters > 8 * 1024 * 1024)
-                    return finish("Plex playlist is too large");
+                if (!active()) return;
+                if (characters > maxBytes)
+                    return finish("Plex playlist is too large", "byte_limit");
+                diagnostic("scanning");
                 onBatch(batch, scanned);
                 if (!active()) return;
                 offset += count;
@@ -1315,7 +1409,8 @@ function createPlexClient(
                     roots.shift();
                     offset = 0;
                     total = null;
-                } else if (!count) return finish("Invalid Plex response");
+                } else if (!count)
+                    return finish("Invalid Plex response", "invalid_response");
                 later(next);
             }
             try {
@@ -1900,6 +1995,9 @@ function createPlexClient(
             );
         },
         resolve: resolve,
+        scanDiagnostics: function () {
+            return scanDiagnostic ? Object.assign({}, scanDiagnostic) : null;
+        },
         scanFolders: scanFolders,
         stableRequests: true,
         stop: function (expected?: string) {

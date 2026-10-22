@@ -8,6 +8,8 @@ Plex opens the ordinary **Channel list** with all accessible videos and music tr
 
 ![Selected sources become one ordinary playlist](images/media-channel-playlists.svg)
 
+The automatic whole-server catalog has bounded discovery: at most 100,000 records, 10,000 containers/pages and 64 MiB of serialized catalog metadata. The older explicitly scoped folder API retains its smaller 8 MiB/1,000-container limits. Discovery keeps optional summary previews and titles to 1,024 characters and shares category ancestry in memory; it does not eagerly copy full server metadata into every row. Full per-item resolution remains available through Plex. Music discovery requests flat tracks (`type=10`) rather than crawling every artist and album. Errors report sanitized counters and a reason code in the browser log, never library titles, URLs or credentials. A failed discovery remains marked incomplete so remote operations cannot mistake a partial catalog for the whole library.
+
 The player connects under the standard animated loading dialog and reports processed entries and available videos. It starts when the first usable batch arrives; if a saved video is selected, it waits for that video or the end of the scan. Remaining items arrive in the background without restarting the current video. Cancelling, changing source or changing profile retires the previous load. A stalled scan ends with an error rather than holding the loading screen indefinitely.
 
 **OK** opens the ordinary channel list. Search, favorites, order changes and **Actions → Shuffle / Reset order** work on this list. There is no separate folder picker during normal playback or setup. Use **Category selection** to change the visible group; normal channel controls operate on that group.
