@@ -1010,6 +1010,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Bixiyaha bogga adeegga Stalker",
     "Stalker portal settings": "Dejinta bogga adeegga Stalker",
     "Stalker portals": "Bogagga adeegga Stalker",
+    "Start with file": "Ka bilow fayl",
     "Starting...": "Waxaa la bilaabayaa…",
     Status: "Xaaladda",
     Stop: "Jooji",
@@ -1044,6 +1045,8 @@ var keyStrings = {
         "Qoraalku aad buu u dheer yahay. Fadlan soo gaab inta aadan dirin",
     "Text sent. Check your TV to confirm it appeared.":
         "Qoraal la diray. Hubi TV-gaaga si aad u xaqiijiso inuu soo muuqday.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Barowsarku wuxuu hubiyaa xogta galka ka hor inta uusan soo bandhigin faylasha. Galalka waaweyn ee shabakadda waxay qaadan karaan dhowr daqiiqo.",
     "The browser screenshot source is ready.":
         "Isha shaashadda browserka waa diyaar.",
     "The command server discovery URL is invalid.":

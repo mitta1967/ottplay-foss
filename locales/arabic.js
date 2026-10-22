@@ -970,6 +970,7 @@ var keyStrings = {
     "Stalker Portal Provider": "مزود البوابة Stalker",
     "Stalker portal settings": "إعدادات البوابة Stalker",
     "Stalker portals": "بوابات Stalker",
+    "Start with file": "البدء بملف",
     "Starting...": "البدء…",
     Status: "الحالة",
     Stop: "توقف",
@@ -1004,6 +1005,8 @@ var keyStrings = {
         "النص طويل جدًا. يرجى اختصاره قبل الإرسال.",
     "Text sent. Check your TV to confirm it appeared.":
         "تم إرسال النص. تحقق من جهاز التلفزيون الخاص بك للتأكد من ظهوره.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "يتحقق المتصفح من بيانات المجلد الوصفية قبل عرض الملفات. قد تستغرق مجلدات الشبكة الكبيرة عدة دقائق.",
     "The browser screenshot source is ready.": "مصدر لقطة شاشة المتصفح جاهز.",
     "The command server discovery URL is invalid.":
         "اكتشاف خادم الأوامر URL غير صالح.",

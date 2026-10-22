@@ -946,6 +946,7 @@ var keyStrings = {
     "Stalker Portal Provider": "ຜູ້ໃຫ້ບໍລິການພອດທັນ Stalker",
     "Stalker portal settings": "ການຕັ້ງຄ່າພອດທັນ Stalker",
     "Stalker portals": "ພອດທັນ Stalker",
+    "Start with file": "ເລີ່ມດ້ວຍໄຟລ໌",
     "Starting...": "ກຳລັງເລີ່ມ…",
     Status: "ສະຖານະ",
     Stop: "ຢຸດ",
@@ -978,6 +979,8 @@ var keyStrings = {
         "ຂໍ້ຄວາມຍາວເກີນໄປ. ກະລຸນາຫຍໍ້ມັນກ່ອນສົ່ງ.",
     "Text sent. Check your TV to confirm it appeared.":
         "ຂໍ້ຄວາມຖືກສົ່ງ. ກວດເບິ່ງໂທລະພາບຂອງທ່ານເພື່ອຢືນຢັນວ່າມັນປາກົດ.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "ບຣາວເຊີກວດສອບຂໍ້ມູນເມຕາຂອງໂຟນເດີກ່ອນສະແດງໄຟລ໌. ໂຟນເດີເຄືອຂ່າຍຂະໜາດໃຫຍ່ອາດໃຊ້ເວລາຫຼາຍນາທີ.",
     "The browser screenshot source is ready.": "ແຫຼ່ງພາບໜ້າຈໍຂອງບຣາວເຊີພ້ອມແລ້ວ.",
     "The command server discovery URL is invalid.": "URL ຄົ້ນຫາເຊີບເວີຄຳສັ່ງບໍ່ຖືກຕ້ອງ.",
     "The device ID in the address is invalid.": "ID ອຸປະກອນໃນທີ່ຢູ່ບໍ່ຖືກຕ້ອງ.",

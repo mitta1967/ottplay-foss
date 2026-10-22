@@ -941,6 +941,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker 门户提供商",
     "Stalker portal settings": "Stalker 门户设置",
     "Stalker portals": "Stalker 传送门",
+    "Start with file": "从文件开始",
     "Starting...": "开始……",
     Status: "状态",
     Stop: "停止",
@@ -973,6 +974,8 @@ var keyStrings = {
         "文本太长。发送前请缩短。",
     "Text sent. Check your TV to confirm it appeared.":
         "文本已发送。检查您的电视以确认它出现。",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "浏览器会先检查文件夹元数据，再显示文件。大型网络文件夹可能需要几分钟。",
     "The browser screenshot source is ready.": "浏览器截图源已准备就绪。",
     "The command server discovery URL is invalid.": "命令服务器发现URL 无效。",
     "The device ID in the address is invalid.": "地址中的设备ID 无效。",

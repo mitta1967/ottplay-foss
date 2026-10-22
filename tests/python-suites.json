@@ -6,6 +6,7 @@
     ["tests/test_mobile_orientation.py"],
     ["tests/test_local_player_install.py"],
     ["tests/test_windows_installers.py"],
+    ["tests/test_media_helper_installer.py"],
     ["tests/test_linux_playback_packaging.py"],
     ["tests/test_nas_configuration.py"],
     ["tests/test_local_proxy.py"],

@@ -1009,6 +1009,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Fornitur tal-portal Stalker",
     "Stalker portal settings": "Issettjar tal-portal Stalker",
     "Stalker portals": "Portali Stalker",
+    "Start with file": "Ibda b’fajl",
     "Starting...": "Qed jibda…",
     Status: "Stat",
     Stop: "Waqqaf",
@@ -1043,6 +1044,8 @@ var keyStrings = {
         "It-test huwa twil wisq. Jekk jogħġbok qassru qabel ma tibagħtu.",
     "Text sent. Check your TV to confirm it appeared.":
         "Test mibgħut. Iċċekkja t-TV tiegħek biex tikkonferma li deher.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Il-browser jiċċekkja l-metadata tal-folder qabel juri l-fajls. Folders kbar tan-netwerk jistgħu jieħdu diversi minuti.",
     "The browser screenshot source is ready.":
         "Is-sors tal-iskrin tal-brawżer huwa lest.",
     "The command server discovery URL is invalid.":

@@ -973,6 +973,7 @@ var keyStrings = {
     "Stalker Portal Provider": "អ្នកផ្តល់វិបផតថល Stalker",
     "Stalker portal settings": "ការកំណត់វិបផតថល Stalker",
     "Stalker portals": "វិបផតថល Stalker",
+    "Start with file": "ចាប់ផ្តើមពីឯកសារ",
     "Starting...": "ចាប់ផ្តើម...",
     Status: "ស្ថានភាព",
     Stop: "ឈប់",
@@ -1006,6 +1007,8 @@ var keyStrings = {
         "អត្ថបទវែងពេក។ សូម​កាត់​វា​ឱ្យ​ខ្លី​មុន​ពេល​ផ្ញើ។",
     "Text sent. Check your TV to confirm it appeared.":
         "អត្ថបទបានផ្ញើ។ ពិនិត្យទូរទស្សន៍របស់អ្នក ដើម្បីបញ្ជាក់ថាវាលេចចេញមក។",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "កម្មវិធីរុករកពិនិត្យទិន្នន័យមេតារបស់ថត មុនពេលបង្ហាញឯកសារ។ ថតបណ្តាញធំៗអាចចំណាយពេលច្រើននាទី។",
     "The browser screenshot source is ready.":
         "ប្រភពរូបថតអេក្រង់របស់កម្មវិធីរុករករួចរាល់ហើយ។",
     "The command server discovery URL is invalid.":

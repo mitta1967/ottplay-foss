@@ -995,6 +995,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker-portaalverskaffer",
     "Stalker portal settings": "Stalker-portaalinstellings",
     "Stalker portals": "Stalker-portale",
+    "Start with file": "Begin met lêer",
     "Starting...": "Begin…",
     Status: "Status",
     Stop: "Stop",
@@ -1028,6 +1029,8 @@ var keyStrings = {
         "Teks is te lank. Verkort dit asseblief voordat u dit stuur.",
     "Text sent. Check your TV to confirm it appeared.":
         "Teks gestuur. Gaan jou TV na om te bevestig dat dit verskyn het.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Die blaaier kontroleer vouermetadata voordat lêers verskyn. Groot netwerkvouers kan etlike minute neem.",
     "The browser screenshot source is ready.":
         "Die blaaierskermkiekiebron is gereed.",
     "The command server discovery URL is invalid.":

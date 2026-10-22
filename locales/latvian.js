@@ -998,6 +998,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker portāla pakalpojuma sniedzējs",
     "Stalker portal settings": "Stalker portāla iestatījumi",
     "Stalker portals": "Stalker portāli",
+    "Start with file": "Sākt ar failu",
     "Starting...": "Palaiž…",
     Status: "Statuss",
     Stop: "Apturēt",
@@ -1032,6 +1033,8 @@ var keyStrings = {
         "Teksts ir pārāk garš. Lūdzu, saīsiniet to pirms nosūtīšanas.",
     "Text sent. Check your TV to confirm it appeared.":
         "Teksts nosūtīts. Pārbaudiet savu televizoru, lai pārliecinātos, ka tas parādījās.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Pārlūks pārbauda mapes metadatus pirms failu parādīšanas. Lielām tīkla mapēm var būt vajadzīgas vairākas minūtes.",
     "The browser screenshot source is ready.":
         "Pārlūka ekrānuzņēmuma avots ir gatavs.",
     "The command server discovery URL is invalid.":

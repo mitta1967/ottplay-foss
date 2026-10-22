@@ -1004,6 +1004,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker портал провайдери",
     "Stalker portal settings": "Stalker порталынын жөндөөлөрү",
     "Stalker portals": "Stalker порталдары",
+    "Start with file": "Файлдан баштоо",
     "Starting...": "Ишке кирүүдө…",
     Status: "Абал",
     Stop: "Токтотуу",
@@ -1037,6 +1038,8 @@ var keyStrings = {
         "Текст өтө узун. Сураныч, жөнөтүүдөн мурун аны кыскартыңыз.",
     "Text sent. Check your TV to confirm it appeared.":
         "Текст жөнөтүлдү. Анын пайда болгонун ырастоо үчүн сыналгыңызды текшериңиз.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Браузер файлдарды көрсөтүүдөн мурун папканын метадайындарын текшерет. Чоң тармак папкаларына бир нече мүнөт талап кылынышы мүмкүн.",
     "The browser screenshot source is ready.":
         "Браузердин скриншот булагы даяр.",
     "The command server discovery URL is invalid.":

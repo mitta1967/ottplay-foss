@@ -999,6 +999,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Таъминкунандаи портали Stalker",
     "Stalker portal settings": "Танзимоти портали Stalker",
     "Stalker portals": "Порталҳои Stalker",
+    "Start with file": "Аз файл оғоз кунед",
     "Starting...": "Оғоз…",
     Status: "Ҳолат",
     Stop: "Қатъ кунед",
@@ -1033,6 +1034,8 @@ var keyStrings = {
         "Матн хеле дароз аст. Лутфан пеш аз фиристодан онро кӯтоҳ кунед.",
     "Text sent. Check your TV to confirm it appeared.":
         "Матн фиристода шуд. Телевизиони худро санҷед, то пайдо шудани онро тасдиқ кунед.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Браузер пеш аз нишон додани файлҳо метамаълумоти ҷузвдонро месанҷад. Ҷузвдонҳои калони шабакавӣ метавонанд чанд дақиқа вақт гиранд.",
     "The browser screenshot source is ready.":
         "Манбаи скриншоти браузер омода аст.",
     "The command server discovery URL is invalid.":

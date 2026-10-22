@@ -1017,6 +1017,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Utanga serivisi y'urubuga rwa Stalker",
     "Stalker portal settings": "Igenamiterere ry'urubuga rwa Stalker",
     "Stalker portals": "Imbuga za Stalker",
+    "Start with file": "Tangirira kuri dosiye",
     "Starting...": "Biratangiye…",
     Status: "Imimerere",
     Stop: "Hagarika",
@@ -1051,6 +1052,8 @@ var keyStrings = {
         "Inyandiko ni ndende cyane. Nyamuneka mugabanye mbere yo kohereza.",
     "Text sent. Check your TV to confirm it appeared.":
         "Inyandiko yoherejwe. Reba TV yawe kugirango wemeze ko yagaragaye.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Mushakisha ibanza kugenzura amakuru aranga ububiko mbere yo kwerekana dosiye. Ububiko bunini bwo ku muyoboro bushobora gufata iminota myinshi.",
     "The browser screenshot source is ready.":
         "Inkomoko y’amafoto ya ecran muri mushakisha iriteguye.",
     "The command server discovery URL is invalid.":

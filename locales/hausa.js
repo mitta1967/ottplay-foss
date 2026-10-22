@@ -991,6 +991,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Mai bada sabis na tashar Stalker",
     "Stalker portal settings": "Saitunan tashar Stalker",
     "Stalker portals": "Tashoshin Stalker",
+    "Start with file": "Fara da fayil",
     "Starting...": "Ana farawa…",
     Status: "Matsayi",
     Stop: "Dakatar",
@@ -1025,6 +1026,8 @@ var keyStrings = {
         "Rubutun ya yi tsayi da yawa. Da fatan za a rage shi kafin aikawa.",
     "Text sent. Check your TV to confirm it appeared.":
         "An aika da rubutu. Duba TV ɗin ku don tabbatar da ya bayyana.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Burauzar tana duba bayanan babban fayil kafin nuna fayiloli. Manyan manyan fayiloli na hanyar sadarwa na iya ɗaukar mintuna da yawa.",
     "The browser screenshot source is ready.":
         "An shirya tushen hoton mai lilo.",
     "The command server discovery URL is invalid.":

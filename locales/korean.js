@@ -982,6 +982,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker 포털 제공업체",
     "Stalker portal settings": "Stalker 포탈 설정",
     "Stalker portals": "Stalker 포털",
+    "Start with file": "파일로 시작",
     "Starting...": "시작 중…",
     Status: "상태",
     Stop: "정지",
@@ -1014,6 +1015,8 @@ var keyStrings = {
         "텍스트가 너무 깁니다. 짧게 줄여 보내주세요.",
     "Text sent. Check your TV to confirm it appeared.":
         "문자를 보냈습니다. TV에 나타나는지 확인하세요.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "브라우저는 파일을 표시하기 전에 폴더 메타데이터를 확인합니다. 큰 네트워크 폴더는 몇 분이 걸릴 수 있습니다.",
     "The browser screenshot source is ready.":
         "브라우저 스크린샷 소스가 준비되었습니다.",
     "The command server discovery URL is invalid.":

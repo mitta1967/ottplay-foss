@@ -973,6 +973,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker ပေါ်တယ်ဝန်ဆောင်မှုပေးသူ",
     "Stalker portal settings": "Stalker ပေါ်တယ်ဆက်တင်များ",
     "Stalker portals": "Stalker ပေါ်တယ်များ",
+    "Start with file": "ဖိုင်ဖြင့် စတင်မည်",
     "Starting...": "စတင်နေသည်...",
     Status: "အဆင့်အတန်း",
     Stop: "ရပ်ပါ။",
@@ -1005,6 +1006,8 @@ var keyStrings = {
         "စာသားသည် ရှည်လွန်းသည်။ မပို့မီ အတိုချုံးပါ။",
     "Text sent. Check your TV to confirm it appeared.":
         "စာတိုပေးပို့ခဲ့သည်။ ပေါ်လာကြောင်း အတည်ပြုရန် သင့် TV ကို စစ်ဆေးပါ။",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "ဘရောက်ဇာသည် ဖိုင်များကို မပြသမီ ဖိုင်တွဲ၏ မက်တာဒေတာကို စစ်ဆေးသည်။ ကွန်ရက်ဖိုင်တွဲကြီးများအတွက် မိနစ်အနည်းငယ် ကြာနိုင်သည်။",
     "The browser screenshot source is ready.":
         "ဘရောင်ဇာစခရင်ပုံရင်းမြစ် အဆင်သင့်ဖြစ်ပါပြီ။",
     "The command server discovery URL is invalid.":

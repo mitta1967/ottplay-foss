@@ -1005,6 +1005,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Poskytovateľ portálu Stalker",
     "Stalker portal settings": "Nastavenia portálu Stalker",
     "Stalker portals": "Portály Stalker",
+    "Start with file": "Začať súborom",
     "Starting...": "Začína sa…",
     Status: "Stav",
     Stop: "Zastaviť",
@@ -1039,6 +1040,8 @@ var keyStrings = {
         "Text je príliš dlhý. Pred odoslaním ho prosím skráťte.",
     "Text sent. Check your TV to confirm it appeared.":
         "Text odoslaný. Skontrolujte svoj televízor, aby ste sa uistili, že sa objavil.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Prehliadač pred zobrazením súborov kontroluje metadáta priečinka. Veľké sieťové priečinky môžu trvať niekoľko minút.",
     "The browser screenshot source is ready.":
         "Zdroj snímky obrazovky prehliadača je pripravený.",
     "The command server discovery URL is invalid.":

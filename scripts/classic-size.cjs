@@ -313,9 +313,20 @@ const { gzipSync } = require("node:zlib");
 // PC random selection adds 3199 raw / 788 gzip bytes to the largest entry.
 // Node 22.23.3 measures 991859/306650 web and 991817/306708 native;
 // retain about 700 raw / 600 gzip bytes for release identity variation.
+// Same-ID browser folder reconnection and bounded stale directory recovery add
+// 2379 raw / 639 gzip entry bytes on Node 22.23.3. Web is 994238/307289;
+// native is 994196/307346. Retain ~700 raw / 600 gzip bytes for release identity.
+// Bounded cached folder candidates and honest network enumeration progress add
+// 1429 raw / 376 gzip bytes. Node 22.23.3 web measures 995667/307664,
+// native 995625/307722; retain about 700 raw / 600 gzip release headroom.
+// Explicit source-relative file bootstrap and its standard editor add 3431 raw
+// / 841 gzip bytes on Node 22.23.3: web 999098/308505, native 999056/308561.
+// Keep about 700 raw / 600 gzip bytes of native/release identity headroom.
+// Read-only local helper controls add 322 raw bytes; reserve 600 raw bytes
+// for the reviewed UI and unchanged release identity allowance.
 // TV media category memberships and bounded remote category catalogs add
-// about 11 KB raw entry bytes. Preserve the existing release suffix reserve.
-const BUDGET = Object.freeze({ bytes: 1004600, gzipBytes: 311350 });
+// about 11.7 KB raw. Preserve both reviewed feature allowances.
+const BUDGET = Object.freeze({ bytes: 1012400, gzipBytes: 313200 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -464,7 +475,13 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Node 22 measures 1115298/352559 web and 1115256/352616 native.
 // The same PC shortcut is counted once across all shipped artifacts.
 // Node 22.23.3 totals 1124049/354978 web and 1124007/355036 native.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1136800, gzipBytes: 359650 });
+// Count that same reviewed reconnect cost once in the complete payload:
+// Node 22.23.3 web 1126428/355617; native 1126386/355674.
+// Include the same bounded-candidate and progress cost once: Node 22.23.3
+// web 1127857/355992; native 1127815/356050, with unchanged provider bytes.
+// Count explicit relative-file bootstrap once: web 1131288/356833,
+// native 1131246/356889 on Node 22.23.3; optional provider bytes are unchanged.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1144600, gzipBytes: 361500 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

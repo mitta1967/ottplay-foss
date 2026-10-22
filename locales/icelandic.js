@@ -980,6 +980,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Þjónustuaðili Stalker-gáttar",
     "Stalker portal settings": "Stillingar Stalker-gáttar",
     "Stalker portals": "Stalker-gáttir",
+    "Start with file": "Byrja á skrá",
     "Starting...": "Ræsi…",
     Status: "Staða",
     Stop: "Stöðva",
@@ -1014,6 +1015,8 @@ var keyStrings = {
         "Textinn er of langur. Vinsamlega styttu hana áður en þú sendir.",
     "Text sent. Check your TV to confirm it appeared.":
         "Texti sendur. Athugaðu sjónvarpið þitt til að staðfesta að það birtist.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Vafrinn athugar lýsigögn möppunnar áður en skrár eru sýndar. Stórar netmöppur geta tekið nokkrar mínútur.",
     "The browser screenshot source is ready.":
         "Uppspretta skjámynda vafrans er tilbúin.",
     "The command server discovery URL is invalid.":
