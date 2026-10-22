@@ -333,8 +333,8 @@ const { gzipSync } = require("node:zlib");
 // Persistent seek feedback/pending decoder targets and bounded metadata
 // fallback measure 1016906 raw on Node 22; retain ~600 identity bytes.
 // External seek admission/acknowledgment adds ~0.9 KB raw; retain identity room.
-// Footer hit testing and native build identity need a bounded 200-byte gzip allowance.
-const BUDGET = Object.freeze({ bytes: 1018400, gzipBytes: 314200 });
+// Footer hit testing with the verified beta.999 identity measures 1018418/314088.
+const BUDGET = Object.freeze({ bytes: 1018500, gzipBytes: 314200 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -498,7 +498,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count the bounded whole-portal scanner once in the complete payload.
 // The same seek/fallback changes measure 1151707 total raw on Node 22.
 // External-seek hooks measure 363232 gzip on clean Node 22 builds.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1153200, gzipBytes: 363600 });
+// The same beta identity measures 1153219 raw bytes including provider bundles.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1153300, gzipBytes: 363600 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
