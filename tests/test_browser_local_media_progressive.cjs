@@ -376,8 +376,10 @@ async function flushScans() {
         },
     };
     let pickerCalled = false;
-    deadFiles.w.showDirectoryPicker = () => {
+    const reconnectPickerOptions = [];
+    deadFiles.w.showDirectoryPicker = (options) => {
         pickerCalled = true;
+        reconnectPickerOptions.push(options);
         return Promise.resolve(remounted);
     };
     const reconnect = deadFiles.api.reconnectSource("source-movies");
@@ -387,6 +389,9 @@ async function flushScans() {
         "picker opens within the click activation"
     );
     assert.equal((await reconnect).requiresReload, true);
+    assert.equal(reconnectPickerOptions[0].mode, "read");
+    assert.equal(reconnectPickerOptions[0].startIn, "documents");
+    assert.match(reconnectPickerOptions[0].id, /^[A-Za-z0-9_-]{1,32}$/);
     assert.equal(
         deadFiles.saved().length,
         1,
@@ -399,15 +404,22 @@ async function flushScans() {
     const reloaded = deadFiles.reinstall();
     const repaired = await settle(reloaded.list());
     assert.equal(repaired.items[0].id, "source-movies:fresh.mp4");
-    deadFiles.w.showDirectoryPicker = () =>
-        Promise.reject(
+    deadFiles.w.showDirectoryPicker = (options) => {
+        reconnectPickerOptions.push(options);
+        return Promise.reject(
             Object.assign(new Error("cancelled"), { name: "AbortError" })
         );
+    };
     assert.equal(
         (await reloaded.reconnectSource("source-movies")).pickerCancelled,
         true
     );
     assert.equal(deadFiles.writes(), 1, "cancel preserves the existing grant");
+    assert.notEqual(
+        reconnectPickerOptions[0].id,
+        reconnectPickerOptions[1].id,
+        "each reconnect bypasses the browser's remembered picker location"
+    );
     await assert.rejects(
         reloaded.reconnectSource("not-a-source"),
         /unavailable/

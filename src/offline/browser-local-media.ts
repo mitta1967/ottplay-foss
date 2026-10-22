@@ -817,7 +817,18 @@ export function installBrowserLocalMedia(w: any): any {
         try {
             // Open synchronously in the user gesture. Reading IndexedDB first
             // can lose the activation required by the browser's native picker.
-            picked = w.showDirectoryPicker({ mode: "read" });
+            // A remembered picker directory may itself be a stale NAS mount.
+            // A fresh picker ID avoids that saved location taking precedence
+            // over the safe start directory on a later reconnect attempt.
+            picked = w.showDirectoryPicker({
+                id:
+                    "ott-reconnect-" +
+                    Date.now().toString(36) +
+                    "-" +
+                    Math.random().toString(36).slice(2, 8),
+                mode: "read",
+                startIn: "documents",
+            });
         } catch (error) {
             return cancelled(error, true);
         }

@@ -83,6 +83,13 @@ source unchanged. This action neither copies videos nor creates a duplicate
 source. It is currently available for browser-owned folders, not native app or
 remote server libraries.
 
+The reconnect picker starts in Documents with a fresh picker identifier, so it
+does not automatically reopen a remembered NAS directory that may have become
+unavailable. Navigate to the remounted folder and select it again. If even the
+native picker never appears, Chrome's browser process may still be waiting on
+the old mount; a page reload cannot restart that process. Close and reopen Chrome
+when convenient, keeping its profile and site data, then retry reconnection.
+
 Reconnection does not mount the NAS or change VPN settings. Restore the volume
 in the operating system first. JavaScript cannot abort a filesystem call already
 inside Chrome; refreshing the catalog is therefore not allowed to discard the
