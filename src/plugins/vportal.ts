@@ -1242,7 +1242,7 @@ export function createVPortalClient(
                 } else if (code >= 55296 && code <= 57343) {
                     character = "\uFFFD";
                 }
-                if (bytes + size > 512) break;
+                if (bytes + size > 128) break;
                 result += character;
                 bytes += size;
             }
@@ -1549,8 +1549,11 @@ export function createVPortalClient(
                                 record.__ottPlaylistId = key;
                                 record.__ottMediaCategories =
                                     task.categories.slice();
-                                record.__ottMediaCategory =
-                                    task.categories[task.categories.length - 1];
+                                if (!whole)
+                                    record.__ottMediaCategory =
+                                        task.categories[
+                                            task.categories.length - 1
+                                        ];
                                 record.__ottMediaCollection =
                                     task.title ||
                                     context.title ||

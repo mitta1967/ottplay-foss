@@ -1953,12 +1953,17 @@ require("./test_vportal_search.cjs");
     assert.equal(whole.result.error, undefined);
     assert.equal(whole.result.complete, true);
     assert.equal(whole.result.items.length, 21300);
+    assert.equal(whole.result.items[0].__ottMediaCategory, undefined);
     assert(
         whole.incremental >= 70,
         "large scans publish playable pages progressively"
     );
     assert.equal(whole.f.client.scanDiagnostics().state, "complete");
     const scoped = collectMany(false);
+    assert(
+        scoped.result.items[0].__ottMediaCategory,
+        "explicit scoped catalogs retain their primary-category compatibility field"
+    );
     assert(
         scoped.result.error,
         "scoped queues retain their original smaller budget"
@@ -2051,7 +2056,7 @@ require("./test_vportal_search.cjs");
         JSON.stringify(result.items[0].request),
         JSON.stringify(request)
     );
-    assert(Buffer.byteLength(result.items[0].description, "utf8") <= 512);
+    assert(Buffer.byteLength(result.items[0].description, "utf8") <= 128);
     assert(!/[\uD800-\uDBFF]$/.test(result.items[0].description));
     const diagnostic = f.client.scanDiagnostics();
     assert(diagnostic.retainedBytes > 0);
@@ -2276,8 +2281,8 @@ console.log(
     for (const description of [
         "<scr<script>ipt>alert(1)</scr</script>ipt>".repeat(100),
         "😀".repeat(300),
-        "a".repeat(499) + "<img src=x onerror=bad()>",
-        "a".repeat(499) + "&amp;" + "😀".repeat(50),
+        "a".repeat(120) + "<img src=x onerror=bad()>",
+        "a".repeat(120) + "&amp;" + "😀".repeat(50),
         "\uD800".repeat(400),
     ]) {
         const f = fixture();
@@ -2296,7 +2301,7 @@ console.log(
         assert.equal(result.error, undefined);
         assert.equal(result.complete, true);
         const preview = result.items[0].description;
-        assert(Buffer.byteLength(preview, "utf8") <= 512);
+        assert(Buffer.byteLength(preview, "utf8") <= 128);
         assert(!/[<>]/.test(preview), "preview must never expose an HTML tag");
         assert(
             !/[\uD800-\uDFFF]/u.test(preview),
