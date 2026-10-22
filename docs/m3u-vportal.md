@@ -4,11 +4,21 @@
 
 Choose **VPortal** beside Plex in **Change provider** to use the media library
 without a TV playlist. **VPortal profiles** contains 15 independently named
-slots. Enter the complete cabinet link, open **Category selection**, mark the sections to include, and save the profile. Only those sections and their descendants form one flat channel playlist. Existing profiles without a selection open setup instead of scanning every section.
+slots. Enter the complete cabinet link and choose **Save and load channels**.
+The player immediately loads playable videos from the whole portal as a TV-style
+channel list. No preliminary folder or section selection is required, including
+for existing profiles with no saved sections.
+
+Use the player's standard **Category selection** to filter that list by portal
+section, folder or series. **All** shows every discovered video. Nested categories
+use names such as `Cartoons / Series`; the parent `Cartoons` includes its descendant
+videos. Category selection changes visibility, not the video's identity or the
+saved account. Old profile section selections remain stored for compatibility,
+but no longer limit the catalog.
 Links are masked in summaries. These slots use their own storage. VPortal is
 configured only in its standalone provider; M3U is reserved for television.
 
-The standard channel list provides search, favorites, ordering and Actions. Videos can start from the first usable batch while the rest of the selected sections load in the background. Selecting a file shows an owned loading dialog; Back cancels it. **Actions → Repeat** controls All / One / Off; **Shuffle / Reset order** uses the existing channel-list actions. See the [shared playlist flow](plex-provider.md).
+The standard channel list provides search, favorites, ordering and Actions. Videos can start from the first usable batch while the rest of the portal loads in the background. Selecting a file shows an owned loading dialog; Back cancels it. **Actions → Repeat** controls All / One / Off; **Shuffle / Reset order** uses the existing channel-list actions. See the [shared playlist flow](plex-provider.md).
 
 The playback footer shows the playing item's folder or collection above its
 current and next titles. Current time is the actual local playback-start clock,
@@ -70,7 +80,7 @@ retain a read-only footer, even with an updated web player. See
 [kiosk mode](remote-command-server.md#kiosk-mode) for input and Android
 limitations. `vp` collects matching titles into a queue, subject to catalog
 limits; the first-match rule of `kiosk on/set CHANNEL` applies to the normal
-channel list, including the selected VPortal sections. It does not perform
+channel list, including the visible VPortal category. It does not perform
 VPortal search.
 
 ## Moving from an old M3U profile
@@ -83,7 +93,8 @@ videos. Enter the complete cabinet link there:
 portal::[key:YOUR_KEY]http://your-portal.example/api/v1/
 ```
 
-Choose the sections to include in that profile's channel list. Old M3U `medUrl`
+Save the link to load the portal, then filter videos using **Category selection**.
+Old M3U `medUrl`
 and `medSourceId` values are left in device storage, but portal links do not
 start a catalog request, appear in M3U settings, or affect TV profile selection.
 They are not automatically copied into standalone profiles. Ordinary nonportal

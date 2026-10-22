@@ -6,12 +6,12 @@
     width="1280"
     xmlns="http://www.w3.org/2000/svg"
 >
-    <title id="title">Selected media sources, one channel playlist</title>
+    <title id="title">All media, television-style categories</title>
     <desc id="desc">
-        Plex folders and VPortal sections are selected in the profile. The first
-        usable batch starts playback while the remaining selected sources load
-        in the background. The standard channel list provides search, shuffle
-        and repeat. Cancel or change of source invalidates pending results.
+        All Plex and VPortal videos appear in the standard channel list.
+        Category selection filters by library, folder or series.
+        The first usable batch starts playback while discovery continues.
+        Cancel or change of source invalidates pending results.
     </desc>
     <defs>
         <marker
@@ -29,7 +29,7 @@
     <rect fill="#101c31" height="620" rx="24" width="1280" />
     <g fill="#f0f5ff" font-family="system-ui, sans-serif">
         <text font-size="32" font-weight="700" x="48" y="64">
-            Selected sources → one channel playlist
+            All media → Category selection → Channel list
         </text>
         <text fill="#b7c9e2" font-size="19" x="48" y="103">
             Shared by LG · Browser · here.now · OTT Server · Tauri · Capacitor
@@ -61,17 +61,17 @@
             />
         </g>
         <text font-size="23" font-weight="700" x="72" y="197">
-            1. Profile selection
+            1. Connect a profile
         </text>
-        <text fill="#62ddd2" font-size="21" x="72" y="244">✓ Plex folders</text>
+        <text fill="#62ddd2" font-size="21" x="72" y="244">✓ Plex libraries</text>
         <text fill="#62ddd2" font-size="21" x="72" y="282">
-            ✓ VPortal sections
+            ✓ VPortal catalog
         </text>
         <text fill="#b7c9e2" font-size="18" x="72" y="337">
-            Only selected roots
+            All available videos
         </text>
         <text fill="#b7c9e2" font-size="18" x="72" y="363">
-            and their descendants
+            No folder-selection step
         </text>
         <text font-size="23" font-weight="700" x="418" y="197">
             2. Progressive loading
@@ -85,10 +85,10 @@
             without restarting playback
         </text>
         <text font-size="23" font-weight="700" x="814" y="197">
-            3. Standard channel list
+            3. Categories + channels
         </text>
         <text font-size="20" x="814" y="244">
-            Search · Favorites · Shuffle / Reset
+            Library · Folder · Series · All
         </text>
         <text font-size="20" x="814" y="282">
             Actions → Repeat: All / One / Off
@@ -97,7 +97,7 @@
             ↑ / ↓ change video in current order
         </text>
         <text fill="#b7c9e2" font-size="18" x="814" y="363">
-            ← / → seek within the video
+            Alt + ← / → seek on PC
         </text>
         <g
             fill="none"

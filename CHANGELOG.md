@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Open Plex and VPortal directly as complete TV-style channel catalogs. Use
+  Category selection to filter by library, folder, series and nested sections;
+  All includes each video once. Preserve playback while remaining categories
+  arrive in the background, and retain existing profile credentials and kiosks.
+- Expose bounded, source-bound category browsing and video selection to remote
+  control clients without changing legacy channel numbering or current playback
+  when merely selecting a browsing category.
+
 - Wake Standby from a local click, tap or key press. Consume the wake gesture
   without changing the channel or volume, while preserving native wake ordering
   and kiosk restrictions.

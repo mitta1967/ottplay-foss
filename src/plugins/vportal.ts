@@ -1124,7 +1124,7 @@ export function createVPortalClient(
         if (active()) pendingPage = pageLane.pending;
         return cancelOwned;
     }
-    /** The profile chooses roots once; playback consumes only their flat leaves. */
+    /** Flatten portal leaves while retaining their category ancestry for TV lists. */
     function collect(
         roots: VPortalSection[],
         recursive: boolean,
@@ -1141,12 +1141,13 @@ export function createVPortalClient(
         var active = true;
         var tasks: any[] = [];
         var visited: Record<string, boolean> = Object.create(null);
-        var known: Record<string, boolean> = Object.create(null);
+        var known: Record<string, any> = Object.create(null);
         var result: any[] = [];
         var pages = 0;
         var rows = 0;
         var bytes = 0;
         var keyBytes = 0;
+        var categoryKeys: Record<string, string> = Object.create(null);
         var pendingOwned: any = null;
         var timer: any = null;
         var deadline = Date.now() + 120000;
@@ -1172,6 +1173,29 @@ export function createVPortalClient(
                 throw new Error();
             return key;
         }
+        function categoryId(value: any): string {
+            var key = identity(value);
+            var first = 2166136261;
+            var second = 5381;
+            for (var index = 0; index < key.length; index++) {
+                var code = key.charCodeAt(index);
+                first ^= code;
+                first +=
+                    (first << 1) +
+                    (first << 4) +
+                    (first << 7) +
+                    (first << 8) +
+                    (first << 24);
+                second = ((second << 5) + second) ^ code;
+            }
+            var id =
+                "vportal-category:" +
+                ("00000000" + (first >>> 0).toString(16)).slice(-8) +
+                ("00000000" + (second >>> 0).toString(16)).slice(-8);
+            if (categoryKeys[id] && categoryKeys[id] !== key) throw new Error();
+            categoryKeys[id] = key;
+            return id;
+        }
         function current(): boolean {
             return active && isCurrent(token, catalogLane);
         }
@@ -1192,13 +1216,32 @@ export function createVPortalClient(
             cancelOwned();
             done(result.slice(), true, error, rows);
         }
-        function enqueue(target: any): void {
+        function enqueue(
+            target: any,
+            ancestors: any[] = [],
+            pagination = false
+        ): void {
             var params = copyRequest(target.request);
             params.limit = 300;
             var key = identity(params);
             if (visited[key]) return;
             visited[key] = true;
+            var categories = ancestors.slice();
+            var categoryName = target.title || target.mediaName;
+            if (!pagination && !target.__ottCategoryRoot && categoryName) {
+                var categoryRequest = copyRequest(target.request);
+                delete categoryRequest.offset;
+                delete categoryRequest.limit;
+                categories.push({
+                    id: categoryId(categoryRequest),
+                    name:
+                        (categories.length
+                            ? categories[categories.length - 1].name + " / "
+                            : "") + String(categoryName),
+                });
+            }
             tasks.push({
+                categories: categories,
                 parent: target.__ottVPortalContext || {
                     adult: target.adult ? 1 : 0,
                     title: target.title || target.mediaName || "",
@@ -1279,7 +1322,7 @@ export function createVPortalClient(
                                 cursor.mediaName = task.title;
                                 if (visited[identity(cursor.request)])
                                     throw new Error();
-                                enqueue(cursor);
+                                enqueue(cursor, task.categories, true);
                             } else if (record.stream_url) {
                                 if (!recursive) {
                                     if (!known.root) {
@@ -1305,9 +1348,34 @@ export function createVPortalClient(
                                               ]
                                             : record.stream_url)
                                 );
-                                if (known[key]) return;
-                                known[key] = true;
+                                if (known[key]) {
+                                    var existing = known[key];
+                                    if (Number(record.adult) === 1)
+                                        existing.adult = 1;
+                                    task.categories.forEach(function (
+                                        category: any
+                                    ) {
+                                        if (
+                                            !existing.__ottMediaCategories.some(
+                                                function (value: any) {
+                                                    return (
+                                                        value.id === category.id
+                                                    );
+                                                }
+                                            )
+                                        )
+                                            existing.__ottMediaCategories.push(
+                                                category
+                                            );
+                                    });
+                                    return;
+                                }
+                                known[key] = record;
                                 record.__ottPlaylistId = key;
+                                record.__ottMediaCategories =
+                                    task.categories.slice();
+                                record.__ottMediaCategory =
+                                    task.categories[task.categories.length - 1];
                                 record.__ottMediaCollection =
                                     task.title ||
                                     context.title ||
@@ -1325,7 +1393,7 @@ export function createVPortalClient(
                                 record.playlist_url.request
                             ) {
                                 var target = record.playlist_url;
-                                if (recursive) enqueue(target);
+                                if (recursive) enqueue(target, task.categories);
                                 else {
                                     var key = identity(target.request);
                                     if (known[key]) return;
@@ -1370,7 +1438,9 @@ export function createVPortalClient(
                 timer = w.setTimeout(function () {
                     finish(translate("VPortal request failed"));
                 }, 120000);
-            roots.forEach(enqueue);
+            roots.forEach(function (root) {
+                enqueue(root);
+            });
             next();
         } catch (_) {
             finish(translate("VPortal request failed"));

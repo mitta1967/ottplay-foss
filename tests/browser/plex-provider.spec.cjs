@@ -98,35 +98,26 @@ for (const language of ["_eng", "_rus"]) {
                     },
                 },
             });
+            // Startup discovers the catalog without entering folder selection.
+            await expect.poll(() => pending.length).toBe(3);
+            await pending[2].fulfill({
+                headers: { "access-control-allow-origin": "*" },
+                json: {
+                    MediaContainer: { Directory: [], size: 0, totalSize: 0 },
+                },
+            });
             await expect(dialog).toBeHidden();
-            // Unconfigured startup opens profile folder selection, never all
-            // library contents as an implicit playback queue.
-            for (const count of [3, 4]) {
-                await expect.poll(() => pending.length).toBe(count);
-                await pending[count - 1].fulfill({
-                    headers: { "access-control-allow-origin": "*" },
-                    json: {
-                        MediaContainer: {
-                            Directory: [
-                                {
-                                    key: "7",
-                                    title: "My library",
-                                    type: "movie",
-                                },
-                            ],
-                        },
-                    },
-                });
-            }
-            await expect(page.locator("#list")).toContainText("My library");
+            await expect(page.locator("#listCaption")).not.toHaveText(
+                "Folders"
+            );
             await page.evaluate(() => window.loadChannels());
-            await expect.poll(() => pending.length).toBe(5);
+            await expect.poll(() => pending.length).toBe(4);
             await expect(spinner).toBeVisible();
             await expect(dialog).toContainText(waitText);
             await expect(dialog).toContainText(connectionText);
             await page.waitForTimeout(3500);
             await expect(spinner).toBeVisible();
-            await pending[4].fulfill({
+            await pending[3].fulfill({
                 body: "Unauthorized",
                 headers: { "access-control-allow-origin": "*" },
                 status: 401,
@@ -193,6 +184,17 @@ for (const format of ["JSON", "XML"]) {
                         });
                 }
                 if (url.origin === plex) {
+                    if (url.pathname === "/library/sections/7/all")
+                        return route.fulfill({
+                            headers,
+                            json: {
+                                MediaContainer: {
+                                    Metadata: [],
+                                    size: 0,
+                                    totalSize: 0,
+                                },
+                            },
+                        });
                     if (url.pathname === "/identity") {
                         expect(url.searchParams.get("X-Plex-Token")).toBeNull();
                         expect(
@@ -264,7 +266,9 @@ for (const format of ["JSON", "XML"]) {
                 );
                 window.listKeyHandler(window.keys.ENTER);
             });
-            await expect(page.locator("body")).toContainText("Account library");
+            await page.waitForFunction(() =>
+                window.__ottActiveProviderDriver?.libraryReady()
+            );
             const stored = await page.evaluate(() =>
                 Object.fromEntries(
                     Object.keys(localStorage).map((key) => [
@@ -298,8 +302,8 @@ async function openLegacyPlex(page, restore = false) {
         );
     await page.evaluate((restore) => {
         if (!restore) window.stbStop();
-        // Close an unconfigured profile picker through its public editor entry,
-        // so a delayed picker callback cannot replace the explicit Media view.
+        // Retire the catalog scan through its public editor entry before
+        // exercising the backwards-compatible explicit Media API.
         window.__ottEditProvider();
         if (restore) window.closeList();
         window.__ottChannels.mount(window);
@@ -2190,6 +2194,226 @@ for (const { engine, strict } of [
             );
             expect(await aspect()).toEqual({ mode: "fill", savedMode: "fill" });
             await geometry("fill");
+            expect(errors).toEqual([]);
+        }
+    );
+}
+
+for (const variant of ["pc", "generic"]) {
+    test(
+        "Plex TV categories show all videos, then filter by library and show: " +
+            variant,
+        async ({ page, context, baseURL }) => {
+            const local = new URL(baseURL).origin;
+            const headers = { "access-control-allow-origin": "*" };
+            let remaining;
+            const errors = [];
+            page.on("pageerror", (error) => errors.push(error.message));
+            await context.route("**/*", (route) => {
+                const url = new URL(route.request().url());
+                if (url.origin === local) return route.continue();
+                if (url.origin !== plex) return route.abort();
+                const json = (container) =>
+                    route.fulfill({
+                        headers,
+                        json: { MediaContainer: container },
+                    });
+                if (url.pathname === "/library/sections")
+                    return json({
+                        Directory: [
+                            { key: "1", title: "Films", type: "movie" },
+                            { key: "2", title: "Cartoons", type: "show" },
+                        ],
+                        size: 2,
+                        totalSize: 2,
+                    });
+                if (url.pathname === "/library/sections/1/all")
+                    return json({
+                        Metadata: [
+                            {
+                                ratingKey: "11",
+                                title: "First film",
+                                type: "movie",
+                            },
+                        ],
+                        size: 1,
+                        totalSize: 1,
+                    });
+                if (url.pathname === "/library/sections/2/all")
+                    return json({
+                        Metadata: [
+                            {
+                                key: "/library/metadata/20/children",
+                                title: "Tom and Jerry",
+                                type: "show",
+                            },
+                        ],
+                        size: 1,
+                        totalSize: 1,
+                    });
+                if (url.pathname === "/library/metadata/20/children") {
+                    remaining = route;
+                    return;
+                }
+                if (/^\/library\/metadata\/\d+$/.test(url.pathname))
+                    return json({
+                        Metadata: [
+                            {
+                                Media: [
+                                    {
+                                        audioCodec: "aac",
+                                        container: "mpegts",
+                                        Part: [
+                                            { key: "/library/parts/1/file.ts" },
+                                        ],
+                                        videoCodec: "h264",
+                                    },
+                                ],
+                                ratingKey: url.pathname.split("/").pop(),
+                                title: "Fixture",
+                                type: "movie",
+                            },
+                        ],
+                    });
+                if (url.pathname.endsWith("/decision"))
+                    return json({
+                        generalDecisionCode: 1001,
+                        Metadata: [
+                            { Media: [{ Part: [{ decision: "transcode" }] }] },
+                        ],
+                    });
+                if (url.pathname.endsWith("/start.m3u8"))
+                    return route.fulfill({
+                        body:
+                            "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:2\n#EXT-X-PLAYLIST-TYPE:VOD\n" +
+                            Array.from(
+                                { length: 60 },
+                                (_, i) =>
+                                    "#EXT-X-DISCONTINUITY\n#EXTINF:2,\nsegment00.ts?n=" +
+                                    i +
+                                    "\n"
+                            ).join("") +
+                            "#EXT-X-ENDLIST\n",
+                        contentType: "application/vnd.apple.mpegurl",
+                        headers,
+                    });
+                if (url.pathname.endsWith(".ts"))
+                    return route.fulfill({
+                        body: fs.readFileSync(
+                            path.join(mediaRoot, "segment00.ts")
+                        ),
+                        contentType: "video/mp2t",
+                        headers,
+                    });
+                if (
+                    url.pathname.endsWith("/stop") ||
+                    url.pathname.endsWith("/ping")
+                )
+                    return route.fulfill({ body: "", headers });
+                return route.abort();
+            });
+            await context.routeWebSocket("**/*", (socket) => socket.close());
+            await context.addInitScript(
+                ({ plex, token }) => {
+                    localStorage.setItem("ottplaylang", "_eng");
+                    localStorage.setItem("ottplayprov", "plex");
+                    localStorage.setItem(
+                        "plexcfg",
+                        JSON.stringify({
+                            address: plex,
+                            folders: [
+                                {
+                                    path: "/library/sections/99/all",
+                                    title: "Obsolete selection",
+                                },
+                            ],
+                            playback: "compatible",
+                            token,
+                        })
+                    );
+                    const play = HTMLMediaElement.prototype.play;
+                    HTMLMediaElement.prototype.play = function () {
+                        this.muted = true;
+                        return play.call(this);
+                    };
+                },
+                { plex, token }
+            );
+            await page.goto(variant === "pc" ? "/f/pc/" : "/f/");
+            await page.waitForFunction(() => window.cList?.includes("plex-11"));
+            await expect.poll(() => !!remaining).toBe(true);
+            expect(
+                await page.evaluate(() =>
+                    window.__ottActiveProviderDriver.catalogLoading()
+                )
+            ).toBe(true);
+            await page.waitForFunction(() => window.channelId === "plex-11");
+            const before = await page.evaluate(() => window.channelId);
+            await remaining.fulfill({
+                headers,
+                json: {
+                    MediaContainer: {
+                        Metadata: [
+                            {
+                                ratingKey: "22",
+                                title: "Second cartoon",
+                                type: "episode",
+                            },
+                        ],
+                        size: 1,
+                        totalSize: 1,
+                    },
+                },
+            });
+            await page.waitForFunction(() => window.cList?.includes("plex-22"));
+            await expect
+                .poll(() =>
+                    page.evaluate(() =>
+                        window.__ottActiveProviderDriver.catalogLoading()
+                    )
+                )
+                .toBe(false);
+            expect(await page.evaluate(() => window.channelId)).toBe(before);
+            expect(await page.evaluate(() => window.cList.slice())).toEqual([
+                "plex-11",
+                "plex-22",
+            ]);
+            await page.evaluate(() => window.bucketsList(0));
+            await expect(page.locator("#listCaption")).toHaveText(
+                "Category selection"
+            );
+            await expect(page.locator("#listIn")).toContainText("All");
+            await expect(page.locator("#listIn")).toContainText(
+                "Cartoons / Tom and Jerry"
+            );
+            await page.evaluate(() => {
+                window.selIndex = window.listArray.findIndex(
+                    (x) => String(x).trim() === "Cartoons / Tom and Jerry"
+                );
+                window.listKeyHandler(window.keys.ENTER);
+            });
+            await expect(page.locator("#listIn")).toContainText(
+                "Second cartoon"
+            );
+            await expect(page.locator("#listIn")).not.toContainText(
+                "First film"
+            );
+            await page.evaluate(() => window.bucketsList(0));
+            await page.evaluate(() => {
+                window.selIndex = window.listArray.findIndex(
+                    (x) => String(x).trim() === "All"
+                );
+                window.listKeyHandler(window.keys.ENTER);
+            });
+            await expect(page.locator("#listIn")).toContainText("First film");
+            await expect(page.locator("#listIn")).toContainText(
+                "Second cartoon"
+            );
+            await page.screenshot({
+                path: test
+                    .info()
+                    .outputPath("plex-tv-categories-" + variant + ".png"),
+            });
             expect(errors).toEqual([]);
         }
     );

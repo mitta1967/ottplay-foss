@@ -1432,6 +1432,17 @@ for (const response of [
         ["Chosen", "Season", "Chosen"],
         "collection follows the selected section and nested folder, not the profile or pagination label"
     );
+    assert.deepEqual(
+        Array.from(batches.at(-1).items, (item) =>
+            Array.from(item.__ottMediaCategories, (category) => category.name)
+        ),
+        [
+            ["Chosen", "Chosen / Season"],
+            ["Chosen", "Chosen / Season"],
+            ["Chosen"],
+        ],
+        "pagination retains ancestry and duplicate videos inherit each containing category"
+    );
     assert.equal(
         f.requests.length,
         3,
@@ -1732,3 +1743,135 @@ console.log(
 );
 
 require("./test_vportal_search.cjs");
+
+{
+    const f = fixture({}, { sourceId: "all-categories" });
+    const batches = [];
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete) => batches.push({ complete, items })
+    );
+    f.requests[0].receive({
+        items: [
+            {
+                request: { cmd: "cartoons" },
+                title: "Cartoons",
+                type: "category",
+            },
+            { request: { cmd: "films" }, title: "Films", type: "category" },
+        ],
+        type: "videoportal",
+    });
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Cartoon",
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    assert.equal(
+        batches.at(-1).complete,
+        false,
+        "first category publishes before others load"
+    );
+    f.requests[2].receive({
+        items: [
+            { request: { cmd: "play", id: 2 }, title: "Film", type: "stream" },
+        ],
+        type: "category",
+    });
+    assert.equal(batches.at(-1).complete, true);
+    assert.deepEqual(
+        Array.from(batches.at(-1).items, (item) => item.title),
+        ["Cartoon", "Film"]
+    );
+    assert.deepEqual(
+        Array.from(batches.at(-1).items, (item) =>
+            Array.from(item.__ottMediaCategories, (category) => category.name)
+        ),
+        [["Cartoons"], ["Films"]]
+    );
+    const ids = batches
+        .at(-1)
+        .items.map((item) => item.__ottMediaCategories[0].id);
+    assert.notEqual(ids[0], ids[1]);
+    assert(!ids.join("").includes("PRIVATE"));
+}
+
+{
+    const secret = "PRIVATE_FOLDER_TOKEN_" + "x".repeat(4096);
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ request: { cmd: "folder", token: secret }, title: "Long folder" }],
+        (items, complete) => {
+            if (complete) result = items;
+        }
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "play", id: 1 }, title: "Video", type: "stream" },
+        ],
+        type: "category",
+    });
+    const category = result[0].__ottMediaCategories[0];
+    assert.match(category.id, /^vportal-category:[0-9a-f]{16}$/);
+    assert(!category.id.includes("PRIVATE"));
+    assert.equal(category.name, "Long folder");
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete) => {
+            if (complete) result = items;
+        }
+    );
+    f.requests[0].receive({
+        items: [
+            { request: { cmd: "public" }, title: "Public", type: "category" },
+            {
+                adult: 1,
+                request: { cmd: "protected" },
+                title: "Protected",
+                type: "category",
+            },
+        ],
+        type: "videoportal",
+    });
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Same video",
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    f.requests[2].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Same video",
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    assert.equal(result.length, 1);
+    assert.equal(
+        result[0].adult,
+        1,
+        "a protected duplicate can only strengthen parental restrictions"
+    );
+    assert.deepEqual(
+        Array.from(result[0].__ottMediaCategories, (c) => c.name),
+        ["Public", "Protected"]
+    );
+}

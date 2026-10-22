@@ -2007,10 +2007,25 @@ test("selected folders publish before traversal finishes, flatten descendants an
         batches.flatMap((batch) =>
             Array.from(batch.rows, (row) => row.request.path)
         ),
-        ["/library/metadata/1", "/library/metadata/2"]
+        ["/library/metadata/1", "/library/metadata/1", "/library/metadata/2"]
     );
     assert.deepEqual(errors, [undefined]);
-    assert.equal(batches[1].rows[0].adult, 0);
+    assert.equal(batches[1].rows[1].adult, 0);
+    assert.equal(
+        batches[1].rows[0].adult,
+        1,
+        "a duplicate cannot downgrade adult admission"
+    );
+    assert.deepEqual(
+        Array.from(
+            batches[1].rows[0].__ottMediaCategories,
+            (category) => category.id
+        ),
+        [
+            "plex:/library/sections/1/folder?parent=10",
+            "plex:/library/metadata/20/children",
+        ]
+    );
     assert(
         !f.requests.some(
             (request) =>
@@ -2245,6 +2260,157 @@ test("profile scan watchdog aborts a stalled transport and late responses cannot
     assert.deepEqual(errors, ["Plex source did not respond"]);
     pending.reply({ MediaContainer: { Metadata: [scanRow(1)], size: 1 } });
     assert.equal(batches, 0);
+});
+
+test("whole-library scan discovers video sections with stable categories and no folder selection", () => {
+    const f = fixture(),
+        batches = [],
+        done = [];
+    f.client.scanFolders(
+        [],
+        (rows, scanned) => batches.push({ rows, scanned }),
+        (error) => done.push(error)
+    );
+    assert.equal(parsed(f).pathname, "/library/sections");
+    last(f).reply({
+        MediaContainer: {
+            Directory: [
+                { key: "1", title: "Cartoons", type: "movie" },
+                { key: "2", title: "Cartoons", type: "show" },
+                { key: "3", title: "Music", type: "artist" },
+            ],
+        },
+    });
+    f.tick(5000);
+    assert.equal(parsed(f).pathname, "/library/sections/1/all");
+    last(f).reply({
+        MediaContainer: { Metadata: [scanRow(11)], size: 1, totalSize: 1 },
+    });
+    const first = batches.flatMap((batch) => Array.from(batch.rows))[0];
+    assert.equal(first.__ottMediaCollection, "Cartoons");
+    assert.deepEqual(JSON.parse(JSON.stringify(first.__ottMediaCategories)), [
+        { id: "plex:/library/sections/1/all", name: "Cartoons" },
+    ]);
+    assert.equal(done.length, 0, "starts before remaining section discovery");
+    f.tick(5000);
+    assert.equal(parsed(f).pathname, "/library/sections/2/all");
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    key: "/library/metadata/20/children",
+                    title: "Tom and Jerry",
+                    type: "show",
+                },
+            ],
+            size: 1,
+            totalSize: 1,
+        },
+    });
+    f.tick(5000);
+    assert.equal(parsed(f).pathname, "/library/metadata/20/children");
+    last(f).reply({
+        MediaContainer: { Metadata: [scanRow(22)], size: 1, totalSize: 1 },
+    });
+    f.tick(5000);
+    const second = batches.flatMap((batch) => Array.from(batch.rows)).at(-1);
+    assert.equal(second.__ottMediaCollection, "Cartoons / Tom and Jerry");
+    assert.deepEqual(JSON.parse(JSON.stringify(second.__ottMediaCategories)), [
+        { id: "plex:/library/sections/2/all", name: "Cartoons" },
+        {
+            id: "plex:/library/metadata/20/children",
+            name: "Cartoons / Tom and Jerry",
+        },
+    ]);
+    assert.notEqual(
+        first.__ottMediaCategories[0].id,
+        second.__ottMediaCategories[0].id
+    );
+    assert(
+        !f.requests.some((request) =>
+            new URL(request.options.url).pathname.includes("/sections/3/")
+        )
+    );
+    assert.deepEqual(done, [undefined]);
+});
+
+test("movie file directories become stable categories without publishing server paths", () => {
+    const f = fixture(),
+        batches = [];
+    f.client.scanFolders(
+        [{ path: "/library/sections/1/all", title: "Films" }],
+        (rows) => batches.push(...rows),
+        () => {}
+    );
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ...scanRow(1),
+                    Media: [
+                        {
+                            Part: [
+                                { file: "/private/media/Cartoons/first.mp4" },
+                            ],
+                        },
+                    ],
+                    type: "movie",
+                },
+                {
+                    ...scanRow(2),
+                    Media: [
+                        {
+                            Part: [
+                                { file: "/other/media/Cartoons/second.mp4" },
+                            ],
+                        },
+                    ],
+                    type: "movie",
+                },
+            ],
+            size: 2,
+            totalSize: 2,
+        },
+    });
+    f.tick(5000);
+    assert.equal(batches[0].__ottMediaCollection, "Films / Cartoons");
+    assert.equal(batches[1].__ottMediaCollection, "Films / Cartoons");
+    assert.notEqual(
+        batches[0].__ottMediaCategories[1].id,
+        batches[1].__ottMediaCategories[1].id
+    );
+    assert(!JSON.stringify(batches).includes("/private/media"));
+    assert(!JSON.stringify(batches).includes("/other/media"));
+});
+
+test("later duplicate adult metadata upgrades a retained item even without new categories", () => {
+    const f = fixture(),
+        batches = [];
+    f.client.scanFolders(
+        [{ path: "/library/sections/1/all", title: "Films" }],
+        (rows) => batches.push(rows),
+        () => {}
+    );
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [scanRow(1)],
+            offset: 0,
+            size: 1,
+            totalSize: 3,
+        },
+    });
+    assert.equal(batches[0][0].adult, 0);
+    f.tick(5000);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [{ ...scanRow(1), adult: 1 }, scanRow(2)],
+            offset: 1,
+            size: 2,
+            totalSize: 3,
+        },
+    });
+    assert.equal(batches[1][0].adult, 1);
+    assert.equal(batches[1][0].__ottMediaCategories.length, 1);
 });
 
 console.log(`PASS Plex client (${passed} scenarios)`);

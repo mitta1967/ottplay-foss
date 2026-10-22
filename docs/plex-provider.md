@@ -1,16 +1,16 @@
 # Plex on each player
 
-Choose **Plex** in the provider list, then **Sign in with Plex**. The official Plex sign-in page opens in a browser. On a TV, open `plex.tv/link` on a phone or computer and enter the displayed code. Choose an available Plex server after signing in; the player checks its connection and opens folder selection. **Back** cancels sign-in or server connection.
+Choose **Plex** in the provider list, then **Sign in with Plex**. The official Plex sign-in page opens in a browser. On a TV, open `plex.tv/link` on a phone or computer and enter the displayed code. Choose an available Plex server after signing in; the player checks its connection and opens the complete video catalog. **Back** cancels sign-in or server connection.
 
 For a manual connection, enter the Plex server address (for example `http://192.168.1.25:32400`) and its access token, then choose **Save and open library**. The token is masked in the settings screen. Prefer an HTTPS Plex endpoint for an HTTPS browser player: access to local HTTP endpoints depends on the browser's local-network permissions and mixed-content policy. Native players can use the transport supported by their build. The Play distribution retains its HTTPS policy.
 
-Plex uses the same channel list as Local videos. In **Plex settings → Folders**, select the libraries or folders this profile should include, choose **Ok** in the picker, then save the profile. Only the selected roots and their descendants are scanned. Overlapping selections do not duplicate a video. Existing profiles without a selection open the folder picker; they never silently import the whole server.
+Plex opens the ordinary **Channel list** with all accessible videos, without a preliminary folder picker. **Category selection** filters that list by library and the folder/show hierarchy; **All** restores the complete list. Category IDs use stable Plex paths, so equally named libraries remain distinct. Movie file parent folders also become categories when Plex supplies that metadata; their IDs are opaque and do not expose server filesystem paths. Older saved folder selections remain readable for profile compatibility but no longer limit discovery. Audio-only libraries are omitted from this video catalog.
 
 ![Selected sources become one ordinary playlist](images/media-channel-playlists.svg)
 
 The player connects under the standard animated loading dialog and reports processed entries and available videos. It starts when the first usable batch arrives; if a saved video is selected, it waits for that video or the end of the scan. Remaining items arrive in the background without restarting the current video. Cancelling, changing source or changing profile retires the previous load. A stalled scan ends with an error rather than holding the loading screen indefinitely.
 
-**OK** opens the ordinary channel list. Search, favorites, order changes and **Actions → Shuffle / Reset order** work on this list. There is no separate Random button or folder tree during normal playback. Folder selection belongs to the profile editor.
+**OK** opens the ordinary channel list. Search, favorites, order changes and **Actions → Shuffle / Reset order** work on this list. There is no separate folder picker during normal playback or setup. Use **Category selection** to change the visible group; normal channel controls operate on that group.
 
 **Actions → Repeat** cycles through **All**, **One** and **Off**. All wraps the selected channel group, One repeats its current video, and Off stops after the final video. The Play key changes this setting while Actions is open. Changing the order or receiving another batch affects subsequent file transitions without restarting the current file.
 
@@ -27,7 +27,7 @@ Selecting a video opens the standard loading dialog immediately while its playab
 
 During full-screen Plex playback, **Left/Right** seek backward/forward by ten seconds and **Up/Down** play the previous/next file in the current list. Dedicated volume keys still adjust volume. Open lists and dialogs retain their own navigation. Explicit remote Plex queues keep their own requested order and completion policy.
 
-The standard channel selection and per-file watch position are saved independently of expiring media URLs. Reopening resolves the selected video again through Plex. Startup resumes its saved position automatically; choosing a file manually offers the existing Continue watching prompt. Arrow navigation and natural completion start the next file at zero. Older Plex profiles can restore their unfinished last video from the same server’s media journal after folder selection. Parental admission still applies.
+The standard channel selection and per-file watch position are saved independently of expiring media URLs. Reopening resolves the selected video again through Plex. Startup resumes its saved position automatically; choosing a file manually offers the existing Continue watching prompt. Arrow navigation and natural completion start the next file at zero. Older Plex profiles can restore their unfinished last video from the same server’s media journal after catalog discovery. Parental admission still applies.
 
 The same implementation is built for the browser, here.now, OTT Server, LG/webOS, Tauri and Capacitor. Updating only one installed instance does not update the others. The separate native Compose Android application does not currently expose a Plex/VPortal provider.
 
@@ -219,7 +219,7 @@ For access away from home, the selected Plex server must have a reachable remote
 A loading screen belongs to the request that opened it. During startup, the
 player scans the profile’s selected roots and resolves a fresh stream for the
 saved video (or the first available video on a new profile). It can start before
-other selected folders finish loading. Replacing that screen cancels pending work; a late result cannot start a video
+other libraries and folders finish loading. Replacing that screen cancels pending work; a late result cannot start a video
 behind a newer dialog. Cancellation preserves the saved playback position.
 
 During a full-screen file change, repeated **Up/Down** presses update the pending

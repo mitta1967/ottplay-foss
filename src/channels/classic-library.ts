@@ -2,6 +2,7 @@
 var channelLibraryInstance: any = null;
 var channelLibraryView: any[] = [];
 var channelLibraryGeneration = 0;
+var channelRemoteCatalog: any = null;
 var channelPreferenceKinds: any = {
     aAspects: "aspect",
     aAudios: "audio",
@@ -41,6 +42,26 @@ function channelLibraryPublish(host: any): void {
     host.catsArray = labels;
     host.cats = categories;
     host.parentalArray = snapshot.locks;
+    var libraryOwner = channelLibraryInstance;
+    var remote: any = {
+        active: function () {
+            return (
+                channelRemoteCatalog === remote &&
+                channelLibraryInstance === libraryOwner &&
+                libraryOwner.active()
+            );
+        },
+        all: snapshot.all.slice(),
+        canonicalIds: (host.cList || []).slice(),
+        groups: channelLibraryView.map(function (group) {
+            return {
+                id: group.id,
+                members: group.members.slice(),
+                name: group.label,
+            };
+        }),
+    };
+    channelRemoteCatalog = remote;
     var selected = snapshot.selected;
     var wantedGroup = selected
         ? selected.groupId
@@ -77,6 +98,11 @@ function mountChannelLibrary(host: any): void {
                 channel.groupId || "provider:" + (category.name || "Other")
             ),
             groupLabel: String(category.name || "Other"),
+            groups: Array.isArray(channel.__ottMediaCategories)
+                ? channel.__ottMediaCategories.map(function (group: any) {
+                      return { id: group.id, label: group.name };
+                  })
+                : undefined,
             id: id,
             itemId: String(channel.itemId || "channel:" + id),
             label: String(channel.channel_name || ""),
@@ -190,6 +216,11 @@ function appendChannelLibrary(host: any, ids: any[]): void {
                     channel.groupId || "provider:" + (category.name || "Other")
                 ),
                 groupLabel: String(category.name || "Other"),
+                groups: Array.isArray(channel.__ottMediaCategories)
+                    ? channel.__ottMediaCategories.map(function (group: any) {
+                          return { id: group.id, label: group.name };
+                      })
+                    : undefined,
                 id: id,
                 itemId: String(channel.itemId || "channel:" + id),
                 label: String(channel.channel_name || ""),
@@ -230,6 +261,28 @@ function channelLibraryChange(action: string, value?: any, extra?: any): any {
 (window as any).__ottChannels = {
     append: function (ids: any[]): void {
         appendChannelLibrary(window, ids);
+    },
+    browse: function (groupId: string) {
+        var host = window as any;
+        var index = channelLibraryIndex(groupId);
+        if (
+            index < 0 ||
+            !channelLibraryInstance ||
+            !channelLibraryInstance.active() ||
+            host.__ottKiosk?.locked() ||
+            typeof host.channelsList !== "function"
+        )
+            return false;
+        host.channelsList(index, 0);
+        return true;
+    },
+    browsingGroup: function () {
+        var host = window as any;
+        var index =
+            typeof host.listCatIndex === "number"
+                ? host.listCatIndex
+                : host.catIndex;
+        return channelLibraryView[index] && channelLibraryView[index].id;
     },
     capture: function (category: number) {
         var host = window as any;
@@ -351,7 +404,13 @@ function channelLibraryChange(action: string, value?: any, extra?: any): any {
     refresh: function () {
         channelLibraryPublish(window as any);
     },
+    remoteCatalog: function () {
+        return channelRemoteCatalog && channelRemoteCatalog.active()
+            ? channelRemoteCatalog
+            : null;
+    },
     reset: function () {
+        channelRemoteCatalog = null;
         channelLibraryGeneration++;
         channelLibraryInstance = null;
         channelLibraryView = [];

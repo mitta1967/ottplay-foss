@@ -425,6 +425,40 @@ function createPlexClient(
         }
         return "";
     }
+    function fileDirectory(item: any): any {
+        var media = plexRows(item.Media);
+        for (var m = 0; m < media.length; m++) {
+            var parts = plexRows(media[m] && media[m].Part);
+            for (var p = 0; p < parts.length; p++) {
+                var file = parts[p] && parts[p].file;
+                if (
+                    typeof file !== "string" ||
+                    /^[a-z][a-z0-9+.-]*:\/\//i.test(file)
+                )
+                    continue;
+                var path = file.replace(/\\/g, "/").split("/");
+                path.pop();
+                var name = path[path.length - 1];
+                if (!name || name === "." || name === "..") continue;
+                // Keep server mount paths out of category IDs and visible labels.
+                var value = path.join("/"),
+                    left = 5381,
+                    right = 52711;
+                for (var i = 0; i < value.length; i++) {
+                    left = ((left << 5) + left) ^ value.charCodeAt(i);
+                    right = ((right << 5) - right + value.charCodeAt(i)) | 0;
+                }
+                return {
+                    id:
+                        (left >>> 0).toString(36) +
+                        "-" +
+                        (right >>> 0).toString(36),
+                    name: name.replace(/[\u0000-\u001f\u007f]/g, " "),
+                };
+            }
+        }
+        return null;
+    }
     function records(
         container: any,
         path: string,
@@ -463,6 +497,7 @@ function createPlexClient(
             var record: any = null;
             if (playable && /^\d+$/.test(id)) {
                 record = {
+                    __ottMediaFileDirectory: fileDirectory(item),
                     __ottMediaSequence:
                         item.type === "episode" || item.type === "track",
                     adult: Number(item.adult) === 1 ? 1 : 0,
@@ -1057,6 +1092,7 @@ function createPlexClient(
         var roots: string[] = [];
         var paths: any = Object.create(null);
         var labels: any = Object.create(null);
+        var categories: any = Object.create(null);
         var seen: any = Object.create(null);
         var signatures: any = Object.create(null);
         var offset = 0;
@@ -1098,10 +1134,19 @@ function createPlexClient(
                 finish("Plex source did not respond");
             }, 60000);
         }
-        function enqueue(path: string, title: string): void {
+        function enqueue(path: string, title: string, parent?: string): void {
             if (!path || paths[path]) return;
             paths[path] = true;
-            labels[path] = title;
+            var ancestors =
+                parent && categories[parent] ? categories[parent].slice() : [];
+            var name =
+                parent && labels[parent]
+                    ? labels[parent] + " / " + title
+                    : title;
+            labels[path] = name;
+            if (path !== "/library/sections")
+                ancestors.push({ id: "plex:" + path, name: name });
+            categories[path] = ancestors;
             roots.push(path);
         }
         function later(run: () => void, delay = 0): void {
@@ -1178,20 +1223,82 @@ function createPlexClient(
                     return finish("Plex playlist is too large");
                 if (reported !== null) total = reported;
                 var batch: any[] = [];
+                if (path === "/library/sections") {
+                    data = Object.assign({}, data, {
+                        Directory: items(data).filter(function (item) {
+                            return (
+                                item &&
+                                (item.type === "movie" || item.type === "show")
+                            );
+                        }),
+                        Hub: [],
+                        Metadata: [],
+                        Track: [],
+                        Video: [],
+                    });
+                }
                 records(data, path, {}, false).forEach(function (record) {
                     if (record.playlist_url) {
                         enqueue(
                             plexFolderPath(record.playlist_url.path),
-                            record.title || labels[path]
+                            record.title || labels[path],
+                            path
                         );
                         return;
                     }
                     var id = record.request && record.request.path;
-                    if (!id || seen[id]) return;
-                    seen[id] = true;
+                    if (!id) return;
                     record.__ottMediaCollection = labels[path] || "Plex";
-                    characters += JSON.stringify(record).length;
-                    batch.push(record);
+                    record.__ottMediaCategories = (
+                        categories[path] || []
+                    ).slice();
+                    var directory = record.__ottMediaFileDirectory;
+                    delete record.__ottMediaFileDirectory;
+                    if (directory) {
+                        var directoryName = labels[path]
+                            ? labels[path] + " / " + directory.name
+                            : directory.name;
+                        record.__ottMediaCategories.push({
+                            id: "plex:" + path + ":directory:" + directory.id,
+                            name: directoryName,
+                        });
+                        if (!record.__ottMediaSequence)
+                            record.__ottMediaCollection = directoryName;
+                    }
+                    var previous = seen[id];
+                    if (previous) {
+                        var merged = previous.__ottMediaCategories.slice();
+                        record.__ottMediaCategories.forEach(function (
+                            category: any
+                        ) {
+                            if (
+                                !merged.some(function (current: any) {
+                                    return current.id === category.id;
+                                })
+                            )
+                                merged.push(category);
+                        });
+                        var adult =
+                            Number(previous.adult) === 1 ||
+                            Number(record.adult) === 1
+                                ? 1
+                                : 0;
+                        if (
+                            merged.length ===
+                                previous.__ottMediaCategories.length &&
+                            adult === previous.adult
+                        )
+                            return;
+                        characters -= JSON.stringify(previous).length;
+                        previous.adult = adult;
+                        previous.__ottMediaCategories = merged;
+                        characters += JSON.stringify(previous).length;
+                        batch.push(previous);
+                    } else {
+                        seen[id] = record;
+                        characters += JSON.stringify(record).length;
+                        batch.push(record);
+                    }
                 });
                 if (characters > 8 * 1024 * 1024)
                     return finish("Plex playlist is too large");
@@ -1199,6 +1306,7 @@ function createPlexClient(
                 if (!active()) return;
                 offset += count;
                 if (
+                    path === "/library/sections" ||
                     (total !== null && offset === total) ||
                     (total === null && count === 0)
                 ) {
@@ -1247,6 +1355,7 @@ function createPlexClient(
             folders.forEach(function (folder) {
                 enqueue(plexFolderPath(folder.path), folder.title);
             });
+            if (!folders.length) enqueue("/library/sections", "");
             next();
         }
         return cancelOwned;

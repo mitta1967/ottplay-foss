@@ -1,6 +1,8 @@
 /** Per-device Plex credentials and the library provider's owned lifecycle. */
 interface PlexProviderDriver extends ProviderDriver {
     cancelConnection(): void;
+    catalogError(): boolean;
+    catalogLoading(): boolean;
     libraryReady(): boolean;
     mediaClient(): any;
     saveAccountCredentials(
@@ -19,6 +21,8 @@ function createPlexProviderDriver(
     var revision = 0;
     var ready = false;
     var preparingPlaylist = false;
+    var catalogScanning = false;
+    var catalogFailed = false;
     var client: any = null;
     var catalog = helpers.emptyCatalog();
     var cancelConnection: (() => void) | null = null;
@@ -60,6 +64,8 @@ function createPlexProviderDriver(
         revision++;
         ready = false;
         preparingPlaylist = false;
+        catalogScanning = false;
+        catalogFailed = false;
         catalog = helpers.emptyCatalog();
         var previous = client;
         client = null;
@@ -115,6 +121,12 @@ function createPlexProviderDriver(
             media: true,
             mediaPlaylist: true,
             settings: true,
+        },
+        catalogError: function () {
+            return active() && catalogFailed;
+        },
+        catalogLoading: function () {
+            return active() && catalogScanning;
         },
         configuration: configuration,
         credentials: function () {
@@ -188,10 +200,6 @@ function createPlexProviderDriver(
                             if (!isCurrent() || client !== connecting) return;
                             if (error) return failed();
                             ready = true;
-                            if (!config.folders || !config.folders.length) {
-                                done(helpers.emptyCatalog(), "folders");
-                                return;
-                            }
                             var started = false;
                             var wanted = "";
                             var migrated = "";
@@ -288,8 +296,10 @@ function createPlexProviderDriver(
                                 done(snapshot, error, incremental);
                             }
                             preparingPlaylist = true;
+                            catalogScanning = true;
+                            catalogFailed = false;
                             connecting.scanFolders(
-                                config.folders,
+                                [],
                                 function (rows: any[], scanned: number) {
                                     if (!isCurrent()) return;
                                     rows.forEach(function (item) {
@@ -300,9 +310,23 @@ function createPlexProviderDriver(
                                             );
                                         if (!match) return;
                                         var id = "plex-" + match[1];
-                                        if (catalog.channels[id]) return;
+                                        if (catalog.channels[id]) {
+                                            var existing = catalog.channels[id];
+                                            existing.__ottMediaCategories =
+                                                item.__ottMediaCategories ||
+                                                existing.__ottMediaCategories;
+                                            existing.__ottMediaItem = item;
+                                            existing.adult =
+                                                existing.adult ||
+                                                (Number(item.adult) === 1
+                                                    ? 1
+                                                    : 0);
+                                            return;
+                                        }
                                         catalog.ids.push(id);
                                         catalog.channels[id] = {
+                                            __ottMediaCategories:
+                                                item.__ottMediaCategories || [],
                                             __ottMediaCollection:
                                                 item.__ottMediaCollection ||
                                                 "Plex",
@@ -313,7 +337,9 @@ function createPlexProviderDriver(
                                                     : 0,
                                             category: {
                                                 class: 2,
-                                                name: "Plex",
+                                                name:
+                                                    item.__ottMediaCollection ||
+                                                    "Plex",
                                             },
                                             channel_name: item.title,
                                             logo: "",
@@ -341,6 +367,8 @@ function createPlexProviderDriver(
                                 },
                                 function (error?: string) {
                                     if (!isCurrent()) return;
+                                    catalogScanning = false;
+                                    catalogFailed = !!error;
                                     if (
                                         error &&
                                         started &&
@@ -357,7 +385,7 @@ function createPlexProviderDriver(
                                         error && !started
                                             ? "plex-connect"
                                             : !catalog.ids.length
-                                              ? "folders"
+                                              ? "plex-empty"
                                               : undefined
                                     );
                                 },
@@ -426,16 +454,6 @@ function mountPlexProvider(
     var revision = 0;
     var attached: any = null;
     var authActive = false;
-    var picker: any = null;
-    var cancelPickerConnection: (() => void) | null = null;
-    function cancelPicker(): void {
-        var previous = picker;
-        picker = null;
-        var cancel = cancelPickerConnection;
-        cancelPickerConnection = null;
-        if (cancel) cancel();
-        if (previous) previous.dispose();
-    }
     function active(): boolean {
         return owner.active();
     }
@@ -519,17 +537,15 @@ function mountPlexProvider(
         // Only a persisted external save supersedes pending editor/auth callbacks.
         revision++;
         cancelAuth();
-        cancelPicker();
         updateLabel();
         host.loadChannels();
         return fields;
     };
-    function edit(selectFolders = false): boolean {
+    function edit(): boolean {
         if (!active() || (host.__ottKiosk && host.__ottKiosk.locked()))
             return false;
         driver.cancelConnection();
         cancelAuth();
-        cancelPicker();
         var editor = ++revision;
         var fieldRevision = 0;
         var draft: any = driver.credentials();
@@ -553,9 +569,6 @@ function mountPlexProvider(
                     ": " +
                     (draft.password ? "********" : ""),
                 host._("Playback") + ": " + modeLabels[draft.mode || 0],
-                host._("Folders") +
-                    ": " +
-                    (draft.folders ? draft.folders.length : 0),
                 host._("Save and open library"),
             ];
             host.listDataArray = host.listArray;
@@ -580,7 +593,6 @@ function mountPlexProvider(
                 host._(
                     "Automatic plays supported files directly and uses compatible HLS when needed."
                 ),
-                host._("Folders"),
                 host._("Check the connection and open your Plex libraries."),
             ];
             host.listDetail.innerHTML = details[host.selIndex] || "";
@@ -619,191 +631,6 @@ function mountPlexProvider(
             updateLabel();
             host.loadChannels();
         }
-        function pickFolders(): void {
-            cancelPicker();
-            var token = ++fieldRevision;
-            function pickerCurrent(): boolean {
-                return current() && token === fieldRevision;
-            }
-            var selected: any[] = (draft.folders || []).map(function (
-                folder: any
-            ) {
-                return { path: folder.path, title: folder.title };
-            });
-            var stack: any[] = [];
-            var location: any = null;
-            var entries: any[] = [];
-            var busy = true;
-            function close(apply: boolean): void {
-                if (!pickerCurrent()) return;
-                if (apply) draft.folders = selected;
-                fieldRevision++;
-                cancelPicker();
-                showEditor();
-            }
-            function selectedIndex(path: string): number {
-                for (var i = 0; i < selected.length; i++)
-                    if (selected[i].path === path) return i;
-                return -1;
-            }
-            function renderFolders(): void {
-                if (!pickerCurrent()) return;
-                host.listArray = entries.map(function (entry) {
-                    return entry.action === "toggle"
-                        ? (selectedIndex(entry.value.path) >= 0
-                              ? "[✓] "
-                              : "[ ] ") + escape(entry.value.title)
-                        : entry.action === "browse"
-                          ? host._("Browse folders") +
-                            ": " +
-                            escape(entry.value.title)
-                          : entry.label;
-                });
-                host.listDataArray = host.listArray;
-                host.listCaption.innerHTML = host._("Folders");
-                host.detailListAction = function () {};
-                host.showPage();
-            }
-            function show(locationValue: any): void {
-                if (!pickerCurrent() || !picker) return;
-                location = locationValue;
-                busy = true;
-                entries = [{ action: "back", label: host._("Back") }];
-                host.listDetail.innerHTML = host._("Loading. Please wait...");
-                host.selIndex = 0;
-                renderFolders();
-                picker.folderChoices(location, function (result: any) {
-                    if (!pickerCurrent()) return;
-                    busy = false;
-                    entries = [];
-                    (result.items || []).forEach(function (entry: any) {
-                        if (entry.next)
-                            entries.push({
-                                action: "next",
-                                label: host._("Next"),
-                                value: entry,
-                            });
-                        else {
-                            entries.push({ action: "toggle", value: entry });
-                            entries.push({ action: "browse", value: entry });
-                        }
-                    });
-                    entries.push(
-                        { action: "apply", label: host._("Ok") },
-                        { action: "back", label: host._("Back") }
-                    );
-                    host.listDetail.innerHTML = result.error
-                        ? host._("Plex connection failed")
-                        : host._("Folders");
-                    host.selIndex = 0;
-                    renderFolders();
-                });
-            }
-            host.listKeyHandler = function (key: number) {
-                if (!pickerCurrent()) return false;
-                if (key === host.keys.RETURN) {
-                    if (!busy && stack.length) show(stack.pop());
-                    else close(false);
-                    return true;
-                }
-                if (key !== host.keys.ENTER) return false;
-                var entry = entries[host.selIndex];
-                if (!entry) return true;
-                if (entry.action === "back") {
-                    if (!busy && stack.length) show(stack.pop());
-                    else close(false);
-                } else if (!busy && entry.action === "apply") close(true);
-                else if (!busy && entry.action === "toggle") {
-                    var index = selectedIndex(entry.value.path);
-                    if (index >= 0) selected.splice(index, 1);
-                    else
-                        selected.push({
-                            path: entry.value.path,
-                            title: entry.value.title,
-                        });
-                    renderFolders();
-                } else if (
-                    !busy &&
-                    (entry.action === "browse" || entry.action === "next")
-                ) {
-                    stack.push(location);
-                    show(
-                        entry.action === "browse"
-                            ? entry.value.browse
-                            : entry.value.target
-                    );
-                }
-                return true;
-            };
-            function connected(address: string): void {
-                if (!pickerCurrent()) return;
-                picker = host.__ottPlex.create(
-                    { address: address, token: draft.password },
-                    {
-                        isCurrent: pickerCurrent,
-                        sourceId: host.__ottSourceIdentity.media(host),
-                        title: "Plex",
-                    }
-                );
-                if (!picker) {
-                    host.alert(
-                        host._(
-                            "Enter a valid Plex server address and access token."
-                        )
-                    );
-                    close(false);
-                    return;
-                }
-                picker.connect(function (error?: string) {
-                    if (!pickerCurrent()) return;
-                    if (error) {
-                        busy = false;
-                        host.listDetail.innerHTML = host._(
-                            "Plex connection failed"
-                        );
-                    } else show(null);
-                });
-            }
-            entries = [{ action: "back", label: host._("Back") }];
-            host.selIndex = 0;
-            host.listDetail.innerHTML = host._("Connecting to Plex…");
-            renderFolders();
-            var stored: any = driver.credentials();
-            var account =
-                draft.server === stored.server &&
-                draft.password === stored.password &&
-                stored.plexAccount;
-            if (account && host.__ottPlexAuth) {
-                var finished = false;
-                var cancel = host.__ottPlexAuth.connect(
-                    {
-                        connections: account.connections,
-                        id: account.id,
-                        token: draft.password,
-                    },
-                    {
-                        onConnected: function (result: any) {
-                            if (!pickerCurrent()) return;
-                            finished = true;
-                            cancelPickerConnection = null;
-                            connected(result.url);
-                        },
-                        onError: function () {
-                            if (!pickerCurrent()) return;
-                            finished = true;
-                            cancelPickerConnection = null;
-                            busy = false;
-                            host.listDetail.innerHTML = host._(
-                                "Plex connection failed"
-                            );
-                        },
-                    }
-                );
-                if (!finished && pickerCurrent())
-                    cancelPickerConnection = cancel;
-            } else connected(draft.server);
-        }
-
         function signIn(): void {
             if (!host.__ottPlexAuth) return;
             cancelAuth();
@@ -982,8 +809,6 @@ function mountPlexProvider(
                 render();
                 host.showPage();
             } else if (index === 4) {
-                pickFolders();
-            } else if (index === 5) {
                 save();
             }
             return true;
@@ -998,7 +823,6 @@ function mountPlexProvider(
         );
         host.$("#listPopUp").hide();
         host.showPage();
-        if (selectFolders === true) pickFolders();
         return true;
     }
     edit.menuTitle = label;
@@ -1007,7 +831,7 @@ function mountPlexProvider(
     };
     host.__ottEditProvider = edit;
     host.__ottEditProviderFolders = function () {
-        return edit(true);
+        return edit();
     };
     host.duneAddSettings = function (index: number) {
         if (!active()) return;
@@ -1024,7 +848,6 @@ function mountPlexProvider(
     (driver as any).publishLibrary = publish;
     owner.own(function () {
         cancelAuth();
-        cancelPicker();
         revision++;
         if (host.providerMediaClient === attached) {
             host.providerMediaClient = null;
@@ -1052,11 +875,6 @@ function reportPlexProviderLoad(
         return false;
     }
     (driver as any).publishLibrary();
-    if (error === "folders") {
-        if (!(host.__ottKiosk && host.__ottKiosk.locked()))
-            host.__ottEditProviderFolders();
-        return false;
-    }
     return true;
 }
 

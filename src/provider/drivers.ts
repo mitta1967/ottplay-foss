@@ -2531,8 +2531,31 @@ function mountProviderDriver(
                 catalog.ids.forEach(function (key) {
                     if (
                         Object.prototype.hasOwnProperty.call(host.channels, key)
-                    )
+                    ) {
+                        var prior = host.channels[key];
+                        var update = catalog.channels[key];
+                        var changed = false;
+                        if (
+                            update &&
+                            Array.isArray(update.__ottMediaCategories) &&
+                            JSON.stringify(prior.__ottMediaCategories) !==
+                                JSON.stringify(update.__ottMediaCategories)
+                        ) {
+                            prior.__ottMediaCategories =
+                                update.__ottMediaCategories;
+                            changed = true;
+                        }
+                        if (
+                            update &&
+                            Number(update.adult) === 1 &&
+                            Number(prior.adult) !== 1
+                        ) {
+                            prior.adult = 1;
+                            changed = true;
+                        }
+                        if (changed) added.push(key);
                         return;
+                    }
                     host.channels[key] = catalog.channels[key];
                     host.cList.push(key);
                     added.push(key);
