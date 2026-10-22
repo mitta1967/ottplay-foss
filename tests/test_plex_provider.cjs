@@ -1309,6 +1309,79 @@ test("Unfinished legacy Plex history selects its discovered item without overrid
     }
 });
 
+test("actual Plex playback cursor wins over old channel selection and later channel play wins again", () => {
+    const f = create({ plexcfg: JSON.stringify(config) }, false, true);
+    const source = f.host.__ottSourceIdentity.current(f.host);
+    f.saved.set(
+        "plexchannelLibrary:" + source,
+        JSON.stringify({ selected: { itemId: "channel:plex-42" } })
+    );
+    const played = (id) => ({
+        __ottMediaRef: { sourceId: source },
+        plexSource: source,
+        request: { path: "/library/metadata/" + id },
+    });
+    f.driver.rememberPlayback(played(43));
+    assert.deepEqual(JSON.parse(f.saved.get("plexlastMediaSelection.v1")), {
+        id: "plex-43",
+        sourceId: source,
+        version: 1,
+    });
+    assert(!f.saved.get("plexlastMediaSelection.v1").includes("/library/"));
+    const snapshots = [];
+    f.driver.load((value) => snapshots.push(value));
+    f.clients[0].ready();
+    f.clients[0].scan.batch([playlistRow(42)], 1);
+    assert.equal(snapshots.length, 0);
+    f.clients[0].scan.batch([playlistRow(43)], 2);
+    assert.equal(snapshots[0].selectedId, "plex-43");
+    f.driver.rememberPlayback(played(44));
+    f.driver.load((value) => snapshots.push(value));
+    f.clients[1].ready();
+    f.clients[1].scan.batch(
+        [playlistRow(42), playlistRow(43), playlistRow(44)],
+        3
+    );
+    assert.equal(snapshots.at(-1).selectedId, "plex-44");
+});
+
+test("Plex cursor rejects foreign and unsafe payloads and ignores foreign/corrupt saved cursors", () => {
+    for (const bad of ["foreign", "unsafe", "corrupt"]) {
+        const f = create({ plexcfg: JSON.stringify(config) }, false, true);
+        const source = f.host.__ottSourceIdentity.current(f.host);
+        f.driver.rememberPlayback({
+            __ottMediaRef: { sourceId: "other-source" },
+            request: {
+                path:
+                    bad === "unsafe"
+                        ? "https://elsewhere.invalid/42"
+                        : "/library/metadata/42",
+            },
+        });
+        assert.equal(f.saved.get("plexlastMediaSelection.v1"), undefined);
+        f.saved.set(
+            "plexchannelLibrary:" + source,
+            JSON.stringify({ selected: { itemId: "channel:plex-42" } })
+        );
+        f.saved.set(
+            "plexlastMediaSelection.v1",
+            bad === "corrupt"
+                ? "{"
+                : JSON.stringify({
+                      id: bad === "unsafe" ? "../42" : "plex-43",
+                      sourceId: bad === "foreign" ? "foreign" : source,
+                      version: 1,
+                  })
+        );
+        const snapshots = [];
+        f.driver.load((value) => snapshots.push(value));
+        f.clients[0].ready();
+        f.clients[0].scan.batch([playlistRow(42)], 1);
+        assert.equal(snapshots.length, 1);
+        assert.equal(snapshots[0].selectedId, undefined);
+    }
+});
+
 test("Completed or foreign Plex history cannot select a different file in the new profile playlist", () => {
     for (const invalid of ["complete", "foreign", "unsafe"]) {
         const f = create({ plexcfg: JSON.stringify(config) }, false, true);

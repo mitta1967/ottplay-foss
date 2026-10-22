@@ -2190,7 +2190,12 @@ for (const { engine, strict } of [
             expect(await aspect()).toEqual({ mode: "fill", savedMode: "fill" });
             await geometry("fill");
             await page.reload();
-            if (!strict) await openLegacyPlex(page, true);
+            // The TV model restores the most recently played item directly;
+            // an old Media tree must not be reopened to make resume work.
+            if (!strict)
+                await page.waitForFunction(
+                    () => window.curList?.[window.primaryIndex] === "plex-43"
+                );
             await ready("43");
             expect(await page.evaluate(() => window.__ottKiosk.strict())).toBe(
                 strict

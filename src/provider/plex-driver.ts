@@ -5,6 +5,7 @@ interface PlexProviderDriver extends ProviderDriver {
     catalogLoading(): boolean;
     libraryReady(): boolean;
     mediaClient(): any;
+    rememberPlayback(payload: any): void;
     saveAccountCredentials(
         value: ProviderCredentials,
         account: any
@@ -23,6 +24,7 @@ function createPlexProviderDriver(
     var preparingPlaylist = false;
     var catalogScanning = false;
     var catalogFailed = false;
+    var selectionKey = "lastMediaSelection.v1";
     var client: any = null;
     var catalog = helpers.emptyCatalog();
     var cancelConnection: (() => void) | null = null;
@@ -205,13 +207,33 @@ function createPlexProviderDriver(
                             var migrated = "";
                             var legacyIndex = 0;
                             try {
-                                var selected = JSON.parse(
-                                    ports.storage.get(
-                                        "channelLibrary:" +
-                                            ports.sourceIdentity!()
-                                    ) || "null"
-                                );
+                                var selected: any = null;
+                                try {
+                                    selected = JSON.parse(
+                                        ports.storage.get(
+                                            "channelLibrary:" +
+                                                ports.sourceIdentity!()
+                                        ) || "null"
+                                    );
+                                } catch (_) {}
+                                var source = ports.sourceIdentity!();
+                                var recent: any = null;
+                                try {
+                                    recent = JSON.parse(
+                                        ports.storage.get(selectionKey) ||
+                                            "null"
+                                    );
+                                } catch (_) {}
+                                if (
+                                    recent &&
+                                    recent.version === 1 &&
+                                    recent.sourceId === source &&
+                                    typeof recent.id === "string" &&
+                                    /^plex-[1-9][0-9]{0,19}$/.test(recent.id)
+                                )
+                                    migrated = recent.id;
                                 wanted =
+                                    migrated ||
                                     (selected &&
                                         selected.selected &&
                                         String(
@@ -219,7 +241,6 @@ function createPlexProviderDriver(
                                         ).replace(/^channel:/, "")) ||
                                     "";
                                 if (!wanted) {
-                                    var source = ports.sourceIdentity!();
                                     var journal = JSON.parse(
                                         ports.storage.get(
                                             "mediaJournal.v1:" + source
@@ -431,6 +452,33 @@ function createPlexProviderDriver(
         },
         mediaClient: function () {
             return active() && ready ? client : null;
+        },
+        rememberPlayback: function (payload) {
+            if (!active()) return;
+            var source = ports.sourceIdentity!();
+            var path = payload && payload.request && payload.request.path;
+            var match =
+                typeof path === "string" &&
+                /^\/library\/metadata\/([1-9][0-9]{0,19})$/.exec(path);
+            if (
+                !match ||
+                !payload.__ottMediaRef ||
+                payload.__ottMediaRef.sourceId !== source ||
+                (payload.plexSource && payload.plexSource !== source)
+            )
+                return;
+            try {
+                ports.storage.set(
+                    selectionKey,
+                    JSON.stringify({
+                        id: "plex-" + match[1],
+                        sourceId: source,
+                        version: 1,
+                    })
+                );
+            } catch (_) {
+                // Selection persistence must not interrupt an admitted playback.
+            }
         },
         saveAccountCredentials: saveCredentials,
         saveCredentials: function (value) {
