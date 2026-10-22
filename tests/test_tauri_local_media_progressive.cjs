@@ -623,6 +623,11 @@ async function flush() {
         finish(catalog(2, 2, false));
         await flush();
         await assert.rejects(pending.api.snapshot(), /scan to finish/);
+        assert.equal(
+            pending.api.completedSources(),
+            null,
+            "timed-out sources are not complete enough to bind a profile"
+        );
         answer = catalog(3, 3, false);
         assert.equal((await pending.api.list()).items.length, 3);
         assert.equal((await pending.api.snapshot()).items.length, 3);

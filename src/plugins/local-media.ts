@@ -1107,7 +1107,13 @@ export function installLocalMedia(w: any): any {
             browser.suspend();
         },
         completedSources: function () {
-            if (!last || last.cancelled || last.scanning) return null;
+            if (
+                !last ||
+                last.cancelled ||
+                last.scanning ||
+                last.reconnectRequired
+            )
+                return null;
             return (last.sources || []).map(function (source: any) {
                 return { id: source.id, kind: source.kind, name: source.name };
             });
@@ -1172,7 +1178,12 @@ export function installLocalMedia(w: any): any {
         snapshot: function () {
             // Profile operations must never replace the provider's active scan.
             // Only a completed catalog describes every connected source.
-            if (!last || last.cancelled || last.scanning)
+            if (
+                !last ||
+                last.cancelled ||
+                last.scanning ||
+                last.reconnectRequired
+            )
                 return Promise.reject(
                     new Error(
                         "Wait for the local media scan to finish before saving or binding a profile"

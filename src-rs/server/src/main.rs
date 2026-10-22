@@ -517,10 +517,12 @@ mod listener_tests {
 
     #[test]
     fn readonly_library_requires_explicit_loopback_and_absolute_folder_list() {
-        assert_eq!(parse_readonly_paths(r#"["/tmp/media"]"#, "127.0.0.1").unwrap().len(), 1);
-        assert!(parse_readonly_paths(r#"["/tmp/media"]"#, "::1").is_ok());
+        // Use a native absolute path; /tmp is not absolute on Windows.
+        let paths = serde_json::to_string(&vec![std::env::temp_dir().join("media")]).unwrap();
+        assert_eq!(parse_readonly_paths(&paths, "127.0.0.1").unwrap().len(), 1);
+        assert!(parse_readonly_paths(&paths, "::1").is_ok());
         for host in ["0.0.0.0", "::", "localhost", "192.168.1.2"] {
-            assert!(parse_readonly_paths(r#"["/tmp/media"]"#, host).is_err());
+            assert!(parse_readonly_paths(&paths, host).is_err());
         }
         for value in ["[]", r#"["relative"]"#, r#""/tmp/media""#, "invalid"] {
             assert!(parse_readonly_paths(value, "127.0.0.1").is_err());
