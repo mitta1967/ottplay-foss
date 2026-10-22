@@ -90,6 +90,12 @@ an active profile still restricts which sources can play. This partial catalog
 cannot be saved as a complete folder profile. No media is copied and the action
 does not request a broader filesystem grant. It cannot cancel a filesystem call that Chrome has already started on the old page; use
 it on a responsive page, and preserve the saved source when restarting.
+If this explicit file request times out behind a blocked native directory read,
+OTT remembers the chosen relative file for one startup in the current local
+profile. The error asks you to quit Chrome completely, then reopen the player.
+On that restart, OTT consumes the saved choice before scanning the folder.
+A different profile cannot use the hint, and a newer explicit choice wins.
+Cancellation, a missing file, and permission errors do not create such a hint.
 
 After successful playback, OTT keeps at most eight bootstrap candidates per
 browser folder: relative paths and file handles, not movie bytes. On a later

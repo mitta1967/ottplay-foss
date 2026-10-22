@@ -62,6 +62,8 @@ async function browserImportRegression(
         };
         const ownClock = clock;
         const records = [];
+        const storage = new Map();
+        let namespace = "offline:1";
         const created = [];
         let tracked = 0;
         const handoffs = [];
@@ -282,9 +284,11 @@ async function browserImportRegression(
             renderButtonHint: () => "",
             setTimeout: ownClock.set.bind(ownClock),
             showDirectoryPicker: pick,
+            showEditKey() {},
             showOpenFilePicker: pick,
             showPage() {},
-            stbSetItem() {},
+            stbGetItem: (key) => storage.get(key),
+            stbSetItem: (key, value) => storage.set(key, value),
             URL: {
                 createObjectURL: (file) => {
                     created.push(file.name);
@@ -306,6 +310,10 @@ async function browserImportRegression(
                 },
             };
         const api = plugin.installLocalMedia(w);
+        w.__ottOfflineProfiles = {
+            current: () => null,
+            namespace: () => namespace,
+        };
         return {
             api,
             blocked,
@@ -332,6 +340,7 @@ async function browserImportRegression(
                         : folder
                 ),
             handoffs: () => handoffs,
+            host: w,
             html: () => html,
             olderEnumerations: () => olderEnumerations,
             picker,
@@ -341,7 +350,11 @@ async function browserImportRegression(
             reads: () => reads,
             releaseEnumeration: () =>
                 blocked.resolve({ done: false, value: first }),
+            setNamespace: (value) => {
+                namespace = value;
+            },
             spinner: () => !!dialog,
+            storage,
             async tick(ms) {
                 const target = now + ms;
                 for (;;) {
@@ -842,8 +855,120 @@ async function browserImportRegression(
         if (name === "NotAllowedError")
             assert.match(denied.detail(), /Fixture rejection/);
     }
+    const pendingKey = "localMediaPendingFile";
+    async function directFixture(result) {
+        const f = fixture({
+            existing: true,
+            realisticClose: true,
+            secondPlayable: true,
+        });
+        await f.api.list();
+        f.host.__ottBrowserLocalMedia.bootstrapFile = () => result();
+        f.click("start-with-file");
+        f.host.editvar = "Movies/clip.mp4";
+        return f;
+    }
+    const timedOut = await directFixture(() =>
+        Promise.reject(
+            Object.assign(new Error("Native read blocked"), {
+                name: "TimeoutError",
+            })
+        )
+    );
+    timedOut.host.setEdit();
+    await flush();
+    assert.deepEqual(JSON.parse(timedOut.storage.get(pendingKey)), {
+        id: "local-source-existing:Movies/clip.mp4",
+        namespace: "offline:1",
+    });
+    assert.match(timedOut.detail(), /Restart Chrome completely/);
+    assert.equal(timedOut.played(), 0);
+    assert.equal(
+        timedOut.api.takeImportSelection(),
+        "local-source-existing:Movies/clip.mp4"
+    );
+    assert.equal(
+        timedOut.api.takeImportSelection(),
+        "",
+        "restart hint is consumed once"
+    );
+    assert.equal(timedOut.storage.get(pendingKey), "");
+    for (const name of [
+        "AbortError",
+        "NotFoundError",
+        "NotAllowedError",
+        "Error",
+    ]) {
+        const failed = await directFixture(() =>
+            Promise.reject(Object.assign(new Error(name), { name }))
+        );
+        failed.host.setEdit();
+        await flush();
+        assert.equal(
+            failed.storage.has(pendingKey),
+            false,
+            name + " cannot create a restart hint"
+        );
+    }
+    const pendingDirect = deferred();
+    const cancelledDirect = await directFixture(() => pendingDirect.promise);
+    cancelledDirect.host.setEdit();
+    cancelledDirect.close();
+    pendingDirect.reject(
+        Object.assign(new Error("Late timeout"), { name: "TimeoutError" })
+    );
+    await flush();
+    assert.equal(
+        cancelledDirect.storage.has(pendingKey),
+        false,
+        "cancelled operation cannot write a late hint"
+    );
+    timedOut.storage.set(
+        pendingKey,
+        JSON.stringify({ id: "local-other", namespace: "offline:2" })
+    );
+    assert.equal(
+        timedOut.api.takeImportSelection(),
+        "",
+        "another profile cannot consume this file selection"
+    );
+    assert.ok(
+        timedOut.storage.get(pendingKey),
+        "another profile leaves the hint for its owner"
+    );
+    timedOut.setNamespace("offline:2");
+    assert.equal(timedOut.api.takeImportSelection(), "local-other");
+    assert.equal(timedOut.storage.get(pendingKey), "");
+    const exact = await directFixture(() =>
+        Promise.resolve({
+            items: [
+                {
+                    available: true,
+                    id: "source-existing:Movies/clip.mp4",
+                    url: "blob:direct",
+                },
+            ],
+            partial: true,
+            scanning: true,
+            sources: [],
+        })
+    );
+    exact.storage.set(
+        pendingKey,
+        JSON.stringify({ id: "local-old", namespace: "offline:1" })
+    );
+    exact.host.setEdit();
+    await flush();
+    assert.deepEqual(exact.handoffs(), [
+        "local-source-existing:Movies/clip.mp4",
+    ]);
+    assert.equal(
+        exact.storage.get(pendingKey),
+        "",
+        "new explicit selection discards an older restart hint"
+    );
     console.log(
-        "PASS browser import UI: first-file playback, synchronous picker, bounded stalled reads, cancellation and stale completion"
+        "PASS browser import UI: first-file playback, synchronous picker, bounded stalled reads, cancellation, stale completion, and scoped one-shot timeout restart hints"
     );
 }
 

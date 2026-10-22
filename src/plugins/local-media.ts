@@ -33,6 +33,7 @@ export function installLocalMedia(w: any): any {
     var endpoint = "";
     var importedSelection = "";
     var nextImportSelection = "";
+    var pendingFileKey = "localMediaPendingFile";
     function isNative(): boolean {
         return !!(
             w.Capacitor &&
@@ -523,18 +524,41 @@ export function installLocalMedia(w: any): any {
             run(function () {
                 var request = ++catalogRevision;
                 importedSelection = "";
-                return browser.bootstrapFile(sourceId, path).then(function (
-                    value: any
-                ) {
-                    if (request !== catalogRevision)
-                        return { cancelled: true, items: [] };
-                    last = value;
-                    var item = value.items.filter(function (entry: any) {
-                        return entry.available !== false && !!entry.url;
-                    })[0];
-                    importedSelection = item ? "local-" + item.id : "";
-                    return value;
-                });
+                var namespace = w.__ottOfflineProfiles.namespace();
+                return browser.bootstrapFile(sourceId, path).then(
+                    function (value: any) {
+                        if (request !== catalogRevision)
+                            return { cancelled: true, items: [] };
+                        last = value;
+                        var item = value.items.filter(function (entry: any) {
+                            return entry.available !== false && !!entry.url;
+                        })[0];
+                        importedSelection = item ? "local-" + item.id : "";
+                        return value;
+                    },
+                    function (error: any) {
+                        if (
+                            request === catalogRevision &&
+                            current() &&
+                            !locked() &&
+                            !settingsLocked() &&
+                            error?.name === "TimeoutError" &&
+                            namespace === w.__ottOfflineProfiles.namespace()
+                        ) {
+                            w.stbSetItem(
+                                pendingFileKey,
+                                JSON.stringify({
+                                    id: "local-" + sourceId + ":" + path,
+                                    namespace: namespace,
+                                })
+                            );
+                            throw new Error(
+                                "The file is remembered. Restart Chrome completely, then reopen the player."
+                            );
+                        }
+                        throw error;
+                    }
+                );
             }, true);
         };
         w.showEditKey(null);
@@ -1122,6 +1146,21 @@ export function installLocalMedia(w: any): any {
         takeImportSelection: function () {
             var selected = nextImportSelection;
             nextImportSelection = "";
+            try {
+                var pending = w.stbGetItem(pendingFileKey);
+                if (pending) {
+                    var hint = JSON.parse(pending);
+                    if (hint.namespace === w.__ottOfflineProfiles.namespace()) {
+                        w.stbSetItem(pendingFileKey, "");
+                        if (
+                            !selected &&
+                            typeof hint.id === "string" &&
+                            hint.id.indexOf("local-") === 0
+                        )
+                            selected = hint.id;
+                    }
+                }
+            } catch (_) {}
             return selected;
         },
         title: title,
