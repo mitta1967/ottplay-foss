@@ -130,8 +130,8 @@ function fixture(overrides = {}, options = {}, hooks = {}) {
                 options.error({}, "abort");
                 options.complete();
             },
-            fail() {
-                options.error({ responseText: "fixture-private-key" }, "error");
+            fail(status = "error") {
+                options.error({ responseText: "fixture-private-key" }, status);
                 options.complete();
             },
             options,
@@ -2051,7 +2051,7 @@ require("./test_vportal_search.cjs");
         JSON.stringify(result.items[0].request),
         JSON.stringify(request)
     );
-    assert(result.items[0].description.length <= 1024);
+    assert(Buffer.byteLength(result.items[0].description, "utf8") <= 512);
     assert(!/[\uD800-\uDBFF]$/.test(result.items[0].description));
     const diagnostic = f.client.scanDiagnostics();
     assert(diagnostic.retainedBytes > 0);
@@ -2138,4 +2138,190 @@ console.log(
     );
     assert(result.complete && result.error);
     assert.equal(f.client.scanDiagnostics().code, "page_limit");
+}
+
+// Only whole-catalog transport timeouts receive one bounded retry.
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].fail("timeout");
+    assert.equal(f.requests.length, 2);
+    assert.equal(
+        f.requests[0].options.data,
+        f.requests[1].options.data,
+        "timeout retries the exact request without changing its identity"
+    );
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 1 },
+                title: "Recovered",
+                type: "stream",
+            },
+        ],
+        type: "videoportal",
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.items.length, 1);
+    assert.equal(f.client.scanDiagnostics().pages, 1);
+}
+
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].fail("timeout");
+    f.requests[1].fail("timeout");
+    assert.equal(
+        f.requests.length,
+        2,
+        "a second timeout cannot loop indefinitely"
+    );
+    assert(result.complete && result.error);
+    assert.equal(f.client.scanDiagnostics().code, "transport_timeout");
+}
+
+for (const failure of [
+    "abort",
+    "parsererror",
+    "error",
+    "malformed",
+    "scoped-timeout",
+]) {
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [
+            {
+                __ottCategoryRoot: failure !== "scoped-timeout",
+                request: {},
+                title: "Portal",
+            },
+        ],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    if (failure === "malformed") f.requests[0].receive({ items: "invalid" });
+    else f.requests[0].fail(failure === "scoped-timeout" ? "timeout" : failure);
+    assert.equal(f.requests.length, 1, `${failure} must not start a retry`);
+    assert(result.complete && result.error);
+}
+
+{
+    const timers = new Map();
+    let sequence = 0;
+    const f = fixture({
+        clearTimeout(id) {
+            timers.delete(id);
+        },
+        setTimeout(callback, duration) {
+            const id = ++sequence;
+            timers.set(id, { callback, duration });
+            return id;
+        },
+    });
+    let result;
+    const cancel = f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    const watchdog = [...timers.keys()][0];
+    f.requests[0].fail("timeout");
+    assert(
+        timers.has(watchdog),
+        "a timeout/retry cannot extend inactivity lifetime"
+    );
+    cancel();
+    assert.equal(f.requests[1].aborted, true);
+    assert.equal(timers.size, 0);
+    assert.equal(result, undefined);
+    f.requests[1].receive({ items: [], type: "videoportal" });
+    assert.equal(
+        result,
+        undefined,
+        "cancelled retry cannot publish a late result"
+    );
+
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    f.requests[2].fail("timeout");
+    [...timers.values()][0].callback();
+    assert.equal(f.client.scanDiagnostics().code, "inactive_timeout");
+    assert.equal(f.requests[3].aborted, true);
+    assert(result.complete && result.error);
+}
+console.log(
+    "PASS VPortal single whole-catalog timeout retry, exact identity, cancellation and unchanged idle bound"
+);
+
+{
+    for (const description of [
+        "<scr<script>ipt>alert(1)</scr</script>ipt>".repeat(100),
+        "😀".repeat(300),
+        "a".repeat(499) + "<img src=x onerror=bad()>",
+        "a".repeat(499) + "&amp;" + "😀".repeat(50),
+        "\uD800".repeat(400),
+    ]) {
+        const f = fixture();
+        let result;
+        const request = { cmd: "play", id: "preview-safe-identity" };
+        f.client.playlist(
+            [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+            (items, complete, error) => {
+                result = { complete, error, items };
+            }
+        );
+        f.requests[0].receive({
+            items: [{ description, request, title: "Film", type: "stream" }],
+            type: "category",
+        });
+        assert.equal(result.error, undefined);
+        assert.equal(result.complete, true);
+        const preview = result.items[0].description;
+        assert(Buffer.byteLength(preview, "utf8") <= 512);
+        assert(!/[<>]/.test(preview), "preview must never expose an HTML tag");
+        assert(
+            !/[\uD800-\uDFFF]/u.test(preview),
+            "preview must not retain unpaired surrogates"
+        );
+        assert(!/&[^;]*$/.test(preview), "preview must not cut an entity");
+        assert.equal(result.items[0].title, "Film");
+        assert.deepEqual(
+            JSON.parse(JSON.stringify(result.items[0].request)),
+            request
+        );
+    }
+}
+console.log(
+    "PASS VPortal safe UTF8 description previews preserve request identity"
+);
+
+{
+    const f = fixture();
+    let published = false;
+    f.client.playlist([{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        () => { published = true; });
+    f.setActive(false);
+    f.requests[0].fail("timeout");
+    assert.equal(f.requests.length, 1, "stale source cannot initiate a timeout retry");
+    assert.equal(published, false);
+    f.client.cancel();
 }

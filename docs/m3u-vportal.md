@@ -23,7 +23,7 @@ The standard channel list provides search, favorites, ordering and Actions. Vide
 Whole-portal discovery is bounded separately from explicit section and search
 queues. It accepts up to 100,000 returned rows, 10,000 pages/containers and 64 MiB
 of retained catalog metadata, plus a 32 MiB cumulative identity budget. Long
-optional descriptions use a 1,024-character preview; titles, playable requests
+optional descriptions use a 512-byte UTF-8 text preview; titles, playable requests
 and stable identities remain intact. A scan stops after one minute without a validated response; empty successful pages
 also count as progress. Each request has its own timeout; there is no overall
 whole-scan deadline while validated responses keep arriving. Page, row, identity
@@ -31,6 +31,9 @@ and metadata limits still bound the traversal. Discovered videos remain usable
 while scanning, but a failed or cancelled scan is never reported as a complete
 catalog to remote commands.
 Explicit section and search queues retain their existing smaller limits.
+A whole-portal scan retries the exact same request once after a transport
+timeout. The retry keeps the existing inactivity deadline; cancelled requests,
+malformed responses and invalid catalog identities are never retried.
 Diagnostics report only counters and failure codes, never account links or
 request parameters.
 
