@@ -8,6 +8,7 @@ export function installBrowserLocalMedia(w: any): any {
     var pendingFiles: any = {};
     var pendingFileCount = 0;
     var pendingDirectories: any = Object.create(null);
+    var cacheWrites = Promise.resolve();
     var urlApi = w.URL || w.webkitURL;
     var available = !!(w.indexedDB && urlApi && urlApi.createObjectURL);
 
@@ -152,7 +153,7 @@ export function installBrowserLocalMedia(w: any): any {
                 error.name = "TimeoutError";
                 error.localMediaReconnectRequired = true;
                 reject(error);
-            }, 600000);
+            }, 2700000);
             var pending: Promise<any>;
             try {
                 entry.iterator = handle.values();
@@ -182,6 +183,63 @@ export function installBrowserLocalMedia(w: any): any {
         // A timed-out promise stays cached until the browser call really settles.
         // Retrying reports recovery immediately instead of queuing native reads.
         return entry;
+    }
+    // Cache a handful of successful references, never File objects or media
+    // bytes. They let the next launch start playback before Chrome finishes
+    // statting every entry in a large network directory.
+    function remember(sourceId: string, path: string, handle: any): void {
+        var record = knownSources.filter(function (source) {
+            return source.id === sourceId;
+        })[0];
+        if (!record || record.handle.kind !== "directory") return;
+        var candidates = (record.bootstrap || []).slice(0, 8);
+        if (
+            candidates.length >= 8 ||
+            candidates.some(function (candidate: any) {
+                return candidate.path === path;
+            })
+        )
+            return;
+        candidates.push({ handle: handle, path: path });
+        record.bootstrap = candidates;
+        var cacheEpoch = record.cacheEpoch;
+        // Only this small reference cache is serialized. Playback and traversal
+        // do not wait for storage, and a failure leaves the live source usable.
+        cacheWrites = cacheWrites
+            .then(function () {
+                return open().then(function (db) {
+                    return new Promise<void>(function (resolve, reject) {
+                        var tx = db.transaction("files", "readwrite");
+                        var store = tx.objectStore("files");
+                        var request = store.get(sourceId);
+                        request.onsuccess = function () {
+                            var current = request.result;
+                            if (!current) {
+                                resolve();
+                                return;
+                            }
+                            // Reconnect/remove invalidate all old references.
+                            // Their completion advances this cache generation.
+                            if (current.cacheEpoch !== cacheEpoch) {
+                                resolve();
+                                return;
+                            }
+                            store.put(
+                                Object.assign({}, current, {
+                                    bootstrap: candidates,
+                                })
+                            );
+                        };
+                        tx.oncomplete = function () {
+                            resolve();
+                        };
+                        tx.onerror = tx.onabort = function () {
+                            reject();
+                        };
+                    });
+                });
+            })
+            .catch(function () {});
     }
     function item(
         id: string,
@@ -418,13 +476,15 @@ export function installBrowserLocalMedia(w: any): any {
                                 });
                             })
                             .then(function (file) {
-                                if (active() && file && media(file))
+                                if (active() && file && media(file)) {
+                                    remember(sourceId, name, child);
                                     add(
                                         sourceId + ":" + name,
                                         file,
                                         name,
                                         sourceId
                                     );
+                                }
                             });
                     return work
                         .catch(function (error) {
@@ -510,6 +570,45 @@ export function installBrowserLocalMedia(w: any): any {
                         progress(true);
                     }
                 });
+        }
+        function bootstrap(record: any): Promise<void> {
+            if (
+                firstPlayable ||
+                (preferredResult && preferredResult.state !== "missing")
+            )
+                return Promise.resolve();
+            var candidates = (record.bootstrap || []).slice(0, 8);
+            var chain = Promise.resolve();
+            candidates.forEach(function (candidate: any) {
+                chain = chain.then(function () {
+                    if (!active() || firstPlayable || !candidate.handle) return;
+                    return readPhase("metadata", function () {
+                        return readFile(
+                            record.id + ":" + candidate.path,
+                            candidate.handle
+                        );
+                    })
+                        .then(function (file) {
+                            if (active() && file && media(file))
+                                add(
+                                    record.id + ":" + candidate.path,
+                                    file,
+                                    candidate.path,
+                                    record.id
+                                );
+                        })
+                        .catch(function (error) {
+                            if (error && error.name === "NotFoundError")
+                                record.bootstrap = (
+                                    record.bootstrap || []
+                                ).filter(function (entry: any) {
+                                    return entry.path !== candidate.path;
+                                });
+                            if (error?.localMediaLimit) throw error;
+                        });
+                });
+            });
+            return chain;
         }
         if (!available) return Promise.resolve(catalog(false));
         progress(true);
@@ -600,13 +699,17 @@ export function installBrowserLocalMedia(w: any): any {
                                 progress(true);
                                 if (!active()) return;
                                 if (record.handle.kind === "directory")
-                                    return preferred(record).then(function () {
-                                        return walk(
-                                            record.handle,
-                                            "",
-                                            record.id
-                                        );
-                                    });
+                                    return preferred(record)
+                                        .then(function () {
+                                            return bootstrap(record);
+                                        })
+                                        .then(function () {
+                                            return walk(
+                                                record.handle,
+                                                "",
+                                                record.id
+                                            );
+                                        });
                                 discovered++;
                                 return readPhase(
                                     "metadata",
@@ -853,10 +956,14 @@ export function installBrowserLocalMedia(w: any): any {
                                 return;
                             }
                             replacement = Object.assign({}, record, {
+                                cacheEpoch:
+                                    Date.now().toString(36) +
+                                    Math.random().toString(36),
                                 handle: handle,
                                 name: handle.name,
                             });
                             delete replacement.access;
+                            delete replacement.bootstrap;
                             store.put(replacement);
                         };
                         tx.oncomplete = function () {

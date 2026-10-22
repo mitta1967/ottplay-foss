@@ -48,11 +48,11 @@ saved source/video selection remain available; retrying does not copy media.
 The browser's file picker is allowed to remain open while you choose a source.
 The loading dialog distinguishes the browser folder picker, directory enumeration,
 and file metadata reads. It shows entries discovered separately from playable
-videos; neither counter measures copied or downloaded media. Before the first
-playable video, directory enumeration may take up to ten minutes, including
-nested folders on a network drive. An unchanged status does not extend this
-deadline. File metadata reads and later stalled reads retain the 60-second
-inactivity limit. Cancel remains available while waiting; expired or cancelled
+videos; neither counter measures copied or downloaded media. Directory
+enumeration is allowed up to 45 minutes, including nested folders and background
+scans after cached playback starts. This is a hard safety limit, not an expected
+loading time. An unchanged status does not extend this deadline. File metadata
+reads and other stalled operations retain the 60-second inactivity limit. Cancel remains available while waiting; expired or cancelled
 reads cannot revive the old dialog or replace a newer selection. Startup loading
 has the same Cancel control and returns to source management. When the browser
 reports a filesystem error, recovery names the stage and error code without
@@ -62,26 +62,41 @@ The loading dialog exposes **Cancel** for pointer/touch input and Back/Esc.
 On PC, **Q** also retires the pending load before exiting the player. Cancelled
 results cannot restart playback. Strict kiosk retains its local-input lock.
 
-On a large network folder, Chrome can read the folder's metadata before returning
-even the first entry to JavaScript. During that stage, **Entries found: 0** does
-not mean that OTT is copying the videos or that the folder is empty. The player
-cannot display an entry which the browser has not returned yet. A previously
-selected file can start through the direct lookup described above; a first-time
-folder selection must wait for that initial browser result. Repeated Refresh or
-page reloads do not bypass this operating-system work.
+On a large network folder, Chrome may read metadata for every entry before
+returning even the first entry to JavaScript. In Chromium's local filesystem
+implementation this includes a filesystem `stat` for each entry, which can be
+slow on AFP/SMB even when Finder or a simple directory-name listing is fast.
+The duration varies with cache state, network conditions and server load;
+a fast directory-name listing cannot predict this metadata pass. **Entries
+found: 0** therefore does not prove an empty folder or a failed read, and it
+does not mean that OTT is copying videos. The loading dialog explains this initial metadata
+pass and remains cancellable. Repeated Refresh, reconnecting a healthy source,
+or page reloads do not bypass Chrome's filesystem work.
+The verified Chromium 156 path is
+[`AsyncFileUtilAdapter::ReadDirectory`](https://github.com/chromium/chromium/blob/156.0.8078.48/storage/browser/file_system/async_file_util_adapter.cc#L105)
+through [`LocalFileUtil`](https://github.com/chromium/chromium/blob/156.0.8078.48/storage/browser/file_system/local_file_util.cc#L189)
+to [`FileEnumerator::Next`](https://github.com/chromium/chromium/blob/156.0.8078.48/base/files/file_enumerator_posix.cc#L247).
 
-SMB/AFP volumes can reappear at the same macOS path after changing networks or
-VPN connections while Chrome still holds an unusable reference to the previous
-mount. A granted browser permission does not prove that the saved reference can
-still read files. If **Reading folder entries** or **Reading file information**
-stalls after the volume is available again, cancel the scan and choose
-**Local videos → Reconnect: folder name**. Select that same folder in the native
-browser picker. OTT replaces its saved handle under the existing source ID and
-reloads the player once; saved profiles, file references, selection and resume
-position remain associated with that source. Cancelling the picker leaves the
-source unchanged. This action neither copies videos nor creates a duplicate
-source. It is currently available for browser-owned folders, not native app or
-remote server libraries.
+After successful playback, OTT keeps at most eight bootstrap candidates per
+browser folder: relative paths and file handles, not movie bytes. On a later
+restart it tries the exact saved video first. If that video is missing, a readable
+cached candidate can start playback while full enumeration continues in the
+background. This helps subsequent starts; a first-ever source without cached
+candidates must still wait for Chrome to return its first entries. If no candidate
+is readable, OTT continues the ordinary scan rather than assuming the folder is
+empty or reusing a file from another source.
+
+SMB/AFP volumes can also reappear at the same macOS path after changing networks
+or VPN connections while Chrome retains an unusable reference to the previous
+mount. A granted browser permission does not prove that this reference is usable.
+Use **Local videos → Reconnect: folder name** when access is denied, the source is
+unavailable, or its read fails after restoring the operating-system mount. Select
+that same folder in the native browser picker. OTT replaces its saved handle
+under the existing source ID and reloads once; saved profiles, file references,
+selection and resume position remain associated with the source. Cancelling
+leaves it unchanged. This does not copy videos or create a duplicate source.
+Reconnection is available for browser-owned folders, not native app or remote
+server libraries, and does not accelerate a healthy metadata scan.
 
 The reconnect picker starts in Documents with a fresh picker identifier, so it
 does not automatically reopen a remembered NAS directory that may have become

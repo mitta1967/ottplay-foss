@@ -510,11 +510,22 @@ async function browserImportRegression(
             "initial enumeration, including nested directories, gets more than one minute"
         );
         assert.equal(enumerating.reads(), 0);
+        assert.match(
+            enumerating.progress(),
+            /browser checks folder metadata before returning files/,
+            "zero returned entries explains the browser metadata pass"
+        );
         await enumerating.tick(600000);
         assert.equal(
             enumerating.spinner(),
+            true,
+            "a cold network directory is not abandoned after ten minutes"
+        );
+        await enumerating.tick(2040000);
+        assert.equal(
+            enumerating.spinner(),
             false,
-            "initial enumeration still has a deadline"
+            "initial enumeration still has a finite 45-minute deadline"
         );
         assert.equal(enumerating.played(), 0);
         enumerating.blocked.resolve({ done: true });
@@ -537,6 +548,12 @@ async function browserImportRegression(
     assert.equal(laterEnumeration.reads(), 1);
     await laterEnumeration.tick(100);
     await laterEnumeration.tick(60000);
+    assert.equal(
+        laterError,
+        undefined,
+        "cached playback does not shorten the next directory metadata pass"
+    );
+    await laterEnumeration.tick(2640000);
     assert.ok(
         laterError,
         "the deadline settles even while native enumeration stays pending"

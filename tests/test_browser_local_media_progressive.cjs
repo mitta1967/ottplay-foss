@@ -280,7 +280,7 @@ async function flushScans() {
     });
     let directoryDeadline;
     deadDirectory.w.setTimeout = (fn, delay) => {
-        if (delay === 600000) {
+        if (delay === 2700000) {
             directoryDeadline = { fn };
             return directoryDeadline;
         }
@@ -382,6 +382,7 @@ async function flushScans() {
         reconnectPickerOptions.push(options);
         return Promise.resolve(remounted);
     };
+    deadFiles.saved()[0].bootstrap = [{ handle: remounted, path: "old.mp4" }];
     const reconnect = deadFiles.api.reconnectSource("source-movies");
     assert.equal(
         pickerCalled,
@@ -400,10 +401,17 @@ async function flushScans() {
     assert.equal(deadFiles.saved()[0].id, "source-movies");
     assert.equal(deadFiles.saved()[0].created, 1);
     assert.equal(deadFiles.saved()[0].handle, remounted);
+    assert.equal(
+        deadFiles.saved()[0].bootstrap,
+        undefined,
+        "reconnect drops stale bootstrap references"
+    );
     assert.equal(deadFiles.reads(), 2, "reconnect does not scan or copy files");
     const reloaded = deadFiles.reinstall();
     const repaired = await settle(reloaded.list());
     assert.equal(repaired.items[0].id, "source-movies:fresh.mp4");
+    await flushScans();
+    const writesBeforeCancel = deadFiles.writes();
     deadFiles.w.showDirectoryPicker = (options) => {
         reconnectPickerOptions.push(options);
         return Promise.reject(
@@ -414,7 +422,11 @@ async function flushScans() {
         (await reloaded.reconnectSource("source-movies")).pickerCancelled,
         true
     );
-    assert.equal(deadFiles.writes(), 1, "cancel preserves the existing grant");
+    assert.equal(
+        deadFiles.writes(),
+        writesBeforeCancel,
+        "cancel preserves the existing grant"
+    );
     assert.notEqual(
         reconnectPickerOptions[0].id,
         reconnectPickerOptions[1].id,
@@ -426,6 +438,43 @@ async function flushScans() {
     );
     releaseDeadFiles();
     await flushScans();
+
+    const cachedWaits = {};
+    const cachedSource = fixture(12, "mp4", -1, undefined, cachedWaits);
+    await settle(cachedSource.api.list());
+    await flushScans();
+    const candidates = cachedSource.saved()[0].bootstrap;
+    assert.equal(
+        candidates.length,
+        8,
+        "bootstrap cache is bounded to eight references"
+    );
+    assert.deepEqual(Object.keys(candidates[0]).sort(), ["handle", "path"]);
+    assert.equal(candidates[0].handle.kind, "file");
+    candidates[0].handle.getFile = async () => {
+        throw Object.assign(new Error("gone"), { name: "NotFoundError" });
+    };
+    candidates[1].handle.getFile = async () => {
+        throw Object.assign(new Error("unreadable"), {
+            name: "NotReadableError",
+        });
+    };
+    cachedWaits.iterator = new Promise(() => {});
+    const readsBeforeBootstrap = cachedSource.iteratorReads();
+    const cachedRestart = cachedSource.reinstall();
+    const bootstrapped = await settle(
+        cachedRestart.list((catalog) => {
+            if (catalog.items.length) return false;
+        }, "source-movies:deleted-preferred.mp4")
+    );
+    assert.equal(bootstrapped.items.length, 1);
+    assert.equal(bootstrapped.items[0].name, candidates[2].path);
+    assert.equal(
+        cachedSource.iteratorReads(),
+        readsBeforeBootstrap,
+        "missing preferred resumes a cached readable file before native enumeration"
+    );
+    assert.equal(bootstrapped.preferred.state, "missing");
 
     let failInitial;
     const failedWait = {
