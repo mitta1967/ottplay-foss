@@ -663,14 +663,15 @@ async function browserImportRegression(
         "a 12,000-file folder cannot queue 12,000 abandoned native reads"
     );
     assert.equal(allBlocked.tracked(), 2);
-    const unavailable = await allBlocked.api.snapshot();
+    await assert.rejects(allBlocked.api.snapshot(), /scan to finish/);
+    assert.equal(allBlocked.api.completedSources(), null);
+    const unavailable = await allBlocked.api.list();
     assert.equal(
         unavailable.sources.length,
         1,
         "recovery retains the linked source"
     );
     assert.equal(unavailable.readErrorName, "TimeoutError");
-    await allBlocked.api.list();
     assert.equal(
         allBlocked.reads(),
         2,
