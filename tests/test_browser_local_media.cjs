@@ -1803,11 +1803,71 @@ async function builtUi(devicePath) {
             ),
             "true"
         );
+        await page.evaluate(() => window.__ottLocalMedia.open());
+        await action("start-with-file").waitFor({ state: "visible" });
+        await selectAction("start-with-file");
+        await page.locator("#editvar").fill("discarded/video.mp4");
+        await page.keyboard.press("Escape");
+        await page.locator("#listEdit").waitFor({ state: "hidden" });
+        await action("start-with-file").waitFor({ state: "visible" });
+        const afterCancelledDirect = await page.evaluate(async () => {
+            const catalog = await window.__ottLocalMedia.snapshot();
+            const exported = await window.__ottOfflineProfiles.request({
+                action: "profile_export",
+                params: { number: 1 },
+            });
+            return {
+                profile: exported.data.profile,
+                sources: catalog.sources.map(({ id, name, kind }) => ({
+                    id,
+                    kind,
+                    name,
+                })),
+            };
+        });
+        assert.deepEqual(
+            afterCancelledDirect,
+            beforeReconnect,
+            "cancelling a direct-file editor preserves sources and profiles"
+        );
+        await page.evaluate(() => {
+            const prototype = FileSystemDirectoryHandle.prototype;
+            const original = prototype.values;
+            window.__directStartEnumeration = { calls: 0, original };
+            prototype.values = function () {
+                if (this.name !== "selected-folder") return original.call(this);
+                window.__directStartEnumeration.calls++;
+                return {
+                    next: () => new Promise(() => {}),
+                    [Symbol.asyncIterator]() {
+                        return this;
+                    },
+                };
+            };
+        });
+        await selectAction("start-with-file");
+        await page.locator("#editvar").fill("nested/folder-video.mp4");
+        await page.keyboard.press("Enter");
+        await expectImportedPlayback("start-with-file");
+        assert.equal(
+            await page.evaluate(() =>
+                window.__ottLocalMedia.snapshot().then(
+                    () => false,
+                    () => true
+                )
+            ),
+            true,
+            "a direct bootstrap cannot be saved as a complete folder catalog"
+        );
+        await page.evaluate(() => {
+            FileSystemDirectoryHandle.prototype.values =
+                window.__directStartEnumeration.original;
+        });
         assert.deepEqual(errors, []);
         console.log(
             "PASS built UI " +
                 devicePath +
-                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Ctrl/Meta seek and plain PC arrow volume with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy), profile save/export/import/load, progressive first-batch playback and append without restart/pause loss, same-ID folder reconnect/cancel with profile preservation and reload"
+                ": editor escape/cancel/back, validation/save, pending request ownership, cancelled/error pickers, file and folder links, fullscreen video-focused Alt/Ctrl/Meta seek and plain PC arrow volume with pause preserved, menu/editor shortcut exclusion, playback, offline reload, page close/reopen, second-channel restoration and permission recovery (controlled permission policy), profile save/export/import/load, progressive first-batch playback and append without restart/pause loss, same-ID folder reconnect/cancel with profile preservation and reload, direct-file editor cancellation and playback with blocked enumeration"
         );
     } finally {
         await browser.close();

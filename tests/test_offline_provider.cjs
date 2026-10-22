@@ -1016,7 +1016,7 @@ test("local footer metadata uses immediate directory and supports legacy source 
     assert.equal(catalog.channels["local-relative"].channel_name, "Third.mp4");
 });
 
-test("import selection is consumed once and preserves explicit profile precedence", async () => {
+test("explicit file selection wins once over the saved profile cursor", async () => {
     for (const explicitProfile of [false, true]) {
         const f = integrationFixture("offline");
         const preferred = [];
@@ -1044,7 +1044,7 @@ test("import selection is consumed once and preserves explicit profile precedenc
             },
         };
         f.host.loadProv();
-        assert.equal(preferred[0], explicitProfile ? "profile" : "imported");
+        assert.equal(preferred[0], "imported");
         assert.equal(
             imported,
             "",
@@ -1059,6 +1059,63 @@ test("import selection is consumed once and preserves explicit profile precedenc
             "later loads use normal saved selection"
         );
         await Promise.resolve();
+    }
+});
+
+test("explicit file selection remains inside the active profile source filter", async () => {
+    for (const sourceId of ["allowed", "foreign"]) {
+        const f = integrationFixture("offline");
+        let progress;
+        f.host.clearBootHide = () => {};
+        f.host.__ottSourceIdentity = { current: () => "explicit-file" };
+        f.host.__ottOfflineProfiles = {
+            filter: (catalog) => ({
+                ...catalog,
+                items: catalog.items.filter(
+                    (item) => item.sourceId === "allowed"
+                ),
+            }),
+            read: () => ({ active: 1 }),
+            selection: () => "local-saved",
+        };
+        f.host.__ottLocalMedia = {
+            list: (cb, id) => {
+                assert.equal(id, "chosen");
+                progress = cb;
+                return new Promise(() => {});
+            },
+            takeImportSelection: () => "local-chosen",
+        };
+        f.host.loadProv();
+        progress({
+            items: [
+                {
+                    id: "saved",
+                    name: "Saved.mp4",
+                    sourceId: "allowed",
+                    url: "blob:saved",
+                },
+                {
+                    id: "chosen",
+                    name: "Chosen.mp4",
+                    sourceId,
+                    url: "blob:chosen",
+                },
+            ],
+            scanning: true,
+        });
+        assert.equal(f.completed, sourceId === "allowed" ? 1 : 0);
+        if (sourceId === "allowed")
+            assert.equal(
+                f.host.__ottCatalogSelectedId,
+                "local-chosen",
+                "the explicit target reaches playback rather than the saved cursor"
+            );
+        assert.equal(
+            !!f.host.channels["local-chosen"],
+            sourceId === "allowed",
+            "an explicit choice cannot bypass the active profile sources"
+        );
     }
 });
 

@@ -299,10 +299,12 @@ function createOfflineDriver(
                     profiles && profiles.selection
                         ? profiles.selection()
                         : null;
-                if (profileSelection !== null) {
-                    wanted = profileSelection || "local-profile-unbound";
-                } else if (imported) {
+                if (imported) {
+                    // An explicit file choice wins over a remembered cursor;
+                    // profile filtering below still bounds allowed sources.
                     wanted = imported;
+                } else if (profileSelection !== null) {
+                    wanted = profileSelection || "local-profile-unbound";
                 } else if (saved && saved.selected && saved.selected.itemId) {
                     wanted = String(saved.selected.itemId).replace(
                         /^channel:/,
@@ -509,7 +511,9 @@ function createOfflineDriver(
                 closeLoading();
                 var snapshot = driverCatalogSnapshot(catalog);
                 snapshot.incremental = incremental;
-                if (missingPreferred && !catalog.channels[wanted])
+                if (!incremental && imported && catalog.channels[wanted])
+                    snapshot.selectedId = wanted;
+                else if (missingPreferred && !catalog.channels[wanted])
                     snapshot.selectedId = catalog.ids[0];
                 done(snapshot, undefined, incremental);
                 if (!current()) return false;

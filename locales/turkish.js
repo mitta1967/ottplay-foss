@@ -993,6 +993,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker portalı sağlayıcısı",
     "Stalker portal settings": "Stalker portalı ayarları",
     "Stalker portals": "Stalker portalları",
+    "Start with file": "Dosyadan başla",
     "Starting...": "Başlatılıyor…",
     Status: "Durum",
     Stop: "Durdur",
@@ -1025,6 +1026,8 @@ var keyStrings = {
         "Metin çok uzun. Lütfen göndermeden önce kısaltın.",
     "Text sent. Check your TV to confirm it appeared.":
         "Metin gönderildi. Göründüğünü onaylamak için TV'nizi kontrol edin.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Tarayıcı dosyaları göstermeden önce klasör meta verilerini kontrol eder. Büyük ağ klasörleri birkaç dakika sürebilir.",
     "The browser screenshot source is ready.":
         "Tarayıcı ekran görüntüsü kaynağı hazır.",
     "The command server discovery URL is invalid.":

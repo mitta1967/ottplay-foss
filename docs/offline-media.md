@@ -12,8 +12,8 @@ the production directory.
 additional OTT copy. Open **Settings → Local videos**, or select **Local videos**
 from the provider list. Its controls use the player's normal settings list:
 **Add folder**, **Add files**, **Grant access** when needed, **Refresh**,
-**Play local videos**, **Reconnect** for browser folders, and **Disconnect**
-for each source. There is no separate
+**Play local videos**, **Start with file…** and **Reconnect** for browser
+folders, and **Disconnect** for each source. There is no separate
 file-manager dialog. The operating system's file/folder picker still appears to
 let you choose what OTT may read.
 
@@ -76,6 +76,20 @@ The verified Chromium 156 path is
 [`AsyncFileUtilAdapter::ReadDirectory`](https://github.com/chromium/chromium/blob/156.0.8078.48/storage/browser/file_system/async_file_util_adapter.cc#L105)
 through [`LocalFileUtil`](https://github.com/chromium/chromium/blob/156.0.8078.48/storage/browser/file_system/local_file_util.cc#L189)
 to [`FileEnumerator::Next`](https://github.com/chromium/chromium/blob/156.0.8078.48/base/files/file_enumerator_posix.cc#L247).
+
+For the first use of an unusually large network folder, **Start with file…:
+folder name** accepts a known video path relative to that connected folder,
+for example `Movies/video.mp4`. OTT opens that file directly through the folder's
+existing read permission, records its reference, and starts it without listing
+the whole folder first. This uses the standard player text editor; Back/Esc
+cancels without changing the source. Absolute paths, `..` traversal, and files
+outside the connected folder are rejected. The subsequent provider scan starts
+with the selected reference and discovers the other files in the background.
+An explicit file choice takes precedence over the saved playback cursor, while
+an active profile still restricts which sources can play. This partial catalog
+cannot be saved as a complete folder profile. No media is copied and the action
+does not request a broader filesystem grant. It cannot cancel a filesystem call that Chrome has already started on the old page; use
+it on a responsive page, and preserve the saved source when restarting.
 
 After successful playback, OTT keeps at most eight bootstrap candidates per
 browser folder: relative paths and file handles, not movie bytes. On a later

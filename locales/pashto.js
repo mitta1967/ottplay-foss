@@ -986,6 +986,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker پورټل چمتو کوونکی",
     "Stalker portal settings": "Stalker پورټل ترتیبات",
     "Stalker portals": "Stalker پورټلونه",
+    "Start with file": "له فایل څخه پیل",
     "Starting...": "پیل…",
     Status: "حالت",
     Stop: "ودریږئ",
@@ -1019,6 +1020,8 @@ var keyStrings = {
         "متن ډیر اوږد دی. مهرباني وکړئ د لیږلو دمخه یې لنډ کړئ.",
     "Text sent. Check your TV to confirm it appeared.":
         "متن لیږل شوی. خپل تلویزیون چیک کړئ ترڅو تایید کړئ چې دا څرګند شوی.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "براوزر د فایلونو تر ښودلو مخکې د پوښۍ مېټاډاټا ګوري. د شبکې لویې پوښۍ څو دقیقې وخت نیولی شي.",
     "The browser screenshot source is ready.":
         "د براوزر سکرین شاټ سرچینه چمتو ده.",
     "The command server discovery URL is invalid.":

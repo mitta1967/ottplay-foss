@@ -951,6 +951,7 @@ var keyStrings = {
     "Stalker Portal Provider": "የStalker ፖርታል አቅራቢ",
     "Stalker portal settings": "የStalker ፖርታል ቅንብሮች",
     "Stalker portals": "የStalker ፖርታሎች",
+    "Start with file": "በፋይል ጀምር",
     "Starting...": "በመጀመር ላይ…",
     Status: "ሁኔታ",
     Stop: "አቁም",
@@ -983,6 +984,8 @@ var keyStrings = {
         "ጽሑፍ በጣም ረጅም ነው። እባክዎን ከመላክዎ በፊት ያሳጥሩት።",
     "Text sent. Check your TV to confirm it appeared.":
         "ጽሑፍ ተልኳል። መታየቱን ለማረጋገጥ ቲቪዎን ይፈትሹ።",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "አሳሹ ፋይሎችን ከማሳየቱ በፊት የአቃፊውን ዲበ ውሂብ ይፈትሻል። ትልቅ የአውታረ መረብ አቃፊዎች ብዙ ደቂቃዎችን ሊወስዱ ይችላሉ።",
     "The browser screenshot source is ready.": "የአሳሽ ቅጽበታዊ ገጽ እይታ ምንጭ ዝግጁ ነው።",
     "The command server discovery URL is invalid.":
         "የትእዛዝ አገልጋይ ፍለጋ URL ልክ አይደለም።",

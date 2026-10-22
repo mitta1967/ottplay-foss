@@ -967,6 +967,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker প’ৰ্টেল প্ৰদানকাৰী",
     "Stalker portal settings": "Stalker প’ৰ্টেলৰ ছেটিংছ",
     "Stalker portals": "Stalker প’ৰ্টেলসমূহ",
+    "Start with file": "ফাইলৰ পৰা আৰম্ভ কৰক",
     "Starting...": "আৰম্ভ হৈ আছে…",
     Status: "স্থিতি",
     Stop: "বন্ধ কৰক",
@@ -1000,6 +1001,8 @@ var keyStrings = {
         "লিখনী বহুত দীঘল। পঠোৱাৰ আগতে চুটি কৰি দিব।",
     "Text sent. Check your TV to confirm it appeared.":
         "লিখনী পঠোৱা হৈছে। টিভিত লিখনীটো দেখা গৈছেনে পৰীক্ষা কৰক।",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "ব্ৰাউজাৰে ফাইল দেখুওৱাৰ আগতে ফোল্ডাৰৰ মেটাডাটা পৰীক্ষা কৰে। ডাঙৰ নেটৱৰ্ক ফোল্ডাৰত কেইমিনিটমান লাগিব পাৰে।",
     "The browser screenshot source is ready.": "ব্ৰাউজাৰৰ স্ক্ৰীণশ্বটৰ উৎস সাজু হৈছে।",
     "The command server discovery URL is invalid.":
         "আদেশ ছাৰ্ভাৰ সন্ধানৰ URL বৈধ নহয়।",

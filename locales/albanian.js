@@ -1011,6 +1011,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Ofruesi i portalit Stalker",
     "Stalker portal settings": "Cilësimet e portalit Stalker",
     "Stalker portals": "portalet Stalker",
+    "Start with file": "Fillo me skedarin",
     "Starting...": "Duke filluar…",
     Status: "Statusi",
     Stop: "Ndalo",
@@ -1045,6 +1046,8 @@ var keyStrings = {
         "Teksti është shumë i gjatë. Ju lutemi shkurtojeni përpara se ta dërgoni.",
     "Text sent. Check your TV to confirm it appeared.":
         "Teksti u dërgua. Kontrollo televizorin për të konfirmuar se është shfaqur.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Shfletuesi kontrollon metadatat e dosjes para se të shfaqë skedarët. Dosjet e mëdha në rrjet mund të kërkojnë disa minuta.",
     "The browser screenshot source is ready.":
         "Burimi i pamjes së ekranit të shfletuesit është gati.",
     "The command server discovery URL is invalid.":

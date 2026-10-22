@@ -998,6 +998,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Dabînkerê portala Stalker",
     "Stalker portal settings": "Mîhengên portala Stalker",
     "Stalker portals": "Portalên Stalker",
+    "Start with file": "Bi pelê dest pê bike",
     "Starting...": "Dest pê dike…",
     Status: "Rewş",
     Stop: "Bisekinîne",
@@ -1032,6 +1033,8 @@ var keyStrings = {
         "Nivîs pir dirêj e. Ji kerema xwe berî şandina wê kurt bikin.",
     "Text sent. Check your TV to confirm it appeared.":
         "Nivîsar şandin. TV-ya xwe kontrol bikin da ku piştrast bikin ku ew xuya bû.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Gerok berî nîşandana pelan metadaneyên peldankê kontrol dike. Peldankên mezin ên torê dikarin çend deqeyan bidomin.",
     "The browser screenshot source is ready.":
         "Çavkaniya dîmena gerokê amade ye.",
     "The command server discovery URL is invalid.":

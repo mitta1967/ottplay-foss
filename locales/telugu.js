@@ -960,6 +960,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker పోర్టల్ ప్రొవైడర్",
     "Stalker portal settings": "Stalker పోర్టల్ సెట్టింగ్‌లు",
     "Stalker portals": "Stalker పోర్టల్స్",
+    "Start with file": "ఫైల్‌తో ప్రారంభించండి",
     "Starting...": "ప్రారంభం…",
     Status: "స్థితి",
     Stop: "ఆపు",
@@ -992,6 +993,8 @@ var keyStrings = {
         "వచనం చాలా పొడవుగా ఉంది. దయచేసి పంపే ముందు దాన్ని కుదించండి.",
     "Text sent. Check your TV to confirm it appeared.":
         "వచనం పంపబడింది. అది మీ టీవీలో కనిపిస్తోందో లేదో తనిఖీ చేయండి.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "ఫైళ్లను చూపించే ముందు బ్రౌజర్ ఫోల్డర్ మెటాడేటాను తనిఖీ చేస్తుంది. పెద్ద నెట్‌వర్క్ ఫోల్డర్‌లకు కొన్ని నిమిషాలు పట్టవచ్చు.",
     "The browser screenshot source is ready.": "బ్రౌజర్ స్క్రీన్‌షాట్ మూలం సిద్ధంగా ఉంది.",
     "The command server discovery URL is invalid.":
         "కమాండ్ సర్వర్ ఆవిష్కరణ URL చెల్లదు.",

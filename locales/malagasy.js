@@ -1036,6 +1036,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Mpamatsy vavahady Stalker",
     "Stalker portal settings": "Fikirakirana vavahady Stalker",
     "Stalker portals": "Vavahady Stalker",
+    "Start with file": "Atombohy amin’ny rakitra",
     "Starting...": "Manomboka…",
     Status: "Sata",
     Stop: "Ajanony",
@@ -1070,6 +1071,8 @@ var keyStrings = {
         "Lava loatra ny lahatsoratra. Mba hafohy aloha vao alefa.",
     "Text sent. Check your TV to confirm it appeared.":
         "Nalefa ny lahatsoratra. Jereo raha miseho eo amin’ny fahitalavitra ilay lahatsoratra.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Manamarina ny metadata an’ny lahatahiry ny mpitety alohan’ny hanehoana rakitra. Mety haharitra minitra maromaro ny lahatahiry lehibe amin’ny tambajotra.",
     "The browser screenshot source is ready.":
         "Efa vonona ny loharanon'ny pikantsary navigateur.",
     "The command server discovery URL is invalid.":

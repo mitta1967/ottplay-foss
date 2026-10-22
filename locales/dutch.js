@@ -1006,6 +1006,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker-portaalprovider",
     "Stalker portal settings": "Instellingen van Stalker-portaal",
     "Stalker portals": "Stalker-portalen",
+    "Start with file": "Begin met bestand",
     "Starting...": "Starten…",
     Status: "Status",
     Stop: "Stoppen",
@@ -1040,6 +1041,8 @@ var keyStrings = {
         "Tekst is te lang. Kort het in voordat u het verzendt.",
     "Text sent. Check your TV to confirm it appeared.":
         "Tekst verzonden. Controleer uw tv om te bevestigen dat deze is verschenen.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "De browser controleert de metagegevens van de map voordat bestanden worden getoond. Grote netwerkmappen kunnen enkele minuten duren.",
     "The browser screenshot source is ready.":
         "De browserscreenshotbron is gereed.",
     "The command server discovery URL is invalid.":

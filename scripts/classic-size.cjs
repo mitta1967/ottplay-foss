@@ -319,7 +319,10 @@ const { gzipSync } = require("node:zlib");
 // Bounded cached folder candidates and honest network enumeration progress add
 // 1429 raw / 376 gzip bytes. Node 22.23.3 web measures 995667/307664,
 // native 995625/307722; retain about 700 raw / 600 gzip release headroom.
-const BUDGET = Object.freeze({ bytes: 996400, gzipBytes: 308400 });
+// Explicit source-relative file bootstrap and its standard editor add 3431 raw
+// / 841 gzip bytes on Node 22.23.3: web 999098/308505, native 999056/308561.
+// Keep about 700 raw / 600 gzip bytes of native/release identity headroom.
+const BUDGET = Object.freeze({ bytes: 999800, gzipBytes: 309200 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -472,7 +475,9 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Node 22.23.3 web 1126428/355617; native 1126386/355674.
 // Include the same bounded-candidate and progress cost once: Node 22.23.3
 // web 1127857/355992; native 1127815/356050, with unchanged provider bytes.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1128600, gzipBytes: 356700 });
+// Count explicit relative-file bootstrap once: web 1131288/356833,
+// native 1131246/356889 on Node 22.23.3; optional provider bytes are unchanged.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1132000, gzipBytes: 357500 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

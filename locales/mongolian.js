@@ -999,6 +999,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker порталын үйлчилгээ үзүүлэгч",
     "Stalker portal settings": "Stalker порталын тохиргоо",
     "Stalker portals": "Stalker порталууд",
+    "Start with file": "Файлаас эхлэх",
     "Starting...": "Эхэлж байна…",
     Status: "Төлөв",
     Stop: "Зогсоох",
@@ -1033,6 +1034,8 @@ var keyStrings = {
         "Текст хэт урт байна. Илгээхээсээ өмнө товчилно уу.",
     "Text sent. Check your TV to confirm it appeared.":
         "Текстийг илгээлээ. Текст ТВ дээр гарч ирсэн эсэхийг шалгана уу.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Хөтөч файлуудыг харуулахаас өмнө хавтасны мета өгөгдлийг шалгана. Сүлжээний том хавтсанд хэдэн минут шаардагдаж болно.",
     "The browser screenshot source is ready.":
         "Хөтөчийн дэлгэцийн зургийн эх сурвалж бэлэн боллоо.",
     "The command server discovery URL is invalid.":

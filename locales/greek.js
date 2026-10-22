@@ -1023,6 +1023,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Πάροχος πύλης Stalker",
     "Stalker portal settings": "Ρυθμίσεις πύλης Stalker",
     "Stalker portals": "Πύλες Stalker",
+    "Start with file": "Έναρξη με αρχείο",
     "Starting...": "Εκκίνηση…",
     Status: "Κατάσταση",
     Stop: "Σταματήστε",
@@ -1057,6 +1058,8 @@ var keyStrings = {
         "Το κείμενο είναι πολύ μεγάλο. Συντομεύστε το πριν το στείλετε.",
     "Text sent. Check your TV to confirm it appeared.":
         "Το κείμενο στάλθηκε. Ελέγξτε την τηλεόρασή σας για να επιβεβαιώσετε ότι εμφανίστηκε.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Το πρόγραμμα περιήγησης ελέγχει τα μεταδεδομένα του φακέλου πριν εμφανίσει τα αρχεία. Οι μεγάλοι φάκελοι δικτύου μπορεί να χρειαστούν αρκετά λεπτά.",
     "The browser screenshot source is ready.":
         "Η πηγή στιγμιότυπου οθόνης του προγράμματος περιήγησης είναι έτοιμη.",
     "The command server discovery URL is invalid.":

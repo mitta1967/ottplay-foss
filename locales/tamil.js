@@ -984,6 +984,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker போர்டல் வழங்குநர்",
     "Stalker portal settings": "Stalker போர்டல் அமைப்புகள்",
     "Stalker portals": "Stalker இணையதளங்கள்",
+    "Start with file": "கோப்பிலிருந்து தொடங்கு",
     "Starting...": "தொடங்குகிறது…",
     Status: "நிலை",
     Stop: "நிறுத்து",
@@ -1018,6 +1019,8 @@ var keyStrings = {
         "உரை மிக நீளமாக உள்ளது. அனுப்பும் முன் சுருக்கவும்.",
     "Text sent. Check your TV to confirm it appeared.":
         "உரை அனுப்பப்பட்டது. அது டிவியில் தோன்றியுள்ளதா எனச் சரிபார்க்கவும்.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "கோப்புகளைக் காட்டும் முன் உலாவி கோப்புறையின் மெட்டாடேட்டாவைச் சரிபார்க்கிறது. பெரிய பிணையக் கோப்புறைகளுக்குப் பல நிமிடங்கள் ஆகலாம்.",
     "The browser screenshot source is ready.": "உலாவி ஸ்கிரீன்ஷாட் ஆதாரம் தயாராக உள்ளது.",
     "The command server discovery URL is invalid.":
         "கட்டளை சர்வர் கண்டுபிடிப்பு URL தவறானது.",

@@ -507,6 +507,38 @@ export function installLocalMedia(w: any): any {
             return value;
         });
     }
+    function startWithFile(sourceId: string): void {
+        if (locked() || settingsLocked()) return;
+        finishLoading();
+        revision++;
+        w.editCaption = w._("Start with file");
+        w.editvar = "";
+        w.setEdit = function () {
+            if (!current() || locked() || settingsLocked()) return;
+            var path = String(w.editvar || "").trim();
+            if (!path) {
+                render("Enter a file path relative to this folder.");
+                return;
+            }
+            run(function () {
+                var request = ++catalogRevision;
+                importedSelection = "";
+                return browser.bootstrapFile(sourceId, path).then(function (
+                    value: any
+                ) {
+                    if (request !== catalogRevision)
+                        return { cancelled: true, items: [] };
+                    last = value;
+                    var item = value.items.filter(function (entry: any) {
+                        return entry.available !== false && !!entry.url;
+                    })[0];
+                    importedSelection = item ? "local-" + item.id : "";
+                    return value;
+                });
+            }, true);
+        };
+        w.showEditKey(null);
+    }
     function requestAccess(
         onProgress?: (value: any) => boolean | void
     ): Promise<any> {
@@ -816,6 +848,21 @@ export function installLocalMedia(w: any): any {
                         run(function () {
                             return reconnectSource(source.id);
                         });
+                    }
+                );
+            if (
+                source.kind === "folder" &&
+                !isNative() &&
+                !isTauri() &&
+                !remoteEndpoint() &&
+                typeof browser.bootstrapFile === "function"
+            )
+                row(
+                    "start-with-file",
+                    "Start with file…: " + source.name,
+                    "Enter a known video path inside this folder, for example Movies/video.mp4. Play it without waiting for the full folder scan; no files are copied.",
+                    function () {
+                        startWithFile(source.id);
                     }
                 );
             row(

@@ -1016,6 +1016,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Umboneleli wephothali ye-Stalker",
     "Stalker portal settings": "Iisetingi zephothali ye-Stalker",
     "Stalker portals": "Iiphothali ze-Stalker",
+    "Start with file": "Qala ngefayile",
     "Starting...": "Kuyaqalwa…",
     Status: "Isimo",
     Stop: "Misa",
@@ -1050,6 +1051,8 @@ var keyStrings = {
         "Isicatshulwa side kakhulu. Nceda uyinciphise phambi kokuba uyithumele.",
     "Text sent. Check your TV to confirm it appeared.":
         "Umbhalo uthunyelwe. Jonga ukuba umbhalo uyavela na kumabonakude wakho.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Isikhangeli sihlola imethadatha yesiqulathi seefayili ngaphambi kokubonisa iifayile. Iziqulathi ezinkulu zenethiwekhi zingathatha imizuzu eliqela.",
     "The browser screenshot source is ready.":
         "Umthombo wesithombe-skrini sesikhangeli silungile.",
     "The command server discovery URL is invalid.":

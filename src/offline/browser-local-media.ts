@@ -200,59 +200,95 @@ export function installBrowserLocalMedia(w: any): any {
     // Cache a handful of successful references, never File objects or media
     // bytes. They let the next launch start playback before Chrome finishes
     // statting every entry in a large network directory.
-    function remember(sourceId: string, path: string, handle: any): void {
+    function remember(
+        sourceId: string,
+        path: string,
+        handle: any,
+        priority = false,
+        generation?: number
+    ): Promise<void> {
         var record = knownSources.filter(function (source) {
             return source.id === sourceId;
         })[0];
-        if (!record || record.handle.kind !== "directory") return;
+        if (!record || record.handle.kind !== "directory") return cacheWrites;
         var candidates = (record.bootstrap || []).slice(0, 8);
         if (
-            candidates.length >= 8 ||
-            candidates.some(function (candidate: any) {
-                return candidate.path === path;
-            })
+            !priority &&
+            (candidates.length >= 8 ||
+                candidates.some(function (candidate: any) {
+                    return candidate.path === path;
+                }))
         )
-            return;
-        candidates.push({ handle: handle, path: path });
-        record.bootstrap = candidates;
+            return cacheWrites;
+        if (priority) {
+            candidates = candidates.filter(function (candidate: any) {
+                return candidate.path !== path;
+            });
+            candidates.unshift({ handle: handle, path: path });
+            candidates = candidates.slice(0, 8);
+        } else candidates.push({ handle: handle, path: path });
+        if (!priority) record.bootstrap = candidates;
         var cacheEpoch = record.cacheEpoch;
         // Only this small reference cache is serialized. Playback and traversal
         // do not wait for storage, and a failure leaves the live source usable.
-        cacheWrites = cacheWrites
-            .then(function () {
-                return open().then(function (db) {
-                    return new Promise<void>(function (resolve, reject) {
-                        var tx = db.transaction("files", "readwrite");
-                        var store = tx.objectStore("files");
-                        var request = store.get(sourceId);
-                        request.onsuccess = function () {
-                            var current = request.result;
-                            if (!current) {
-                                resolve();
-                                return;
+        var write = cacheWrites.then(function () {
+            return open().then(function (db) {
+                return new Promise<void>(function (resolve, reject) {
+                    if (priority && generation !== scanGeneration) {
+                        reject();
+                        return;
+                    }
+                    var tx = db.transaction("files", "readwrite");
+                    if (priority) reconnectTransactions.push(tx);
+                    function forget(): void {
+                        reconnectTransactions = reconnectTransactions.filter(
+                            function (pending) {
+                                return pending !== tx;
                             }
-                            // Reconnect/remove invalidate all old references.
-                            // Their completion advances this cache generation.
-                            if (current.cacheEpoch !== cacheEpoch) {
-                                resolve();
-                                return;
-                            }
-                            store.put(
-                                Object.assign({}, current, {
-                                    bootstrap: candidates,
-                                })
+                        );
+                    }
+                    var store = tx.objectStore("files");
+                    var request = store.get(sourceId);
+                    request.onsuccess = function () {
+                        if (priority && generation !== scanGeneration) {
+                            tx.abort();
+                            return;
+                        }
+                        var current = request.result;
+                        if (!current) {
+                            reject(
+                                new Error("Local folder source is unavailable")
                             );
-                        };
-                        tx.oncomplete = function () {
-                            resolve();
-                        };
-                        tx.onerror = tx.onabort = function () {
-                            reject();
-                        };
-                    });
+                            return;
+                        }
+                        // Reconnect/remove invalidate all old references.
+                        // Their completion advances this cache generation.
+                        if (current.cacheEpoch !== cacheEpoch) {
+                            reject(
+                                new Error("Local folder source has changed")
+                            );
+                            return;
+                        }
+                        store.put(
+                            Object.assign({}, current, {
+                                bootstrap: candidates,
+                            })
+                        );
+                    };
+                    tx.oncomplete = function () {
+                        forget();
+                        if (priority) record.bootstrap = candidates;
+                        resolve();
+                    };
+                    tx.onerror = tx.onabort = function () {
+                        forget();
+                        reject();
+                    };
                 });
-            })
-            .catch(function () {});
+            });
+        });
+        cacheWrites = write.catch(function () {});
+        return priority ? write : cacheWrites;
     }
     function item(
         id: string,
@@ -1058,6 +1094,131 @@ export function installBrowserLocalMedia(w: any): any {
             return resume();
         }
     }
+    function bootstrapFile(sourceId: string, path: string): Promise<any> {
+        if (w.__ottStandby?.blocked())
+            return Promise.reject(w.__ottStandby.error());
+        var parts = typeof path === "string" ? path.split("/") : [];
+        if (
+            !parts.length ||
+            /[\\\0]/.test(path) ||
+            /^[a-z]:/i.test(path) ||
+            parts.some(function (part) {
+                return !part || part === "." || part === "..";
+            })
+        )
+            return Promise.reject(
+                new Error("Enter a file path relative to this folder")
+            );
+        var source = knownSources.filter(function (record) {
+            return (
+                record.id === sourceId && record.handle?.kind === "directory"
+            );
+        })[0];
+        if (!source)
+            return Promise.reject(
+                new Error("Local folder source is unavailable")
+            );
+        var generation = retireScans();
+        function current(): void {
+            if (generation !== scanGeneration) {
+                var error = new Error("Local file selection was cancelled");
+                error.name = "AbortError";
+                throw error;
+            }
+        }
+        // File-handle lookup can itself wait on a NAS. Share the same bounded
+        // native-operation budget as getFile, without enumerating the folder.
+        return readFile("lookup:" + sourceId + ":" + path, {
+            getFile: function () {
+                var lookup = Promise.resolve(source.handle);
+                parts.slice(0, -1).forEach(function (part) {
+                    lookup = lookup.then(function (directory) {
+                        current();
+                        return directory.getDirectoryHandle(part);
+                    });
+                });
+                return lookup.then(function (directory) {
+                    current();
+                    return directory.getFileHandle(parts[parts.length - 1]);
+                });
+            },
+        })
+            .then(function (handle) {
+                current();
+                return readFile(sourceId + ":" + path, handle).then(
+                    function (file) {
+                        current();
+                        if (!media(file))
+                            throw new Error(
+                                "Choose supported video or audio files"
+                            );
+                        return remember(
+                            sourceId,
+                            path,
+                            handle,
+                            true,
+                            generation
+                        ).then(function () {
+                            current();
+                            var id = sourceId + ":" + path;
+                            return {
+                                available: available,
+                                directSources: !!w.showDirectoryPicker,
+                                discovered: 1,
+                                items: [item(id, file, path, sourceId, {})],
+                                partial: true,
+                                persistent: false,
+                                phase: "metadata",
+                                preferred: { id: id, state: "found" },
+                                scanned: 1,
+                                scanning: true,
+                                sourceIds: [sourceId],
+                                sources: knownSources.map(function (record) {
+                                    return {
+                                        access:
+                                            record.id === sourceId
+                                                ? "granted"
+                                                : record.access || "unknown",
+                                        available:
+                                            record.id === sourceId ||
+                                            record.access === "granted",
+                                        id: record.id,
+                                        kind:
+                                            record.handle.kind === "directory"
+                                                ? "folder"
+                                                : "file",
+                                        name: record.name,
+                                    };
+                                }),
+                                storage: "browser",
+                            };
+                        });
+                    }
+                );
+            })
+            .catch(function (error) {
+                current();
+                var name = error && error.name;
+                var safe: any = new Error(
+                    name === "AbortError"
+                        ? "Local file selection was cancelled"
+                        : name === "NotFoundError"
+                          ? "Local file was not found"
+                          : name === "NotAllowedError"
+                            ? "Folder permission is required"
+                            : name === "TimeoutError"
+                              ? "Local file did not respond"
+                              : "Local file could not be opened"
+                );
+                safe.name =
+                    /^(AbortError|NotFoundError|NotAllowedError|TimeoutError|NotReadableError)$/.test(
+                        name
+                    )
+                        ? name
+                        : "Error";
+                throw safe;
+            });
+    }
     function remove(id: string): Promise<any> {
         return open()
             .then(function (db) {
@@ -1075,6 +1236,7 @@ export function installBrowserLocalMedia(w: any): any {
             .then(list);
     }
     var api = {
+        bootstrapFile: bootstrapFile,
         importFiles: importFiles,
         importFolder: importFolder,
         list: list,

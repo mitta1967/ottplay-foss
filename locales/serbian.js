@@ -995,6 +995,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Провајдер портала Stalker",
     "Stalker portal settings": "Подешавања портала Stalker",
     "Stalker portals": "Портали Stalker",
+    "Start with file": "Почни од датотеке",
     "Starting...": "Почиње…",
     Status: "Статус",
     Stop: "Заустави",
@@ -1029,6 +1030,8 @@ var keyStrings = {
         "Текст је предугачак. Скратите га пре слања.",
     "Text sent. Check your TV to confirm it appeared.":
         "Текст послат. Проверите свој ТВ да бисте потврдили да се појавио.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Прегледач проверава метаподатке фасцикле пре приказивања датотека. Велике мрежне фасцикле могу захтевати неколико минута.",
     "The browser screenshot source is ready.":
         "Извор снимка екрана претраживача је спреман.",
     "The command server discovery URL is invalid.":

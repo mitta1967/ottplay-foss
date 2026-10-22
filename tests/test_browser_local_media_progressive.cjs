@@ -490,6 +490,95 @@ async function flushScans() {
     );
     assert.equal(bootstrapped.preferred.state, "missing");
 
+    const directFile = fixture(3, "mp4", -1, undefined, {
+        iterator: new Promise(() => {}),
+    });
+    await settle(directFile.api.list((catalog) => !catalog.sources.length));
+    const selectedFile = await settle(
+        directFile.api.bootstrapFile("source-movies", "sub/movie-1.mp4")
+    );
+    assert.equal(selectedFile.items[0].id, "source-movies:sub/movie-1.mp4");
+    assert.equal(selectedFile.items[0].directory, "sub");
+    assert.equal(selectedFile.scanning, true);
+    assert.equal(selectedFile.partial, true);
+    assert.equal(selectedFile.preferred.state, "found");
+    assert.equal(
+        directFile.iteratorReads(),
+        0,
+        "known file starts without directory enumeration"
+    );
+    assert.equal(
+        directFile.saved()[0].bootstrap[0].path,
+        "sub/movie-1.mp4",
+        "priority reference is persisted before activation"
+    );
+    assert.deepEqual(Object.keys(directFile.saved()[0].bootstrap[0]).sort(), [
+        "handle",
+        "path",
+    ]);
+    for (const invalid of [
+        "",
+        "/a.mp4",
+        "../a.mp4",
+        "a//b.mp4",
+        "a/../b.mp4",
+        "a/./b.mp4",
+        "a\\b.mp4",
+        "C:/a.mp4",
+        "\0a.mp4",
+    ]) {
+        await assert.rejects(
+            directFile.api.bootstrapFile("source-movies", invalid),
+            /relative/
+        );
+    }
+    await assert.rejects(
+        directFile.api.bootstrapFile(
+            "source-movies",
+            "missing-private-name.mp4"
+        ),
+        (error) =>
+            error.name === "NotFoundError" &&
+            error.message === "Local file was not found"
+    );
+    assert.equal(directFile.iteratorReads(), 0);
+    const directRestart = directFile.reinstall();
+    const fromDirectCache = await settle(
+        directRestart.list((catalog) => !catalog.items.length)
+    );
+    assert.equal(fromDirectCache.items[0].id, selectedFile.items[0].id);
+    assert.equal(
+        directFile.iteratorReads(),
+        0,
+        "next startup consumes the persisted reference before listing"
+    );
+
+    let releaseDirectFile;
+    const cancelledDirect = fixture(1, "mp4", -1, undefined, {
+        file: new Promise((resolve) => {
+            releaseDirectFile = resolve;
+        }),
+    });
+    await settle(
+        cancelledDirect.api.list((catalog) => !catalog.sources.length)
+    );
+    const cancelledSelection = cancelledDirect.api.bootstrapFile(
+        "source-movies",
+        "movie-0.mp4"
+    );
+    await flushScans();
+    cancelledDirect.api.suspend();
+    releaseDirectFile();
+    await assert.rejects(
+        cancelledSelection,
+        (error) => error.name === "AbortError"
+    );
+    assert.equal(
+        cancelledDirect.writes(),
+        0,
+        "cancelled direct lookup cannot cache or select a file"
+    );
+
     let failInitial;
     const failedWait = {
         iterator: new Promise((_, reject) => {

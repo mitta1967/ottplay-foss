@@ -980,6 +980,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Onye na-eweta ọrụ ọdụ Stalker",
     "Stalker portal settings": "Ntọala ọdụ Stalker",
     "Stalker portals": "Ọdụ Stalker",
+    "Start with file": "Malite na faịlụ",
     "Starting...": "Ana amalite…",
     Status: "Ọnọdụ",
     Stop: "Kwụsị",
@@ -1014,6 +1015,8 @@ var keyStrings = {
         "Ederede dị ogologo. Biko belata ya tupu izipu ya.",
     "Text sent. Check your TV to confirm it appeared.":
         "Ederede ezigara. Lelee TV gị iji gosi na ọ pụtara.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Ihe nchọgharị na-enyocha metadata folda tupu ọ gosipụta faịlụ. Nnukwu folda netwọkụ nwere ike iwe ọtụtụ nkeji.",
     "The browser screenshot source is ready.":
         "Isi nseta ihuenyo ihe nchọgharị adịla njikere.",
     "The command server discovery URL is invalid.":

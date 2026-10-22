@@ -951,6 +951,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker ପୋର୍ଟାଲ୍ ପ୍ରଦାନକାରୀ",
     "Stalker portal settings": "Stalker ପୋର୍ଟାଲ୍ ସେଟିଂସ୍",
     "Stalker portals": "Stalker ପୋର୍ଟାଲ୍‌ଗୁଡ଼ିକ",
+    "Start with file": "ଫାଇଲରୁ ଆରମ୍ଭ କରନ୍ତୁ",
     "Starting...": "ଆରମ୍ଭ ହେଉଛି…",
     Status: "ସ୍ଥିତି",
     Stop: "ବନ୍ଦ କରନ୍ତୁ",
@@ -983,6 +984,8 @@ var keyStrings = {
         "ପାଠ ବହୁତ ଲମ୍ବା ଅଟେ। ପଠାଇବା ପୂର୍ବରୁ ଦୟାକରି ଏହାକୁ ଛୋଟ କରନ୍ତୁ।",
     "Text sent. Check your TV to confirm it appeared.":
         "ପାଠ ପଠାଯାଇଛି। ଏହା ଦେଖାଗଲା ନିଶ୍ଚିତ କରିବାକୁ ଆପଣଙ୍କର ଟିଭି ଯାଞ୍ଚ କରନ୍ତୁ।",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "ବ୍ରାଉଜର ଫାଇଲ ଦେଖାଇବା ପୂର୍ବରୁ ଫୋଲ୍ଡରର ମେଟାଡାଟା ଯାଞ୍ଚ କରେ। ବଡ଼ ନେଟୱର୍କ ଫୋଲ୍ଡର ପାଇଁ କିଛି ମିନିଟ୍ ଲାଗିପାରେ।",
     "The browser screenshot source is ready.": "ବ୍ରାଉଜର୍ ସ୍କ୍ରିନସଟ୍ ଉତ୍ସ ପ୍ରସ୍ତୁତ।",
     "The command server discovery URL is invalid.": "ନିର୍ଦ୍ଦେଶ ସର୍ଭର୍ ଖୋଜା URL ଅବୈଧ।",
     "The device ID in the address is invalid.": "ଠିକଣାରେ ଡିଭାଇସ୍ ID ଅବୈଧ।",
