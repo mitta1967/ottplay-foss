@@ -432,6 +432,20 @@ async function flushScans() {
         reconnectPickerOptions[1].id,
         "each reconnect bypasses the browser's remembered picker location"
     );
+    let resolveLatePicker;
+    deadFiles.w.showDirectoryPicker = () =>
+        new Promise((resolve) => {
+            resolveLatePicker = resolve;
+        });
+    const latePicker = reloaded.reconnectSource("source-movies");
+    reloaded.suspend();
+    resolveLatePicker(remounted);
+    assert.equal((await latePicker).pickerCancelled, true);
+    assert.equal(
+        deadFiles.writes(),
+        writesBeforeCancel,
+        "a picker result arriving after Cancel never updates the source"
+    );
     await assert.rejects(
         reloaded.reconnectSource("not-a-source"),
         /unavailable/

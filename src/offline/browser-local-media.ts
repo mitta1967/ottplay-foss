@@ -5,12 +5,25 @@ export function installBrowserLocalMedia(w: any): any {
     var urls: any = {};
     var knownSources: any[] = [];
     var scanGeneration = 0;
+    var reconnectTransactions: any[] = [];
     var pendingFiles: any = {};
     var pendingFileCount = 0;
     var pendingDirectories: any = Object.create(null);
     var cacheWrites = Promise.resolve();
     var urlApi = w.URL || w.webkitURL;
     var available = !!(w.indexedDB && urlApi && urlApi.createObjectURL);
+
+    function retireScans(): number {
+        scanGeneration++;
+        // The native picker cannot be cancelled from JavaScript. A transaction
+        // that has not committed yet can, so discard its eventual selection.
+        reconnectTransactions.slice().forEach(function (tx) {
+            try {
+                tx.abort();
+            } catch (_) {}
+        });
+        return scanGeneration;
+    }
 
     function open(): Promise<any> {
         if (!available)
@@ -299,7 +312,7 @@ export function installBrowserLocalMedia(w: any): any {
         prioritySources?: string[]
     ): Promise<any> {
         if (typeof onProgress !== "function") onProgress = undefined;
-        var generation = ++scanGeneration;
+        var generation = retireScans();
         var items: any[] = [],
             sources: any[] = [],
             live: any = {};
@@ -916,6 +929,7 @@ export function installBrowserLocalMedia(w: any): any {
             return Promise.reject(
                 new Error("Direct folder access is unavailable")
             );
+        var generation = scanGeneration;
         var picked: Promise<any>;
         try {
             // Open synchronously in the user gesture. Reading IndexedDB first
@@ -937,15 +951,32 @@ export function installBrowserLocalMedia(w: any): any {
         }
         return Promise.resolve(picked).then(
             function (handle) {
+                if (generation !== scanGeneration)
+                    return { pickerCancelled: true };
                 if (!handle || handle.kind !== "directory")
                     throw new Error("Choose a local folder");
                 return open().then(function (db) {
+                    if (generation !== scanGeneration)
+                        return { pickerCancelled: true };
                     return new Promise(function (resolve, reject) {
                         var tx = db.transaction("files", "readwrite");
+                        reconnectTransactions.push(tx);
+                        function forget(): void {
+                            reconnectTransactions =
+                                reconnectTransactions.filter(
+                                    function (pending) {
+                                        return pending !== tx;
+                                    }
+                                );
+                        }
                         var store = tx.objectStore("files");
                         var request = store.get(id);
                         var replacement: any = null;
                         request.onsuccess = function () {
+                            if (generation !== scanGeneration) {
+                                tx.abort();
+                                return;
+                            }
                             var record = request.result;
                             if (
                                 !record ||
@@ -967,7 +998,12 @@ export function installBrowserLocalMedia(w: any): any {
                             store.put(replacement);
                         };
                         tx.oncomplete = function () {
-                            scanGeneration++;
+                            forget();
+                            if (generation !== scanGeneration) {
+                                resolve({ pickerCancelled: true });
+                                return;
+                            }
+                            retireScans();
                             knownSources = knownSources.map(function (record) {
                                 return record.id === id ? replacement : record;
                             });
@@ -981,6 +1017,11 @@ export function installBrowserLocalMedia(w: any): any {
                             });
                         };
                         tx.onerror = tx.onabort = function () {
+                            forget();
+                            if (generation !== scanGeneration) {
+                                resolve({ pickerCancelled: true });
+                                return;
+                            }
                             reject(
                                 new Error("Could not reconnect local folder")
                             );
@@ -989,6 +1030,8 @@ export function installBrowserLocalMedia(w: any): any {
                 });
             },
             function (error) {
+                if (generation !== scanGeneration)
+                    return { pickerCancelled: true };
                 return cancelled(error, true);
             }
         );
@@ -1040,7 +1083,7 @@ export function installBrowserLocalMedia(w: any): any {
         removeSource: remove,
         requestAccess: requestAccess,
         suspend: function () {
-            scanGeneration++;
+            retireScans();
         },
     };
     w.__ottBrowserLocalMedia = api;
