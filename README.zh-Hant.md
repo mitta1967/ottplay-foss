@@ -1096,7 +1096,7 @@ EPG_URLS="http://example.com/epg.xml.gz" ./target/release/ottplay-server --port 
 
 ## Plex媒體庫
 
-每個播放器都可使用**Plex**提供商連線Plex帳號或Plex Media Server。整合使用Plex；Synology只是媒體伺服器的一種宿主選擇。在配置中選擇資料夾，即可填充普通頻道列表。無需在OTT伺服器配置Plex，播放器會從第一批可用資料開始播放並後臺載入，支援標準搜尋以及操作選單中的隨機/重複。參見[Plex登入與直接播放](docs/plex-provider.md)。
+每個播放器都可使用**Plex**提供商連線Plex帳號或Plex Media Server。整合使用Plex；Synology只是媒體伺服器的一種宿主選擇。所有可存取的影片和音樂都會自動加入頻道列表，可透過類別選擇按媒體庫、資料夾或影集篩選。無需在OTT伺服器配置Plex，播放器會從第一批可用資料開始播放並後臺載入，支援標準搜尋以及操作選單中的隨機/重複。參見[Plex登入與直接播放](docs/plex-provider.md)。
 
 ![Plex載入、檔案導航與關閉生命週期](docs/images/plex-playback-lifecycle.svg)
 

@@ -1096,7 +1096,7 @@ Utilisez le [processus local video-use](docs/demo-video.md) pour préparer et mo
 
 ## Médiathèque Plex
 
-Chaque lecteur peut se connecter à un compte Plex ou à Plex Media Server via le fournisseur **Plex**. L’intégration utilise Plex ; Synology est un hôte possible du serveur multimédia. Sélectionnez les dossiers dans le profil pour remplir la liste ordinaire des chaînes. La lecture commence dès le premier lot exploitable, avec chargement en arrière-plan, recherche standard et actions aléatoire/répétition, sans configurer Plex sur le serveur OTT. Voir [connexion Plex et lecture directe](docs/plex-provider.md).
+Chaque lecteur peut se connecter à un compte Plex ou à Plex Media Server via le fournisseur **Plex**. L’intégration utilise Plex ; Synology est un hôte possible du serveur multimédia. Toutes les vidéos et pistes musicales accessibles apparaissent automatiquement dans la liste des chaînes ; la sélection de catégorie filtre par bibliothèque, dossier ou série. La lecture commence dès le premier lot exploitable, avec chargement en arrière-plan, recherche standard et actions aléatoire/répétition, sans configurer Plex sur le serveur OTT. Voir [connexion Plex et lecture directe](docs/plex-provider.md).
 
 ![Chargement Plex, navigation des fichiers et cycle d’arrêt](docs/images/plex-playback-lifecycle.svg)
 

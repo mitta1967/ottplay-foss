@@ -1096,7 +1096,7 @@ Verwenden Sie den lokalen [video-use-Ablauf](docs/demo-video.md), um Demonstrati
 
 ## Plex-Mediathek
 
-Jeder Player kann sich über den Provider **Plex** mit einem Plex-Konto oder Plex Media Server verbinden. Die Integration verwendet Plex; Synology ist ein möglicher Host für den Medienserver. Wählen Sie im Profil Ordner, um die normale Kanalliste zu füllen. Die Wiedergabe beginnt mit dem ersten nutzbaren Datenpaket, mit Hintergrundladen, normaler Suche und Aktionen für Zufallsreihenfolge/Wiederholung, ohne Plex auf dem OTT-Server einzurichten. Siehe [Plex-Anmeldung und direkte Wiedergabe](docs/plex-provider.md).
+Jeder Player kann sich über den Provider **Plex** mit einem Plex-Konto oder Plex Media Server verbinden. Die Integration verwendet Plex; Synology ist ein möglicher Host für den Medienserver. Alle verfügbaren Videos und Musiktitel erscheinen automatisch in der normalen Kanalliste; die Kategorieauswahl filtert nach Bibliothek, Ordner oder Serie. Die Wiedergabe beginnt mit dem ersten nutzbaren Datenpaket, mit Hintergrundladen, normaler Suche und Aktionen für Zufallsreihenfolge/Wiederholung, ohne Plex auf dem OTT-Server einzurichten. Siehe [Plex-Anmeldung und direkte Wiedergabe](docs/plex-provider.md).
 
 ![Plex-Laden, Dateinavigation und Beendigungslebenszyklus](docs/images/plex-playback-lifecycle.svg)
 

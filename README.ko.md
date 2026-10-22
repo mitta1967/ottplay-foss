@@ -1096,7 +1096,7 @@ EPG_URLS="http://example.com/epg.xml.gz" ./target/release/ottplay-server --port 
 
 ## Plex 미디어 라이브러리
 
-각 플레이어는 **Plex** 공급자로 Plex 계정이나 Plex Media Server에 연결할 수 있습니다. 이 통합은 Plex를 사용하며 Synology는 미디어 서버를 호스팅할 수 있는 한 가지 선택입니다. 프로필에서 폴더를 선택하면 일반 채널 목록이 채워집니다. OTT 서버에 Plex를 설정하지 않아도 첫 사용 가능 배치부터 재생하며 백그라운드 로드, 표준 검색, 섞기/반복 작업을 지원합니다. [Plex 로그인 및 직접 재생](docs/plex-provider.md)을 참고하세요.
+각 플레이어는 **Plex** 공급자로 Plex 계정이나 Plex Media Server에 연결할 수 있습니다. 이 통합은 Plex를 사용하며 Synology는 미디어 서버를 호스팅할 수 있는 한 가지 선택입니다. 접근 가능한 모든 동영상과 음악이 채널 목록에 자동으로 표시되며, 카테고리 선택으로 라이브러리, 폴더 또는 시리즈별로 필터링합니다. OTT 서버에 Plex를 설정하지 않아도 첫 사용 가능 배치부터 재생하며 백그라운드 로드, 표준 검색, 섞기/반복 작업을 지원합니다. [Plex 로그인 및 직접 재생](docs/plex-provider.md)을 참고하세요.
 
 ![Plex 로드, 파일 탐색, 종료 수명 주기](docs/images/plex-playback-lifecycle.svg)
 

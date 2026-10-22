@@ -1098,7 +1098,7 @@ Gunakan [alur video-use](docs/demo-video.md) lokal untuk menyiapkan dan menyunti
 
 ## Pustaka media Plex
 
-Setiap pemutar dapat terhubung ke akun Plex atau Plex Media Server melalui penyedia **Plex**. Integrasi memakai Plex; Synology adalah salah satu host yang mungkin untuk server media. Pilih folder pada profil untuk mengisi daftar saluran biasa. Pemutaran dimulai dari batch pertama yang dapat digunakan, dengan pemuatan latar belakang, pencarian standar, serta Tindakan acak/ulang, tanpa mengonfigurasi Plex pada server OTT. Lihat [login Plex dan pemutaran langsung](docs/plex-provider.md).
+Setiap pemutar dapat terhubung ke akun Plex atau Plex Media Server melalui penyedia **Plex**. Integrasi memakai Plex; Synology adalah salah satu host yang mungkin untuk server media. Semua video dan trek musik yang dapat diakses otomatis masuk ke daftar saluran; pilihan kategori menyaring berdasarkan pustaka, folder, atau serial. Pemutaran dimulai dari batch pertama yang dapat digunakan, dengan pemuatan latar belakang, pencarian standar, serta Tindakan acak/ulang, tanpa mengonfigurasi Plex pada server OTT. Lihat [login Plex dan pemutaran langsung](docs/plex-provider.md).
 
 ![Siklus pemuatan Plex, navigasi berkas, dan penutupan](docs/images/plex-playback-lifecycle.svg)
 

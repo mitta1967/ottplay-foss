@@ -23,7 +23,9 @@ ott t1 s
 ott t1 cat all
 ```
 
-Selecting a category changes **Channel list** visibility without starting another video. Numbers shown by `ott t1 s` remain canonical catalog numbers, even in a filtered category; selecting a category does not renumber the videos.
+Selecting or browsing a category changes **Channel list** visibility without changing the playing video or its queue. Numbers shown by `ott t1 s` remain canonical catalog numbers, even in a filtered category; selecting a category does not renumber the videos.
+
+While discovery is running, `categories` and `s` may return partial results marked as loading. Selecting a category or video by name requires a complete catalog; exact IDs already loaded remain usable. A failed scan returns `catalog_incomplete` rather than treating partial results as complete. See the controller [CLI guide](https://github.com/open-ott-play/ottplay-control-server/blob/main/docs/cli.md).
 
 **Actions → Repeat** cycles through **All**, **One** and **Off**. All wraps the selected channel group, One repeats its current video, and Off stops after the final video. The Play key changes this setting while Actions is open. Changing the order or receiving another batch affects subsequent file transitions without restarting the current file.
 

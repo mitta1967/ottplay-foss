@@ -1098,7 +1098,7 @@ Użyj lokalnej [procedury video-use](docs/demo-video.md) do przygotowania i edyc
 
 ## Biblioteka mediów Plex
 
-Każdy odtwarzacz może połączyć się z kontem Plex lub Plex Media Server przez dostawcę **Plex**. Integracja używa Plex; Synology jest jednym z możliwych hostów serwera mediów. Wybierz foldery w profilu, aby zapełnić zwykłą listę kanałów. Odtwarzanie zaczyna się od pierwszej użytecznej partii, z ładowaniem w tle, zwykłym wyszukiwaniem i Działaniami losowania/powtarzania, bez konfigurowania Plex na serwerze OTT. Zobacz [logowanie Plex i bezpośrednie odtwarzanie](docs/plex-provider.md).
+Każdy odtwarzacz może połączyć się z kontem Plex lub Plex Media Server przez dostawcę **Plex**. Integracja używa Plex; Synology jest jednym z możliwych hostów serwera mediów. Wszystkie dostępne filmy i utwory automatycznie trafiają na listę kanałów; wybór kategorii filtruje ją według biblioteki, folderu lub serialu. Odtwarzanie zaczyna się od pierwszej użytecznej partii, z ładowaniem w tle, zwykłym wyszukiwaniem i Działaniami losowania/powtarzania, bez konfigurowania Plex na serwerze OTT. Zobacz [logowanie Plex i bezpośrednie odtwarzanie](docs/plex-provider.md).
 
 ![Cykl ładowania Plex, nawigacji po plikach i zamykania](docs/images/plex-playback-lifecycle.svg)
 

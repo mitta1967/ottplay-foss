@@ -1098,7 +1098,7 @@ Pro přípravu a úpravu demonstračních záznamů použijte místní [postup v
 
 ## Knihovna médií Plex
 
-Každý přehrávač se může přes poskytovatele **Plex** připojit k účtu Plex nebo Plex Media Serveru. Integrace používá Plex; Synology je jedním z možných hostitelů mediálního serveru. Vyberte složky v profilu pro naplnění běžného seznamu kanálů. Přehrávání začne první použitelnou dávkou, s načítáním na pozadí, běžným hledáním a Akcemi pro náhodné pořadí/opakování, bez nastavování Plexu na OTT serveru. Viz [přihlášení Plex a přímé přehrávání](docs/plex-provider.md).
+Každý přehrávač se může přes poskytovatele **Plex** připojit k účtu Plex nebo Plex Media Serveru. Integrace používá Plex; Synology je jedním z možných hostitelů mediálního serveru. Všechna dostupná videa a hudební skladby se automaticky zobrazí v seznamu kanálů; výběr kategorie filtruje podle knihovny, složky nebo seriálu. Přehrávání začne první použitelnou dávkou, s načítáním na pozadí, běžným hledáním a Akcemi pro náhodné pořadí/opakování, bez nastavování Plexu na OTT serveru. Viz [přihlášení Plex a přímé přehrávání](docs/plex-provider.md).
 
 ![Životní cyklus načítání Plex, navigace soubory a ukončení](docs/images/plex-playback-lifecycle.svg)
 

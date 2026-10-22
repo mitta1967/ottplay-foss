@@ -1096,7 +1096,7 @@ Usare il [flusso locale video-use](docs/demo-video.md) per preparare e montare r
 
 ## Raccolta multimediale Plex
 
-Ogni lettore può collegarsi a un account Plex o Plex Media Server con il provider **Plex**. L’integrazione usa Plex; Synology è un possibile host del server media. Selezionare cartelle nel profilo per popolare l’elenco normale. La riproduzione parte dal primo lotto utilizzabile con caricamento in background, ricerca standard e azioni casuale/ripeti, senza configurare Plex sul server OTT. Vedere [accesso Plex e riproduzione diretta](docs/plex-provider.md).
+Ogni lettore può collegarsi a un account Plex o Plex Media Server con il provider **Plex**. L’integrazione usa Plex; Synology è un possibile host del server media. Tutti i video e i brani musicali accessibili appaiono automaticamente nell’elenco dei canali; la selezione della categoria filtra per libreria, cartella o serie. La riproduzione parte dal primo lotto utilizzabile con caricamento in background, ricerca standard e azioni casuale/ripeti, senza configurare Plex sul server OTT. Vedere [accesso Plex e riproduzione diretta](docs/plex-provider.md).
 
 ![Caricamento Plex, navigazione file e ciclo di arresto](docs/images/plex-playback-lifecycle.svg)
 
