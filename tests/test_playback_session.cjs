@@ -977,8 +977,14 @@ for (const replace of [
 ]) {
     const c = republishingFixture();
     const before = c.__ottClassicPlayback.snapshot();
+    const context = c.__ottClassicPlayback.context();
     c.__ottClassicPlayback.shift(10);
     replace(c);
+    assert.equal(
+        context.isCurrent(),
+        false,
+        "generic callbacks keep their captured index/container fence"
+    );
     c.flush();
     c.__ottClassicPlayback.shift(10);
     replace(c);

@@ -441,32 +441,38 @@ function classicPlaybackObservation(): PlaybackObservation & {
             snapshot.generation === classicPlaybackSnapshot().generation
         );
     }
+    function isCurrent(): boolean {
+        return (
+            isCurrentBackend() &&
+            catalog === w.channels &&
+            categoryIndex === w.catIndex &&
+            selectionIndex === w.primaryIndex &&
+            categories === w.catsArray &&
+            lists === w.cats &&
+            list === (w.cats || {})[(w.catsArray || [])[w.catIndex]] &&
+            mode === w.playType
+        );
+    }
     return {
         archiveAvailable:
             retention > 0 || (!!target && target.kind === "archive"),
         archiveEarliest:
             retention > 0 ? Math.max(0, now - retention * 3600) : undefined,
         duration: snapshot.duration,
-        isCurrent: function (): boolean {
-            return (
-                isCurrentBackend() &&
-                categoryIndex === w.catIndex &&
-                // Owned finite media keeps its decoder across publication;
-                // legacy/live callbacks retain their stricter container fence.
-                (ownedMedia
-                    ? categoryId === (w.catsArray || [])[w.catIndex] &&
-                      selectedId ===
-                          ((w.cats || {})[categoryId] || [])[w.primaryIndex]
-                    : selectionIndex === w.primaryIndex &&
-                      catalog === w.channels &&
-                      categories === w.catsArray &&
-                      lists === w.cats &&
-                      list ===
-                          (w.cats || {})[(w.catsArray || [])[w.catIndex]]) &&
-                mode === w.playType
-            );
-        },
+        isCurrent: isCurrent,
         isCurrentBackend: isCurrentBackend,
+        // Only offset seeks bind to the item rather than a captured list index.
+        // Generic deferred callbacks may still use that original numeric index.
+        isCurrentOffset: function (): boolean {
+            return ownedMedia
+                ? isCurrentBackend() &&
+                      categoryIndex === w.catIndex &&
+                      categoryId === (w.catsArray || [])[w.catIndex] &&
+                      selectedId ===
+                          ((w.cats || {})[categoryId] || [])[w.primaryIndex] &&
+                      mode === w.playType
+                : isCurrent();
+        },
         isCurrentSource: isCurrentSource,
         now: now,
         position: snapshot.position,

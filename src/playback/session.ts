@@ -16,6 +16,8 @@ interface PlaybackObservation {
     duration?: number;
     /** The host validates source resources even when a replacement reuses IDs. */
     isCurrent?(): boolean;
+    /** Offset seeks can survive reindexing of the same owned media item. */
+    isCurrentOffset?(): boolean;
     now: number;
     position?: number;
     target: PlaybackVisit | null;
@@ -71,6 +73,15 @@ function createPlaybackSessionController(
         );
     }
 
+    function isCurrent(
+        observation: PlaybackObservation,
+        offset: boolean
+    ): boolean {
+        var check =
+            (offset && observation.isCurrentOffset) || observation.isCurrent;
+        return !check || check();
+    }
+
     function reset(start?: boolean, preserveOffset = false): any {
         // Retire callbacks and detach state before cleanup can reenter the host.
         var ticket = start ? ownership.begin() : ownership.cancel();
@@ -106,7 +117,7 @@ function createPlaybackSessionController(
             intent.intent === "offset" &&
             previous.intent === "offset" &&
             sameTarget(origin.target, observation.target) &&
-            (!origin.isCurrent || origin.isCurrent())
+            isCurrent(origin, true)
         ) {
             intent = {
                 intent: "offset",
@@ -126,8 +137,7 @@ function createPlaybackSessionController(
                 ((previous && previous.intent === "offset") ||
                     observation.now - feedback.observation.now < 3) &&
                 sameTarget(feedback.observation.target, observation.target) &&
-                (!feedback.observation.isCurrent ||
-                    feedback.observation.isCurrent());
+                isCurrent(feedback.observation, true);
             if (
                 applied &&
                 !sameTarget(applied.observation.target, observation.target)
@@ -145,7 +155,7 @@ function createPlaybackSessionController(
             if (!accepts(ticket)) return;
             var accepted =
                 sameTarget(observation.target, current.target) &&
-                (!observation.isCurrent || observation.isCurrent());
+                isCurrent(observation, intent.intent === "offset");
             if (!complete(ticket) || !accepted) return;
             var position = current.position;
             // Native/browser decoders may report the pre-seek time briefly.
@@ -157,8 +167,7 @@ function createPlaybackSessionController(
                 current.now >= applied.observation.now &&
                 current.now - applied.observation.now < 3 &&
                 sameTarget(applied.observation.target, current.target) &&
-                (!applied.observation.isCurrent ||
-                    applied.observation.isCurrent()) &&
+                isCurrent(applied.observation, true) &&
                 typeof position === "number" &&
                 ((applied.position > applied.before &&
                     position < applied.position) ||
