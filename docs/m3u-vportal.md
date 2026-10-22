@@ -31,6 +31,12 @@ and metadata limits still bound the traversal. Discovered videos remain usable
 while scanning, but a failed or cancelled scan is never reported as a complete
 catalog to remote commands.
 Explicit section and search queues retain their existing smaller limits.
+For very large portals, the player removes optional description previews once
+when the catalog reaches the memory budget. Existing entries keep their identity
+and categories, and later entries omit descriptions too. Titles and playback
+requests remain complete. If those required fields alone exceed the fixed
+budget, discovery stops with an error instead of reporting a partial catalog as
+complete.
 A whole-portal scan retries the exact same request once after a transport
 timeout. The retry keeps the existing inactivity deadline; cancelled requests,
 malformed responses and invalid catalog identities are never retried.

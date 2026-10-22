@@ -1159,6 +1159,7 @@ export function createVPortalClient(
         var bytes = 0;
         var keyBytes = 0;
         var retainedBytes = 0;
+        var descriptionsOmitted = false;
         var sizes: Record<string, number> = Object.create(null);
         var whole =
             recursive &&
@@ -1184,6 +1185,7 @@ export function createVPortalClient(
                 bytes: bytes,
                 code: code || "",
                 containers: containers,
+                descriptionsOmitted: descriptionsOmitted,
                 elapsedMs: Date.now() - started,
                 items: result.length,
                 mode: whole ? "whole" : "scoped",
@@ -1250,8 +1252,22 @@ export function createVPortalClient(
         }
         function retain(key: string, record: any): void {
             if (!whole) return;
+            if (descriptionsOmitted) delete record.description;
             var size = utf8Size(record);
             var nextSize = retainedBytes - (sizes[key] || 0) + size;
+            if (nextSize > 67108864 && !descriptionsOmitted) {
+                descriptionsOmitted = true;
+                retainedBytes = 0;
+                Object.keys(sizes).forEach(function (retainedKey) {
+                    var retained = known[retainedKey];
+                    delete retained.description;
+                    sizes[retainedKey] = utf8Size(retained);
+                    retainedBytes += sizes[retainedKey];
+                });
+                delete record.description;
+                size = utf8Size(record);
+                nextSize = retainedBytes - (sizes[key] || 0) + size;
+            }
             if (nextSize > 67108864) throw new Error("metadata_limit");
             sizes[key] = size;
             retainedBytes = nextSize;

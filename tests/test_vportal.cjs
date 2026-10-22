@@ -150,7 +150,11 @@ function fixture(overrides = {}, options = {}, hooks = {}) {
             name.includes("caseless") ? caseless.exports : helpers.exports,
         window: w,
     };
-    vm.runInNewContext(compiled, context);
+    // Exercise exact retention boundaries without allocating a 64 MiB fixture.
+    const fixtureCode = hooks.catalogMetadataBudget
+        ? compiled.replace(/\b67108864\b/g, String(hooks.catalogMetadataBudget))
+        : compiled;
+    vm.runInNewContext(fixtureCode, context);
     client = context.exports.createVPortalClient(link, {
         isCurrent: () => active,
         title: "Fixture Library",
@@ -2478,4 +2482,179 @@ console.log(
 }
 console.log(
     "PASS VPortal compact request URLs keep fresh playback, direct origins and duplicate categories"
+);
+
+// Retention fallback mutates optional fields in place and accounts each key once.
+{
+    function pages(budget) {
+        const f = fixture({}, {}, { catalogMetadataBudget: budget });
+        let result, first, initial;
+        f.client.playlist(
+            [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+            (items, complete, error) => {
+                if (!first && items.length) {
+                    first = items[0];
+                    initial = JSON.stringify(first);
+                }
+                result = { complete, error, items };
+            }
+        );
+        for (let i = 1; i <= 3; i++) {
+            const items = [
+                {
+                    description: "Long description ".repeat(30),
+                    request: { cmd: "play", id: i },
+                    title: `Video ${i}`,
+                    type: "stream",
+                },
+            ];
+            if (i < 3)
+                items.push({ request: { offset: i * 300 }, type: "next" });
+            f.requests[i - 1].receive({ items, type: "category" });
+        }
+        return { f, first, initial, result };
+    }
+    const baseline = pages();
+    const size = (item) => Buffer.byteLength(JSON.stringify(item));
+    const budget =
+        baseline.result.items
+            .slice(0, 2)
+            .reduce((sum, item) => sum + size(item), 0) - 1;
+    const fallback = pages(budget);
+    assert.equal(fallback.result.error, undefined);
+    assert.equal(fallback.result.complete, true);
+    assert.equal(fallback.result.items.length, 3);
+    assert.equal(fallback.f.client.scanDiagnostics().descriptionsOmitted, true);
+    assert.strictEqual(
+        fallback.result.items[0],
+        fallback.first,
+        "previously published references survive fallback"
+    );
+    assert(
+        JSON.parse(fallback.initial).description,
+        "first batch initially retains its preview"
+    );
+    for (let i = 0; i < 3; i++) {
+        const expected = { ...baseline.result.items[i] };
+        delete expected.description;
+        assert.equal(
+            JSON.stringify(fallback.result.items[i]),
+            JSON.stringify(expected)
+        );
+    }
+    assert.equal(
+        fallback.f.client.scanDiagnostics().retainedBytes,
+        fallback.result.items.reduce((sum, item) => sum + size(item), 0)
+    );
+    assert.equal(
+        baseline.f.client.scanDiagnostics().descriptionsOmitted,
+        false
+    );
+}
+
+{
+    function duplicate(budget) {
+        const f = fixture({}, {}, { catalogMetadataBudget: budget });
+        let result, first, secondSize;
+        f.client.playlist(
+            [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+            (items, complete, error) => {
+                if (items.length && !first) first = items[0];
+                if (items[0]?.__ottMediaCategories.length === 2)
+                    secondSize = Buffer.byteLength(JSON.stringify(items[0]));
+                result = { complete, error, items };
+            }
+        );
+        f.requests[0].receive({
+            items: ["A", "B", "C"].map((title) => ({
+                request: { cmd: title },
+                title,
+                type: "category",
+            })),
+            type: "videoportal",
+        });
+        for (let i = 1; i <= 3; i++)
+            f.requests[i].receive({
+                items: [
+                    {
+                        adult: i === 2 ? 1 : 0,
+                        description: "Long description ".repeat(30),
+                        request: { cmd: "play", id: 1 },
+                        title: "Same video",
+                        type: "stream",
+                    },
+                ],
+                type: "category",
+            });
+        return { f, first, result, secondSize };
+    }
+    const baseline = duplicate();
+    const fallback = duplicate(baseline.secondSize - 1);
+    assert.equal(fallback.result.error, undefined);
+    assert.equal(fallback.f.client.scanDiagnostics().descriptionsOmitted, true);
+    assert.equal(fallback.result.items.length, 1);
+    assert.strictEqual(fallback.result.items[0], fallback.first);
+    assert.equal(fallback.first.description, undefined);
+    assert.equal(fallback.first.adult, 1);
+    assert.equal(fallback.first.__ottMediaCategories.length, 3);
+    assert.equal(
+        fallback.first.__ottPlaylistId,
+        baseline.first.__ottPlaylistId
+    );
+    assert.equal(
+        fallback.f.client.scanDiagnostics().retainedBytes,
+        Buffer.byteLength(JSON.stringify(fallback.first)),
+        "duplicate updates replace their accounted size"
+    );
+}
+
+{
+    const f = fixture({}, {}, { catalogMetadataBudget: 400 });
+    let result, first;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            first ||= items[0];
+            result = { complete, error, items };
+        }
+    );
+    f.requests[0].receive({
+        items: [
+            {
+                description: "Description ".repeat(30),
+                request: { cmd: "play", id: 1 },
+                title: "First",
+                type: "stream",
+            },
+            { request: { offset: 300 }, type: "next" },
+        ],
+        type: "category",
+    });
+    f.requests[1].receive({
+        items: [
+            {
+                request: { cmd: "play", id: 2 },
+                title: "M".repeat(1000),
+                type: "stream",
+            },
+        ],
+        type: "category",
+    });
+    assert(
+        result.complete && result.error,
+        "mandatory metadata still fails closed"
+    );
+    assert.equal(f.client.scanDiagnostics().code, "metadata_limit");
+    assert.equal(f.client.scanDiagnostics().descriptionsOmitted, true);
+    assert.equal(result.items.length, 1);
+    assert.strictEqual(result.items[0], first);
+    assert.equal(first.description, undefined);
+    assert.equal(first.title, "First");
+    assert.equal(
+        f.client.scanDiagnostics().retainedBytes,
+        Buffer.byteLength(JSON.stringify(first))
+    );
+}
+console.log(
+    "PASS VPortal one-time optional-description fallback, reference stability, duplicate accounting and mandatory cap"
 );
