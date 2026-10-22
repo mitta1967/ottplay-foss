@@ -3034,4 +3034,50 @@ test("allLeaves leafCount accepts only finite nonnegative numbers or decimal dig
     }
 });
 
+test("whole catalog sanitizes C1 titles and category labels without changing identity", () => {
+    const f = fixture(),
+        rows = [],
+        done = [];
+    f.client.scanFolders(
+        [],
+        (batch) => rows.push(...batch),
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [{ key: "1", title: "Movies\u0085One", type: "movie" }],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ratingKey: "18420",
+                    summary: "Safe\u0085preview",
+                    title: "Episode\u0080\u0094One",
+                    type: "movie",
+                },
+            ],
+            size: 1,
+            totalSize: 1,
+        },
+    });
+    f.tick(0);
+    assert.deepEqual(done, [undefined]);
+    assert.equal(rows[0].request.path, "/library/metadata/18420");
+    assert.equal(rows[0].title, "Episode One");
+    assert(!/[\u0000-\u001f\u007f-\u009f]/.test(rows[0].description));
+    assert(
+        rows[0].__ottMediaCategories.every(
+            (group) => !/[\u0000-\u001f\u007f-\u009f]/.test(group.name)
+        )
+    );
+    assert.equal(
+        rows[0].__ottMediaCategories[0].id,
+        "plex:/library/sections/1/all"
+    );
+});
+
 console.log(`PASS Plex client (${passed} scenarios)`);

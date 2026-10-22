@@ -395,7 +395,7 @@ function createPlexClient(
         function text(value: any): string {
             return typeof value === "string" || typeof value === "number"
                 ? String(value)
-                      .replace(/[\u0000-\u001f\u007f]/g, " ")
+                      .replace(/[\u0000-\u001f\u007f-\u009f]/g, " ")
                       .replace(/\s+/g, " ")
                       .trim()
                 : "";
@@ -1112,7 +1112,10 @@ function createPlexClient(
             maxUnits: number,
             maxBytes = Infinity
         ): string {
-            var text = String(value || ""),
+            var text = String(value || "").replace(
+                    /[\u0000-\u001f\u007f-\u009f]/g,
+                    " "
+                ),
                 result = "",
                 bytes = 0;
             for (var i = 0; i < text.length; i++) {
