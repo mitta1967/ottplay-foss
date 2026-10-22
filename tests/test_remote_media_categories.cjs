@@ -22,6 +22,8 @@ function fixture(provider = "vportal") {
     let restricted = false;
     let kiosk = false;
     let modal = null;
+    let runtime = "page-123";
+    let source = "source-a";
     let snapshot;
     const effects = [];
     const host = {
@@ -71,8 +73,9 @@ function fixture(provider = "vportal") {
         remoteCatalog: () => snapshot,
     };
     function refresh() {
+        const snapshotSource = source;
         const next = {
-            active: () => snapshot === next,
+            active: () => snapshot === next && source === snapshotSource,
             all: host.cats.All.slice(),
             canonicalIds: host.cList.slice(),
             groups: groups.map((id, index) => ({
@@ -96,7 +99,7 @@ function fixture(provider = "vportal") {
                         done({ data: { action, version: 1 }, status: "ok" }),
                     remotePlayerInfo: () => ({
                         platform: "browser",
-                        runtime: "page-123",
+                        runtime,
                         version: "test",
                     }),
                 };
@@ -150,7 +153,9 @@ function fixture(provider = "vportal") {
         refresh,
         restricted: (value) => (restricted = value),
         rows,
+        runtime: (value) => (runtime = value),
         select,
+        source: (value) => (source = value),
     };
 }
 
@@ -599,6 +604,178 @@ function fixture(provider = "vportal") {
         );
     }
 }
+function pagedFixture(kind) {
+    const f = fixture();
+    const first = f.list({ limit: 1 });
+    const catalog =
+        kind === "categories"
+            ? first.data.catalog
+            : f.rows(first.data.catalog, "all", { limit: 1 }).data.catalog;
+    return {
+        ...f,
+        catalog,
+        read: (params = {}) =>
+            kind === "categories"
+                ? f.list({ catalog, limit: 1, ...params })
+                : f.rows(catalog, "all", { limit: 1, ...params }),
+    };
+}
+
+for (const kind of ["categories", "channels"]) {
+    const f = pagedFixture(kind);
+    for (const offset of [1, 2]) {
+        f.advance(60000);
+        const page = f.read({ offset });
+        assert.equal(
+            page.status,
+            "ok",
+            `${kind}: active pagination survives the original 120s deadline`
+        );
+        assert.equal(page.data.catalog, f.catalog);
+        assert.equal(page.data.offset, offset);
+        assert.equal(page.data[kind].length, 1);
+    }
+    f.advance(119999);
+    assert.equal(f.read({ offset: 2 }).status, "ok");
+    f.advance(120000);
+    assert.equal(
+        f.read({ offset: 2 }).data.error,
+        "catalog_changed",
+        `${kind}: the renewed receipt expires at exactly 120s of inactivity`
+    );
+    assert.equal(f.effects.length, 0, "pagination never changes playback");
+
+    const idle = pagedFixture(kind);
+    idle.advance(120000);
+    assert.equal(
+        idle.read().data.error,
+        "catalog_changed",
+        `${kind}: an idle receipt cannot be revived at its expiry boundary`
+    );
+}
+
+for (const kind of ["categories", "channels"]) {
+    for (const params of [
+        { extra: "unexpected" },
+        { limit: 201 },
+        { offset: 4 },
+        { runtime: "page-other" },
+        ...(kind === "channels"
+            ? [{ category: "missing" }, { search: "different" }]
+            : []),
+    ]) {
+        const f = pagedFixture(kind);
+        f.advance(119999);
+        assert.equal(f.read(params).status, "rejected");
+        f.advance(1);
+        assert.equal(
+            f.read().data.error,
+            "catalog_changed",
+            `${kind}: rejected access ${JSON.stringify(params)} does not renew`
+        );
+    }
+
+    const malformed = pagedFixture(kind);
+    const record =
+        kind === "categories"
+            ? malformed.host.__ottChannels.remoteCatalog().groups[1]
+            : malformed.host.channels[909];
+    const field = kind === "categories" ? "name" : "channel_name";
+    const original = record[field];
+    malformed.advance(119999);
+    record[field] = "invalid\n";
+    assert.equal(malformed.read().data.error, "unavailable");
+    record[field] = original;
+    malformed.advance(1);
+    assert.equal(
+        malformed.read().data.error,
+        "catalog_changed",
+        `${kind}: failed result validation does not renew a receipt`
+    );
+
+    const selection = pagedFixture(kind);
+    selection.advance(119999);
+    assert.equal(selection.select(selection.catalog, "all").status, "ok");
+    selection.advance(1);
+    assert.equal(
+        selection.read().data.error,
+        "catalog_changed",
+        `${kind}: successful category selection does not renew a receipt`
+    );
+}
+
+{
+    const f = pagedFixture("channels");
+    f.advance(119999);
+    assert.equal(
+        f.call("play_catalog", { catalog: f.catalog, id: "vportal:one" })
+            .status,
+        "ok"
+    );
+    f.advance(1);
+    assert.equal(
+        f.read().data.error,
+        "catalog_changed",
+        "successful playback does not renew a receipt"
+    );
+}
+
+for (const kind of ["categories", "channels"]) {
+    for (const change of ["snapshot", "source", "provider", "runtime"]) {
+        const f = pagedFixture(kind);
+        f.advance(60000);
+        assert.equal(f.read({ offset: 1 }).status, "ok");
+        if (change === "snapshot") f.refresh();
+        if (change === "source") f.source("source-b");
+        if (change === "provider") f.host.__ottActiveProviderDriver.id = "plex";
+        if (change === "runtime") f.runtime("page-other");
+        const result = f.read(
+            change === "runtime" ? { runtime: "page-other" } : {}
+        );
+        assert.equal(
+            result.status,
+            "rejected",
+            `${kind}: renewed receipts remain fenced by ${change}`
+        );
+        assert.equal(
+            result.data.error,
+            change === "source" ? "unavailable" : "catalog_changed"
+        );
+    }
+
+    const f = pagedFixture(kind);
+    f.advance(119999);
+    f.host.__ottActiveProviderDriver.catalogLoading = () => {
+        f.refresh();
+        return false;
+    };
+    assert.equal(
+        f.read().status,
+        "rejected",
+        `${kind}: a snapshot retired during page validation cannot be renewed`
+    );
+}
+
+{
+    const f = pagedFixture("categories");
+    for (let index = 0; index < 40; index++) {
+        f.advance(60000);
+        assert.equal(f.read().status, "ok");
+    }
+    for (let index = 0; index < 31; index++) f.list();
+    assert.equal(
+        f.read().status,
+        "ok",
+        "renewal updates the existing receipt without consuming registry slots"
+    );
+    f.list();
+    assert.equal(
+        f.read().data.error,
+        "catalog_changed",
+        "renewal does not remove the 32-entry retention bound"
+    );
+}
+
 console.log(
-    "PASS remote media categories: ES5, paged metadata, stable IDs, global numbering, browse/play separation, kiosk policy, stale receipts, bounded retention and legacy compatibility"
+    "PASS remote media categories: ES5, paged metadata, stable IDs, global numbering, browse/play separation, kiosk policy, stale receipts, active pagination, exact idle expiry, bounded retention and legacy compatibility"
 );

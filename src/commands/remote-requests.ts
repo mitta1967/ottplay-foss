@@ -198,6 +198,18 @@ function remoteMediaFind(
         );
     })[0];
 }
+// Only a fully validated page read extends the receipt's inactivity window.
+function remoteMediaRenew(w: any, entry: any): boolean {
+    if (
+        !entry.snapshot.active() ||
+        remotePlayerInfo(w).runtime !== entry.runtime ||
+        !w.__ottActiveProviderDriver ||
+        w.__ottActiveProviderDriver.id !== entry.provider
+    )
+        return false;
+    entry.expires = Date.now() + 120000;
+    return true;
+}
 function remoteMediaGroup(snapshot: any, category: string): any {
     if (category === "all")
         return { id: "all", members: snapshot.all, name: "All" };
@@ -639,8 +651,13 @@ export function executeRemoteRequest(
                 mediaFailure("invalid_request");
                 return;
             }
+            var mediaSelected = remoteMediaSelected(w, mediaSnapshot);
             if (!receipt)
                 receipt = remoteMediaReceipt(mediaSnapshot, runtime, provider);
+            if (!remoteMediaRenew(w, receipt)) {
+                mediaFailure("catalog_changed");
+                return;
+            }
             reply({
                 catalog: receipt.token,
                 categories: categoryRows.slice(
@@ -653,7 +670,7 @@ export function executeRemoteRequest(
                 op: "list",
                 provider: provider,
                 runtime: runtime,
-                selected: remoteMediaSelected(w, mediaSnapshot),
+                selected: mediaSelected,
                 total: categoryRows.length,
                 version: 1,
             });
@@ -741,6 +758,10 @@ export function executeRemoteRequest(
                 params.category,
                 mediaSearch
             );
+        }
+        if (!remoteMediaRenew(w, receipt)) {
+            mediaFailure("catalog_changed");
+            return;
         }
         reply({
             catalog: receipt.token,
