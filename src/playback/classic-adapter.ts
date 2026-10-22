@@ -1054,6 +1054,10 @@ function classicPlaybackProgramme(): any {
 }
 
 (window as any).__ottClassicPlayback = {
+    beforeSeek: function (value: number): void {
+        classicPlaybackCapture();
+        classicPlaybackRuntime().beforeSeek(value);
+    },
     bookmark: classicPlaybackBookmark,
     cancel: function (): void {
         if (classicPlaybackController) classicPlaybackController.cancel();
@@ -1082,6 +1086,10 @@ function classicPlaybackProgramme(): any {
     },
     hydrate: classicPlaybackHydrate,
     importLegacy: classicPlaybackReconcile,
+    observedPosition: function (value: number): void {
+        if (classicPlaybackController)
+            classicPlaybackController.observePosition(value);
+    },
     programme: classicPlaybackProgramme,
     reconcile: classicPlaybackReconcile,
     select: classicPlaybackSelect,

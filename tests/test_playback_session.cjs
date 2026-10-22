@@ -920,6 +920,65 @@ for (const hook of ["onPreview", "onSchedule"]) {
     assert.equal(f.applied.at(-1), 30);
 }
 
+// An external seek can be the first operation that creates the controller.
+{
+    const c = fixture();
+    c.playType = -1e11;
+    c.stbGetPosTime = () => 100;
+    c.__ottClassicPlayback.command({
+        channelId: "first-seek",
+        item: { stream_url: "fixture" },
+        type: "vod",
+    });
+    c.__ottClassicPlayback.command({ type: "playing" });
+    c.__ottClassicPlayback.beforeSeek(50);
+    c.__ottClassicPlayback.shift(10);
+    c.flush();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "seek"),
+        [["seek", 60]],
+        "first external seek carries a base through stale decoder samples"
+    );
+}
+
+// Actual decoder samples retire a completed target, while admitted absolute
+// seeks cancel pending offsets and carry their new base through decoder lag.
+{
+    const f = controllerFixture();
+    f.shift(-10);
+    f.flush();
+    f.controller.observePosition(90);
+    f.position = 25;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        35,
+        "external decoder movement after acknowledgment is authoritative"
+    );
+    f.position = 100;
+    f.controller.beforeSeek(50);
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        60,
+        "new absolute seek base survives stale decoder observation"
+    );
+    f.shift(10);
+    f.controller.beforeSeek(30);
+    const count = f.applied.length;
+    f.flush();
+    assert.equal(
+        f.applied.length,
+        count,
+        "external seek cancels an older pending keyboard timer"
+    );
+    f.shift(10);
+    f.flush();
+    assert.equal(f.applied.at(-1), 40);
+}
+
 // Production TS lowering remains valid for old browser grammars.
 for (const file of ["session.ts", "classic-adapter.ts"]) {
     const source = fs.readFileSync(

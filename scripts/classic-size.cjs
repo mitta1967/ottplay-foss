@@ -332,7 +332,8 @@ const { gzipSync } = require("node:zlib");
 // 1944 raw entry bytes (1015386 on Node 22.23.3); retain candidate headroom.
 // Persistent seek feedback/pending decoder targets and bounded metadata
 // fallback measure 1016906 raw on Node 22; retain ~600 identity bytes.
-const BUDGET = Object.freeze({ bytes: 1017500, gzipBytes: 314000 });
+// External seek admission/acknowledgment adds ~0.9 KB raw; retain identity room.
+const BUDGET = Object.freeze({ bytes: 1018400, gzipBytes: 314000 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -495,7 +496,7 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // measure 1148243 / 361821 gzip on Node 22.23.3. Retain bounded release room.
 // Count the bounded whole-portal scanner once in the complete payload.
 // The same seek/fallback changes measure 1151707 total raw on Node 22.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1152300, gzipBytes: 363200 });
+const TOTAL_BUDGET = Object.freeze({ bytes: 1153200, gzipBytes: 363200 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

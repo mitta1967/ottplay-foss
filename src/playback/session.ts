@@ -39,6 +39,7 @@ function createPlaybackSessionController(
     ports: PlaybackSessionPorts
 ) {
     var ownership = new core.PlaybackSessionOwnership();
+    var applying = false;
     var pending: PlaybackIntent | null = null;
     var timer: any = null;
     var feedback: { value: number; observation: PlaybackObservation } | null =
@@ -127,7 +128,11 @@ function createPlaybackSessionController(
                 sameTarget(feedback.observation.target, observation.target) &&
                 (!feedback.observation.isCurrent ||
                     feedback.observation.isCurrent());
-            if (!continued) applied = null;
+            if (
+                applied &&
+                !sameTarget(applied.observation.target, observation.target)
+            )
+                applied = null;
             feedback = {
                 observation: observation,
                 value: (continued ? feedback!.value : 0) + delta,
@@ -179,7 +184,12 @@ function createPlaybackSessionController(
             if (plan.action !== "noop") {
                 if (feedback && intent.intent === "offset")
                     feedback.observation = current;
-                ports.apply(plan, announcement);
+                applying = true;
+                try {
+                    ports.apply(plan, announcement);
+                } finally {
+                    applying = false;
+                }
             }
         }
         if (intent.intent === "offset") {
@@ -192,6 +202,25 @@ function createPlaybackSessionController(
     }
 
     return {
+        beforeSeek: function (value: number): void {
+            if (applying) return;
+            var ticket = reset(true);
+            if (!accepts(ticket)) return;
+            var observed = ports.observe();
+            if (
+                accepts(ticket) &&
+                observed.target &&
+                observed.target.kind === "vod" &&
+                typeof observed.position === "number" &&
+                isFinite(value) &&
+                value >= 0
+            )
+                applied = {
+                    before: observed.position,
+                    observation: observed,
+                    position: value,
+                };
+        },
         cancel: cancel,
         dispose: cancel,
         guard: function (
@@ -209,6 +238,19 @@ function createPlaybackSessionController(
                     return;
                 if (complete(ticket)) callback.apply(this, arguments);
             };
+        },
+        observePosition: function (value: number): void {
+            if (
+                !applying &&
+                applied &&
+                isFinite(value) &&
+                (Math.abs(value - applied.position) < 0.05 ||
+                    (applied.position >= applied.before &&
+                        value >= applied.position) ||
+                    (applied.position <= applied.before &&
+                        value <= applied.position))
+            )
+                applied = null;
         },
         request: request,
         transition: function (
