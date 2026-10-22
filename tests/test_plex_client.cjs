@@ -2324,7 +2324,7 @@ test("whole-library scan discovers video and music sections with stable categori
     assert.equal(track.__ottMediaCollection, "Music");
     assert.equal(
         track.__ottMediaCategories[0].id,
-        "plex:/library/sections/3/all?type=10"
+        "plex:/library/sections/3/all"
     );
     f.tick(5000);
     assert.equal(parsed(f).pathname, "/library/metadata/20/children");
@@ -2559,7 +2559,7 @@ test("whole catalog keeps oversized previews bounded and reports only safe failu
         [],
         (batch) => {
             if (!batch.length) return;
-            assert.equal(batch[0].title.length, 1024);
+            assert.equal(batch[0].title.length, 512);
             assert(batch[0].description.length <= 1024);
             assert(!/&[^;]*$/.test(batch[0].description));
         },
@@ -2630,6 +2630,185 @@ test("repeated membership cannot grow one catalog record beyond its hard limit",
     }
     assert.deepEqual(done, ["Plex playlist is too large"]);
     assert.equal(f.client.scanDiagnostics().code, "record_limit");
+});
+
+test("terminal record errors cannot mutate a previously published record later in the batch", () => {
+    const f = fixture(),
+        done = [],
+        published = [];
+    f.client.scanFolders(
+        [{ path: "/library/sections/1/all", title: "Films" }],
+        (batch) => published.push(...batch),
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [{ ratingKey: "1", title: "Kept", type: "movie" }],
+            offset: 0,
+            size: 1,
+            totalSize: 3,
+        },
+    });
+    f.tick(0);
+    const before = JSON.stringify(published[0]);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ratingKey: "2",
+                    summary: "x".repeat(70000),
+                    title: "Too much",
+                    type: "movie",
+                },
+                { adult: 1, ratingKey: "1", title: "Kept", type: "movie" },
+            ],
+            offset: 1,
+            size: 2,
+            totalSize: 3,
+        },
+    });
+    assert.deepEqual(done, ["Plex playlist is too large"]);
+    assert.equal(f.client.scanDiagnostics().code, "record_limit");
+    assert.equal(JSON.stringify(published[0]), before);
+    assert.equal(published.length, 1);
+});
+
+test("cancellation has an explicit diagnostic without replacing completion or failure", () => {
+    const f = fixture();
+    const cancel = f.client.scanFolders(
+        [],
+        () => {},
+        () => {}
+    );
+    cancel();
+    assert.equal(f.client.scanDiagnostics().state, "cancelled");
+    assert.equal(f.client.scanDiagnostics().code, "cancelled");
+    const g = fixture();
+    const finish = g.client.scanFolders(
+        [],
+        () => {},
+        () => {}
+    );
+    last(g).reply({ MediaContainer: { Directory: [], size: 0 } });
+    g.tick(0);
+    finish();
+    assert.equal(g.client.scanDiagnostics().state, "complete");
+});
+
+test("whole catalog bounds UTF8 titles and never cuts surrogate pairs in labels or previews", () => {
+    const f = fixture(),
+        rows = [];
+    f.client.scanFolders(
+        [],
+        (batch) => rows.push(...batch),
+        () => {}
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [
+                { key: "1", title: "x".repeat(4095) + "😀", type: "movie" },
+            ],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ratingKey: "12345678901234567890",
+                    summary: "a".repeat(1023) + "😀",
+                    title: "é".repeat(255) + "😀tail",
+                    type: "movie",
+                },
+            ],
+            size: 1,
+            totalSize: 1,
+        },
+    });
+    f.tick(0);
+    assert.equal(rows.length, 1);
+    assert.equal(
+        rows[0].request.path,
+        "/library/metadata/12345678901234567890"
+    );
+    assert(Buffer.byteLength(rows[0].title) <= 512);
+    assert.equal(rows[0].title, "é".repeat(255));
+    assert.equal(rows[0].description, "a".repeat(1023));
+    assert.equal(rows[0].__ottMediaCategories[0].name, "x".repeat(4095));
+    for (const text of [
+        rows[0].title,
+        rows[0].description,
+        rows[0].__ottMediaCategories[0].name,
+    ])
+        assert.doesNotThrow(() => encodeURIComponent(text));
+});
+
+test("flat music retains library artist and album category identities", () => {
+    const f = fixture(),
+        rows = [];
+    f.client.scanFolders(
+        [],
+        (batch) => rows.push(...batch),
+        () => {}
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [{ key: "3", title: "Music", type: "artist" }],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    const song = (id, artist, album) => ({
+        grandparentRatingKey: String(artist),
+        grandparentTitle: "Artist " + artist,
+        Media: [{ Part: [{ file: "/media/all-music/file" + id + ".mp3" }] }],
+        parentRatingKey: String(album),
+        parentTitle: "Album " + album,
+        ratingKey: String(id),
+        title: "Track " + id,
+        type: "track",
+    });
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [song(1, 10, 20), song(2, 11, 21)],
+            size: 2,
+            totalSize: 2,
+        },
+    });
+    f.tick(0);
+    assert.equal(f.requests.length, 2);
+    assert.equal(
+        new URL(f.requests[1].options.url).searchParams.get("type"),
+        "10"
+    );
+    assert.deepEqual(
+        Array.from(rows[0].__ottMediaCategories.slice(0, 3), (category) => ({
+            id: category.id,
+            name: category.name,
+        })),
+        [
+            { id: "plex:/library/sections/3/all", name: "Music" },
+            {
+                id: "plex:/library/metadata/10/children",
+                name: "Music / Artist 10",
+            },
+            {
+                id: "plex:/library/metadata/20/children",
+                name: "Music / Artist 10 / Album 20",
+            },
+        ]
+    );
+    assert(
+        rows[1].__ottMediaCategories.some(
+            (category) => category.id === "plex:/library/metadata/11/children"
+        )
+    );
+    assert(
+        !rows[1].__ottMediaCategories.some(
+            (category) => category.id === "plex:/library/metadata/10/children"
+        )
+    );
 });
 
 console.log(`PASS Plex client (${passed} scenarios)`);

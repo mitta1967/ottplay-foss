@@ -1095,6 +1095,7 @@ function createPlexClient(
         var labels: any = Object.create(null);
         var categories: any = Object.create(null);
         var directoryGroups: any = Object.create(null);
+        var musicGroups: any = Object.create(null);
         var seen: any = Object.create(null);
         var signatures: any = Object.create(null);
         var offset = 0;
@@ -1106,6 +1107,44 @@ function createPlexClient(
         var maxBytes = (whole ? 64 : 8) * 1024 * 1024;
         var maxContainers = whole ? 10000 : 1000;
         var maxPages = whole ? 10000 : 1000;
+        function boundedText(
+            value: any,
+            maxUnits: number,
+            maxBytes = Infinity
+        ): string {
+            var text = String(value || ""),
+                result = "",
+                bytes = 0;
+            for (var i = 0; i < text.length; i++) {
+                var code = text.charCodeAt(i),
+                    part = text.charAt(i),
+                    units = 1;
+                var size = code < 128 ? 1 : code < 2048 ? 2 : 3;
+                if (
+                    code >= 0xd800 &&
+                    code <= 0xdbff &&
+                    i + 1 < text.length &&
+                    text.charCodeAt(i + 1) >= 0xdc00 &&
+                    text.charCodeAt(i + 1) <= 0xdfff
+                ) {
+                    part += text.charAt(i + 1);
+                    units = 2;
+                    size = 4;
+                } else if (code >= 0xd800 && code <= 0xdfff) part = "\ufffd";
+                if (result.length + units > maxUnits || bytes + size > maxBytes)
+                    break;
+                result += part;
+                bytes += size;
+                i += units - 1;
+            }
+            return result;
+        }
+        function categoryPath(path: string): string {
+            return path.replace(
+                /^(\/library\/sections\/[1-9][0-9]*\/all)\?type=10$/,
+                "$1"
+            );
+        }
         function measure(value: any): number {
             var text = JSON.stringify(value),
                 size = 0;
@@ -1142,6 +1181,8 @@ function createPlexClient(
         diagnostic("scanning");
         function cancelOwned(): void {
             if (ended) return;
+            if (scanDiagnostic && scanDiagnostic.state === "scanning")
+                diagnostic("cancelled", "cancelled");
             ended = true;
             if (cancelScan === cancelOwned) cancelScan = null;
             if (timer !== null) w.clearTimeout(timer);
@@ -1191,9 +1232,12 @@ function createPlexClient(
                 parent && labels[parent]
                     ? labels[parent] + " / " + title
                     : title;
-            labels[path] = name.slice(0, 4096);
+            labels[path] = boundedText(name, 4096);
             if (path !== "/library/sections")
-                ancestors.push({ id: "plex:" + path, name: labels[path] });
+                ancestors.push({
+                    id: "plex:" + categoryPath(path),
+                    name: labels[path],
+                });
             categories[path] = ancestors;
             roots.push(path);
         }
@@ -1301,7 +1345,13 @@ function createPlexClient(
                         Video: [],
                     });
                 }
+                var metadata: any = Object.create(null);
+                rows.forEach(function (row) {
+                    if (row && /^[1-9][0-9]{0,19}$/.test(String(row.ratingKey)))
+                        metadata["/library/metadata/" + row.ratingKey] = row;
+                });
                 records(data, path, {}, false).forEach(function (record) {
+                    if (!active()) return;
                     if (record.playlist_url) {
                         enqueue(
                             plexFolderPath(record.playlist_url.path),
@@ -1314,34 +1364,99 @@ function createPlexClient(
                     if (!id) return;
                     record.__ottMediaCollection = labels[path] || "Plex";
                     record.__ottMediaCategories = categories[path] || [];
+                    var row = metadata[id];
+                    if (row && row.type === "track") {
+                        var artist =
+                            /^[1-9][0-9]{0,19}$/.test(
+                                String(row.grandparentRatingKey)
+                            ) && row.grandparentTitle
+                                ? String(row.grandparentRatingKey)
+                                : "";
+                        var album =
+                            /^[1-9][0-9]{0,19}$/.test(
+                                String(row.parentRatingKey)
+                            ) && row.parentTitle
+                                ? String(row.parentRatingKey)
+                                : "";
+                        var musicKey = path + ":" + artist + ":" + album;
+                        if (!musicGroups[musicKey]) {
+                            var groups = record.__ottMediaCategories.slice();
+                            var groupName = labels[path] || "Plex";
+                            if (artist) {
+                                groupName = boundedText(
+                                    groupName + " / " + row.grandparentTitle,
+                                    4096
+                                );
+                                groups.push({
+                                    id:
+                                        "plex:/library/metadata/" +
+                                        artist +
+                                        "/children",
+                                    name: groupName,
+                                });
+                            }
+                            if (album) {
+                                groupName = boundedText(
+                                    groupName + " / " + row.parentTitle,
+                                    4096
+                                );
+                                groups.push({
+                                    id:
+                                        "plex:/library/metadata/" +
+                                        album +
+                                        "/children",
+                                    name: groupName,
+                                });
+                            }
+                            musicGroups[musicKey] = groups;
+                        }
+                        record.__ottMediaCategories = musicGroups[musicKey];
+                        if (record.__ottMediaCategories.length)
+                            record.__ottMediaCollection =
+                                record.__ottMediaCategories[
+                                    record.__ottMediaCategories.length - 1
+                                ].name;
+                    }
                     var directory = record.__ottMediaFileDirectory;
                     delete record.__ottMediaFileDirectory;
                     if (directory) {
-                        var directoryName = labels[path]
-                            ? labels[path] + " / " + directory.name
-                            : directory.name;
+                        var directoryName = boundedText(
+                            labels[path]
+                                ? labels[path] + " / " + directory.name
+                                : directory.name,
+                            4096
+                        );
                         var directoryId =
-                            "plex:" + path + ":directory:" + directory.id;
-                        if (!directoryGroups[directoryId])
-                            directoryGroups[directoryId] =
+                            "plex:" +
+                            categoryPath(path) +
+                            ":directory:" +
+                            directory.id;
+                        var directoryKey =
+                            directoryId +
+                            ":" +
+                            record.__ottMediaCategories
+                                .map(function (group: any) {
+                                    return group.id;
+                                })
+                                .join("|");
+                        if (!directoryGroups[directoryKey])
+                            directoryGroups[directoryKey] =
                                 record.__ottMediaCategories.concat([
                                     { id: directoryId, name: directoryName },
                                 ]);
                         record.__ottMediaCategories =
-                            directoryGroups[directoryId];
+                            directoryGroups[directoryKey];
                         if (!record.__ottMediaSequence)
                             record.__ottMediaCollection = directoryName;
                     }
                     if (whole) {
-                        record.title = String(record.title || "").slice(
-                            0,
-                            1024
-                        );
+                        record.title = boundedText(record.title, 512, 512);
                         // Descriptions are optional in the discovery list. Keep a
                         // safe bounded preview; original metadata remains on PMS.
-                        record.description = String(record.description || "")
-                            .slice(0, 1024)
-                            .replace(/&[^;]*$/, "");
+                        record.description = boundedText(
+                            record.description,
+                            1024
+                        ).replace(/&[^;]*$/, "");
                     }
                     var size = measure(record);
                     if (size > 64 * 1024)
