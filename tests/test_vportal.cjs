@@ -2317,11 +2317,19 @@ console.log(
 {
     const f = fixture();
     let published = false;
-    f.client.playlist([{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
-        () => { published = true; });
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        () => {
+            published = true;
+        }
+    );
     f.setActive(false);
     f.requests[0].fail("timeout");
-    assert.equal(f.requests.length, 1, "stale source cannot initiate a timeout retry");
+    assert.equal(
+        f.requests.length,
+        1,
+        "stale source cannot initiate a timeout retry"
+    );
     assert.equal(published, false);
     f.client.cancel();
 }
