@@ -140,6 +140,21 @@ def start(config):
     target = f"gui/{os.getuid()}/{config['label']}"
     subprocess.run(["launchctl", "bootout", target], stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL, check=False)
+    # bootout returns before launchd necessarily removes this service. Starting
+    # the same label immediately can fail with Bootstrap failed: 5.
+    for _ in range(20):
+        try:
+            unloaded = subprocess.run(
+                ["launchctl", "print", target], stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, check=False, timeout=1,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError("Timed out checking helper removal; retry the installation") from error
+        if unloaded.returncode != 0:
+            break
+        time.sleep(0.25)
+    else:
+        raise RuntimeError("Helper service has not finished unloading; retry the installation")
     subprocess.run(["launchctl", "bootstrap", f"gui/{os.getuid()}", str(config["plist"])], check=True)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     health = f"http://127.0.0.1:{config['port']}/health"

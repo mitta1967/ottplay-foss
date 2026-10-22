@@ -94,6 +94,41 @@ class HelperInstallerTests(unittest.TestCase):
         ]):
             installer.check_port(self.config)
 
+    def test_start_waits_for_its_own_label_to_disappear_before_bootstrap(self):
+        installer.prepare(self.config)
+        health = Mock(status=200)
+        health.__enter__ = Mock(return_value=health)
+        health.__exit__ = Mock(return_value=False)
+        catalog = Mock(status=200)
+        catalog.__enter__ = Mock(return_value=catalog)
+        catalog.__exit__ = Mock(return_value=False)
+        catalog.read.return_value = b'{"readOnly":true,"directSources":false,"uploadUrl":""}'
+        opener = Mock()
+        opener.open.side_effect = [health, catalog]
+        with patch.object(installer, "check_port"), \
+                patch.object(installer.subprocess, "run", side_effect=[
+                    Mock(returncode=0), Mock(returncode=0), Mock(returncode=0),
+                    Mock(returncode=1), Mock(returncode=0),
+                ]) as run, \
+                patch.object(installer.urllib.request, "build_opener", return_value=opener), \
+                patch.object(installer.time, "sleep") as sleep:
+            installer.start(self.config)
+        commands = [call.args[0] for call in run.call_args_list]
+        target = f"gui/{installer.os.getuid()}/{self.config['label']}"
+        self.assertEqual(commands[:4], [["launchctl", "bootout", target]] +
+                         [["launchctl", "print", target]] * 3)
+        self.assertEqual(commands[4][1], "bootstrap")
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_start_stops_after_bounded_unload_wait_without_bootstrap(self):
+        with patch.object(installer, "check_port"), \
+                patch.object(installer.subprocess, "run", return_value=Mock(returncode=0)) as run, \
+                patch.object(installer.time, "sleep"):
+            with self.assertRaisesRegex(RuntimeError, "finished unloading"):
+                installer.start(self.config)
+        self.assertEqual(run.call_count, 21)
+        self.assertFalse(any(call.args[0][1] == "bootstrap" for call in run.call_args_list))
+
     def test_health_alone_cannot_accept_an_unrelated_server(self):
         installer.prepare(self.config)
         health = Mock(status=200)
@@ -105,7 +140,7 @@ class HelperInstallerTests(unittest.TestCase):
         catalog.read.return_value = b'{"readOnly":false,"directSources":false,"uploadUrl":""}'
         opener = Mock()
         opener.open.side_effect = [health, catalog] * 8
-        with patch.object(installer, "check_port"), patch.object(installer.subprocess, "run"), \
+        with patch.object(installer, "check_port"), patch.object(installer.subprocess, "run", return_value=Mock(returncode=1)), \
                 patch.object(installer.urllib.request, "build_opener", return_value=opener), \
                 patch.object(installer.time, "sleep"):
             with self.assertRaises(RuntimeError):
