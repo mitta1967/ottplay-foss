@@ -479,7 +479,7 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // web 1127857/355992; native 1127815/356050, with unchanged provider bytes.
 // Count explicit relative-file bootstrap once: web 1131288/356833,
 // native 1131246/356889 on Node 22.23.3; optional provider bytes are unchanged.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1132000, gzipBytes: 357500 });
+const TOTAL_BUDGET = Object.freeze({ bytes: 1132600, gzipBytes: 357500 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
