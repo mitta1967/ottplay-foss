@@ -610,12 +610,21 @@ impl Library {
         id: &str,
         work: &crate::background_work::WorkLease,
     ) -> Option<(u64, Option<Record>, Preferred)> {
-        if self.storage != "device" || !valid_id(id) {
+        if self.storage != "device" {
             return None;
+        }
+        let revision = work.run(self.scan.lock()).await.ok()?.revision;
+        if !valid_id(id) {
+            // Switching from a browser folder can leave a browser-owned
+            // source:path selection. This library only owns opaque 32-hex IDs:
+            // report that foreign selection missing without interpreting it as
+            // a filesystem path or waiting for the background catalog.
+            return self.read_only_paths.as_ref().map(|_| {
+                (revision, None, Preferred { id: id.into(), state: "missing" })
+            });
         }
         let library = self.clone();
         let id = id.to_string();
-        let revision = work.run(self.scan.lock()).await.ok()?.revision;
         let status = Preferred {
             id: id.clone(),
             state: "pending",
@@ -1549,6 +1558,34 @@ async fn media(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn readonly_foreign_selection_is_missing_while_scan_is_blocked() {
+        let base = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let originals = base.join("originals");
+        fs::create_dir_all(&originals).await.unwrap();
+        fs::write(originals.join("movie.mp4"), b"video").await.unwrap();
+        let mut library = Library::new(base.join("state"), "f".repeat(32), "device").await.unwrap();
+        library.read_only_paths = Some(Arc::new(vec![originals.clone()]));
+        let held = library.mutation.lock().await;
+        library.start_link_paths(vec![originals], true).await.unwrap();
+        for id in ["source-browser-folder:movie.mp4", "../../outside.mp4"] {
+            let response = catalog(
+                State(library.clone()),
+                Path("f".repeat(32)),
+                Query(CatalogQuery { preferred_id: Some(id.into()), refresh: false }),
+            ).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+            let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(value["scanning"], true);
+            assert_eq!(value["preferred"]["id"], id);
+            assert_eq!(value["preferred"]["state"], "missing");
+        }
+        drop(held);
+        while library.scan.lock().await.jobs != 0 { tokio::task::yield_now().await; }
+        fs::remove_dir_all(base).await.unwrap();
+    }
 
     #[tokio::test]
     async fn readonly_http_streams_early_without_import_or_delete_routes() {

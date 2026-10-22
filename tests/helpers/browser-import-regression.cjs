@@ -930,6 +930,75 @@ async function browserImportRegression(
             "clearing server URL restores the untouched browser source"
         );
     }
+    for (const readOnly of [true, false]) {
+        const remote = fixture();
+        const oldId = "source-browser:Movies/old clip.mp4";
+        remote.storage.set(
+            "localMediaEndpoint",
+            "http://127.0.0.1:8448/offline-media/private-token"
+        );
+        const requests = [];
+        const states = [];
+        remote.host.fetch = async (url) => {
+            requests.push(url);
+            const preferred = new URL(url).searchParams.get("preferredId");
+            return {
+                json: async () => ({
+                    items: [{ id: "new", name: "first.mp4", url: "/video" }],
+                    readOnly,
+                    scanned: 1,
+                    scanning: true,
+                    sources: [],
+                    ...(preferred
+                        ? {
+                              preferred: {
+                                  id: preferred,
+                                  state:
+                                      requests.length === 2
+                                          ? "pending"
+                                          : "missing",
+                              },
+                          }
+                        : {}),
+                }),
+                ok: true,
+            };
+        };
+        const result = remote.api.list((value) => {
+            states.push(value.preferred?.state);
+            return readOnly && value.preferred?.state !== "missing";
+        }, oldId);
+        await flush();
+        if (readOnly) {
+            assert.equal(
+                requests.length,
+                2,
+                "read-only capability triggers one immediate preferred lookup"
+            );
+            assert.equal(
+                new URL(requests[1]).searchParams.get("preferredId"),
+                oldId
+            );
+            assert.deepEqual(states, ["pending"]);
+            await remote.tick(250);
+            assert.deepEqual(
+                states,
+                ["pending", "missing"],
+                "preferred state changes reach the player without file-count changes"
+            );
+        } else {
+            assert.equal(
+                requests.length,
+                1,
+                "writable/legacy library receives no new query parameter"
+            );
+            assert.equal(
+                new URL(requests[0]).searchParams.has("preferredId"),
+                false
+            );
+        }
+        await result;
+    }
     const pendingKey = "localMediaPendingFile";
     async function directFixture(result) {
         const f = fixture({

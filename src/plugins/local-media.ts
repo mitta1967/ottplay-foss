@@ -243,7 +243,13 @@ export function installLocalMedia(w: any): any {
                   if (request !== catalogRevision)
                       return { cancelled: true, items: [] };
                   return base
-                      ? pollCatalog(base, request, accept, !!onProgress)
+                      ? pollCatalog(
+                            base,
+                            request,
+                            accept,
+                            !!onProgress,
+                            preferredId
+                        )
                       : boundedLocalRead(function (progress) {
                             return browser.list(
                                 progress,
@@ -346,25 +352,37 @@ export function installLocalMedia(w: any): any {
         base: string,
         request: number,
         accept: (value: any) => boolean,
-        progressive: boolean
+        progressive: boolean,
+        preferredId?: string
     ): Promise<any> {
+        var catalogUrl = base;
+        var preferredSent = !preferredId || isTauri();
         var signature = "";
         var changedAt = Date.now();
         function read(): Promise<any> {
             return boundedCatalogRequest(
-                base,
+                catalogUrl,
                 Math.max(1, 60000 - (Date.now() - changedAt))
             ).then(function (value) {
                 if (!value || !Array.isArray(value.items))
                     throw new Error("Invalid local media catalog");
                 if (request !== catalogRevision)
                     return { ...value, cancelled: true };
+                if (!preferredSent && value.readOnly) {
+                    var url = new URL(base);
+                    url.searchParams.set("preferredId", preferredId!);
+                    catalogUrl = url.href;
+                    preferredSent = true;
+                    return read();
+                }
                 var next = JSON.stringify([
                     value.scanning,
                     value.scanned,
                     value.total,
                     value.items.length,
                     value.scanError,
+                    value.preferred && value.preferred.id,
+                    value.preferred && value.preferred.state,
                 ]);
                 if (next !== signature) {
                     signature = next;
