@@ -322,7 +322,9 @@ const { gzipSync } = require("node:zlib");
 // Explicit source-relative file bootstrap and its standard editor add 3431 raw
 // / 841 gzip bytes on Node 22.23.3: web 999098/308505, native 999056/308561.
 // Keep about 700 raw / 600 gzip bytes of native/release identity headroom.
-const BUDGET = Object.freeze({ bytes: 999800, gzipBytes: 309200 });
+// Read-only local helper controls add 322 raw bytes; reserve 600 raw bytes
+// for the reviewed UI and unchanged release identity allowance.
+const BUDGET = Object.freeze({ bytes: 1000400, gzipBytes: 309200 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
