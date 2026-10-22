@@ -231,7 +231,9 @@ jobs:
         run: npm run check:es5
 
       - name: Install browsers for device and native UI checks
-        run: npx playwright install --with-deps chromium webkit
+        run: |
+          sudo env CI="$CI" python3 scripts/ci-apt-mirror.py
+          npx playwright install --with-deps chromium webkit
 
       - name: Test local browser media and offline app shell
         # The runner terminates this isolated browser test process group if an

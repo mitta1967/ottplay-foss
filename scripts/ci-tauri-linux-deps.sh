@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+sudo env CI="${CI:-}" python3 "$(dirname "$0")/ci-apt-mirror.py"
 sudo apt-get update
 sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf \
   gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
