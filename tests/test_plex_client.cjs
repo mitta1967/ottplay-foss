@@ -2811,4 +2811,127 @@ test("flat music retains library artist and album category identities", () => {
     );
 });
 
+test("show discovery excludes repeated allLeaves navigation from wire pagination and traversal", () => {
+    for (const count of [10, 201]) {
+        const f = fixture(),
+            done = [],
+            batches = [];
+        const path = "/library/metadata/29875/children";
+        f.client.scanFolders(
+            [{ path, title: "Series" }],
+            (rows, scanned) => batches.push({ rows, scanned }),
+            (error) => done.push(error)
+        );
+        for (let offset = 0; offset < count; offset += 200) {
+            const length = Math.min(200, count - offset);
+            assert.equal(parsed(f).pathname, path);
+            assert.equal(
+                parsed(f).searchParams.get("X-Plex-Container-Start"),
+                String(offset)
+            );
+            last(f).reply({
+                MediaContainer: {
+                    Directory: [
+                        {
+                            key: "/library/metadata/29875/allLeaves",
+                            leafCount: 194,
+                            title: "All episodes",
+                        },
+                    ],
+                    Metadata: Array.from({ length }, (_, i) => ({
+                        key:
+                            "/library/metadata/" +
+                            (40000 + offset + i) +
+                            "/children",
+                        ratingKey: String(40000 + offset + i),
+                        title: "Season " + (offset + i),
+                        type: "season",
+                    })),
+                    offset,
+                    size: length + 1,
+                    totalSize: count,
+                },
+            });
+            f.tick(0);
+        }
+        for (let i = 0; i < count; i++) {
+            assert.equal(
+                parsed(f).pathname,
+                "/library/metadata/" + (40000 + i) + "/children"
+            );
+            last(f).reply({
+                MediaContainer: {
+                    Metadata: [scanRow(50000 + i)],
+                    size: 1,
+                    totalSize: 1,
+                },
+            });
+            f.tick(0);
+        }
+        assert.deepEqual(done, [undefined]);
+        assert.equal(batches.flatMap((batch) => batch.rows).length, count);
+        assert.equal(batches.at(-1).scanned, count * 2);
+        assert(
+            !f.requests.some((request) =>
+                request.options.url.includes("allLeaves")
+            )
+        );
+    }
+});
+
+test("allLeaves normalization never relaxes wire sizes or unrelated row totals", () => {
+    const nav = {
+        key: "/library/metadata/29875/allLeaves",
+        leafCount: 194,
+        title: "All episodes",
+    };
+    for (const variant of [
+        "wire-size",
+        "wrong-parent",
+        "typed",
+        "rated",
+        "media",
+        "duplicate",
+        "metadata",
+    ]) {
+        const f = fixture(),
+            done = [];
+        f.client.scanFolders(
+            [{ path: "/library/metadata/29875/children", title: "Series" }],
+            () => assert.fail("invalid response must not publish"),
+            (error) => done.push(error)
+        );
+        let directory = { ...nav };
+        if (variant === "wrong-parent")
+            directory.key = "/library/metadata/999/allLeaves";
+        if (variant === "typed") directory.type = "season";
+        if (variant === "rated") directory.ratingKey = "999";
+        if (variant === "media") directory.Media = [];
+        const rows = [scanRow(1)];
+        const directories =
+            variant === "duplicate"
+                ? [directory, { ...directory }]
+                : [directory];
+        const container = {
+            Directory: directories,
+            Metadata: rows,
+            size: 1 + directories.length,
+            totalSize: 1,
+        };
+        if (variant === "wire-size") container.size = 1;
+        if (variant === "metadata") {
+            container.Metadata.push(directory);
+            container.Directory = [];
+        }
+        last(f).reply({ MediaContainer: container });
+        assert.equal(done.length, 1, variant);
+        assert(done[0], variant);
+        assert.equal(
+            f.client.scanDiagnostics().code,
+            "invalid_response",
+            variant
+        );
+    }
+});
+
 console.log(`PASS Plex client (${passed} scenarios)`);

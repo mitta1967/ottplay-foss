@@ -1280,8 +1280,43 @@ function createPlexClient(
                 } catch (_) {
                     return finish("Invalid Plex response", "invalid_response");
                 }
-                var count =
+                // PMS adds an uncounted “All episodes” navigation Directory
+                // beside season Metadata on show children pages. Validate the
+                // complete wire size first, but advance only by catalog rows.
+                var wireCount =
                     data.size === undefined ? rows.length : Number(data.size);
+                var parent =
+                    /^\/library\/metadata\/([1-9][0-9]*)\/children$/.exec(path);
+                var navigation = 0;
+                var directories = plexRows(data.Directory).filter(
+                    function (row) {
+                        var leafCount = row && Number(row.leafCount);
+                        if (
+                            parent &&
+                            row &&
+                            row.key ===
+                                "/library/metadata/" +
+                                    parent[1] +
+                                    "/allLeaves" &&
+                            row.type === undefined &&
+                            row.ratingKey === undefined &&
+                            row.Media === undefined &&
+                            row.leafCount !== undefined &&
+                            isFinite(leafCount) &&
+                            Math.floor(leafCount) === leafCount &&
+                            leafCount >= 0 &&
+                            navigation === 0
+                        ) {
+                            navigation++;
+                            return false;
+                        }
+                        return true;
+                    }
+                );
+                var count = rows.length - navigation;
+                if (navigation) {
+                    data = Object.assign({}, data, { Directory: directories });
+                }
                 var start =
                     data.offset === undefined ? offset : Number(data.offset);
                 var reported =
@@ -1289,7 +1324,7 @@ function createPlexClient(
                         ? null
                         : Number(data.totalSize);
                 if (
-                    count !== rows.length ||
+                    wireCount !== rows.length ||
                     count > 200 ||
                     start !== offset ||
                     (reported !== null &&
