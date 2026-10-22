@@ -30,6 +30,7 @@
     "dev": "vite",
     "dev:native": "npm run build && vite --mode native",
     "docs:generate": "node scripts/generate-readmes.cjs",
+    "docs:manuals": "node scripts/manual-documentation.cjs",
     "fix": "ultracite fix",
     "lint": "biome check . && npm run lint:correctness",
     "lint:correctness": "biome lint --config-path=biome-correctness.json .",
