@@ -2934,4 +2934,102 @@ test("allLeaves normalization never relaxes wire sizes or unrelated row totals",
     }
 });
 
+test("duplicate allLeaves navigation on short pages cannot skip a real catalog row", () => {
+    const f = fixture(),
+        done = [];
+    f.client.scanFolders(
+        [{ path: "/library/metadata/29875/children", title: "Series" }],
+        () => assert.fail("duplicate navigation must fail before publication"),
+        (error) => done.push(error)
+    );
+    const nav = { key: "/library/metadata/29875/allLeaves", leafCount: 194 };
+    last(f).reply({
+        MediaContainer: {
+            Directory: [nav, { ...nav }],
+            Metadata: Array.from({ length: 100 }, (_, i) => scanRow(i + 1)),
+            offset: 0,
+            size: 102,
+            totalSize: 201,
+        },
+    });
+    f.tick(0);
+    assert.equal(done.length, 1);
+    assert(done[0]);
+    assert.equal(
+        f.requests.length,
+        1,
+        "must never request the incorrect offset 101"
+    );
+    assert.equal(f.client.scanDiagnostics().code, "invalid_response");
+});
+
+test("allLeaves leafCount accepts only finite nonnegative numbers or decimal digit strings", () => {
+    for (const leafCount of [
+        null,
+        false,
+        true,
+        [],
+        [1],
+        {},
+        "",
+        " ",
+        "1.5",
+        "-1",
+        "Infinity",
+        "1e2",
+        NaN,
+        Infinity,
+        -1,
+        1.5,
+        undefined,
+    ]) {
+        const f = fixture(),
+            done = [];
+        f.client.scanFolders(
+            [{ path: "/library/metadata/29875/children", title: "Series" }],
+            () =>
+                assert.fail(
+                    "malformed navigation must fail before publication"
+                ),
+            (error) => done.push(error)
+        );
+        last(f).reply({
+            MediaContainer: {
+                Directory: [
+                    { key: "/library/metadata/29875/allLeaves", leafCount },
+                ],
+                Metadata: [scanRow(1)],
+                size: 2,
+                totalSize: 201,
+            },
+        });
+        f.tick(0);
+        assert.equal(done.length, 1, String(leafCount));
+        assert(done[0]);
+        assert.equal(f.client.scanDiagnostics().code, "invalid_response");
+        assert.equal(f.requests.length, 1);
+    }
+    for (const leafCount of [0, 194, "0", "194"]) {
+        const f = fixture(),
+            done = [];
+        f.client.scanFolders(
+            [{ path: "/library/metadata/29875/children", title: "Series" }],
+            () => {},
+            (error) => done.push(error)
+        );
+        last(f).reply({
+            MediaContainer: {
+                Directory: [
+                    { key: "/library/metadata/29875/allLeaves", leafCount },
+                ],
+                Metadata: [scanRow(1)],
+                size: 2,
+                totalSize: 1,
+            },
+        });
+        f.tick(0);
+        assert.deepEqual(done, [undefined]);
+    }
+});
+
 console.log(`PASS Plex client (${passed} scenarios)`);

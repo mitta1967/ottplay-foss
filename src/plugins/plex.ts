@@ -1288,9 +1288,9 @@ function createPlexClient(
                 var parent =
                     /^\/library\/metadata\/([1-9][0-9]*)\/children$/.exec(path);
                 var navigation = 0;
+                var invalidNavigation = false;
                 var directories = plexRows(data.Directory).filter(
                     function (row) {
-                        var leafCount = row && Number(row.leafCount);
                         if (
                             parent &&
                             row &&
@@ -1300,13 +1300,21 @@ function createPlexClient(
                                     "/allLeaves" &&
                             row.type === undefined &&
                             row.ratingKey === undefined &&
-                            row.Media === undefined &&
-                            row.leafCount !== undefined &&
-                            isFinite(leafCount) &&
-                            Math.floor(leafCount) === leafCount &&
-                            leafCount >= 0 &&
-                            navigation === 0
+                            row.Media === undefined
                         ) {
+                            var rawLeafCount = row.leafCount;
+                            var leafCount = Number(rawLeafCount);
+                            if (
+                                !(
+                                    typeof rawLeafCount === "number" ||
+                                    (typeof rawLeafCount === "string" &&
+                                        /^[0-9]+$/.test(rawLeafCount))
+                                ) ||
+                                !isFinite(leafCount) ||
+                                Math.floor(leafCount) !== leafCount ||
+                                leafCount < 0
+                            )
+                                invalidNavigation = true;
                             navigation++;
                             return false;
                         }
@@ -1325,6 +1333,8 @@ function createPlexClient(
                         : Number(data.totalSize);
                 if (
                     wireCount !== rows.length ||
+                    invalidNavigation ||
+                    navigation > 1 ||
                     count > 200 ||
                     start !== offset ||
                     (reported !== null &&
