@@ -243,3 +243,52 @@ test("PC R selects a media item without shuffling the displayed folder", async (
     ).toEqual(order);
     expect(errors).toEqual([]);
 });
+
+// Exercise actual fullscreen key capture and the bundled seek controller. The
+// decoder observation intentionally lags to model asynchronous native seeks.
+test("PC modifier seeks accumulate across debounce flushes without reapplying the HUD total", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const errors = await boot(page, context, baseURL);
+    await page.keyboard.press("l");
+    await page.waitForFunction(() => !!document.fullscreenElement);
+    await page.evaluate(() => {
+        window.video.pause();
+        window.__ottClassicPlayback.command({
+            duration: 1000,
+            type: "finite-channel",
+        });
+        window.__ottClassicPlayback.command({ type: "pause" });
+        window.__seekPositions = [];
+        // Use compatibility observations instead of the real decoder's short
+        // fixture timeline; the actual key handler/controller stay unchanged.
+        window.stbPlay = function () {};
+        window.stbGetPosTime = () => 100;
+        window.stbGetLen = () => 1000;
+        window.stbSetPosTime = (position) =>
+            window.__seekPositions.push(position);
+    });
+    await page.locator("#video").focus();
+    for (let index = 0; index < 4; index++) {
+        await page.keyboard.press(
+            index % 2 ? "Control+ArrowRight" : "Alt+ArrowRight"
+        );
+        await expect(page.locator("#info")).toContainText(
+            String((index + 1) * 10) + " s"
+        );
+        await expect
+            .poll(() => page.evaluate(() => window.__seekPositions.length))
+            .toBe(index + 1);
+    }
+    expect(await page.evaluate(() => window.__seekPositions)).toEqual([
+        110, 120, 130, 140,
+    ]);
+    await page.keyboard.press("Alt+ArrowLeft");
+    await expect(page.locator("#info")).toContainText("30 s");
+    await expect
+        .poll(() => page.evaluate(() => window.__seekPositions.at(-1)))
+        .toBe(130);
+    expect(errors).toEqual([]);
+});

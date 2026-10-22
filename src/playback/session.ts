@@ -41,6 +41,13 @@ function createPlaybackSessionController(
     var ownership = new core.PlaybackSessionOwnership();
     var pending: PlaybackIntent | null = null;
     var timer: any = null;
+    var feedback: { value: number; observation: PlaybackObservation } | null =
+        null;
+    var applied: {
+        position: number;
+        before: number;
+        observation: PlaybackObservation;
+    } | null = null;
 
     function accepts(ticket: any): boolean {
         return ownership.accepts(ticket);
@@ -63,12 +70,16 @@ function createPlaybackSessionController(
         );
     }
 
-    function reset(start?: boolean): any {
+    function reset(start?: boolean, preserveOffset = false): any {
         // Retire callbacks and detach state before cleanup can reenter the host.
         var ticket = start ? ownership.begin() : ownership.cancel();
         var previous = timer;
         timer = null;
         pending = null;
+        if (!preserveOffset) {
+            feedback = null;
+            applied = null;
+        }
         if (previous !== null) ports.unschedule(previous);
         return ticket;
     }
@@ -76,7 +87,7 @@ function createPlaybackSessionController(
         reset();
     }
     function complete(ticket: any): boolean {
-        return accepts(ticket) && ownership.accepts(reset(true));
+        return accepts(ticket) && ownership.accepts(reset(true, true));
     }
 
     var origin: PlaybackObservation;
@@ -84,7 +95,8 @@ function createPlaybackSessionController(
         if (intent.intent === "offset" && !isFinite(intent.value as number))
             return;
         var previous = pending;
-        var ticket = reset(true);
+        var delta = intent.value || 0;
+        var ticket = reset(true, intent.intent === "offset");
         if (!accepts(ticket)) return;
         var observation = ports.observe();
         if (!accepts(ticket) || !observation.target) return;
@@ -103,6 +115,25 @@ function createPlaybackSessionController(
         if (!accepts(ticket)) return;
         pending = intent;
         origin = observation;
+        var announcement = intent;
+        if (intent.intent === "offset") {
+            // The HUD lives longer than the 500ms transport debounce. Keep its
+            // gesture total separate from the delta still awaiting execution.
+            var continued =
+                feedback &&
+                observation.now >= feedback.observation.now &&
+                ((previous && previous.intent === "offset") ||
+                    observation.now - feedback.observation.now < 3) &&
+                sameTarget(feedback.observation.target, observation.target) &&
+                (!feedback.observation.isCurrent ||
+                    feedback.observation.isCurrent());
+            if (!continued) applied = null;
+            feedback = {
+                observation: observation,
+                value: (continued ? feedback!.value : 0) + delta,
+            };
+            announcement = { intent: "offset", value: feedback.value };
+        }
         function flush(): void {
             if (!accepts(ticket)) return;
             var current = ports.observe();
@@ -111,19 +142,48 @@ function createPlaybackSessionController(
                 sameTarget(observation.target, current.target) &&
                 (!observation.isCurrent || observation.isCurrent());
             if (!complete(ticket) || !accepted) return;
+            var position = current.position;
+            // Native/browser decoders may report the pre-seek time briefly.
+            // Carry the submitted target only within this owned gesture and
+            // only while the report is still on the old side of that target.
+            if (
+                intent.intent === "offset" &&
+                applied &&
+                current.now >= applied.observation.now &&
+                current.now - applied.observation.now < 3 &&
+                sameTarget(applied.observation.target, current.target) &&
+                (!applied.observation.isCurrent ||
+                    applied.observation.isCurrent()) &&
+                typeof position === "number" &&
+                ((applied.position > applied.before &&
+                    position < applied.position) ||
+                    (applied.position < applied.before &&
+                        position > applied.position))
+            )
+                position = applied.position;
             var plan = core.playbackSeekPlan(current.target, {
                 archiveAvailable: current.archiveAvailable,
                 archiveEarliest: current.archiveEarliest,
                 duration: current.duration,
                 intent: intent.intent,
                 now: current.now,
-                position: current.position,
+                position: position,
                 value: intent.value,
             });
-            if (plan.action !== "noop") ports.apply(plan, intent);
+            if (plan.action === "seek" && typeof position === "number")
+                applied = {
+                    before: current.position!,
+                    observation: current,
+                    position: plan.position,
+                };
+            if (plan.action !== "noop") {
+                if (feedback && intent.intent === "offset")
+                    feedback.observation = current;
+                ports.apply(plan, announcement);
+            }
         }
         if (intent.intent === "offset") {
-            ports.preview(intent);
+            ports.preview(announcement);
             if (!accepts(ticket)) return;
             var scheduled = ports.schedule(flush, 500);
             if (accepts(ticket)) timer = scheduled;

@@ -694,23 +694,34 @@ function controllerFixture() {
     const jobs = new Map(),
         applied = [];
     let next = 0;
-    const f = { applied, jobs };
+    const f = {
+        announcements: [],
+        applied,
+        duration: 1000,
+        jobs,
+        now: 1000,
+        position: 100,
+        previews: [],
+    };
     const target = { channelId: "one", kind: "vod", sourceId: "source" };
+    f.target = target;
     f.controller = context.window.__ottPlaybackSession.create(core, {
-        apply(plan) {
+        apply(plan, intent) {
             applied.push(plan.position);
+            f.announcements.push(intent.value);
         },
         observe() {
             if (f.onObserve) f.onObserve();
             return {
                 archiveAvailable: false,
-                duration: 1000,
-                now: 1000,
-                position: 100,
-                target,
+                duration: f.duration,
+                now: f.now,
+                position: f.position,
+                target: f.target,
             };
         },
-        preview() {
+        preview(intent) {
+            f.previews.push(intent.value);
             if (f.onPreview) f.onPreview();
         },
         schedule(callback) {
@@ -806,6 +817,107 @@ for (const hook of ["onPreview", "onSchedule"]) {
     };
     callback();
     assert.equal(calls, 0, "guard must recheck ownership after observing");
+}
+
+// Separate visible gestures from the 500ms transport debounce. The decoder
+// deliberately lags behind every submitted target in these cross-flush cases.
+{
+    const f = controllerFixture();
+    f.shift(10);
+    f.shift(10);
+    f.shift(10);
+    f.now += 0.5;
+    f.flush();
+    assert.deepEqual(f.applied, [130]);
+    f.now += 0.2;
+    f.shift(10);
+    f.flush();
+    f.now += 0.2;
+    f.shift(10);
+    f.flush();
+    assert.deepEqual(f.previews, [10, 20, 30, 40, 50]);
+    assert.deepEqual(f.announcements, [30, 40, 50]);
+    assert.deepEqual(
+        f.applied,
+        [130, 140, 150],
+        "prior feedback is not reapplied and stale decoder time cannot reset the target"
+    );
+    f.now += 0.2;
+    f.shift(-10);
+    f.flush();
+    f.now += 0.2;
+    f.shift(-10);
+    f.flush();
+    assert.deepEqual(
+        f.applied.slice(-2),
+        [140, 130],
+        "direction reversal still uses the outstanding target"
+    );
+    assert.deepEqual(f.previews.slice(-2), [40, 30]);
+    f.position = 132;
+    f.now += 0.2;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        142,
+        "acknowledged decoder progress supplies the next base"
+    );
+    f.now += 3;
+    f.position = 200;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.previews.at(-1),
+        10,
+        "a new gesture starts after the HUD expires"
+    );
+    assert.equal(f.applied.at(-1), 210);
+}
+{
+    const f = controllerFixture();
+    f.position = 5;
+    f.shift(-10);
+    f.flush();
+    assert.equal(f.applied.at(-1), 0);
+    f.now += 0.1;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        10,
+        "reverse from the clamped beginning without borrowing stale time"
+    );
+    f.controller.cancel();
+    f.position = 995;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        10,
+        "beyond-duration seek remains rejected by core policy"
+    );
+    assert.equal(f.previews.at(-1), 10, "cancel clears the previous gesture");
+    f.controller.request({ intent: "absolute", value: 400 });
+    f.position = 400;
+    f.shift(-10);
+    f.flush();
+    assert.equal(
+        f.previews.at(-1),
+        -10,
+        "absolute seek retires relative feedback"
+    );
+    assert.equal(f.applied.at(-1), 390);
+    f.target = { channelId: "two", kind: "vod", sourceId: "source" };
+    f.position = 20;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.previews.at(-1),
+        10,
+        "new media never inherits pending or visible offsets"
+    );
+    assert.equal(f.applied.at(-1), 30);
 }
 
 // Production TS lowering remains valid for old browser grammars.
