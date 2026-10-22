@@ -627,3 +627,50 @@ console.log(
         "protected duplicate upgrades the driver record"
     );
 }
+
+for (const title of [
+    "Cartoon — 第1話 🐈",
+    "м".repeat(300),
+    "猫".repeat(300),
+    "🐈".repeat(200),
+    "a".repeat(512),
+    "a".repeat(509) + "🐈",
+]) {
+    const f = create({ vportalprofiles: JSON.stringify(config()) });
+    f.host.getChannelsArray(() => {});
+    const item = {
+        __ottPlaylistId: "stable-long-title",
+        request: { cmd: "play", id: 92, query: title },
+        title,
+    };
+    f.clients[0].progress(
+        [{ __ottPlaylistId: "film", title: "Film" }, item],
+        false
+    );
+    const id = f.host.cList[1];
+    const channel = f.host.chanels[id];
+    assert(Buffer.byteLength(channel.channel_name, "utf8") <= 512);
+    assert.equal(
+        channel.tn,
+        channel.channel_name,
+        "list and search share one bounded canonical label"
+    );
+    assert.doesNotThrow(
+        () => encodeURIComponent(channel.channel_name),
+        "label cannot split surrogate pairs"
+    );
+    assert.equal(channel.itemId, "vportal:stable-long-title");
+    assert.equal(
+        f.driver.mediaItem(id),
+        item,
+        "full playback metadata is not truncated or rewritten"
+    );
+    assert.equal(item.title, title);
+    assert.equal(item.request.query, title);
+    if (Buffer.byteLength(title, "utf8") <= 512)
+        assert.equal(channel.channel_name, title);
+    else {
+        assert(channel.channel_name.endsWith("…"));
+        assert(title.startsWith(channel.channel_name.slice(0, -1)));
+    }
+}

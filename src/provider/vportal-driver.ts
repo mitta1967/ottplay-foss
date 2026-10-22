@@ -65,6 +65,29 @@ function normalizeVPortalSections(value: any): any[] | null {
     }
 }
 
+/** Keep the canonical list/search label within the remote catalog's UTF-8 limit. */
+function vportalChannelTitle(value: any): string {
+    var title = String(value || "")
+        .replace(/[\x00-\x1f\x7f-\x9f]/g, " ")
+        .replace(
+            /[\ud800-\udbff][\udc00-\udfff]|[\ud800-\udfff]/g,
+            function (part) {
+                return part.length === 2 ? part : "\ufffd";
+            }
+        );
+    var bytes = 0;
+    var prefix = 0;
+    for (var index = 0; index < title.length; index++) {
+        var code = title.charCodeAt(index);
+        var width = code >= 0xd800 && code <= 0xdbff ? 2 : 1;
+        bytes += width === 2 ? 4 : code < 0x80 ? 1 : code < 0x800 ? 2 : 3;
+        if (bytes <= 509) prefix = index + width;
+        if (bytes > 512) return title.slice(0, prefix) + "…";
+        index += width - 1;
+    }
+    return title.trim() ? title : "VPortal";
+}
+
 function createVPortalProviderDriver(
     ports: ProviderDriverPorts,
     owner: DriverLifetime,
@@ -326,7 +349,7 @@ function createVPortalProviderDriver(
                                         : row.name || "VPortal",
                                     itemId: "vportal:" + item.__ottPlaylistId,
                                     logo: item.logo_30x30 || "",
-                                    name: item.title,
+                                    name: vportalChannelTitle(item.title),
                                     providerId: "",
                                     url: "vportal:request",
                                 };
