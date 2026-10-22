@@ -2262,7 +2262,7 @@ test("profile scan watchdog aborts a stalled transport and late responses cannot
     assert.equal(batches, 0);
 });
 
-test("whole-library scan discovers video sections with stable categories and no folder selection", () => {
+test("whole-library scan discovers video and music sections with stable categories and no folder selection", () => {
     const f = fixture(),
         batches = [],
         done = [];
@@ -2278,6 +2278,7 @@ test("whole-library scan discovers video sections with stable categories and no 
                 { key: "1", title: "Cartoons", type: "movie" },
                 { key: "2", title: "Cartoons", type: "show" },
                 { key: "3", title: "Music", type: "artist" },
+                { key: "4", title: "Photos", type: "photo" },
             ],
         },
     });
@@ -2308,6 +2309,24 @@ test("whole-library scan discovers video sections with stable categories and no 
         },
     });
     f.tick(5000);
+    assert.equal(parsed(f).pathname, "/library/sections/3/all");
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [{ ratingKey: "33", title: "Song", type: "track" }],
+            size: 1,
+            totalSize: 1,
+        },
+    });
+    const track = batches
+        .flatMap((batch) => Array.from(batch.rows))
+        .find((row) => row.request.path === "/library/metadata/33");
+    assert.equal(track.__ottMediaSequence, true);
+    assert.equal(track.__ottMediaCollection, "Music");
+    assert.equal(
+        track.__ottMediaCategories[0].id,
+        "plex:/library/sections/3/all"
+    );
+    f.tick(5000);
     assert.equal(parsed(f).pathname, "/library/metadata/20/children");
     last(f).reply({
         MediaContainer: { Metadata: [scanRow(22)], size: 1, totalSize: 1 },
@@ -2328,7 +2347,7 @@ test("whole-library scan discovers video sections with stable categories and no 
     );
     assert(
         !f.requests.some((request) =>
-            new URL(request.options.url).pathname.includes("/sections/3/")
+            new URL(request.options.url).pathname.includes("/sections/4/")
         )
     );
     assert.deepEqual(done, [undefined]);

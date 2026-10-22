@@ -535,6 +535,70 @@ function fixture(provider = "vportal") {
     );
     assert.equal(f.rows(compatible.data.catalog).status, "ok");
 }
+{
+    for (const label of [
+        "Ж".repeat(300),
+        "📂".repeat(200),
+        "a".repeat(509) + "📂",
+        "a".repeat(507) + "📂xx",
+    ]) {
+        const f = fixture();
+        f.host.catsArray[1] = label;
+        f.host.cats[label] = f.host.cats.Сериал;
+        f.refresh();
+        const listing = f.list();
+        assert.equal(
+            listing.status,
+            "ok",
+            "a long category breadcrumb remains listable"
+        );
+        const category = listing.data.categories[1];
+        assert.equal(
+            category.id,
+            "vportal:series",
+            "projection does not alter stable category IDs"
+        );
+        assert.ok(Buffer.byteLength(category.name, "utf8") <= 512);
+        assert.ok(category.name.endsWith("…"));
+        assert.equal(
+            Buffer.from(category.name, "utf8").toString("utf8"),
+            category.name,
+            "UTF-8 projection never splits surrogate pairs"
+        );
+        assert.equal(
+            f.select(listing.data.catalog, category.id).status,
+            "ok",
+            "truncated labels remain selectable by exact ID"
+        );
+        assert.equal(
+            f.rows(listing.data.catalog, category.id).data.channels[0].name,
+            "Один",
+            "video title display and matching are unchanged"
+        );
+    }
+    const f = fixture();
+    const exact = "a".repeat(508) + "📂";
+    f.host.__ottChannels.remoteCatalog().groups[1].name = exact;
+    assert.equal(
+        f.list().data.categories[1].name,
+        exact,
+        "an exact 512-byte label remains intact"
+    );
+    for (const label of [
+        "a".repeat(600) + "\ud800",
+        "a".repeat(600) + "\u0085",
+        { request: { url: "private-provider-url" }, title: "a".repeat(600) },
+    ]) {
+        f.host.__ottChannels.remoteCatalog().groups[1].name = label;
+        const rejected = f.list();
+        assert.equal(rejected.status, "rejected");
+        assert.equal(rejected.data.error, "unavailable");
+        assert.ok(
+            !JSON.stringify(rejected).includes("private-provider-url"),
+            "provider objects are never display-label fallbacks"
+        );
+    }
+}
 console.log(
     "PASS remote media categories: ES5, paged metadata, stable IDs, global numbering, browse/play separation, kiosk policy, stale receipts, bounded retention and legacy compatibility"
 );

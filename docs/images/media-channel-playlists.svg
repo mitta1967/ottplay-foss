@@ -9,9 +9,9 @@
     <title id="title">All media, television-style categories</title>
     <desc id="desc">
         All Plex and VPortal videos appear in the standard channel list.
-        Category selection filters by library, folder or series.
-        The first usable batch starts playback while discovery continues.
-        Cancel or change of source invalidates pending results.
+        Category selection filters by library, folder or series. The first
+        usable batch starts playback while discovery continues. Cancel or change
+        of source invalidates pending results.
     </desc>
     <defs>
         <marker
@@ -63,7 +63,9 @@
         <text font-size="23" font-weight="700" x="72" y="197">
             1. Connect a profile
         </text>
-        <text fill="#62ddd2" font-size="21" x="72" y="244">✓ Plex libraries</text>
+        <text fill="#62ddd2" font-size="21" x="72" y="244">
+            ✓ Plex libraries
+        </text>
         <text fill="#62ddd2" font-size="21" x="72" y="282">
             ✓ VPortal catalog
         </text>

@@ -1228,7 +1228,9 @@ function createPlexClient(
                         Directory: items(data).filter(function (item) {
                             return (
                                 item &&
-                                (item.type === "movie" || item.type === "show")
+                                (item.type === "movie" ||
+                                    item.type === "show" ||
+                                    item.type === "artist")
                             );
                         }),
                         Hub: [],

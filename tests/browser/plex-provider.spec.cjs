@@ -292,7 +292,8 @@ async function openLegacyPlex(page, restore = false) {
     await page.waitForFunction(
         () =>
             window.__ottActiveProviderDriver?.libraryReady() &&
-            window.providerMediaClient
+            window.providerMediaClient &&
+            !window.__ottActiveProviderDriver.catalogLoading()
     );
     if (!restore)
         await page.waitForFunction(
@@ -302,10 +303,9 @@ async function openLegacyPlex(page, restore = false) {
         );
     await page.evaluate((restore) => {
         if (!restore) window.stbStop();
-        // Retire the catalog scan through its public editor entry before
-        // exercising the backwards-compatible explicit Media API.
-        window.__ottEditProvider();
-        if (restore) window.closeList();
+        // The full catalog is already ready. Opening the credentials editor
+        // would retire it; explicit Media browsing must preserve that catalog.
+        window.closeList();
         window.__ottChannels.mount(window);
         window.__ottMedia.useSource(null);
         const open = () =>
@@ -1757,7 +1757,12 @@ for (const { engine, strict } of [
                         ],
                     });
                 if (url.pathname === "/library/sections/7/all")
-                    return json({ Metadata: [] });
+                    return json({
+                        Metadata: films,
+                        offset: 0,
+                        size: 2,
+                        totalSize: 2,
+                    });
                 if (url.pathname === "/library/sections/7/folder")
                     return json({
                         Metadata: films,
@@ -2067,9 +2072,7 @@ for (const { engine, strict } of [
                     ).toBe(true);
             }
             // Explicit Media playback shares preferences with its configured flat playlist.
-            expect(await page.evaluate(() => window.cList.length)).toBe(
-                strict ? 2 : 0
-            );
+            expect(await page.evaluate(() => window.cList.length)).toBe(2);
             await page.evaluate(() => window.stbToggleAspectRatio());
             await page
                 .getByRole("button", { exact: true, name: "Fill screen" })
@@ -2347,8 +2350,12 @@ for (const variant of ["pc", "generic"]) {
                     window.__ottActiveProviderDriver.catalogLoading()
                 )
             ).toBe(true);
-            await page.waitForFunction(() => window.channelId === "plex-11");
-            const before = await page.evaluate(() => window.channelId);
+            await page.waitForFunction(
+                () => window.curList?.[window.primaryIndex] === "plex-11"
+            );
+            const before = await page.evaluate(
+                () => window.curList?.[window.primaryIndex]
+            );
             await remaining.fulfill({
                 headers,
                 json: {
@@ -2373,7 +2380,9 @@ for (const variant of ["pc", "generic"]) {
                     )
                 )
                 .toBe(false);
-            expect(await page.evaluate(() => window.channelId)).toBe(before);
+            expect(
+                await page.evaluate(() => window.curList?.[window.primaryIndex])
+            ).toBe(before);
             expect(await page.evaluate(() => window.cList.slice())).toEqual([
                 "plex-11",
                 "plex-22",

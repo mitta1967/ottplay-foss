@@ -44,6 +44,38 @@ function remoteMediaText(value: any, limit: number): boolean {
         return false;
     }
 }
+/** Project only a category's display label; never serialize its provider request. */
+function remoteMediaCategoryName(value: any): string | null {
+    if (
+        typeof value !== "string" ||
+        !value.trim() ||
+        /[\x00-\x1f\x7f-\x9f]/.test(value)
+    )
+        return null;
+    var bytes = 0;
+    var prefixBytes = 0;
+    var prefix = "";
+    var collecting = true;
+    for (var index = 0; index < value.length; index++) {
+        var code = value.charCodeAt(index);
+        var width = 1;
+        var size = code < 0x80 ? 1 : code < 0x800 ? 2 : 3;
+        if (code >= 0xd800 && code <= 0xdbff) {
+            var low = value.charCodeAt(index + 1);
+            if (!(low >= 0xdc00 && low <= 0xdfff)) return null;
+            width = 2;
+            size = 4;
+        } else if (code >= 0xdc00 && code <= 0xdfff) return null;
+        bytes += size;
+        // Reserve the three UTF-8 bytes of the ellipsis before keeping a code point.
+        if (collecting && prefixBytes + size <= 509) {
+            prefix += value.slice(index, index + width);
+            prefixBytes += size;
+        } else collecting = false;
+        index += width - 1;
+    }
+    return bytes <= 512 ? value : prefix + "…";
+}
 function remoteMediaInteger(value: any, maximum: number): boolean {
     return (
         typeof value === "number" &&
@@ -581,9 +613,10 @@ export function executeRemoteRequest(
                         typeof group.id === "string"
                             ? remoteMediaId(group.id)
                             : "";
+                    var categoryName = remoteMediaCategoryName(group.name);
                     if (
                         !remoteMediaText(id, 1024) ||
-                        !remoteMediaText(group.name, 512) ||
+                        categoryName === null ||
                         categorySeen[id] ||
                         !Array.isArray(group.members) ||
                         group.members.length > 1000000
@@ -595,7 +628,7 @@ export function executeRemoteRequest(
                     categoryRows.push({
                         count: group.members.length,
                         id: id,
-                        name: group.name,
+                        name: categoryName,
                     });
                 });
             if (!categoryValid) {
