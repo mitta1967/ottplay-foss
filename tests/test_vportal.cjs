@@ -2658,3 +2658,62 @@ console.log(
 console.log(
     "PASS VPortal one-time optional-description fallback, reference stability, duplicate accounting and mandatory cap"
 );
+
+// Returned folder/duplicate rows and retained videos use separate fixed budgets.
+{
+    const f = fixture();
+    let result;
+    f.client.playlist(
+        [{ __ottCategoryRoot: true, request: {}, title: "Portal" }],
+        (items, complete, error) => {
+            result = { complete, error, items };
+        }
+    );
+    const same = {
+        request: { cmd: "play", id: 1 },
+        title: "One retained video",
+        type: "stream",
+    };
+    for (let page = 0; page < 664; page++) {
+        f.requests[page].receive({
+            items: Array(300)
+                .fill(same)
+                .concat([
+                    { request: { offset: (page + 1) * 300 }, type: "next" },
+                ]),
+            type: "category",
+        });
+        if (page === 333) {
+            assert(f.client.scanDiagnostics().rows > 100000);
+            assert.equal(
+                result.complete,
+                false,
+                "valid duplicates may exceed 100k returned rows"
+            );
+        }
+    }
+    assert.equal(f.client.scanDiagnostics().rows, 199864);
+    f.requests[664].receive({
+        items: Array(135)
+            .fill(same)
+            .concat([{ request: { offset: 199500 }, type: "next" }]),
+        type: "category",
+    });
+    assert.equal(f.client.scanDiagnostics().rows, 200000);
+    assert.equal(
+        result.complete,
+        false,
+        "exactly 200k rows remain within the fixed budget"
+    );
+    assert.equal(result.items.length, 1);
+    assert(f.client.scanDiagnostics().retainedBytes < 1024);
+    f.requests[665].receive({ items: [same], type: "category" });
+    assert.equal(result.complete, true);
+    assert(result.error);
+    assert.equal(f.client.scanDiagnostics().code, "row_limit");
+    assert.equal(f.client.scanDiagnostics().rows, 200001);
+    assert.equal(result.items.length, 1);
+}
+console.log(
+    "PASS VPortal separate 200k whole-row and retained-metadata budgets"
+);

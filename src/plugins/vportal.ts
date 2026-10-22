@@ -1166,7 +1166,7 @@ export function createVPortalClient(
             roots.some(function (root) {
                 return root.__ottCategoryRoot === true;
             });
-        var maxRows = whole ? 100000 : 20000;
+        var maxRows = whole ? 200000 : 20000;
         var maxPages = whole ? 10000 : 500;
         var duration = 120000;
         var containers = 0;
