@@ -594,13 +594,7 @@ export function uiInit(): void {
     }
     function progressHit(e: any): boolean {
         var element = $progressDiv[0];
-        if (
-            !element ||
-            (e.target &&
-                $(e.target).closest(
-                    "button,a,input,select,textarea,[data-ott-key]"
-                ).length)
-        )
+        if (!element || $(e.target).closest(":input,a,[data-ott-key]").length)
             return false;
         var rect = element.getBoundingClientRect();
         return (
@@ -614,7 +608,7 @@ export function uiInit(): void {
     }
     function progressFraction(clientX: number): number {
         var rect = $progressDiv[0].getBoundingClientRect();
-        return rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
+        return (clientX - rect.left) / rect.width;
     }
 
     $progressDiv.on("mousedown.ottUi", function (e: any) {
