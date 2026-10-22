@@ -328,7 +328,9 @@ const { gzipSync } = require("node:zlib");
 // about 12.6 KB raw (1012845 total on Node 22). Keep the release suffix reserve.
 // Successful-page receipt renewal adds 342 raw bytes; retain candidate
 // version and native-transform room after the measured 1013442-byte entry.
-const BUDGET = Object.freeze({ bytes: 1014000, gzipBytes: 313400 });
+// Whole-portal progressive limits, compact metadata and idle diagnostics add
+// 1944 raw entry bytes (1015386 on Node 22.23.3); retain candidate headroom.
+const BUDGET = Object.freeze({ bytes: 1016000, gzipBytes: 314000 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -489,7 +491,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // payload; preserve bounded native and release-suffix headroom.
 // Exact PMS navigation accounting, C1 cleanup and successful-page renewal
 // measure 1148243 / 361821 gzip on Node 22.23.3. Retain bounded release room.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1149000, gzipBytes: 362500 });
+// Count the bounded whole-portal scanner once in the complete payload.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1151000, gzipBytes: 363200 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
