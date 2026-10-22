@@ -2338,3 +2338,144 @@ console.log(
     assert.equal(published, false);
     f.client.cancel();
 }
+
+// Whole-catalog request entries retain identities, not stale playback URLs.
+{
+    function catalog(whole) {
+        const f = fixture({}, { sourceId: "memory-source" });
+        let items;
+        f.client.playlist(
+            [{ __ottCategoryRoot: whole, request: {}, title: "Portal" }],
+            (value, complete) => {
+                if (complete) items = value;
+            }
+        );
+        f.requests[0].receive({
+            items: [
+                { request: { cmd: "first" }, title: "First", type: "category" },
+                {
+                    request: { cmd: "second" },
+                    title: "Second",
+                    type: "category",
+                },
+            ],
+            type: "videoportal",
+        });
+        f.requests[1].receive({
+            items: [
+                {
+                    request: { cmd: "play", fid: 7 },
+                    title: "Request item",
+                    type: "stream",
+                    url: "https://cdn.example/stale-request.mp4",
+                },
+                {
+                    id: 8,
+                    title: "Direct item",
+                    type: "stream",
+                    url: "https://cdn.example/direct.mp4",
+                },
+            ],
+            type: "category",
+        });
+        f.requests[2].receive({
+            items: [
+                {
+                    request: { cmd: "play", fid: 7 },
+                    title: "Request item",
+                    type: "stream",
+                    url: "https://cdn.example/different-stale.mp4",
+                },
+            ],
+            type: "category",
+        });
+        return { f, items };
+    }
+    const whole = catalog(true);
+    const scoped = catalog(false);
+    const item = whole.items[0];
+    assert.equal(item.stream_url, "vportal:request");
+    assert.equal(
+        scoped.items[0].stream_url,
+        "https://cdn.example/stale-request.mp4"
+    );
+    for (const field of [
+        "title",
+        "request",
+        "__ottPlaylistId",
+        "__ottMediaOrigin",
+        "__ottVPortalDirect",
+    ])
+        assert.equal(
+            JSON.stringify(item[field]),
+            JSON.stringify(scoped.items[0][field]),
+            field
+        );
+    assert.equal(
+        item.__ottMediaCategories.length,
+        2,
+        "duplicate request still merges both categories"
+    );
+    const direct = whole.items[1];
+    assert.equal(direct.stream_url, "https://cdn.example/direct.mp4");
+    for (const field of [
+        "title",
+        "__ottPlaylistId",
+        "__ottMediaOrigin",
+        "__ottVPortalDirect",
+    ])
+        assert.equal(
+            JSON.stringify(direct[field]),
+            JSON.stringify(scoped.items[1][field]),
+            field
+        );
+    assert(direct.__ottMediaOrigin && direct.__ottVPortalDirect);
+    const retained = JSON.stringify(item);
+    for (const automatic of [false, true]) {
+        for (const iteration of [0, 1]) {
+            let resolved;
+            whole.f.client.resolve(
+                item,
+                (value) => {
+                    resolved = value;
+                },
+                automatic
+            );
+            assert.equal(resolved, undefined);
+            assert.deepEqual(
+                JSON.parse(whole.f.requests.at(-1).options.data).params,
+                {
+                    app: "ott-play",
+                    cmd: "play",
+                    fid: 7,
+                    key: "fixture-private-key",
+                }
+            );
+            const url = `https://cdn.example/fresh-${automatic}-${iteration}.mp4`;
+            whole.f.requests.at(-1).receive({ url });
+            assert.equal(resolved.stream_url, url);
+            assert.equal(
+                JSON.stringify(item),
+                retained,
+                "manual, automatic and repeat resolution preserve the retained entry"
+            );
+        }
+    }
+    whole.f.client.play(item);
+    assert.equal(whole.f.played.length, 0);
+    whole.f.requests
+        .at(-1)
+        .receive({ url: "https://cdn.example/fresh-play.mp4" });
+    assert.equal(
+        whole.f.played[0].stream_url,
+        "https://cdn.example/fresh-play.mp4"
+    );
+    assert.equal(
+        item.stream_url,
+        "vportal:request",
+        "fresh URL is never written back into catalog metadata"
+    );
+}
+console.log(
+    "PASS VPortal compact request URLs keep fresh playback, direct origins and duplicate categories"
+);
