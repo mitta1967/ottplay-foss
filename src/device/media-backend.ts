@@ -291,7 +291,11 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 if (isFinite(measured) && measured >= 0) position = measured;
                 duration = sample.duration;
                 if (!context || context.kind !== "live") {
-                    if (ports.observedPosition && domainCurrent())
+                    if (
+                        lane === "main" &&
+                        ports.observedPosition &&
+                        domainCurrent()
+                    )
                         ports.observedPosition(position);
                     command("position");
                 }
@@ -320,7 +324,7 @@ function createMediaBackend(ports: MediaBackendPorts) {
                 (!next || !context || next.kind !== context.kind)
             )
                 return;
-            if (ports.beforeSeek) ports.beforeSeek(value);
+            if (lane === "main" && ports.beforeSeek) ports.beforeSeek(value);
             var afterSeekGuard = ports.context();
             if (
                 !current() ||

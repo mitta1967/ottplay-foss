@@ -1567,6 +1567,25 @@ test("admitted external seeks replace pending keyboard offsets despite decoder l
     );
 });
 
+test("PIP observations and seeks never retire main keyboard gestures", (f) => {
+    const main = f.backend.open({ url: "main" });
+    f.playing(0, 100);
+    const pip = f.backend.open({ lane: "pip", url: "pip" });
+    f.playing(1, 20);
+    const hooks = [];
+    f.ports.beforeSeek = (value) => hooks.push(["before", value]);
+    f.ports.observedPosition = (value) => hooks.push(["observed", value]);
+    pip.seek(30);
+    pip.sample();
+    assert.deepEqual(hooks, []);
+    main.seek(40);
+    main.sample();
+    assert.deepEqual(hooks, [
+        ["before", 40],
+        ["observed", 40],
+    ]);
+});
+
 test("external seek hook reentry cannot operate on a replacement generation", (f) => {
     const handle = f.backend.open({ url: "old" });
     f.playing(0, 10);
