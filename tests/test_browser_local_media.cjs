@@ -1727,6 +1727,10 @@ async function builtUi(devicePath) {
         // retain profile references and source identity, then start one fresh
         // document so unabortable reads cannot poison the replacement handle.
         await page.evaluate(() => window.__ottLocalMedia.open());
+        // open() renders saved rows before its owned scan finishes. Do not
+        // start a second browser.list() from the fixture while that scan owns
+        // the manager: it would cancel the very snapshot under test.
+        await page.locator("#dialogbox").waitFor({ state: "hidden" });
         await action("reconnect-source").waitFor({ state: "visible" });
         async function reconnectSnapshot() {
             return page.evaluate(async () => {
