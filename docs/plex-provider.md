@@ -319,3 +319,5 @@ The provider tests also cover local profile isolation, masked token editing,
 authenticated readiness, stale connection callbacks, server choice and
 cancellation after switching providers. Install the Playwright browsers required
 by the selected commands before running browser acceptance.
+
+Catalog receipts expire after two minutes without a successful page read; active paging renews that window. Changing the source or rebuilding its catalog invalidates them immediately.
