@@ -78,7 +78,7 @@ jobs:
           cache: npm
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26.9'
+          go-version: '1.27.3'
           cache: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -363,6 +363,10 @@ jobs:
         run: node scripts/check-glib-backport.cjs
       - name: Verify native drag pasteboard dependency guards
         run: node scripts/check-macos-drag-backport.cjs
+      - name: Verify updater source and ZIP compatibility
+        run: |
+          python3 scripts/check-updater-backport.py
+          cargo test --locked --manifest-path tests/updater-zip-regression/Cargo.toml
       - name: Install GLib for optimized iterator regression
         run: sudo apt-get update && sudo apt-get install -y libglib2.0-dev pkg-config
       - name: Exercise patched GLib iterator through FFI in release mode
