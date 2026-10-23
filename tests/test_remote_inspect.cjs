@@ -95,6 +95,62 @@ assert.equal(
 );
 assert.equal(api.accept({ action: "aspect", params: {} }), false);
 assert.equal(api.accept({ action: "play" }), true);
+assert.equal(
+    api.accept({ action: "categories", params: { op: "list", runtime } }),
+    true
+);
+assert.equal(
+    api.accept({
+        action: "categories",
+        params: { op: "select", runtime: "another-page" },
+    }),
+    false
+);
+assert.equal(
+    api.accept({
+        action: "channels",
+        params: {
+            catalog: "receipt",
+            category: "all",
+            limit: 1,
+            offset: 0,
+            runtime,
+        },
+    }),
+    true
+);
+assert.equal(
+    api.accept({
+        action: "channels",
+        params: { catalog: "receipt", runtime: "another-page" },
+    }),
+    false
+);
+assert.equal(
+    api.accept({ action: "channels", params: { category: "all" } }),
+    false
+);
+assert.equal(
+    api.accept({ action: "channels", params: { search: "news" } }),
+    true
+);
+const categoryOperationId = "c".repeat(32);
+api.execute(
+    {
+        action: "categories",
+        id: categoryOperationId,
+        params: { catalog: "receipt", category: "all", op: "select", runtime },
+    },
+    () => {},
+    undefined,
+    (_item, done) => done({ data: { dispatched: true }, status: "ok" })
+);
+const categoryOperation = query("operation", {
+    operation_id: categoryOperationId,
+}).data.data;
+assert.equal(categoryOperation.action, "categories");
+assert.equal(categoryOperation.state, "invoked");
+assert.equal(categoryOperation.evidence.kind, "handler_completed");
 
 const id = "a".repeat(32);
 const result = () => query("operation", { operation_id: id }).data.data;
@@ -138,6 +194,11 @@ w.__ottCoreBackendPeek = () => ({
 assert.equal(result().state, "invoked");
 const readId = "b".repeat(32);
 for (const [action, params] of [
+    ["categories", { op: "list", runtime }],
+    [
+        "channels",
+        { catalog: "receipt", category: "all", limit: 1, offset: 0, runtime },
+    ],
     ["plex_queue", { op: "status" }],
     ["plex_library", { op: "list", runtime }],
     ["plex_library", { library_id: "16", op: "preview", runtime }],

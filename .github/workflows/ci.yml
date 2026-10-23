@@ -78,7 +78,7 @@ jobs:
           cache: npm
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26.9'
+          go-version: '1.27.3'
           cache: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -231,9 +231,14 @@ jobs:
         run: npm run check:es5
 
       - name: Install browsers for device and native UI checks
-        run: npx playwright install --with-deps chromium webkit
+        run: |
+          sudo env CI="$CI" python3 scripts/ci-apt-mirror.py
+          npx playwright install --with-deps chromium webkit
 
       - name: Test local browser media and offline app shell
+        # The runner terminates this isolated browser test process group if an
+        # unexpected browser promise stops settling; normal runs take <2 min.
+        timeout-minutes: 10
         run: |
           node tests/test_browser_direct_media.cjs
           node tests/test_browser_local_media.cjs --built-ui
@@ -358,6 +363,10 @@ jobs:
         run: node scripts/check-glib-backport.cjs
       - name: Verify native drag pasteboard dependency guards
         run: node scripts/check-macos-drag-backport.cjs
+      - name: Verify updater source and ZIP compatibility
+        run: |
+          python3 scripts/check-updater-backport.py
+          cargo test --locked --manifest-path tests/updater-zip-regression/Cargo.toml
       - name: Install GLib for optimized iterator regression
         run: sudo apt-get update && sudo apt-get install -y libglib2.0-dev pkg-config
       - name: Exercise patched GLib iterator through FFI in release mode

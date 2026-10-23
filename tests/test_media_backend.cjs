@@ -1452,6 +1452,149 @@ test("EOF retains one final attempt before synchronous engine disposal", () => {
     assert.equal(f.backend.lastAttempt("pip"), null);
 });
 
+test("admitted external seeks replace pending keyboard offsets despite decoder lag", (f) => {
+    const core = require("./helpers/shared-core-runtime.cjs")(f.context, {
+        vendorOnly: true,
+    });
+    load(f.context, "src/playback/session.ts");
+    const jobs = new Map(),
+        applied = [];
+    let serial = 0;
+    const target = { channelId: "one", kind: "vod", sourceId: "source" };
+    const controller = f.context.__ottPlaybackSession.create(core, {
+        apply: (plan) => {
+            applied.push(plan.position);
+            f.backend.seek(plan.position);
+        },
+        observe: () => ({
+            archiveAvailable: false,
+            duration: 1000,
+            now: 1000,
+            position: 100,
+            target,
+        }),
+        preview() {},
+        schedule(callback) {
+            jobs.set(++serial, callback);
+            return serial;
+        },
+        unschedule(id) {
+            jobs.delete(id);
+        },
+    });
+    f.ports.beforeSeek = (position) => controller.beforeSeek(position);
+    f.ports.observedPosition = (position) =>
+        controller.observePosition(position);
+    f.backend.open({ url: "fixture" });
+    f.playing(0, 100);
+    const play = () => {};
+    Object.assign(f.context, {
+        __ottClassicPlayback: { snapshot: () => ({ target }) },
+        __ottClassicScreenPort: { screens: { current: () => null } },
+        __ottCoreBackend: () => f.backend,
+        __ottCoreTransport: { play },
+        __ottKiosk: { enabled: () => false },
+        __ottParental: { needs: () => false },
+        $: () => ({ is: () => false }),
+        exports: {},
+        require: () => ({}),
+        stbIsStandby: () => false,
+        stbPlay: play,
+    });
+    const source = fs.readFileSync(
+        path.join(__dirname, "../src/commands/remote-restart.ts"),
+        "utf8"
+    );
+    vm.runInContext(
+        ts.transpileModule(source, {
+            compilerOptions: {
+                module: ts.ModuleKind.CommonJS,
+                target: ts.ScriptTarget.ES5,
+            },
+        }).outputText,
+        f.context
+    );
+    const remote = (position) => {
+        let reply;
+        f.context.exports.executeRemoteControl(
+            f.context,
+            "playback",
+            { operation: "seek", position },
+            (value) => {
+                reply = value;
+            }
+        );
+        return reply;
+    };
+    const shift = () => controller.request({ intent: "offset", value: 10 });
+    const flush = () => {
+        for (const callback of [...jobs.values()]) callback();
+    };
+    shift();
+    flush();
+    assert.deepEqual(applied, [110]);
+    assert.equal(remote(50).status, "ok");
+    shift();
+    flush();
+    assert.deepEqual(
+        applied,
+        [110, 60],
+        "remote target50 is the next base even while samples still say100"
+    );
+    shift();
+    assert.equal(remote(30).status, "ok");
+    flush();
+    assert.deepEqual(
+        applied,
+        [110, 60],
+        "admitted external seek retired the old pending timer"
+    );
+    shift();
+    assert.equal(remote(-1).status, "rejected");
+    flush();
+    assert.deepEqual(
+        applied,
+        [110, 60, 40],
+        "rejected seek did not discard pending keyboard work"
+    );
+    f.backend.seek(25);
+    shift();
+    flush();
+    assert.equal(
+        applied.at(-1),
+        35,
+        "native/footer backend seeks use the same admitted boundary"
+    );
+});
+
+test("PIP observations and seeks never retire main keyboard gestures", (f) => {
+    const main = f.backend.open({ url: "main" });
+    f.playing(0, 100);
+    const pip = f.backend.open({ lane: "pip", url: "pip" });
+    f.playing(1, 20);
+    const hooks = [];
+    f.ports.beforeSeek = (value) => hooks.push(["before", value]);
+    f.ports.observedPosition = (value) => hooks.push(["observed", value]);
+    pip.seek(30);
+    pip.sample();
+    assert.deepEqual(hooks, []);
+    main.seek(40);
+    main.sample();
+    assert.deepEqual(hooks, [
+        ["before", 40],
+        ["observed", 40],
+    ]);
+});
+
+test("external seek hook reentry cannot operate on a replacement generation", (f) => {
+    const handle = f.backend.open({ url: "old" });
+    f.playing(0, 10);
+    f.ports.beforeSeek = () =>
+        f.domain({ generation: 2, kind: "vod", position: 0 });
+    handle.seek(50);
+    assert.equal(f.leases[0].sample.position, 10);
+});
+
 console.log(
     "PASS media backend: " + passed + " ES5 lease/observer/device scenarios"
 );

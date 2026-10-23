@@ -141,3 +141,51 @@ caller. It verifies captured values, 128 copy/release cycles and exactly-once
 capture destruction, while the original source must fail the relevant compiler
 lint. Remove the override only after a compatible maintained dependency path
 includes the equivalent fix and the native regression still passes.
+
+## Tauri updater optional ZIP dependency
+
+The workspace uses the published `tauri-plugin-updater` 2.12.0 API with a local
+ZIP dependency update from `4` to `9` and a strict TLS policy. The previously locked ZIP 4.6.1 is
+covered by [RUSTSEC-2026-0367](https://rustsec.org/advisories/RUSTSEC-2026-0367.html),
+[RUSTSEC-2026-0368](https://rustsec.org/advisories/RUSTSEC-2026-0368.html) and
+[RUSTSEC-2026-0369](https://rustsec.org/advisories/RUSTSEC-2026-0369.html); all list
+9.0.0 as patched. These advisories concern Unix permission and symlink handling.
+Their presence in an optional lock graph does not establish that the Windows
+application can exercise those paths. Windows ZIP updates remain disabled;
+raw MSI/NSIS updates and non-Windows archive support are unchanged.
+
+`tauri-plugin-updater-2.12.0/` retains the published file inventory, both licenses and
+upstream version. The sole omitted file is the crate's historical development
+`Cargo.lock`: downstream builds do not use it, and the application and isolated
+regression have their own reviewed locks. Its original hash is retained in
+`tauri-plugin-updater-2.12.0.provenance.json` with the reason for omission.
+The published archive SHA256 is
+`7a5cad8ed5948d988e1018ecd31e27cacedbf72ce3fb972940c3e4bf51639e4b`;
+its source commit is `5baf71a47292d8490f0ba3d53f15224e55c48327`.
+The ZIP version constraints in `Cargo.toml` and `Cargo.toml.orig` differ; the
+adjacent `-zip9.patch` records those two lines. `src/updater.rs` additionally
+enforces certificate and hostname verification after optional client callbacks
+for both metadata checks and artifact downloads. The public API shape remains
+compatible, but dangerous invalid-certificate/hostname options are not honored
+by this local build. Custom preconfigured TLS connectors are replaced with the
+feature-selected verified backend; normal root-certificate additions remain
+supported. The application already uses HTTPS and the secure defaults.
+The `-tls.patch` records this source change; the provenance manifest records
+every original and patched hash, and the checker reconstructs the upstream
+bytes. No registry cache is modified.
+
+```sh
+python3 scripts/check-updater-backport.py
+cargo test --locked --manifest-path tests/updater-zip-regression/Cargo.toml
+python3 scripts/check-updater-features.py
+```
+
+The [isolated compatibility regression](../tests/updater-zip-regression/README.md)
+compiles the actual updater extraction method with ZIP 9 and the strict TLS
+helper on Linux and Windows. Loopback-only HTTPS checks use newly generated
+certificates to prove valid trusted requests work while untrusted certificates
+and wrong hostnames are rejected. No production keys or external server are used.
+ZIP 9 requires Rust 1.88+ when enabled; CI uses stable Rust. Native Windows
+installer lifecycle tests remain required. Remove this override only when a
+compatible upstream updater resolves a patched ZIP release and preserves the
+same enforced TLS verification; retain the regression coverage until then.

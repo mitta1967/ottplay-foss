@@ -694,23 +694,34 @@ function controllerFixture() {
     const jobs = new Map(),
         applied = [];
     let next = 0;
-    const f = { applied, jobs };
+    const f = {
+        announcements: [],
+        applied,
+        duration: 1000,
+        jobs,
+        now: 1000,
+        position: 100,
+        previews: [],
+    };
     const target = { channelId: "one", kind: "vod", sourceId: "source" };
+    f.target = target;
     f.controller = context.window.__ottPlaybackSession.create(core, {
-        apply(plan) {
+        apply(plan, intent) {
             applied.push(plan.position);
+            f.announcements.push(intent.value);
         },
         observe() {
             if (f.onObserve) f.onObserve();
             return {
                 archiveAvailable: false,
-                duration: 1000,
-                now: 1000,
-                position: 100,
-                target,
+                duration: f.duration,
+                now: f.now,
+                position: f.position,
+                target: f.target,
             };
         },
-        preview() {
+        preview(intent) {
+            f.previews.push(intent.value);
             if (f.onPreview) f.onPreview();
         },
         schedule(callback) {
@@ -806,6 +817,295 @@ for (const hook of ["onPreview", "onSchedule"]) {
     };
     callback();
     assert.equal(calls, 0, "guard must recheck ownership after observing");
+}
+
+// Separate visible gestures from the 500ms transport debounce. The decoder
+// deliberately lags behind every submitted target in these cross-flush cases.
+{
+    const f = controllerFixture();
+    f.shift(10);
+    f.shift(10);
+    f.shift(10);
+    f.now += 0.5;
+    f.flush();
+    assert.deepEqual(f.applied, [130]);
+    f.now += 0.2;
+    f.shift(10);
+    f.flush();
+    f.now += 0.2;
+    f.shift(10);
+    f.flush();
+    assert.deepEqual(f.previews, [10, 20, 30, 40, 50]);
+    assert.deepEqual(f.announcements, [30, 40, 50]);
+    assert.deepEqual(
+        f.applied,
+        [130, 140, 150],
+        "prior feedback is not reapplied and stale decoder time cannot reset the target"
+    );
+    f.now += 0.2;
+    f.shift(-10);
+    f.flush();
+    f.now += 0.2;
+    f.shift(-10);
+    f.flush();
+    assert.deepEqual(
+        f.applied.slice(-2),
+        [140, 130],
+        "direction reversal still uses the outstanding target"
+    );
+    assert.deepEqual(f.previews.slice(-2), [40, 30]);
+    f.position = 132;
+    f.now += 0.2;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        142,
+        "acknowledged decoder progress supplies the next base"
+    );
+    f.now += 3;
+    f.position = 200;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.previews.at(-1),
+        10,
+        "a new gesture starts after the HUD expires"
+    );
+    assert.equal(f.applied.at(-1), 210);
+}
+{
+    const f = controllerFixture();
+    f.position = 5;
+    f.shift(-10);
+    f.flush();
+    assert.equal(f.applied.at(-1), 0);
+    f.now += 0.1;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        10,
+        "reverse from the clamped beginning without borrowing stale time"
+    );
+    f.controller.cancel();
+    f.position = 995;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        10,
+        "beyond-duration seek remains rejected by core policy"
+    );
+    assert.equal(f.previews.at(-1), 10, "cancel clears the previous gesture");
+    f.controller.request({ intent: "absolute", value: 400 });
+    f.position = 400;
+    f.shift(-10);
+    f.flush();
+    assert.equal(
+        f.previews.at(-1),
+        -10,
+        "absolute seek retires relative feedback"
+    );
+    assert.equal(f.applied.at(-1), 390);
+    f.target = { channelId: "two", kind: "vod", sourceId: "source" };
+    f.position = 20;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.previews.at(-1),
+        10,
+        "new media never inherits pending or visible offsets"
+    );
+    assert.equal(f.applied.at(-1), 30);
+}
+
+// An external seek can be the first operation that creates the controller.
+{
+    const c = fixture();
+    c.playType = -1e11;
+    c.stbGetPosTime = () => 100;
+    c.__ottClassicPlayback.command({
+        channelId: "first-seek",
+        item: { stream_url: "fixture" },
+        type: "vod",
+    });
+    c.__ottClassicPlayback.command({ type: "playing" });
+    c.__ottClassicPlayback.beforeSeek(50);
+    c.__ottClassicPlayback.shift(10);
+    c.flush();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "seek"),
+        [["seek", 60]],
+        "first external seek carries a base through stale decoder samples"
+    );
+}
+
+// Local progressive publication replaces containers without changing the
+// playing row, source or decoder. Neither pending seeks nor the HUD reset.
+function republishingFixture() {
+    const c = fixture();
+    c.__ottCoreTransport = { play: function () {} };
+    c.stbPlay = c.__ottCoreTransport.play;
+    c.__ottCoreBackend = () => ({ current: () => null });
+    c.__ottClassicPlayback.command({ channelId: 101, type: "live" });
+    c.__ottClassicPlayback.command({ type: "playing" });
+    c.__ottClassicPlayback.command({ duration: 600, type: "finite-channel" });
+    let position = 100;
+    c.stbGetPosTime = () => position;
+    c.stbSetPosTime = (value) => {
+        position = value;
+        c.effects.push(["seek", value]);
+    };
+    return c;
+}
+for (const replace of [
+    (c) => {
+        c.channels = { ...c.channels };
+    },
+    (c) => {
+        c.catsArray = c.catsArray.slice();
+    },
+    (c) => {
+        c.cats = { ...c.cats, one: c.cats.one.slice() };
+    },
+    (c) => {
+        const selected = c.cats.one[c.primaryIndex];
+        c.cats = { ...c.cats, one: c.cats.one.slice().reverse() };
+        c.primaryIndex = c.cats.one.indexOf(selected);
+    },
+]) {
+    const c = republishingFixture();
+    const before = c.__ottClassicPlayback.snapshot();
+    const context = c.__ottClassicPlayback.context();
+    c.__ottClassicPlayback.shift(10);
+    replace(c);
+    assert.equal(
+        context.isCurrent(),
+        false,
+        "generic callbacks keep their captured index/container fence"
+    );
+    c.flush();
+    c.__ottClassicPlayback.shift(10);
+    replace(c);
+    c.flush();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "seek"),
+        [
+            ["seek", 110],
+            ["seek", 120],
+        ]
+    );
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "message").map((row) => row[1]),
+        ["10", "10", "20", "20"]
+    );
+    assert.equal(
+        c.__ottClassicPlayback.snapshot().generation,
+        before.generation
+    );
+}
+// Explicit media can have no numeric channel-list position at all. NaN is
+// not equal to itself and must not invalidate the unchanged owned decoder.
+{
+    const c = fixture();
+    c.primaryIndex = NaN;
+    c.__ottCoreTransport = { play: function () {} };
+    c.stbPlay = c.__ottCoreTransport.play;
+    c.__ottCoreBackend = () => ({ current: () => null });
+    c.__ottClassicPlayback.command({
+        channelId: "local-file",
+        item: {},
+        type: "vod",
+    });
+    c.__ottClassicPlayback.command({ type: "playing" });
+    c.__ottClassicPlayback.command({
+        duration: 600,
+        position: 100,
+        type: "position",
+    });
+    c.stbGetPosTime = () => 100;
+    c.__ottClassicPlayback.shift(10);
+    c.flush();
+    c.__ottClassicPlayback.shift(10);
+    c.flush();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "seek"),
+        [
+            ["seek", 110],
+            ["seek", 120],
+        ]
+    );
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "message").map((row) => row[1]),
+        ["10", "10", "20", "20"]
+    );
+}
+
+for (const replace of [
+    (c) => {
+        c.channels[101] = { ...c.channels[101] };
+    },
+    (c) => {
+        c.p_pref = "other-source";
+    },
+    (c) => {
+        c.catIndex = 1;
+    },
+    (c) => {
+        c.cats.one = [202, 101, 303];
+    },
+    (c) => {
+        c.__ottClassicPlayback.command({ type: "stop" });
+    },
+]) {
+    const c = republishingFixture();
+    c.__ottClassicPlayback.shift(10);
+    replace(c);
+    c.late();
+    assert.deepEqual(
+        c.effects.filter((row) => row[0] === "seek"),
+        [],
+        "real row/source/selection/backend change rejects queued work"
+    );
+}
+
+// Actual decoder samples retire a completed target, while admitted absolute
+// seeks cancel pending offsets and carry their new base through decoder lag.
+{
+    const f = controllerFixture();
+    f.shift(-10);
+    f.flush();
+    f.controller.observePosition(90);
+    f.position = 25;
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        35,
+        "external decoder movement after acknowledgment is authoritative"
+    );
+    f.position = 100;
+    f.controller.beforeSeek(50);
+    f.shift(10);
+    f.flush();
+    assert.equal(
+        f.applied.at(-1),
+        60,
+        "new absolute seek base survives stale decoder observation"
+    );
+    f.shift(10);
+    f.controller.beforeSeek(30);
+    const count = f.applied.length;
+    f.flush();
+    assert.equal(
+        f.applied.length,
+        count,
+        "external seek cancels an older pending keyboard timer"
+    );
+    f.shift(10);
+    f.flush();
+    assert.equal(f.applied.at(-1), 40);
 }
 
 // Production TS lowering remains valid for old browser grammars.

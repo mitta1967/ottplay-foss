@@ -1096,7 +1096,7 @@ Use el [flujo local video-use](docs/demo-video.md) para preparar y editar grabac
 
 ## Biblioteca multimedia Plex
 
-Cada reproductor puede conectarse a una cuenta Plex o Plex Media Server mediante el proveedor **Plex**. La integración usa Plex; Synology es un posible anfitrión del servidor multimedia. Seleccione carpetas en el perfil para llenar la lista normal de canales. La reproducción comienza desde el primer lote utilizable, con carga en segundo plano, búsqueda estándar y acciones de aleatorio/repetición, sin configurar Plex en el servidor OTT. Consulte [inicio de sesión Plex y reproducción directa](docs/plex-provider.md).
+Cada reproductor puede conectarse a una cuenta Plex o Plex Media Server mediante el proveedor **Plex**. La integración usa Plex; Synology es un posible anfitrión del servidor multimedia. Todos los vídeos y las pistas musicales accesibles aparecen automáticamente en la lista de canales; la selección de categoría filtra por biblioteca, carpeta o serie. La reproducción comienza desde el primer lote utilizable, con carga en segundo plano, búsqueda estándar y acciones de aleatorio/repetición, sin configurar Plex en el servidor OTT. Consulte [inicio de sesión Plex y reproducción directa](docs/plex-provider.md).
 
 ![Carga Plex, navegación entre archivos y ciclo de cierre](docs/images/plex-playback-lifecycle.svg)
 

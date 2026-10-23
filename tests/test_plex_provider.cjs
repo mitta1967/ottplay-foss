@@ -352,7 +352,7 @@ test("Manual edits mask the token and save only the local Plex profile", () => {
     f.host.editvar = " https://new.example:32400/ ";
     f.host.setEdit();
     f.enter(3);
-    f.enter(5);
+    f.enter(4);
     assert.deepEqual(JSON.parse(f.saved.get("plexcfg")), {
         address: "https://new.example:32400",
         playback: "original",
@@ -371,7 +371,7 @@ test("Invalid manual configuration cannot overwrite the saved profile", () => {
     f.enter(1);
     f.host.editvar = "https://user:secret@example.test/?token=private";
     f.host.setEdit();
-    f.enter(5);
+    f.enter(4);
     assert.equal(f.saved.get("plexcfg"), before);
     assert.equal(f.reloads, 0);
     assert.equal(f.errors.length, 1);
@@ -1023,7 +1023,7 @@ test("Successful remote Plex save invalidates an old manual draft while a new UI
     f.enter(2);
     f.host.editvar = "fresh-ui-token";
     f.host.setEdit();
-    f.enter(5);
+    f.enter(4);
     assert.equal(JSON.parse(f.saved.get("plexcfg")).token, "fresh-ui-token");
     assert.equal(f.reloads, 2);
 });
@@ -1089,10 +1089,7 @@ test("Plex first playable batch starts the normal list while remaining files app
     assert.equal(starts, 1);
     assert.deepEqual(Array.from(f.host.cList), ["plex-1", "plex-2"]);
     assert.equal(f.driver.stream("plex-2"), "plex:request");
-    assert.deepEqual(
-        JSON.parse(JSON.stringify(client.scan.folders)),
-        config.folders
-    );
+    assert.deepEqual(JSON.parse(JSON.stringify(client.scan.folders)), []);
 });
 
 test("Plex projected channels preserve normalized adult admission metadata on initial and appended items", () => {
@@ -1155,72 +1152,95 @@ test("Plex reload invalidates late scan results and preserves an active playlist
     const messages = [];
     f.host.infoBox = (message) => messages.push(message);
     f.clients[1].scan.batch([playlistRow(2)], 1);
+    assert.equal(f.driver.catalogLoading(), true);
+    assert.equal(f.driver.catalogError(), false);
     f.clients[1].scan.done("failure containing a private server response");
+    assert.equal(f.driver.catalogLoading(), false);
+    assert.equal(f.driver.catalogError(), true);
     assert.deepEqual(Array.from(f.host.cList), ["plex-2"]);
     assert.equal(messages.length, 1);
     assert(!messages[0].includes("private server"));
+    f.host.getChannelsArray(() => {});
+    assert.equal(f.driver.catalogError(), false);
 });
 
-test("Unconfigured folders open the profile picker after connection, and selection is stored only on Save", () => {
-    const initial = {
-        address: config.address,
-        playback: config.playback,
-        token: config.token,
-    };
-    const f = create({ plexcfg: JSON.stringify(initial) });
+test("A new or legacy Plex profile immediately scans all libraries without a folder picker", () => {
+    for (const configured of [
+        config,
+        {
+            address: config.address,
+            playback: config.playback,
+            token: config.token,
+        },
+    ]) {
+        const f = create({ plexcfg: JSON.stringify(configured) });
+        let starts = 0;
+        f.host.getChannelsArray(() => starts++);
+        f.clients[0].ready();
+        assert.equal(starts, 1);
+        assert.equal(f.clients.length, 1);
+        assert.deepEqual(Array.from(f.clients[0].scan.folders), []);
+        assert.notEqual(f.host.listCaption.innerHTML, "Folders");
+        f.host.__ottEditProvider();
+        assert(!f.host.listArray.some((row) => /Folders/.test(row)));
+        assert.equal(
+            JSON.parse(f.saved.get("plexcfg")).address,
+            config.address
+        );
+    }
+});
+
+test("Plex channel categories retain stable scoped hierarchy IDs", () => {
+    const f = create({ plexcfg: JSON.stringify(config) }, false, true);
+    f.host.getChannelsArray(() => {});
+    f.clients[0].ready();
+    const categories = [
+        { id: "plex:/library/sections/1/all", name: "Cartoons" },
+        { id: "plex:/library/metadata/2/children", name: "Cartoons / Show" },
+    ];
+    f.clients[0].scan.batch(
+        [
+            {
+                ...playlistRow(42),
+                __ottMediaCategories: categories,
+                __ottMediaCollection: "Cartoons / Show",
+            },
+        ],
+        1
+    );
+    assert.equal(f.host.channels["plex-42"].category.name, "Cartoons / Show");
+    assert.deepEqual(
+        JSON.parse(
+            JSON.stringify(f.host.channels["plex-42"].__ottMediaCategories)
+        ),
+        categories
+    );
+});
+
+test("Plex duplicate metadata updates category membership without duplicating the channel", () => {
+    const f = create({ plexcfg: JSON.stringify(config) }, false, true);
     let starts = 0;
     f.host.getChannelsArray(() => starts++);
     f.clients[0].ready();
-    assert.equal(starts, 0);
-    assert.equal(f.host.listCaption.innerHTML, "Folders");
-    const picker = f.clients[1];
-    picker.ready();
-    picker.folderRequest.done({
-        items: [
-            {
-                browse: { path: "/library/sections/1/folder" },
-                path: config.folders[0].path,
-                title: "<Shows>",
-            },
-        ],
-    });
-    assert.match(f.host.listArray[0], /&lt;Shows&gt;/);
-    f.enter(0);
-    assert.match(f.host.listArray[0], /✓/);
-    f.enter(2); // Apply folders returns to the profile editor.
-    assert.equal(f.host.listCaption.innerHTML, "Plex settings");
-    assert.equal(JSON.parse(f.saved.get("plexcfg")).folders, undefined);
-    f.enter(5);
-    assert.deepEqual(JSON.parse(f.saved.get("plexcfg")).folders, [
-        { path: config.folders[0].path, title: "<Shows>" },
-    ]);
-    assert.equal(picker.disposed, 1);
-    assert.equal(f.reloads, 1);
-});
-
-test("Folder picker Back and provider replacement reject pending responses without changing saved scope", () => {
-    const f = create({ plexcfg: JSON.stringify(config) });
-    f.host.__ottEditProvider();
-    f.enter(4);
-    const picker = f.clients[0];
-    picker.ready();
-    const pending = picker.folderRequest.done;
-    f.host.listKeyHandler(f.host.keys.RETURN);
-    pending({
-        items: [
-            {
-                browse: {},
-                path: "/library/sections/9/all?type=4",
-                title: "Old",
-            },
-        ],
-    });
-    assert.equal(f.host.listCaption.innerHTML, "Plex settings");
-    assert.deepEqual(
-        JSON.parse(f.saved.get("plexcfg")).folders,
-        config.folders
+    const first = [{ id: "plex:a", name: "A" }];
+    const second = first.concat([{ id: "plex:b", name: "B" }]);
+    f.clients[0].scan.batch(
+        [{ ...playlistRow(1), __ottMediaCategories: first, adult: 1 }],
+        1
     );
-    assert.equal(picker.disposed, 1);
+    f.clients[0].scan.batch(
+        [{ ...playlistRow(1), __ottMediaCategories: second }],
+        2
+    );
+    assert.equal(starts, 1);
+    assert.deepEqual(Array.from(f.host.cList), ["plex-1"]);
+    assert.deepEqual(
+        JSON.parse(
+            JSON.stringify(f.host.channels["plex-1"].__ottMediaCategories)
+        ),
+        second
+    );
+    assert.equal(f.host.channels["plex-1"].adult, 1);
 });
 
 test("Opening Plex settings cancels a connected but not yet published playlist", () => {
@@ -1235,25 +1255,6 @@ test("Opening Plex settings cancels a connected but not yet published playlist",
     client.scan.done();
     assert.equal(starts, 0);
     assert.equal(f.host.cList.length, 0);
-});
-
-test("Plex folder picker negotiates the saved account route and cancels late probes", () => {
-    const f = create({ plexcfg: JSON.stringify(accountConfig) });
-    f.host.__ottEditProvider();
-    f.enter(4);
-    assert.equal(f.probes.length, 1);
-    assert.equal(f.clients.length, 0);
-    f.host.listKeyHandler(f.host.keys.RETURN);
-    assert.equal(f.probes[0].canceled, true);
-    f.probes[0].callbacks.onConnected({ url: "https://stale.invalid" });
-    assert.equal(f.clients.length, 0);
-    f.enter(4);
-    f.probes[1].callbacks.onConnected({ url: "https://reachable.plex.direct" });
-    assert.equal(
-        f.clients[0].configuration.address,
-        "https://reachable.plex.direct"
-    );
-    assert.deepEqual(JSON.parse(f.saved.get("plexcfg")), accountConfig);
 });
 
 test("A removed saved Plex item publishes list-only recovery rather than starting another episode", () => {
@@ -1305,6 +1306,79 @@ test("Unfinished legacy Plex history selects its discovered item without overrid
         f.clients[0].scan.batch([playlistRow(existing ? 2 : 9)], 2);
         assert.equal(results.length, 1);
         assert.equal(results[0].selectedId, existing ? undefined : "plex-9");
+    }
+});
+
+test("actual Plex playback cursor wins over old channel selection and later channel play wins again", () => {
+    const f = create({ plexcfg: JSON.stringify(config) }, false, true);
+    const source = f.host.__ottSourceIdentity.current(f.host);
+    f.saved.set(
+        "plexchannelLibrary:" + source,
+        JSON.stringify({ selected: { itemId: "channel:plex-42" } })
+    );
+    const played = (id) => ({
+        __ottMediaRef: { sourceId: source },
+        plexSource: source,
+        request: { path: "/library/metadata/" + id },
+    });
+    f.driver.rememberPlayback(played(43));
+    assert.deepEqual(JSON.parse(f.saved.get("plexlastMediaSelection.v1")), {
+        id: "plex-43",
+        sourceId: source,
+        version: 1,
+    });
+    assert(!f.saved.get("plexlastMediaSelection.v1").includes("/library/"));
+    const snapshots = [];
+    f.driver.load((value) => snapshots.push(value));
+    f.clients[0].ready();
+    f.clients[0].scan.batch([playlistRow(42)], 1);
+    assert.equal(snapshots.length, 0);
+    f.clients[0].scan.batch([playlistRow(43)], 2);
+    assert.equal(snapshots[0].selectedId, "plex-43");
+    f.driver.rememberPlayback(played(44));
+    f.driver.load((value) => snapshots.push(value));
+    f.clients[1].ready();
+    f.clients[1].scan.batch(
+        [playlistRow(42), playlistRow(43), playlistRow(44)],
+        3
+    );
+    assert.equal(snapshots.at(-1).selectedId, "plex-44");
+});
+
+test("Plex cursor rejects foreign and unsafe payloads and ignores foreign/corrupt saved cursors", () => {
+    for (const bad of ["foreign", "unsafe", "corrupt"]) {
+        const f = create({ plexcfg: JSON.stringify(config) }, false, true);
+        const source = f.host.__ottSourceIdentity.current(f.host);
+        f.driver.rememberPlayback({
+            __ottMediaRef: { sourceId: "other-source" },
+            request: {
+                path:
+                    bad === "unsafe"
+                        ? "https://elsewhere.invalid/42"
+                        : "/library/metadata/42",
+            },
+        });
+        assert.equal(f.saved.get("plexlastMediaSelection.v1"), undefined);
+        f.saved.set(
+            "plexchannelLibrary:" + source,
+            JSON.stringify({ selected: { itemId: "channel:plex-42" } })
+        );
+        f.saved.set(
+            "plexlastMediaSelection.v1",
+            bad === "corrupt"
+                ? "{"
+                : JSON.stringify({
+                      id: bad === "unsafe" ? "../42" : "plex-43",
+                      sourceId: bad === "foreign" ? "foreign" : source,
+                      version: 1,
+                  })
+        );
+        const snapshots = [];
+        f.driver.load((value) => snapshots.push(value));
+        f.clients[0].ready();
+        f.clients[0].scan.batch([playlistRow(42)], 1);
+        assert.equal(snapshots.length, 1);
+        assert.equal(snapshots[0].selectedId, undefined);
     }
 });
 

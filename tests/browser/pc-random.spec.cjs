@@ -243,3 +243,122 @@ test("PC R selects a media item without shuffling the displayed folder", async (
     ).toEqual(order);
     expect(errors).toEqual([]);
 });
+
+// Exercise actual fullscreen key capture and the bundled seek controller. The
+// decoder observation intentionally lags to model asynchronous native seeks.
+test("PC modifier seeks accumulate across debounce flushes without reapplying the HUD total", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const errors = await boot(page, context, baseURL);
+    await page.keyboard.press("l");
+    await page.waitForFunction(() => !!document.fullscreenElement);
+    await page.evaluate(() => {
+        window.video.pause();
+        window.__ottClassicPlayback.command({
+            duration: 1000,
+            type: "finite-channel",
+        });
+        window.__ottClassicPlayback.command({ type: "pause" });
+        window.__seekPositions = [];
+        // Keep the owned finite-media path while its decoder sample lags.
+        window.__ottCoreBackend = () => ({
+            current: () => ({
+                sample: () =>
+                    window.__ottClassicPlayback.command({
+                        duration: 1000,
+                        position: 100,
+                        type: "position",
+                    }),
+            }),
+        });
+        window.stbGetPosTime = () => 100;
+        window.stbGetLen = () => 1000;
+        window.stbSetPosTime = (position) =>
+            window.__seekPositions.push(position);
+    });
+    await page.locator("#video").focus();
+    for (let index = 0; index < 4; index++) {
+        await page.keyboard.press(
+            index % 2 ? "Control+ArrowRight" : "Alt+ArrowRight"
+        );
+        await expect(page.locator("#info")).toContainText(
+            String((index + 1) * 10) + " s"
+        );
+        await expect
+            .poll(() => page.evaluate(() => window.__seekPositions.length))
+            .toBe(index + 1);
+        // Native local catalog publication replaces these containers without
+        // changing the playing row, selected category, or decoder generation.
+        await page.evaluate(() => {
+            window.channels = { ...window.channels };
+            window.catsArray = window.catsArray.slice();
+            const category = window.catsArray[window.catIndex];
+            const selected = window.cats[category][window.primaryIndex];
+            const list = window.cats[category].slice().reverse();
+            window.cats = { ...window.cats, [category]: list };
+            window.curList = list;
+            window.primaryIndex = list.indexOf(selected);
+        });
+    }
+    expect(await page.evaluate(() => window.__seekPositions)).toEqual([
+        110, 120, 130, 140,
+    ]);
+    await page.keyboard.press("Alt+ArrowLeft");
+    await expect(page.locator("#info")).toContainText("30 s");
+    await expect
+        .poll(() => page.evaluate(() => window.__seekPositions.at(-1)))
+        .toBe(130);
+    expect(errors).toEqual([]);
+});
+
+test.describe("Footer timeline hit area", () => {
+    test.use({ hasTouch: true });
+    test("mouse and touch above the painted bar seek without expanding info", async ({
+        page,
+        context,
+        baseURL,
+    }) => {
+        const errors = await boot(page, context, baseURL);
+        await page.evaluate(() => {
+            window.video.pause();
+            window.__ottClassicPlayback.command({
+                duration: 1000,
+                type: "finite-channel",
+            });
+            window.__ottClassicPlayback.command({ type: "pause" });
+            window.stbGetLen = () => 1000;
+            window.__timelineSeeks = [];
+            window.stbSetPosTime = (value) =>
+                window.__timelineSeeks.push(value);
+            const show = window.showChannelInfo;
+            window.__timelineInfo = 0;
+            window.showChannelInfo = function () {
+                window.__timelineInfo++;
+                return show.apply(this, arguments);
+            };
+        });
+        for (const touch of [false, true]) {
+            await page.evaluate(() => {
+                window.showChannelInfo(1);
+                window.$("#info1").finish();
+                window.__timelineInfo = 0;
+                window.__timelineSeeks = [];
+            });
+            await expect(page.locator("#progress_div")).toBeVisible();
+            const bar = await page.locator("#progress_div").boundingBox();
+            expect(bar).not.toBeNull();
+            const x = bar.x + bar.width / 4;
+            const y = bar.y - bar.height / 2 + 0.5;
+            if (touch) await page.touchscreen.tap(x, y);
+            else await page.mouse.click(x, y);
+            await expect
+                .poll(() => page.evaluate(() => window.__timelineSeeks))
+                .toEqual([250]);
+            expect(await page.evaluate(() => window.__timelineInfo)).toBe(0);
+            await expect(page.locator("#descr")).toBeHidden();
+        }
+        expect(errors).toEqual([]);
+    });
+});

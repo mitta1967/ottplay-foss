@@ -1098,7 +1098,7 @@ Gebruik de lokale [video-use-workflow](docs/demo-video.md) om demonstratieopname
 
 ## Plex-mediabibliotheek
 
-Elke speler kan via de provider **Plex** verbinding maken met een Plex-account of Plex Media Server. De integratie gebruikt Plex; Synology is één mogelijke host voor de mediaserver. Selecteer mappen in het profiel om de gewone zenderlijst te vullen. Afspelen start vanaf de eerste bruikbare batch, met achtergrondladen, standaardzoeken en Acties voor shuffle/herhalen, zonder Plex op de OTT-server in te stellen. Zie [Plex-aanmelding en rechtstreeks afspelen](docs/plex-provider.md).
+Elke speler kan via de provider **Plex** verbinding maken met een Plex-account of Plex Media Server. De integratie gebruikt Plex; Synology is één mogelijke host voor de mediaserver. Alle beschikbare video’s en muzieknummers verschijnen automatisch in de zenderlijst; de categoriekeuze filtert op bibliotheek, map of serie. Afspelen start vanaf de eerste bruikbare batch, met achtergrondladen, standaardzoeken en Acties voor shuffle/herhalen, zonder Plex op de OTT-server in te stellen. Zie [Plex-aanmelding en rechtstreeks afspelen](docs/plex-provider.md).
 
 ![Levenscyclus van Plex-laden, bestandsnavigatie en afsluiten](docs/images/plex-playback-lifecycle.svg)
 

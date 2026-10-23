@@ -1,16 +1,31 @@
 # Plex on each player
 
-Choose **Plex** in the provider list, then **Sign in with Plex**. The official Plex sign-in page opens in a browser. On a TV, open `plex.tv/link` on a phone or computer and enter the displayed code. Choose an available Plex server after signing in; the player checks its connection and opens folder selection. **Back** cancels sign-in or server connection.
+Choose **Plex** in the provider list, then **Sign in with Plex**. The official Plex sign-in page opens in a browser. On a TV, open `plex.tv/link` on a phone or computer and enter the displayed code. Choose an available Plex server after signing in; the player checks its connection and opens the complete media catalog. **Back** cancels sign-in or server connection.
 
 For a manual connection, enter the Plex server address (for example `http://192.168.1.25:32400`) and its access token, then choose **Save and open library**. The token is masked in the settings screen. Prefer an HTTPS Plex endpoint for an HTTPS browser player: access to local HTTP endpoints depends on the browser's local-network permissions and mixed-content policy. Native players can use the transport supported by their build. The Play distribution retains its HTTPS policy.
 
-Plex uses the same channel list as Local videos. In **Plex settings → Folders**, select the libraries or folders this profile should include, choose **Ok** in the picker, then save the profile. Only the selected roots and their descendants are scanned. Overlapping selections do not duplicate a video. Existing profiles without a selection open the folder picker; they never silently import the whole server.
+Plex opens the ordinary **Channel list** with all accessible videos and music tracks, without a preliminary folder picker. **Category selection** filters that list by library and the folder/show hierarchy; **All** restores the complete list. Category IDs use stable Plex paths, so equally named libraries remain distinct. Movie file parent folders also become categories when Plex supplies that metadata; their IDs are opaque and do not expose server filesystem paths. Older saved folder selections remain readable for profile compatibility but no longer limit discovery. Music libraries retain track playback and appear in the same category system. Photo-only libraries are omitted.
 
 ![Selected sources become one ordinary playlist](images/media-channel-playlists.svg)
 
+The automatic whole-server catalog has bounded discovery: at most 100,000 records, 10,000 containers/pages and 64 MiB of serialized catalog metadata. The older explicitly scoped folder API retains its smaller 8 MiB/1,000-container limits. Discovery keeps titles to 512 UTF-8 bytes and optional summary previews to 1,024 UTF-16 code units, without splitting Unicode characters, and shares category ancestry in memory; it does not eagerly copy full server metadata into every row. Full per-item resolution remains available through Plex. Music discovery requests flat tracks (`type=10`) rather than crawling every artist and album. Stable library, artist and album category IDs are retained; artist/album groups use the titles and rating keys supplied with each track. Errors report sanitized counters and a reason code in the browser log, never library titles, URLs or credentials. A failed discovery remains marked incomplete so remote operations cannot mistake a partial catalog for the whole library.
+
 The player connects under the standard animated loading dialog and reports processed entries and available videos. It starts when the first usable batch arrives; if a saved video is selected, it waits for that video or the end of the scan. Remaining items arrive in the background without restarting the current video. Cancelling, changing source or changing profile retires the previous load. A stalled scan ends with an error rather than holding the loading screen indefinitely.
 
-**OK** opens the ordinary channel list. Search, favorites, order changes and **Actions → Shuffle / Reset order** work on this list. There is no separate Random button or folder tree during normal playback. Folder selection belongs to the profile editor.
+**OK** opens the ordinary channel list. Search, favorites, order changes and **Actions → Shuffle / Reset order** work on this list. There is no separate folder picker during normal playback or setup. Use **Category selection** to change the visible group; normal channel controls operate on that group.
+
+The same categories are available through the CLI:
+
+```sh
+ott t1 categories
+ott t1 cat "Movies"
+ott t1 s
+ott t1 cat all
+```
+
+Selecting or browsing a category changes **Channel list** visibility without changing the playing video or its queue. Numbers shown by `ott t1 s` remain canonical catalog numbers, even in a filtered category; selecting a category does not renumber the videos.
+
+While discovery is running, `categories` and `s` may return partial results marked as loading. Selecting a category or video by name requires a complete catalog; exact IDs already loaded remain usable. A failed scan returns `catalog_incomplete` rather than treating partial results as complete. See the controller [CLI guide](https://github.com/open-ott-play/ottplay-control-server/blob/main/docs/cli.md).
 
 **Actions → Repeat** cycles through **All**, **One** and **Off**. All wraps the selected channel group, One repeats its current video, and Off stops after the final video. The Play key changes this setting while Actions is open. Changing the order or receiving another batch affects subsequent file transitions without restarting the current file.
 
@@ -25,9 +40,9 @@ Capacitor builds.
 
 Selecting a video opens the standard loading dialog immediately while its playable URL is resolved. **Back** cancels and returns to the list. Late replies cannot launch a cancelled selection. The decoder's normal buffering indicator follows stream preparation.
 
-During full-screen Plex playback, **Left/Right** seek backward/forward by ten seconds and **Up/Down** play the previous/next file in the current list. Dedicated volume keys still adjust volume. Open lists and dialogs retain their own navigation. Explicit remote Plex queues keep their own requested order and completion policy.
+During full-screen Plex playback on PC, **Alt/Ctrl/Command + Left/Right** seek backward/forward by ten seconds; unmodified **Left/Right** adjust volume. **Up** plays the next file and **Down** the previous file in the current list. TV devices retain their configured remote-key mappings. Open lists and dialogs retain their own navigation. Explicit remote Plex queues keep their own requested order and completion policy.
 
-The standard channel selection and per-file watch position are saved independently of expiring media URLs. Reopening resolves the selected video again through Plex. Startup resumes its saved position automatically; choosing a file manually offers the existing Continue watching prompt. Arrow navigation and natural completion start the next file at zero. Older Plex profiles can restore their unfinished last video from the same server’s media journal after folder selection. Parental admission still applies.
+The most recently admitted Plex playback is saved as a source-scoped media ID, whether started from Channel list, favorites, a remote queue or the older Media browser. Reload restores that item directly in the TV catalog; an older channel selection cannot replace it. The standard channel selection and per-file watch position are saved independently of expiring media URLs. Reopening resolves the selected video again through Plex. Startup resumes its saved position automatically; choosing a file manually offers the existing Continue watching prompt. Arrow navigation and natural completion start the next file at zero. Older Plex profiles can restore their unfinished last video from the same server’s media journal after catalog discovery. Parental admission still applies.
 
 The same implementation is built for the browser, here.now, OTT Server, LG/webOS, Tauri and Capacitor. Updating only one installed instance does not update the others. The separate native Compose Android application does not currently expose a Plex/VPortal provider.
 
@@ -217,16 +232,16 @@ For access away from home, the selected Plex server must have a reachable remote
 ![Plex playback lifecycle: an owned loading screen, explicit file selection across natural completion, and early session cleanup](images/plex-playback-lifecycle.svg)
 
 A loading screen belongs to the request that opened it. During startup, the
-player scans the profile’s selected roots and resolves a fresh stream for the
+player scans all accessible libraries and resolves a fresh stream for the
 saved video (or the first available video on a new profile). It can start before
-other selected folders finish loading. Replacing that screen cancels pending work; a late result cannot start a video
+other libraries and folders finish loading. Replacing that screen cancels pending work; a late result cannot start a video
 behind a newer dialog. Cancellation preserves the saved playback position.
 
 During a full-screen file change, repeated **Up/Down** presses update the pending
 destination. If the old video ends meanwhile, the player carries that exact
 destination into the new playback generation. Responses from the previous
 request are ignored. Navigation performed during cancellation also wins over
-the old request. **Left/Right** remain seek controls for the current video.
+the old request. On PC, **Alt/Option, Ctrl, or Command + Left/Right** seek within the current video; unmodified **Left/Right** adjust volume. TV devices retain their configured remote-key mappings.
 
 Folder scanning continues after a full 200-row page even when Plex omits
 `totalSize`. A known total or an empty page finishes that traversal; a server-capped short
@@ -306,3 +321,5 @@ The provider tests also cover local profile isolation, masked token editing,
 authenticated readiness, stale connection callbacks, server choice and
 cancellation after switching providers. Install the Playwright browsers required
 by the selected commands before running browser acceptance.
+
+Catalog receipts expire after two minutes without a successful page read; active paging renews that window. Changing the source or rebuilding its catalog invalidates them immediately.

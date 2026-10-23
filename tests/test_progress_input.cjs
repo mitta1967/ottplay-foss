@@ -79,6 +79,14 @@ function fixture(options = {}, jqueryFile = "js/jquery-1.11.1.min.js") {
     w.eval(code);
     w.uiInit();
     const element = w.document.getElementById("progress_div");
+    element.getBoundingClientRect = () => ({
+        bottom: 110,
+        height: 10,
+        left: 10,
+        right: 210,
+        top: 100,
+        width: 200,
+    });
     const events = w.$._data(element, "events");
     function send(type, x, fallback = false) {
         const event = {
@@ -440,6 +448,15 @@ for (const jqueryFile of [
                 "callbacks queued before timer replacement are retired"
             );
             verify();
+            w.document.getElementById("progress_div").getBoundingClientRect =
+                () => ({
+                    bottom: 110,
+                    height: 10,
+                    left: 10,
+                    right: 210,
+                    top: 100,
+                    width: 200,
+                });
             w.$("#progress_div").trigger(
                 w.$.Event("mousemove", { clientX: 110 })
             );
@@ -456,6 +473,95 @@ for (const jqueryFile of [
         );
     } finally {
         f.close();
+    }
+}
+for (const jqueryFile of [
+    "js/jquery-1.11.1.min.js",
+    "node_modules/jquery/dist/jquery.min.js",
+]) {
+    for (const scale of [0.5, 1, 2]) {
+        const f = fixture({}, jqueryFile);
+        const { w, calls } = f;
+        try {
+            w.$("#progress_div").wrap(
+                '<div id="info1"><div id="channel"></div></div>'
+            );
+            let expanded = 0;
+            w.showChannelInfo = () => expanded++;
+            w.uiInit();
+            const top = 100 * scale,
+                height = 8 * scale;
+            w.document.getElementById("progress_div").getBoundingClientRect =
+                () => ({
+                    bottom: top + height,
+                    height,
+                    left: 40,
+                    right: 240,
+                    top,
+                    width: 200,
+                });
+            function click(x, y) {
+                w.$("#channel").trigger(
+                    w.$.Event("click", { clientX: x, clientY: y })
+                );
+            }
+            click(90, top - height / 2);
+            assert.deepEqual(
+                calls.filter((c) => c[0] === "seek"),
+                [["seek", 925]],
+                "upper boundary seeks using viewport coordinates"
+            );
+            assert.equal(expanded, 0);
+            click(190, top - height / 2 + 0.1);
+            assert.deepEqual(calls.filter((c) => c[0] === "seek").at(-1), [
+                "seek",
+                2775,
+            ]);
+            click(90, top - height / 2 - 0.1);
+            click(39, top - 1);
+            click(241, top - 1);
+            assert.equal(
+                expanded,
+                3,
+                "above and outside the seek strip retain info actions"
+            );
+            assert.equal(calls.filter((c) => c[0] === "seek").length, 2);
+            w.document.getElementById("progress_div").getBoundingClientRect =
+                () => ({
+                    bottom: 0,
+                    height: 0,
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    width: 0,
+                });
+            click(90, 0);
+            assert.equal(
+                expanded,
+                4,
+                "hidden timeline cannot claim a footer click"
+            );
+            w.document.getElementById("progress_div").getBoundingClientRect =
+                () => ({
+                    bottom: top + height,
+                    height,
+                    left: 40,
+                    right: 240,
+                    top,
+                    width: 200,
+                });
+            w.playType = 0;
+            w[runtimeName("channels")][7].rec = 0;
+            click(90, top - 1);
+            assert.equal(
+                expanded,
+                5,
+                "unseekable live channel retains info click"
+            );
+            passed++;
+        } finally {
+            f.close();
+        }
     }
 }
 console.log(

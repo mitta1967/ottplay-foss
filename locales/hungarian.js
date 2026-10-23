@@ -1006,6 +1006,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker portálszolgáltató",
     "Stalker portal settings": "Stalker portál beállításai",
     "Stalker portals": "Stalker portálok",
+    "Start with file": "Kezdés fájllal",
     "Starting...": "Indítás…",
     Status: "Állapot",
     Stop: "Állj",
@@ -1040,6 +1041,8 @@ var keyStrings = {
         "A szöveg túl hosszú. Kérjük, rövidítse le küldés előtt.",
     "Text sent. Check your TV to confirm it appeared.":
         "Szöveg elküldve. Ellenőrizze a TV-t, hogy megbizonyosodjon arról, hogy megjelent.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "A böngésző a fájlok megjelenítése előtt ellenőrzi a mappa metaadatait. Nagy hálózati mappáknál ez több percig tarthat.",
     "The browser screenshot source is ready.":
         "A böngésző képernyőképének forrása készen áll.",
     "The command server discovery URL is invalid.":

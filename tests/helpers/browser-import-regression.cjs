@@ -62,6 +62,8 @@ async function browserImportRegression(
         };
         const ownClock = clock;
         const records = [];
+        const storage = new Map();
+        let namespace = "offline:1";
         const created = [];
         let tracked = 0;
         const handoffs = [];
@@ -282,9 +284,11 @@ async function browserImportRegression(
             renderButtonHint: () => "",
             setTimeout: ownClock.set.bind(ownClock),
             showDirectoryPicker: pick,
+            showEditKey() {},
             showOpenFilePicker: pick,
             showPage() {},
-            stbSetItem() {},
+            stbGetItem: (key) => storage.get(key),
+            stbSetItem: (key, value) => storage.set(key, value),
             URL: {
                 createObjectURL: (file) => {
                     created.push(file.name);
@@ -306,6 +310,10 @@ async function browserImportRegression(
                 },
             };
         const api = plugin.installLocalMedia(w);
+        w.__ottOfflineProfiles = {
+            current: () => null,
+            namespace: () => namespace,
+        };
         return {
             api,
             blocked,
@@ -332,6 +340,7 @@ async function browserImportRegression(
                         : folder
                 ),
             handoffs: () => handoffs,
+            host: w,
             html: () => html,
             olderEnumerations: () => olderEnumerations,
             picker,
@@ -341,7 +350,11 @@ async function browserImportRegression(
             reads: () => reads,
             releaseEnumeration: () =>
                 blocked.resolve({ done: false, value: first }),
+            setNamespace: (value) => {
+                namespace = value;
+            },
             spinner: () => !!dialog,
+            storage,
             async tick(ms) {
                 const target = now + ms;
                 for (;;) {
@@ -510,11 +523,22 @@ async function browserImportRegression(
             "initial enumeration, including nested directories, gets more than one minute"
         );
         assert.equal(enumerating.reads(), 0);
+        assert.match(
+            enumerating.progress(),
+            /browser checks folder metadata before returning files/,
+            "zero returned entries explains the browser metadata pass"
+        );
         await enumerating.tick(600000);
         assert.equal(
             enumerating.spinner(),
+            true,
+            "a cold network directory is not abandoned after ten minutes"
+        );
+        await enumerating.tick(2040000);
+        assert.equal(
+            enumerating.spinner(),
             false,
-            "initial enumeration still has a deadline"
+            "initial enumeration still has a finite 45-minute deadline"
         );
         assert.equal(enumerating.played(), 0);
         enumerating.blocked.resolve({ done: true });
@@ -537,6 +561,12 @@ async function browserImportRegression(
     assert.equal(laterEnumeration.reads(), 1);
     await laterEnumeration.tick(100);
     await laterEnumeration.tick(60000);
+    assert.equal(
+        laterError,
+        undefined,
+        "cached playback does not shorten the next directory metadata pass"
+    );
+    await laterEnumeration.tick(2640000);
     assert.ok(
         laterError,
         "the deadline settles even while native enumeration stays pending"
@@ -633,14 +663,15 @@ async function browserImportRegression(
         "a 12,000-file folder cannot queue 12,000 abandoned native reads"
     );
     assert.equal(allBlocked.tracked(), 2);
-    const unavailable = await allBlocked.api.snapshot();
+    await assert.rejects(allBlocked.api.snapshot(), /scan to finish/);
+    assert.equal(allBlocked.api.completedSources(), null);
+    const unavailable = await allBlocked.api.list();
     assert.equal(
         unavailable.sources.length,
         1,
         "recovery retains the linked source"
     );
     assert.equal(unavailable.readErrorName, "TimeoutError");
-    await allBlocked.api.list();
     assert.equal(
         allBlocked.reads(),
         2,
@@ -825,8 +856,264 @@ async function browserImportRegression(
         if (name === "NotAllowedError")
             assert.match(denied.detail(), /Fixture rejection/);
     }
+    for (const readOnly of [true, false]) {
+        const remote = fixture({ existing: true, secondPlayable: true });
+        remote.storage.set(
+            "localMediaEndpoint",
+            "http://127.0.0.1:8448/offline-media/private-token"
+        );
+        const remoteRequests = [];
+        remote.host.fetch = async (url) => {
+            remoteRequests.push(url);
+            return {
+                json: async () => ({
+                    items: [
+                        {
+                            id: "remote",
+                            name: "video.mp4",
+                            source: "imported",
+                            url: "/video",
+                        },
+                    ],
+                    readOnly,
+                    scanning: false,
+                    sources: [
+                        {
+                            available: false,
+                            id: "remote-source",
+                            kind: "folder",
+                            name: "NAS",
+                        },
+                    ],
+                }),
+                ok: true,
+            };
+        };
+        remote.api.open();
+        await flush();
+        const actions = remote.host.listArray.map((row) => row.id);
+        for (const mutation of [
+            "add-folder",
+            "add-files",
+            "grant-access",
+            "disconnect-source",
+            "remove-copy",
+        ])
+            assert.equal(
+                actions.includes(mutation),
+                !readOnly,
+                mutation + " follows read-only server capability"
+            );
+        assert.ok(
+            actions.includes("server-library"),
+            "read-only library can still be cleared"
+        );
+        assert.ok(actions.includes("refresh"));
+        assert.ok(actions.includes("play"));
+        remote.click("refresh");
+        await flush();
+        assert.equal(
+            remoteRequests.filter((url) => url.includes("refresh=true")).length,
+            readOnly ? 1 : 0,
+            "read-only refresh starts exactly one rescan"
+        );
+        remote.click("server-library");
+        remote.host.editvar = "";
+        remote.host.setEdit();
+        await flush();
+        assert.ok(remote.host.listArray.some((row) => row.id === "add-folder"));
+        assert.ok(
+            remote.host.listArray.some((row) => row.id === "disconnect-source")
+        );
+        assert.equal(
+            (await remote.api.snapshot()).sources[0].id,
+            "source-existing",
+            "clearing server URL restores the untouched browser source"
+        );
+    }
+    for (const readOnly of [true, false]) {
+        const remote = fixture();
+        const oldId = "source-browser:Movies/old clip.mp4";
+        remote.storage.set(
+            "localMediaEndpoint",
+            "http://127.0.0.1:8448/offline-media/private-token"
+        );
+        const requests = [];
+        const states = [];
+        remote.host.fetch = async (url) => {
+            requests.push(url);
+            const preferred = new URL(url).searchParams.get("preferredId");
+            return {
+                json: async () => ({
+                    items: [{ id: "new", name: "first.mp4", url: "/video" }],
+                    readOnly,
+                    scanned: 1,
+                    scanning: true,
+                    sources: [],
+                    ...(preferred
+                        ? {
+                              preferred: {
+                                  id: preferred,
+                                  state:
+                                      requests.length === 2
+                                          ? "pending"
+                                          : "missing",
+                              },
+                          }
+                        : {}),
+                }),
+                ok: true,
+            };
+        };
+        const result = remote.api.list((value) => {
+            states.push(value.preferred?.state);
+            return readOnly && value.preferred?.state !== "missing";
+        }, oldId);
+        await flush();
+        if (readOnly) {
+            assert.equal(
+                requests.length,
+                2,
+                "read-only capability triggers one immediate preferred lookup"
+            );
+            assert.equal(
+                new URL(requests[1]).searchParams.get("preferredId"),
+                oldId
+            );
+            assert.deepEqual(states, ["pending"]);
+            await remote.tick(250);
+            assert.deepEqual(
+                states,
+                ["pending", "missing"],
+                "preferred state changes reach the player without file-count changes"
+            );
+        } else {
+            assert.equal(
+                requests.length,
+                1,
+                "writable/legacy library receives no new query parameter"
+            );
+            assert.equal(
+                new URL(requests[0]).searchParams.has("preferredId"),
+                false
+            );
+        }
+        await result;
+    }
+    const pendingKey = "localMediaPendingFile";
+    async function directFixture(result) {
+        const f = fixture({
+            existing: true,
+            realisticClose: true,
+            secondPlayable: true,
+        });
+        await f.api.list();
+        f.host.__ottBrowserLocalMedia.bootstrapFile = () => result();
+        f.click("start-with-file");
+        f.host.editvar = "Movies/clip.mp4";
+        return f;
+    }
+    const timedOut = await directFixture(() =>
+        Promise.reject(
+            Object.assign(new Error("Native read blocked"), {
+                name: "TimeoutError",
+            })
+        )
+    );
+    timedOut.host.setEdit();
+    await flush();
+    assert.deepEqual(JSON.parse(timedOut.storage.get(pendingKey)), {
+        id: "local-source-existing:Movies/clip.mp4",
+        namespace: "offline:1",
+    });
+    assert.match(timedOut.detail(), /Restart Chrome completely/);
+    assert.equal(timedOut.played(), 0);
+    assert.equal(
+        timedOut.api.takeImportSelection(),
+        "local-source-existing:Movies/clip.mp4"
+    );
+    assert.equal(
+        timedOut.api.takeImportSelection(),
+        "",
+        "restart hint is consumed once"
+    );
+    assert.equal(timedOut.storage.get(pendingKey), "");
+    for (const name of [
+        "AbortError",
+        "NotFoundError",
+        "NotAllowedError",
+        "Error",
+    ]) {
+        const failed = await directFixture(() =>
+            Promise.reject(Object.assign(new Error(name), { name }))
+        );
+        failed.host.setEdit();
+        await flush();
+        assert.equal(
+            failed.storage.has(pendingKey),
+            false,
+            name + " cannot create a restart hint"
+        );
+    }
+    const pendingDirect = deferred();
+    const cancelledDirect = await directFixture(() => pendingDirect.promise);
+    cancelledDirect.host.setEdit();
+    cancelledDirect.close();
+    pendingDirect.reject(
+        Object.assign(new Error("Late timeout"), { name: "TimeoutError" })
+    );
+    await flush();
+    assert.equal(
+        cancelledDirect.storage.has(pendingKey),
+        false,
+        "cancelled operation cannot write a late hint"
+    );
+    timedOut.storage.set(
+        pendingKey,
+        JSON.stringify({ id: "local-other", namespace: "offline:2" })
+    );
+    assert.equal(
+        timedOut.api.takeImportSelection(),
+        "",
+        "another profile cannot consume this file selection"
+    );
+    assert.ok(
+        timedOut.storage.get(pendingKey),
+        "another profile leaves the hint for its owner"
+    );
+    timedOut.setNamespace("offline:2");
+    assert.equal(timedOut.api.takeImportSelection(), "local-other");
+    assert.equal(timedOut.storage.get(pendingKey), "");
+    const exact = await directFixture(() =>
+        Promise.resolve({
+            items: [
+                {
+                    available: true,
+                    id: "source-existing:Movies/clip.mp4",
+                    url: "blob:direct",
+                },
+            ],
+            partial: true,
+            scanning: true,
+            sources: [],
+        })
+    );
+    exact.storage.set(
+        pendingKey,
+        JSON.stringify({ id: "local-old", namespace: "offline:1" })
+    );
+    exact.host.setEdit();
+    await flush();
+    assert.deepEqual(exact.handoffs(), [
+        "local-source-existing:Movies/clip.mp4",
+    ]);
+    assert.equal(
+        exact.storage.get(pendingKey),
+        "",
+        "new explicit selection discards an older restart hint"
+    );
     console.log(
-        "PASS browser import UI: first-file playback, synchronous picker, bounded stalled reads, cancellation and stale completion"
+        "PASS browser import UI: first-file playback, synchronous picker, bounded stalled reads, cancellation, stale completion, and scoped one-shot timeout restart hints"
     );
 }
 

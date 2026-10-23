@@ -2,6 +2,7 @@
 interface LibraryChannel {
     groupId: string;
     groupLabel: string;
+    groups?: Array<{ id: string; label: string }>;
     id: number;
     itemId: string;
     label: string;
@@ -51,6 +52,10 @@ function createChannelLibrary(
     var aliases: Record<string, string | null> = Object.create(null);
     var provider: LibraryGroup[] = [];
     var providerById: Record<string, LibraryGroup> = Object.create(null);
+    var providerMembers: Record<
+        string,
+        Record<string, boolean>
+    > = Object.create(null);
     var writable = true;
     var readFailed = false;
     function raw(name: string): string | null {
@@ -60,6 +65,41 @@ function createChannelLibrary(
             readFailed = true;
             return null;
         }
+    }
+    function addProviderMemberships(row: LibraryChannel): void {
+        var memberships =
+            row.groups && row.groups.length
+                ? row.groups
+                : [{ id: row.groupId, label: row.groupLabel }];
+        var seen: Record<string, boolean> = Object.create(null);
+        memberships.forEach(function (membership) {
+            if (
+                !membership ||
+                typeof membership.id !== "string" ||
+                (row.groups &&
+                    (!membership.id ||
+                        membership.id.indexOf("system:") === 0)) ||
+                typeof membership.label !== "string" ||
+                seen[membership.id]
+            )
+                return;
+            seen[membership.id] = true;
+            var group = providerById[membership.id];
+            if (!group) {
+                group = {
+                    id: membership.id,
+                    label: membership.label,
+                    members: [],
+                };
+                providerById[membership.id] = group;
+                providerMembers[membership.id] = Object.create(null);
+                provider.push(group);
+            }
+            if (!providerMembers[membership.id][row.itemId]) {
+                providerMembers[membership.id][row.itemId] = true;
+                group.members.push(row.itemId);
+            }
+        });
     }
     catalog.forEach(function (row) {
         if (items[row.itemId]) return;
@@ -72,13 +112,7 @@ function createChannelLibrary(
                     ? row.itemId
                     : null;
         }
-        var group = providerById[row.groupId];
-        if (!group) {
-            group = { id: row.groupId, label: row.groupLabel, members: [] };
-            providerById[row.groupId] = group;
-            provider.push(group);
-        }
-        group.members.push(row.itemId);
+        addProviderMemberships(row);
     });
     provider.unshift({
         id: "system:all",
@@ -493,22 +527,15 @@ function createChannelLibrary(
             if (!ports.current()) return;
             var addedLocks: string[] = [];
             rows.forEach(function (row) {
-                if (items[row.itemId]) return;
-                catalog.push(row);
                 if (row.locked) addedLocks.push(row.itemId);
+                if (items[row.itemId]) {
+                    addProviderMemberships(row);
+                    return;
+                }
+                catalog.push(row);
                 items[row.itemId] = { id: row.id };
                 ids[String(row.id)] = row.itemId;
-                var group = providerById[row.groupId];
-                if (!group) {
-                    group = {
-                        id: row.groupId,
-                        label: row.groupLabel,
-                        members: [],
-                    };
-                    providerById[row.groupId] = group;
-                    provider.push(group);
-                }
-                group.members.push(row.itemId);
+                addProviderMemberships(row);
                 providerById["system:all"].members.push(row.itemId);
             });
             if (addedLocks.length)

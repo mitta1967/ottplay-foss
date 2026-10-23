@@ -970,6 +970,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker ද්වාර සපයන්නා",
     "Stalker portal settings": "Stalker ද්වාර සැකසුම්",
     "Stalker portals": "Stalker ද්වාර",
+    "Start with file": "ගොනුවෙන් අරඹන්න",
     "Starting...": "ආරම්භ…",
     Status: "තත්ත්වය",
     Stop: "නවත්වන්න",
@@ -1002,6 +1003,8 @@ var keyStrings = {
         "පෙළ දිග වැඩියි. යැවීමට පෙර කරුණාකර එය කෙටි කරන්න.",
     "Text sent. Check your TV to confirm it appeared.":
         "පෙළ යවා ඇත. එය දිස් වූ බව තහවුරු කිරීමට ඔබේ රූපවාහිනිය පරීක්ෂා කරන්න.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "ගොනු පෙන්වීමට පෙර බ්‍රවුසරය ෆෝල්ඩරයේ පාරදත්ත පරීක්ෂා කරයි. විශාල ජාල ෆෝල්ඩර සඳහා මිනිත්තු කිහිපයක් ගත විය හැක.",
     "The browser screenshot source is ready.": "බ්‍රවුසර තිරපිටපත් මූලාශ්‍රය සූදානම්.",
     "The command server discovery URL is invalid.":
         "විධාන සේවාදායක සොයාගැනීම URL වලංගු නොවේ.",

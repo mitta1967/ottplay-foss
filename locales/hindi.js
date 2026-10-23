@@ -967,6 +967,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker पोर्टल प्रदाता",
     "Stalker portal settings": "Stalker पोर्टल सेटिंग्स",
     "Stalker portals": "Stalker पोर्टल",
+    "Start with file": "फ़ाइल से शुरू करें",
     "Starting...": "प्रारंभ…",
     Status: "स्थिति",
     Stop: "रुकें",
@@ -999,6 +1000,8 @@ var keyStrings = {
         "टेक्स्ट बहुत लंबा है. कृपया भेजने से पहले इसे छोटा करें।",
     "Text sent. Check your TV to confirm it appeared.":
         "पाठ भेजा गया। यह दिखाई देने की पुष्टि करने के लिए अपने टीवी की जाँच करें।",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "ब्राउज़र फ़ाइलें दिखाने से पहले फ़ोल्डर का मेटाडेटा जाँचता है। बड़े नेटवर्क फ़ोल्डरों में कई मिनट लग सकते हैं।",
     "The browser screenshot source is ready.": "ब्राउज़र स्क्रीनशॉट स्रोत तैयार है।",
     "The command server discovery URL is invalid.":
         "कमांड सर्वर डिस्कवरी URL अमान्य है।",

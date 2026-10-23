@@ -392,12 +392,19 @@ function classicPlaybackObservation(): PlaybackObservation & {
             : classicPlaybackChannel(w, w.catIndex, w.primaryIndex);
     var channel = (w.channels || {})[id];
     var catalog = w.channels;
+    var categories = w.catsArray;
+    var lists = w.cats;
     var mode = w.playType;
     var categoryIndex = w.catIndex;
     var selectionIndex = w.primaryIndex;
-    var categories = w.catsArray;
-    var lists = w.cats;
-    var list = (lists || {})[(categories || [])[w.catIndex]];
+    var categoryId = (w.catsArray || [])[categoryIndex];
+    var list = (lists || {})[categoryId];
+    var selectedId = (list || [])[selectionIndex];
+    var ownedMedia =
+        target &&
+        target.kind === "vod" &&
+        w.__ottCoreTransport &&
+        w.stbPlay === w.__ottCoreTransport.play;
     var get = w.providerGetItem;
     var set = w.providerSetItem;
     var prefix = w.p_pref;
@@ -434,25 +441,38 @@ function classicPlaybackObservation(): PlaybackObservation & {
             snapshot.generation === classicPlaybackSnapshot().generation
         );
     }
+    function isCurrent(): boolean {
+        return (
+            isCurrentBackend() &&
+            catalog === w.channels &&
+            categoryIndex === w.catIndex &&
+            selectionIndex === w.primaryIndex &&
+            categories === w.catsArray &&
+            lists === w.cats &&
+            list === (w.cats || {})[(w.catsArray || [])[w.catIndex]] &&
+            mode === w.playType
+        );
+    }
     return {
         archiveAvailable:
             retention > 0 || (!!target && target.kind === "archive"),
         archiveEarliest:
             retention > 0 ? Math.max(0, now - retention * 3600) : undefined,
         duration: snapshot.duration,
-        isCurrent: function (): boolean {
-            return (
-                isCurrentBackend() &&
-                catalog === w.channels &&
-                categoryIndex === w.catIndex &&
-                selectionIndex === w.primaryIndex &&
-                categories === w.catsArray &&
-                lists === w.cats &&
-                list === (w.cats || {})[(w.catsArray || [])[w.catIndex]] &&
-                mode === w.playType
-            );
-        },
+        isCurrent: isCurrent,
         isCurrentBackend: isCurrentBackend,
+        // Only offset seeks bind to the item rather than a captured list index.
+        // Generic deferred callbacks may still use that original numeric index.
+        isCurrentOffset: function (): boolean {
+            return ownedMedia
+                ? isCurrentBackend() &&
+                      categoryIndex === w.catIndex &&
+                      categoryId === (w.catsArray || [])[w.catIndex] &&
+                      selectedId ===
+                          ((w.cats || {})[categoryId] || [])[w.primaryIndex] &&
+                      mode === w.playType
+                : isCurrent();
+        },
         isCurrentSource: isCurrentSource,
         now: now,
         position: snapshot.position,
@@ -1054,6 +1074,10 @@ function classicPlaybackProgramme(): any {
 }
 
 (window as any).__ottClassicPlayback = {
+    beforeSeek: function (value: number): void {
+        classicPlaybackCapture();
+        classicPlaybackRuntime().beforeSeek(value);
+    },
     bookmark: classicPlaybackBookmark,
     cancel: function (): void {
         if (classicPlaybackController) classicPlaybackController.cancel();
@@ -1082,6 +1106,10 @@ function classicPlaybackProgramme(): any {
     },
     hydrate: classicPlaybackHydrate,
     importLegacy: classicPlaybackReconcile,
+    observedPosition: function (value: number): void {
+        if (classicPlaybackController)
+            classicPlaybackController.observePosition(value);
+    },
     programme: classicPlaybackProgramme,
     reconcile: classicPlaybackReconcile,
     select: classicPlaybackSelect,

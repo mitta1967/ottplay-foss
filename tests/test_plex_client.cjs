@@ -2007,10 +2007,25 @@ test("selected folders publish before traversal finishes, flatten descendants an
         batches.flatMap((batch) =>
             Array.from(batch.rows, (row) => row.request.path)
         ),
-        ["/library/metadata/1", "/library/metadata/2"]
+        ["/library/metadata/1", "/library/metadata/1", "/library/metadata/2"]
     );
     assert.deepEqual(errors, [undefined]);
-    assert.equal(batches[1].rows[0].adult, 0);
+    assert.equal(batches[1].rows[1].adult, 0);
+    assert.equal(
+        batches[1].rows[0].adult,
+        1,
+        "a duplicate cannot downgrade adult admission"
+    );
+    assert.deepEqual(
+        Array.from(
+            batches[1].rows[0].__ottMediaCategories,
+            (category) => category.id
+        ),
+        [
+            "plex:/library/sections/1/folder?parent=10",
+            "plex:/library/metadata/20/children",
+        ]
+    );
     assert(
         !f.requests.some(
             (request) =>
@@ -2245,6 +2260,824 @@ test("profile scan watchdog aborts a stalled transport and late responses cannot
     assert.deepEqual(errors, ["Plex source did not respond"]);
     pending.reply({ MediaContainer: { Metadata: [scanRow(1)], size: 1 } });
     assert.equal(batches, 0);
+});
+
+test("whole-library scan discovers video and music sections with stable categories and no folder selection", () => {
+    const f = fixture(),
+        batches = [],
+        done = [];
+    f.client.scanFolders(
+        [],
+        (rows, scanned) => batches.push({ rows, scanned }),
+        (error) => done.push(error)
+    );
+    assert.equal(parsed(f).pathname, "/library/sections");
+    last(f).reply({
+        MediaContainer: {
+            Directory: [
+                { key: "1", title: "Cartoons", type: "movie" },
+                { key: "2", title: "Cartoons", type: "show" },
+                { key: "3", title: "Music", type: "artist" },
+                { key: "4", title: "Photos", type: "photo" },
+            ],
+        },
+    });
+    f.tick(5000);
+    assert.equal(parsed(f).pathname, "/library/sections/1/all");
+    last(f).reply({
+        MediaContainer: { Metadata: [scanRow(11)], size: 1, totalSize: 1 },
+    });
+    const first = batches.flatMap((batch) => Array.from(batch.rows))[0];
+    assert.equal(first.__ottMediaCollection, "Cartoons");
+    assert.deepEqual(JSON.parse(JSON.stringify(first.__ottMediaCategories)), [
+        { id: "plex:/library/sections/1/all", name: "Cartoons" },
+    ]);
+    assert.equal(done.length, 0, "starts before remaining section discovery");
+    f.tick(5000);
+    assert.equal(parsed(f).pathname, "/library/sections/2/all");
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    key: "/library/metadata/20/children",
+                    title: "Tom and Jerry",
+                    type: "show",
+                },
+            ],
+            size: 1,
+            totalSize: 1,
+        },
+    });
+    f.tick(5000);
+    assert.equal(parsed(f).pathname, "/library/sections/3/all");
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [{ ratingKey: "33", title: "Song", type: "track" }],
+            size: 1,
+            totalSize: 1,
+        },
+    });
+    const track = batches
+        .flatMap((batch) => Array.from(batch.rows))
+        .find((row) => row.request.path === "/library/metadata/33");
+    assert.equal(track.__ottMediaSequence, true);
+    assert.equal(track.__ottMediaCollection, "Music");
+    assert.equal(
+        track.__ottMediaCategories[0].id,
+        "plex:/library/sections/3/all"
+    );
+    f.tick(5000);
+    assert.equal(parsed(f).pathname, "/library/metadata/20/children");
+    last(f).reply({
+        MediaContainer: { Metadata: [scanRow(22)], size: 1, totalSize: 1 },
+    });
+    f.tick(5000);
+    const second = batches.flatMap((batch) => Array.from(batch.rows)).at(-1);
+    assert.equal(second.__ottMediaCollection, "Cartoons / Tom and Jerry");
+    assert.deepEqual(JSON.parse(JSON.stringify(second.__ottMediaCategories)), [
+        { id: "plex:/library/sections/2/all", name: "Cartoons" },
+        {
+            id: "plex:/library/metadata/20/children",
+            name: "Cartoons / Tom and Jerry",
+        },
+    ]);
+    assert.notEqual(
+        first.__ottMediaCategories[0].id,
+        second.__ottMediaCategories[0].id
+    );
+    assert(
+        !f.requests.some((request) =>
+            new URL(request.options.url).pathname.includes("/sections/4/")
+        )
+    );
+    assert.deepEqual(done, [undefined]);
+});
+
+test("movie file directories become stable categories without publishing server paths", () => {
+    const f = fixture(),
+        batches = [];
+    f.client.scanFolders(
+        [{ path: "/library/sections/1/all", title: "Films" }],
+        (rows) => batches.push(...rows),
+        () => {}
+    );
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ...scanRow(1),
+                    Media: [
+                        {
+                            Part: [
+                                { file: "/private/media/Cartoons/first.mp4" },
+                            ],
+                        },
+                    ],
+                    type: "movie",
+                },
+                {
+                    ...scanRow(2),
+                    Media: [
+                        {
+                            Part: [
+                                { file: "/other/media/Cartoons/second.mp4" },
+                            ],
+                        },
+                    ],
+                    type: "movie",
+                },
+            ],
+            size: 2,
+            totalSize: 2,
+        },
+    });
+    f.tick(5000);
+    assert.equal(batches[0].__ottMediaCollection, "Films / Cartoons");
+    assert.equal(batches[1].__ottMediaCollection, "Films / Cartoons");
+    assert.notEqual(
+        batches[0].__ottMediaCategories[1].id,
+        batches[1].__ottMediaCategories[1].id
+    );
+    assert(!JSON.stringify(batches).includes("/private/media"));
+    assert(!JSON.stringify(batches).includes("/other/media"));
+});
+
+test("later duplicate adult metadata upgrades a retained item even without new categories", () => {
+    const f = fixture(),
+        batches = [];
+    f.client.scanFolders(
+        [{ path: "/library/sections/1/all", title: "Films" }],
+        (rows) => batches.push(rows),
+        () => {}
+    );
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [scanRow(1)],
+            offset: 0,
+            size: 1,
+            totalSize: 3,
+        },
+    });
+    assert.equal(batches[0][0].adult, 0);
+    f.tick(5000);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [{ ...scanRow(1), adult: 1 }, scanRow(2)],
+            offset: 1,
+            size: 2,
+            totalSize: 3,
+        },
+    });
+    assert.equal(batches[1][0].adult, 1);
+    assert.equal(batches[1][0].__ottMediaCategories.length, 1);
+});
+
+test("whole catalog compacts previews and completes beyond the old 8 MiB selected-folder limit", () => {
+    const f = fixture(),
+        done = [];
+    let count = 0;
+    f.client.scanFolders(
+        [],
+        (batch) => {
+            count += batch.length;
+            for (const row of batch) {
+                assert(row.description.length <= 1024);
+                assert(row.title.length <= 1024);
+            }
+        },
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [
+                { key: "1", title: "Small", type: "movie" },
+                { key: "2", title: "Films", type: "movie" },
+            ],
+            size: 2,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: Array.from({ length: 165 }, (_, i) => ({
+                ratingKey: String(20000 + i),
+                title: "Short " + i,
+                type: "movie",
+            })),
+            size: 165,
+            totalSize: 165,
+        },
+    });
+    f.tick(0);
+    for (let offset = 0; offset < 9000; offset += 200) {
+        const rows = Array.from(
+            { length: Math.min(200, 9000 - offset) },
+            (_, i) => ({
+                Media: [
+                    {
+                        Part: [
+                            { file: "/private/source/collection/movie.mp4" },
+                        ],
+                    },
+                ],
+                ratingKey: String(offset + i + 1),
+                summary: "x".repeat(2000),
+                title: "Film " + (offset + i),
+                type: "movie",
+            })
+        );
+        last(f).reply({
+            MediaContainer: {
+                Metadata: rows,
+                offset,
+                size: rows.length,
+                totalSize: 9000,
+            },
+        });
+        f.tick(0);
+    }
+    assert.equal(count, 9165);
+    assert.deepEqual(done, [undefined]);
+    const status = f.client.scanDiagnostics();
+    assert.equal(status.state, "complete");
+    assert(status.bytes > 8 * 1024 * 1024);
+    assert(status.bytes < 64 * 1024 * 1024);
+    assert.equal(status.items, 9165);
+    assert.equal(status.maxBytes, 64 * 1024 * 1024);
+});
+
+test("automatic music catalog uses a flat track query beyond one thousand artists", () => {
+    const f = fixture(),
+        done = [];
+    let count = 0;
+    f.client.scanFolders(
+        [],
+        (batch) => (count += batch.length),
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [{ key: "3", title: "Music", type: "artist" }],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    for (let offset = 0; offset < 1200; offset += 200) {
+        assert.equal(parsed(f).pathname, "/library/sections/3/all");
+        assert.equal(parsed(f).searchParams.get("type"), "10");
+        last(f).reply({
+            MediaContainer: {
+                Metadata: Array.from({ length: 200 }, (_, i) => ({
+                    ratingKey: String(offset + i + 1),
+                    title: "Track " + (offset + i),
+                    type: "track",
+                })),
+                offset,
+                size: 200,
+                totalSize: 1200,
+            },
+        });
+        f.tick(0);
+    }
+    assert.equal(count, 1200);
+    assert.deepEqual(done, [undefined]);
+    assert.equal(f.requests.length, 7);
+    assert.equal(f.client.scanDiagnostics().containers, 2);
+    assert(
+        !f.requests.some((request) =>
+            new URL(request.options.url).pathname.endsWith("/children")
+        )
+    );
+});
+
+test("whole catalog keeps oversized previews bounded and reports only safe failure counters", () => {
+    const f = fixture(),
+        done = [],
+        warnings = [];
+    f.host.console = { warn: (value) => warnings.push(value) };
+    f.client.scanFolders(
+        [],
+        (batch) => {
+            if (!batch.length) return;
+            assert.equal(batch[0].title.length, 512);
+            assert(batch[0].description.length <= 1024);
+            assert(!/&[^;]*$/.test(batch[0].description));
+        },
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [{ key: "1", title: "Films", type: "movie" }],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ratingKey: "1",
+                    summary: "<&".repeat(5000),
+                    title: "n".repeat(5000),
+                    type: "movie",
+                },
+            ],
+            size: 1,
+            totalSize: 2,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: { Metadata: [], offset: 1, size: 0, totalSize: 2 },
+    });
+    assert.deepEqual(done, ["Invalid Plex response"]);
+    const status = f.client.scanDiagnostics();
+    assert.equal(status.state, "failed");
+    assert.equal(status.code, "invalid_response");
+    assert.equal(status.items, 1);
+    assert.equal(warnings.length, 1);
+    assert(!warnings[0].includes("https:"));
+    assert(!warnings[0].includes("Films"));
+    assert(!warnings[0].includes(token));
+});
+
+test("repeated membership cannot grow one catalog record beyond its hard limit", () => {
+    const f = fixture(),
+        done = [];
+    const roots = Array.from({ length: 100 }, (_, i) => ({
+        path: "/library/sections/" + (i + 1) + "/all",
+        title: "Category " + i + " " + "x".repeat(1000),
+    }));
+    f.client.scanFolders(
+        roots,
+        (batch) => {
+            for (const item of batch)
+                assert(Buffer.byteLength(JSON.stringify(item)) <= 64 * 1024);
+        },
+        (error) => done.push(error)
+    );
+    for (let i = 0; i < roots.length && !done.length; i++) {
+        last(f).reply({
+            MediaContainer: {
+                Metadata: [
+                    { ratingKey: "1", title: "Same item", type: "movie" },
+                ],
+                size: 1,
+                totalSize: 1,
+            },
+        });
+        f.tick(0);
+    }
+    assert.deepEqual(done, ["Plex playlist is too large"]);
+    assert.equal(f.client.scanDiagnostics().code, "record_limit");
+});
+
+test("terminal record errors cannot mutate a previously published record later in the batch", () => {
+    const f = fixture(),
+        done = [],
+        published = [];
+    f.client.scanFolders(
+        [{ path: "/library/sections/1/all", title: "Films" }],
+        (batch) => published.push(...batch),
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [{ ratingKey: "1", title: "Kept", type: "movie" }],
+            offset: 0,
+            size: 1,
+            totalSize: 3,
+        },
+    });
+    f.tick(0);
+    const before = JSON.stringify(published[0]);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ratingKey: "2",
+                    summary: "x".repeat(70000),
+                    title: "Too much",
+                    type: "movie",
+                },
+                { adult: 1, ratingKey: "1", title: "Kept", type: "movie" },
+            ],
+            offset: 1,
+            size: 2,
+            totalSize: 3,
+        },
+    });
+    assert.deepEqual(done, ["Plex playlist is too large"]);
+    assert.equal(f.client.scanDiagnostics().code, "record_limit");
+    assert.equal(JSON.stringify(published[0]), before);
+    assert.equal(published.length, 1);
+});
+
+test("cancellation has an explicit diagnostic without replacing completion or failure", () => {
+    const f = fixture();
+    const cancel = f.client.scanFolders(
+        [],
+        () => {},
+        () => {}
+    );
+    cancel();
+    assert.equal(f.client.scanDiagnostics().state, "cancelled");
+    assert.equal(f.client.scanDiagnostics().code, "cancelled");
+    const g = fixture();
+    const finish = g.client.scanFolders(
+        [],
+        () => {},
+        () => {}
+    );
+    last(g).reply({ MediaContainer: { Directory: [], size: 0 } });
+    g.tick(0);
+    finish();
+    assert.equal(g.client.scanDiagnostics().state, "complete");
+});
+
+test("whole catalog bounds UTF8 titles and never cuts surrogate pairs in labels or previews", () => {
+    const f = fixture(),
+        rows = [];
+    f.client.scanFolders(
+        [],
+        (batch) => rows.push(...batch),
+        () => {}
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [
+                { key: "1", title: "x".repeat(4095) + "😀", type: "movie" },
+            ],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ratingKey: "12345678901234567890",
+                    summary: "a".repeat(1023) + "😀",
+                    title: "é".repeat(255) + "😀tail",
+                    type: "movie",
+                },
+            ],
+            size: 1,
+            totalSize: 1,
+        },
+    });
+    f.tick(0);
+    assert.equal(rows.length, 1);
+    assert.equal(
+        rows[0].request.path,
+        "/library/metadata/12345678901234567890"
+    );
+    assert(Buffer.byteLength(rows[0].title) <= 512);
+    assert.equal(rows[0].title, "é".repeat(255));
+    assert.equal(rows[0].description, "a".repeat(1023));
+    assert.equal(rows[0].__ottMediaCategories[0].name, "x".repeat(4095));
+    for (const text of [
+        rows[0].title,
+        rows[0].description,
+        rows[0].__ottMediaCategories[0].name,
+    ])
+        assert.doesNotThrow(() => encodeURIComponent(text));
+});
+
+test("flat music retains library artist and album category identities", () => {
+    const f = fixture(),
+        rows = [];
+    f.client.scanFolders(
+        [],
+        (batch) => rows.push(...batch),
+        () => {}
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [{ key: "3", title: "Music", type: "artist" }],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    const song = (id, artist, album) => ({
+        grandparentRatingKey: String(artist),
+        grandparentTitle: "Artist " + artist,
+        Media: [{ Part: [{ file: "/media/all-music/file" + id + ".mp3" }] }],
+        parentRatingKey: String(album),
+        parentTitle: "Album " + album,
+        ratingKey: String(id),
+        title: "Track " + id,
+        type: "track",
+    });
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [song(1, 10, 20), song(2, 11, 21)],
+            size: 2,
+            totalSize: 2,
+        },
+    });
+    f.tick(0);
+    assert.equal(f.requests.length, 2);
+    assert.equal(
+        new URL(f.requests[1].options.url).searchParams.get("type"),
+        "10"
+    );
+    assert.deepEqual(
+        Array.from(rows[0].__ottMediaCategories.slice(0, 3), (category) => ({
+            id: category.id,
+            name: category.name,
+        })),
+        [
+            { id: "plex:/library/sections/3/all", name: "Music" },
+            {
+                id: "plex:/library/metadata/10/children",
+                name: "Music / Artist 10",
+            },
+            {
+                id: "plex:/library/metadata/20/children",
+                name: "Music / Artist 10 / Album 20",
+            },
+        ]
+    );
+    assert(
+        rows[1].__ottMediaCategories.some(
+            (category) => category.id === "plex:/library/metadata/11/children"
+        )
+    );
+    assert(
+        !rows[1].__ottMediaCategories.some(
+            (category) => category.id === "plex:/library/metadata/10/children"
+        )
+    );
+});
+
+test("show discovery excludes repeated allLeaves navigation from wire pagination and traversal", () => {
+    for (const count of [10, 201]) {
+        const f = fixture(),
+            done = [],
+            batches = [];
+        const path = "/library/metadata/29875/children";
+        f.client.scanFolders(
+            [{ path, title: "Series" }],
+            (rows, scanned) => batches.push({ rows, scanned }),
+            (error) => done.push(error)
+        );
+        for (let offset = 0; offset < count; offset += 200) {
+            const length = Math.min(200, count - offset);
+            assert.equal(parsed(f).pathname, path);
+            assert.equal(
+                parsed(f).searchParams.get("X-Plex-Container-Start"),
+                String(offset)
+            );
+            last(f).reply({
+                MediaContainer: {
+                    Directory: [
+                        {
+                            key: "/library/metadata/29875/allLeaves",
+                            leafCount: 194,
+                            title: "All episodes",
+                        },
+                    ],
+                    Metadata: Array.from({ length }, (_, i) => ({
+                        key:
+                            "/library/metadata/" +
+                            (40000 + offset + i) +
+                            "/children",
+                        ratingKey: String(40000 + offset + i),
+                        title: "Season " + (offset + i),
+                        type: "season",
+                    })),
+                    offset,
+                    size: length + 1,
+                    totalSize: count,
+                },
+            });
+            f.tick(0);
+        }
+        for (let i = 0; i < count; i++) {
+            assert.equal(
+                parsed(f).pathname,
+                "/library/metadata/" + (40000 + i) + "/children"
+            );
+            last(f).reply({
+                MediaContainer: {
+                    Metadata: [scanRow(50000 + i)],
+                    size: 1,
+                    totalSize: 1,
+                },
+            });
+            f.tick(0);
+        }
+        assert.deepEqual(done, [undefined]);
+        assert.equal(batches.flatMap((batch) => batch.rows).length, count);
+        assert.equal(batches.at(-1).scanned, count * 2);
+        assert(
+            !f.requests.some((request) =>
+                request.options.url.includes("allLeaves")
+            )
+        );
+    }
+});
+
+test("allLeaves normalization never relaxes wire sizes or unrelated row totals", () => {
+    const nav = {
+        key: "/library/metadata/29875/allLeaves",
+        leafCount: 194,
+        title: "All episodes",
+    };
+    for (const variant of [
+        "wire-size",
+        "wrong-parent",
+        "typed",
+        "rated",
+        "media",
+        "duplicate",
+        "metadata",
+    ]) {
+        const f = fixture(),
+            done = [];
+        f.client.scanFolders(
+            [{ path: "/library/metadata/29875/children", title: "Series" }],
+            () => assert.fail("invalid response must not publish"),
+            (error) => done.push(error)
+        );
+        let directory = { ...nav };
+        if (variant === "wrong-parent")
+            directory.key = "/library/metadata/999/allLeaves";
+        if (variant === "typed") directory.type = "season";
+        if (variant === "rated") directory.ratingKey = "999";
+        if (variant === "media") directory.Media = [];
+        const rows = [scanRow(1)];
+        const directories =
+            variant === "duplicate"
+                ? [directory, { ...directory }]
+                : [directory];
+        const container = {
+            Directory: directories,
+            Metadata: rows,
+            size: 1 + directories.length,
+            totalSize: 1,
+        };
+        if (variant === "wire-size") container.size = 1;
+        if (variant === "metadata") {
+            container.Metadata.push(directory);
+            container.Directory = [];
+        }
+        last(f).reply({ MediaContainer: container });
+        assert.equal(done.length, 1, variant);
+        assert(done[0], variant);
+        assert.equal(
+            f.client.scanDiagnostics().code,
+            "invalid_response",
+            variant
+        );
+    }
+});
+
+test("duplicate allLeaves navigation on short pages cannot skip a real catalog row", () => {
+    const f = fixture(),
+        done = [];
+    f.client.scanFolders(
+        [{ path: "/library/metadata/29875/children", title: "Series" }],
+        () => assert.fail("duplicate navigation must fail before publication"),
+        (error) => done.push(error)
+    );
+    const nav = { key: "/library/metadata/29875/allLeaves", leafCount: 194 };
+    last(f).reply({
+        MediaContainer: {
+            Directory: [nav, { ...nav }],
+            Metadata: Array.from({ length: 100 }, (_, i) => scanRow(i + 1)),
+            offset: 0,
+            size: 102,
+            totalSize: 201,
+        },
+    });
+    f.tick(0);
+    assert.equal(done.length, 1);
+    assert(done[0]);
+    assert.equal(
+        f.requests.length,
+        1,
+        "must never request the incorrect offset 101"
+    );
+    assert.equal(f.client.scanDiagnostics().code, "invalid_response");
+});
+
+test("allLeaves leafCount accepts only finite nonnegative numbers or decimal digit strings", () => {
+    for (const leafCount of [
+        null,
+        false,
+        true,
+        [],
+        [1],
+        {},
+        { toString: "invalid" },
+        { toString: "invalid", valueOf: "invalid" },
+        "",
+        " ",
+        "1.5",
+        "-1",
+        "Infinity",
+        "1e2",
+        NaN,
+        Infinity,
+        -1,
+        1.5,
+        undefined,
+    ]) {
+        const f = fixture(),
+            done = [];
+        f.client.scanFolders(
+            [{ path: "/library/metadata/29875/children", title: "Series" }],
+            () =>
+                assert.fail(
+                    "malformed navigation must fail before publication"
+                ),
+            (error) => done.push(error)
+        );
+        last(f).reply({
+            MediaContainer: {
+                Directory: [
+                    { key: "/library/metadata/29875/allLeaves", leafCount },
+                ],
+                Metadata: [scanRow(1)],
+                size: 2,
+                totalSize: 201,
+            },
+        });
+        f.tick(0);
+        assert.equal(done.length, 1, JSON.stringify(leafCount));
+        assert(done[0]);
+        assert.equal(f.client.scanDiagnostics().code, "invalid_response");
+        assert.equal(f.requests.length, 1);
+    }
+    for (const leafCount of [0, 194, "0", "194"]) {
+        const f = fixture(),
+            done = [];
+        f.client.scanFolders(
+            [{ path: "/library/metadata/29875/children", title: "Series" }],
+            () => {},
+            (error) => done.push(error)
+        );
+        last(f).reply({
+            MediaContainer: {
+                Directory: [
+                    { key: "/library/metadata/29875/allLeaves", leafCount },
+                ],
+                Metadata: [scanRow(1)],
+                size: 2,
+                totalSize: 1,
+            },
+        });
+        f.tick(0);
+        assert.deepEqual(done, [undefined]);
+    }
+});
+
+test("whole catalog sanitizes C1 titles and category labels without changing identity", () => {
+    const f = fixture(),
+        rows = [],
+        done = [];
+    f.client.scanFolders(
+        [],
+        (batch) => rows.push(...batch),
+        (error) => done.push(error)
+    );
+    last(f).reply({
+        MediaContainer: {
+            Directory: [{ key: "1", title: "Movies\u0085One", type: "movie" }],
+            size: 1,
+        },
+    });
+    f.tick(0);
+    last(f).reply({
+        MediaContainer: {
+            Metadata: [
+                {
+                    ratingKey: "18420",
+                    summary: "Safe\u0085preview",
+                    title: "Episode\u0080\u0094One",
+                    type: "movie",
+                },
+            ],
+            size: 1,
+            totalSize: 1,
+        },
+    });
+    f.tick(0);
+    assert.deepEqual(done, [undefined]);
+    assert.equal(rows[0].request.path, "/library/metadata/18420");
+    assert.equal(rows[0].title, "Episode One");
+    assert(!/[\u0000-\u001f\u007f-\u009f]/.test(rows[0].description));
+    assert(
+        rows[0].__ottMediaCategories.every(
+            (group) => !/[\u0000-\u001f\u007f-\u009f]/.test(group.name)
+        )
+    );
+    assert.equal(
+        rows[0].__ottMediaCategories[0].id,
+        "plex:/library/sections/1/all"
+    );
 });
 
 console.log(`PASS Plex client (${passed} scenarios)`);

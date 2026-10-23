@@ -152,8 +152,12 @@ class CargoIntegration(unittest.TestCase):
         )
 
     def cargo(self, *arguments, cwd=None):
+        # A cold compiler/linker start can exceed 30 seconds on a busy hosted
+        # runner. Keep metadata/lock operations short; only compilation gets
+        # the larger, still bounded budget. This does not alter runtime waits.
+        timeout = 180 if arguments and arguments[0] == "build" else 30
         return subprocess.run(
-            ["cargo", *arguments], cwd=cwd or self.workspace, check=True, capture_output=True, text=True, timeout=30
+            ["cargo", *arguments], cwd=cwd or self.workspace, check=True, capture_output=True, text=True, timeout=timeout
         )
 
     def prepare(self, name="prepared"):

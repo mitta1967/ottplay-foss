@@ -111,3 +111,33 @@ for (const id of [
 console.log(
     "PASS menu: localization, 12 provider language switches, playback query bounds, provider callbacks, dynamic keys and ES5"
 );
+
+{
+    const source = {
+        getMediaArray() {},
+        popMedia() {},
+        popupArray: ["Show Media Library"],
+        popupDetail: [""],
+        sHideMenus: [],
+        sNoColorKeys: 1,
+        sNoNumbersKeys: 1,
+    };
+    source.popupActions = [source.popMedia];
+    for (const id of ["plex", "vportal"]) {
+        source.__ottActiveProviderDriver = { id };
+        assert.equal(
+            host.__ottMenuRegistry
+                .open(source)
+                .rows.some((row) => row.id === "media.open"),
+            false,
+            id + " uses Category selection instead of a second folder browser"
+        );
+    }
+    source.__ottActiveProviderDriver = { id: "m3u" };
+    assert.equal(
+        host.__ottMenuRegistry
+            .open(source)
+            .rows.some((row) => row.id === "media.open"),
+        true
+    );
+}

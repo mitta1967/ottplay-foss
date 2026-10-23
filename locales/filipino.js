@@ -1019,6 +1019,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Provider ng Stalker portal",
     "Stalker portal settings": "Mga setting ng Stalker portal",
     "Stalker portals": "Mga Stalker portal",
+    "Start with file": "Magsimula sa file",
     "Starting...": "Nagsisimula…",
     Status: "Katayuan",
     Stop: "Ihinto",
@@ -1053,6 +1054,8 @@ var keyStrings = {
         "Masyadong mahaba ang text. Mangyaring paikliin ito bago ipadala.",
     "Text sent. Check your TV to confirm it appeared.":
         "Naipadala ang text. Suriin ang iyong TV upang kumpirmahin na lumitaw ito.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Sinusuri ng browser ang metadata ng folder bago ipakita ang mga file. Maaaring abutin ng ilang minuto ang malalaking folder sa network.",
     "The browser screenshot source is ready.":
         "Ang pinagmulan ng screenshot ng browser ay handa na.",
     "The command server discovery URL is invalid.":

@@ -991,6 +991,7 @@ var keyStrings = {
     "Stalker Portal Provider": "Stalker portalo teikėjas",
     "Stalker portal settings": "Stalker portalo nustatymai",
     "Stalker portals": "Stalker portalai",
+    "Start with file": "Pradėti nuo failo",
     "Starting...": "Paleidžiama…",
     Status: "Būsena",
     Stop: "Sustabdyti",
@@ -1025,6 +1026,8 @@ var keyStrings = {
         "Tekstas per ilgas. Prieš siųsdami jį sutrumpinkite.",
     "Text sent. Check your TV to confirm it appeared.":
         "Tekstas išsiųstas. Patikrinkite savo televizorių, kad įsitikintumėte, jog jis pasirodė.",
+    "The browser checks folder metadata before returning files. Large network folders can take several minutes.":
+        "Naršyklė prieš rodydama failus patikrina aplanko metaduomenis. Dideli tinklo aplankai gali užtrukti kelias minutes.",
     "The browser screenshot source is ready.":
         "Naršyklės ekrano kopijos šaltinis paruoštas.",
     "The command server discovery URL is invalid.":

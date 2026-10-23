@@ -226,10 +226,10 @@ final class AccessMediaProxy {
     }
 }
 
-@MainActor func until(_ condition: () -> Bool) async {
+@MainActor func until(file: StaticString = #file, line: UInt = #line, _ condition: () -> Bool) async {
     let deadline = Date().addingTimeInterval(3)
     while !condition() && Date() < deadline { try! await Task.sleep(nanoseconds: 1_000_000) }
-    assert(condition(), "Fixture did not reach the expected state")
+    assert(condition(), "Fixture did not reach the expected state", file: file, line: line)
 }
 @MainActor func reset() {
     Keychain.data = nil; Keychain.writes = 0

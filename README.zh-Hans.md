@@ -1096,7 +1096,7 @@ EPG_URLS="http://example.com/epg.xml.gz" ./target/release/ottplay-server --port 
 
 ## Plex媒体库
 
-每个播放器都可使用**Plex**提供商连接Plex账户或Plex Media Server。集成使用Plex；Synology只是媒体服务器的一种宿主选择。在配置中选择文件夹，即可填充普通频道列表。无需在OTT服务器配置Plex，播放器会从第一批可用数据开始播放并后台加载，支持标准搜索以及操作菜单中的随机/重复。参见[Plex登录与直接播放](docs/plex-provider.md)。
+每个播放器都可使用**Plex**提供商连接Plex账户或Plex Media Server。集成使用Plex；Synology只是媒体服务器的一种宿主选择。所有可访问的视频和音乐都会自动加入频道列表，可通过类别选择按媒体库、文件夹或剧集筛选。无需在OTT服务器配置Plex，播放器会从第一批可用数据开始播放并后台加载，支持标准搜索以及操作菜单中的随机/重复。参见[Plex登录与直接播放](docs/plex-provider.md)。
 
 ![Plex加载、文件导航与关闭生命周期](docs/images/plex-playback-lifecycle.svg)
 

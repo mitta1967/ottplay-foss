@@ -4,11 +4,48 @@
 
 Choose **VPortal** beside Plex in **Change provider** to use the media library
 without a TV playlist. **VPortal profiles** contains 15 independently named
-slots. Enter the complete cabinet link, open **Category selection**, mark the sections to include, and save the profile. Only those sections and their descendants form one flat channel playlist. Existing profiles without a selection open setup instead of scanning every section.
+slots. Enter the complete cabinet link and choose **Save and load channels**.
+The player immediately loads playable videos from the whole portal as a TV-style
+channel list. No preliminary folder or section selection is required, including
+for existing profiles with no saved sections.
+
+Use the player's standard **Category selection** to filter that list by portal
+section, folder or series. **All** shows every discovered video. Nested categories
+use names such as `Cartoons / Series`; the parent `Cartoons` includes its descendant
+videos. Category selection changes visibility, not the video's identity or the
+saved account. Old profile section selections remain stored for compatibility,
+but no longer limit the catalog.
 Links are masked in summaries. These slots use their own storage. VPortal is
 configured only in its standalone provider; M3U is reserved for television.
 
-The standard channel list provides search, favorites, ordering and Actions. Videos can start from the first usable batch while the rest of the selected sections load in the background. Selecting a file shows an owned loading dialog; Back cancels it. **Actions → Repeat** controls All / One / Off; **Shuffle / Reset order** uses the existing channel-list actions. See the [shared playlist flow](plex-provider.md).
+The standard channel list provides search, favorites, ordering and Actions. Videos can start from the first usable batch while the rest of the portal loads in the background. Selecting a file shows an owned loading dialog; Back cancels it. **Actions → Repeat** controls All / One / Off; **Shuffle / Reset order** uses the existing channel-list actions. See the [shared playlist flow](plex-provider.md).
+
+Whole-portal discovery is bounded separately from explicit section and search
+queues. It accepts up to 200,000 returned rows, 10,000 pages/containers and 64 MiB
+of retained catalog metadata, plus a 32 MiB cumulative identity budget. Long
+optional descriptions use a 128-byte UTF-8 text preview; titles, playable requests
+and stable identities remain intact. A scan stops after one minute without a validated response; empty successful pages
+also count as progress. Each request has its own timeout; there is no overall
+whole-scan deadline while validated responses keep arriving. Page, row, identity
+and metadata limits still bound the traversal. Discovered videos remain usable
+while scanning, but a failed or cancelled scan is never reported as a complete
+catalog to remote commands.
+Explicit section and search queues retain their existing smaller limits.
+For very large portals, the player removes optional description previews once
+when the catalog reaches the memory budget. Existing entries keep their identity
+and categories, and later entries omit descriptions too. Titles and playback
+requests remain complete. If those required fields alone exceed the fixed
+budget, discovery stops with an error instead of reporting a partial catalog as
+complete.
+A whole-portal scan retries the exact same request once after a transport
+timeout. The retry keeps the existing inactivity deadline; cancelled requests,
+malformed responses and invalid catalog identities are never retried.
+Request-backed videos retain their exact playback request instead of a temporary
+stream URL or a duplicated internal URL placeholder; starting or repeating a video
+resolves a fresh URL. The channel list supplies its own playback placeholder. Videos supplied
+only as direct URLs keep their original URL and catalog origin.
+Diagnostics report only counters and failure codes, never account links or
+request parameters.
 
 The playback footer shows the playing item's folder or collection above its
 current and next titles. Current time is the actual local playback-start clock,
@@ -70,7 +107,7 @@ retain a read-only footer, even with an updated web player. See
 [kiosk mode](remote-command-server.md#kiosk-mode) for input and Android
 limitations. `vp` collects matching titles into a queue, subject to catalog
 limits; the first-match rule of `kiosk on/set CHANNEL` applies to the normal
-channel list, including the selected VPortal sections. It does not perform
+channel list, including the visible VPortal category. It does not perform
 VPortal search.
 
 ## Moving from an old M3U profile
@@ -83,7 +120,8 @@ videos. Enter the complete cabinet link there:
 portal::[key:YOUR_KEY]http://your-portal.example/api/v1/
 ```
 
-Choose the sections to include in that profile's channel list. Old M3U `medUrl`
+Save the link to load the portal, then filter videos using **Category selection**.
+Old M3U `medUrl`
 and `medSourceId` values are left in device storage, but portal links do not
 start a catalog request, appear in M3U settings, or affect TV profile selection.
 They are not automatically copied into standalone profiles. Ordinary nonportal
@@ -113,6 +151,12 @@ the client. This integration does not transcode video or proxy its media bytes.
 In particular, an HTTPS browser page needs usable HTTPS media URLs. A local
 fixture verifies the integration, but an actual subscription, its streams, and
 physical TV devices require separate playback validation.
+
+The real-catalog acceptance check validated 113,972 videos by replaying saved
+responses through the production collector, retaining about 60.69 MiB within
+the unchanged 64 MiB metadata limit. Two series containers remain unverified
+because requests were blocked by an access policy with HTTP 503. This is not
+a claim of a completed live catalog traversal.
 
 ## Remote title search and repeat playback
 
