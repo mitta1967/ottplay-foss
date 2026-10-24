@@ -2275,9 +2275,11 @@ async function testScreenBridge() {
         Promise,
     });
     const states = [];
+    let clearedNotifications = 0;
     let listener, reply;
     const w = {
         __ottKiosk: { setScreenAwake: (v) => states.push(v) },
+        __ottRemoteNotifications: { suspend: () => clearedNotifications++ },
         Capacitor: {
             getPlatform: () => "android",
             Plugins: {
@@ -2296,6 +2298,7 @@ async function testScreenBridge() {
         },
     };
     bindKioskScreen(w);
+    assert.equal(w.__ottScreenAwake, false);
     await Promise.resolve();
     listener({ awake: false, ok: true, revision: 2 });
     reply({ awake: true, ok: true, revision: 1 });
@@ -2305,8 +2308,15 @@ async function testScreenBridge() {
         [false, false],
         "stale initial state cannot undo screen-off"
     );
+    assert.equal(w.__ottScreenAwake, false);
     listener({ awake: true, ok: true, revision: 3 });
+    assert.equal(
+        clearedNotifications,
+        1,
+        "native screen-off clears notifications immediately"
+    );
     assert.equal(states.at(-1), true);
+    assert.equal(w.__ottScreenAwake, true);
     states.length = 0;
     w.Capacitor.Plugins.MobileNativeMedia.getScreenState = () =>
         Promise.reject(Error("old APK"));
@@ -2317,6 +2327,7 @@ async function testScreenBridge() {
         [false, true],
         "old APKs retain existing playback behavior"
     );
+    assert.equal(w.__ottScreenAwake, true);
     states.length = 0;
     w.Capacitor.getPlatform = () => "ios";
     bindKioskScreen(w);

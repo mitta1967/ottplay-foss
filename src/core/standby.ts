@@ -67,6 +67,7 @@ export function installStandby(w: any, read: any, write: any): any {
     }
     function suspend(): void {
         // Invalidate owners before abort: transports may synchronously call back.
+        invoke("__ottRemoteNotifications", "suspend");
         var timers = w.__ottUiTimers;
         if (timers) {
             w.clearInterval(timers.clock);

@@ -89,6 +89,7 @@ function fixture(initial = []) {
     const w = dom.window;
     require("./helpers/screen-runtime.cjs")(w);
     Object.assign(w, require("./load-wire.cjs")());
+    Object.assign(w, require("./helpers/remote-notifications.cjs")());
     const stored = new Map(initial);
     const writes = [];
     const requests = [];

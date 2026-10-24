@@ -152,7 +152,11 @@ async function worker(dir) {
             return value;
         }
         const wire = require("../tests/load-wire.cjs")();
-        const transport = load("src/plugins/command-server.ts", () => wire);
+        const transport = load("src/plugins/command-server.ts", (name) =>
+            name === "./remote-notifications"
+                ? load("src/plugins/remote-notifications.ts", () => {})
+                : wire
+        );
         const buffer = load("src/plugins/diagnostic-buffer.ts", () => {});
         const restart = load("src/commands/remote-restart.ts", () => {});
         const remote = load("src/plugins/remote-diagnostics.ts", (name) =>

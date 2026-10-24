@@ -822,7 +822,14 @@ function moduleOf(file, requireFn, window) {
             loadRuntime();
             const transport = moduleOf(
                 "src/plugins/command-server.ts",
-                () => require("../tests/load-wire.cjs")(),
+                (name) =>
+                    name === "./remote-notifications"
+                        ? moduleOf(
+                              "src/plugins/remote-notifications.ts",
+                              () => {},
+                              host
+                          )
+                        : require("../tests/load-wire.cjs")(),
                 host
             );
             const send = (request, complete) => {

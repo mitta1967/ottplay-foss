@@ -334,7 +334,11 @@ const { gzipSync } = require("node:zlib");
 // fallback measure 1016906 raw on Node 22; retain ~600 identity bytes.
 // External seek admission/acknowledgment adds ~0.9 KB raw; retain identity room.
 // Footer hit testing with the verified beta.999 identity measures 1018418/314088.
-const BUDGET = Object.freeze({ bytes: 1018500, gzipBytes: 314200 });
+// Optional active-player notifications retain bounded parsing, runtime/expiry
+// checks and independent failure handling. Same-identity Node 26.8.2 comparison:
+// 1018045/312970 -> 1021481/314181 raw/gzip (+3436/+1211). Allocate +3500/+1250
+// for this feature, preserving existing native, Node 22 and release headroom.
+const BUDGET = Object.freeze({ bytes: 1022000, gzipBytes: 315450 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -499,7 +503,8 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // The same seek/fallback changes measure 1151707 total raw on Node 22.
 // External-seek hooks measure 363232 gzip on clean Node 22 builds.
 // The same beta identity measures 1153219 raw bytes including provider bundles.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1153300, gzipBytes: 363600 });
+// Count the measured notifications entry increment once; provider limits stay fixed.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1156800, gzipBytes: 364850 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

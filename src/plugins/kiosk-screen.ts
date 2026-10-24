@@ -13,6 +13,7 @@ export function bindKioskScreen(w: any): void {
         return;
     var revision = -1;
     var kiosk = w.__ottKiosk;
+    w.__ottScreenAwake = false;
     kiosk.setScreenAwake(false);
     function update(state: any): void {
         if (
@@ -25,6 +26,9 @@ export function bindKioskScreen(w: any): void {
         )
             return;
         revision = state.revision;
+        w.__ottScreenAwake = state.awake;
+        if (!state.awake && w.__ottRemoteNotifications)
+            w.__ottRemoteNotifications.suspend();
         kiosk.setScreenAwake(state.awake);
     }
     // Subscribe before reading: a delayed initial reply cannot undo SCREEN_OFF.
@@ -34,10 +38,16 @@ export function bindKioskScreen(w: any): void {
         })
         .then(function (state: any) {
             if (state && state.ok === true) update(state);
-            else if (revision < 0) kiosk.setScreenAwake(true);
+            else if (revision < 0) {
+                w.__ottScreenAwake = true;
+                kiosk.setScreenAwake(true);
+            }
         })
         .catch(function () {
             // Older installed APKs do not expose this bridge yet.
-            if (revision < 0) kiosk.setScreenAwake(true);
+            if (revision < 0) {
+                w.__ottScreenAwake = true;
+                kiosk.setScreenAwake(true);
+            }
         });
 }
