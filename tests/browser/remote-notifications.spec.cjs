@@ -205,6 +205,22 @@ for (const viewport of [
                 };
             })
         );
+        const colors = [
+            "rgb(121, 187, 255)",
+            "rgb(255, 208, 121)",
+            "rgb(255, 146, 156)",
+        ];
+        for (let i = 0; i < colors.length; i++) {
+            const card = cards.nth(i);
+            for (const side of ["top", "right", "bottom", "left"]) {
+                await expect(card).toHaveCSS(`border-${side}-color`, colors[i]);
+                await expect(card).toHaveCSS(
+                    `border-${side}-width`,
+                    side === "left" ? "3px" : "1px"
+                );
+                await expect(card).toHaveCSS(`border-${side}-style`, "solid");
+            }
+        }
         for (const g of geometry) {
             expect(g.x).toBeGreaterThanOrEqual(0);
             expect(g.y).toBeGreaterThanOrEqual(0);

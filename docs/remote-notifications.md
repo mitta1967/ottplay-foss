@@ -15,7 +15,8 @@ simultaneous notifications fit normal small windows. This is a transient preview
 not a complete event history; keep controller messages concise.
 
 An opaque dark background keeps contrast stable over bright or dark video.
-Severity has both a text label and a decorative badge. Older WebViews use solid
+Severity has a text label, a decorative badge and a thin closed outline in the
+same accent color, with a stronger left edge. Older WebViews use solid
 background, fixed-font, word-wrap and bounded-height fallbacks; layout does not
 require backdrop filters, flex gap, JavaScript resize handlers or external fonts.
 Reduced-motion settings disable the entrance animation.

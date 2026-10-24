@@ -162,11 +162,9 @@ export function createRemoteNotifications(
         }
         addText(
             "label",
-            item.severity === "critical"
-                ? "Alert"
-                : item.severity === "warning"
-                  ? "Attention"
-                  : "Home update"
+            { critical: "Alert", info: "Home update", warning: "Attention" }[
+                item.severity as "info" | "warning" | "critical"
+            ]
         );
         if (item.title) addText("title", item.title);
         addText("message", item.message);
