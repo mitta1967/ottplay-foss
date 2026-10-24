@@ -735,6 +735,8 @@ src/
 
 לשירות מרובה מכשירים נפרד, השתמשו ב־[OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) ובחלק **שרת פקודות** תחת **הגדרות ← שליטה מרחוק**. הזינו כתובת/IP ואת קוד הגישה של הנגן; שמירת שניהם מתחילה תשאול אוטומטי לפקודות עוצמה, ערוץ ואחרות. IP ללא יציאה משתמש ב־HTTP 8081. נקו כתובת או בחרו **ניתוק** לעצירה. החיבור היוצא תומך במסירה מאושרת ואינו דורש מאזין מקומי. ראו [פרטי חיבור ותאימות](docs/remote-command-server.md). הדוגמאות הבאות מתארות את מצב הפרוקסי/מאזין המקומי הקיים.
 
+האפשרות **חיפוש שרת פקודות** יכולה לאתר בקר ולבקש את אישור המפעיל בלי להעתיק אסימון גישה של המכשיר. Tauri בודק תחילה את ה-DNS המובנה ויכול לעבור לפרופיל פריסה שהוגדר במפורש אם התוצאה ריקה; נגני דפדפן, LG ו-Capacitor משתמשים במסלול פרופיל הדפדפן. אפשר לארח את נתוני הגילוי של Home ב-here.now בנפרד מהבקר. גרסאות כלליות אינן כוללות אוטומטית את פרופיל Home הזה, ועדכון אינו מחליף חיבורים שמורים. ראו [התנהגות לפי פלטפורמה, הגדרת פרופיל ופתרון בעיות](docs/remote-command-server.md#discovery-and-one-time-approval).
+
 שליטה מקומית ב־HTTP **כבויה כברירת מחדל** בנגן דפדפן/OTT server, ב־Tauri וב־Capacitor. הפעילו ב־**הגדרות הנגן ← שליטה מרחוק** ליצירת קוד מכשיר סודי. הפקודות הן אובייקטי JSON עם שדה `"command"`; בקשות HTTP דורשות `Authorization: Bearer <device-code>`.
 
 <a id="architecture"></a>
@@ -865,12 +867,14 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 #### `random_channel` — מעבר לערוץ אקראי
 
+פקודה ותיקה זו בוחרת ערוצים מותרים מתוך הרשימה או הקטגוריה הנוכחית. מספרי הערוצים והטווחים מציינים מיקומים באותה רשימה; ראו [מדיניות הבחירה האקראית הבטוחה](docs/remote-command-server.md#safe-random-playback).
+
 </div>
 
 <div dir="ltr">
 
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -889,7 +893,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | שדה | סוג | ברירת מחדל | תיאור |
 |---|---|---|---|
-| `random_range` | [start, end] | כל הערוצים | טווח החל מ־1 |
+| `random_range` | [start, end] | הרשימה הנוכחית | טווח החל מ־1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

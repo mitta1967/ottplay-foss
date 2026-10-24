@@ -589,6 +589,8 @@ src/
 
 สำหรับบริการหลายอุปกรณ์แยก ใช้ [OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) และส่วน **Command server** ใน **Settings → Remote control** ป้อน IP/ที่อยู่และรหัสเข้าถึงของเครื่องเล่นนี้ การบันทึกทั้งคู่เริ่ม polling สำหรับเสียง ช่อง และคำสั่งอื่นโดยอัตโนมัติ IP ไม่ระบุพอร์ตใช้ HTTP 8081 ล้างที่อยู่หรือเลือก **Disconnect** เพื่อหยุด การเชื่อมต่อขาออกนี้รองรับยืนยันการส่งและไม่ต้องใช้ listener ในเครื่อง ดู [การเชื่อมต่อและความเข้ากันได้](docs/remote-command-server.md) ตัวอย่างด้านล่างอธิบายโหมด local-proxy/listener ที่มีอยู่
 
+**ค้นหาเซิร์ฟเวอร์คำสั่ง** สามารถค้นหาคอนโทรลเลอร์และขอการอนุมัติจากผู้ดูแลโดยไม่ต้องคัดลอกโทเค็นของอุปกรณ์ Tauri ตรวจสอบ DNS แบบเนทีฟก่อน และหากผลลัพธ์ว่างก็สามารถใช้โปรไฟล์การติดตั้งที่กำหนดไว้อย่างชัดเจนแทนได้ ส่วนเครื่องเล่นบนเบราว์เซอร์, LG และ Capacitor ใช้เส้นทางโปรไฟล์ของเบราว์เซอร์ สามารถโฮสต์เมทาดาทาการค้นหา Home บน here.now แยกจากคอนโทรลเลอร์ได้ บิลด์ทั่วไปไม่ได้รวมโปรไฟล์ Home นี้โดยอัตโนมัติ และการอัปเดตไม่แทนที่การเชื่อมต่อที่บันทึกไว้ ดู [พฤติกรรมของแต่ละแพลตฟอร์ม การตั้งค่าโปรไฟล์ และการแก้ปัญหา](docs/remote-command-server.md#discovery-and-one-time-approval)
+
 HTTP remote control ในเครื่อง **ปิดโดยค่าเริ่มต้น** ใน browser/OTT server player, Tauri และ Capacitor เปิดที่ **Player settings → Remote control** เพื่อสร้างรหัสอุปกรณ์ลับ คำสั่งเป็น JSON object มีฟิลด์ `"command"` และ HTTP ต้องมี `Authorization: Bearer <device-code>`
 
 <a id="architecture"></a>
@@ -687,8 +689,10 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 #### `random_channel` — สุ่มเปลี่ยนช่อง
 
+คำสั่งแบบเดิมนี้เลือกช่องที่เข้าเกณฑ์จากรายการหรือหมวดหมู่ปัจจุบัน หมายเลขช่องและช่วงหมายถึงตำแหน่งในรายการนั้น ดู [กฎการสุ่มเลือกอย่างปลอดภัย](docs/remote-command-server.md#safe-random-playback)
+
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -703,7 +707,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | ฟิลด์ | ชนิด | ค่าเริ่มต้น | คำอธิบาย |
 |---|---|---|---|
-| `random_range` | [start, end] | ทุกช่อง | ช่วงเริ่มนับจาก 1 |
+| `random_range` | [start, end] | รายการปัจจุบัน | ช่วงเริ่มนับจาก 1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

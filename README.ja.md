@@ -589,6 +589,8 @@ src/
 
 独立した複数デバイス用サービスには[OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server)と、**設定 → リモート制御**内の**コマンドサーバー**を使います。IP／アドレスとこのプレーヤーのデバイスアクセスコードを入力し両方を保存すると、音量やチャンネルなどのコマンドのポーリングが自動開始します。ポート未指定のIPはHTTP 8081を使います。アドレスを消すか**切断**を選ぶと停止します。この外向き接続は確認応答付き配送に対応し、ローカルリスナーは不要です。[接続と互換性の詳細](docs/remote-command-server.md)を参照してください。以下の例は既存のローカルプロキシー／リスナーモードです。
 
+**コマンドサーバーを検索**では、デバイストークンをコピーせずにコントローラーを見つけ、オペレーターに承認を要求できます。TauriはまずネイティブDNSを確認し、結果が空の場合は明示的に設定されたデプロイ用プロファイルにフォールバックできます。ブラウザー、LG、Capacitorのプレーヤーはブラウザープロファイルの経路を使用します。Homeの検出メタデータは、コントローラーとは独立してhere.nowに配置できます。汎用ビルドにはこのHomeプロファイルは自動的に含まれず、更新によって保存済みの接続が置き換わることもありません。[プラットフォームごとの動作、プロファイルの設定、トラブルシューティング](docs/remote-command-server.md#discovery-and-one-time-approval)を参照してください。
+
 ローカルHTTP遠隔制御はブラウザー／OTTサーバープレーヤー、Tauri、Capacitorのすべてで**既定は無効**です。**プレーヤー設定 → リモート制御**で有効にすると秘密のデバイスコードを生成します。コマンドは`"command"`フィールド付きJSONオブジェクトで、HTTP要求には`Authorization: Bearer <device-code>`が必要です。
 
 <a id="architecture"></a>
@@ -687,8 +689,10 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 #### `random_channel` — ランダムなチャンネルに変更
 
+この従来のコマンドは、現在のリストまたはカテゴリから選択可能なチャンネルを選びます。チャンネル番号と範囲は、そのリスト内の位置を表します。[安全なランダム選択のルール](docs/remote-command-server.md#safe-random-playback)を参照してください。
+
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -703,7 +707,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | フィールド | 型 | 既定値 | 説明 |
 |---|---|---|---|
-| `random_range` | [開始, 終了] | 全チャンネル | 1始まりの範囲 |
+| `random_range` | [開始, 終了] | 現在のリスト | 1始まりの範囲 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

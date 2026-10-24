@@ -589,6 +589,8 @@ Der Player unterstützt 24 Gerätetypen. Erkennung zuerst über die URL `/f/{dev
 
 Verwenden Sie für einen separaten Dienst mit mehreren Geräten [OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) und den Abschnitt **Befehlsserver** unter **Einstellungen → Fernsteuerung**. Geben Sie dessen IP/Adresse und den Gerätezugangscode dieses Players ein; das Speichern beider Werte startet automatisch die Abfrage von Lautstärke-, Kanal- und anderen Befehlen. Eine IP ohne Port verwendet HTTP-Port 8081. Leeren Sie die Adresse oder wählen Sie **Trennen**, um zu stoppen. Diese ausgehende Verbindung unterstützt bestätigte Zustellung und benötigt keinen lokalen Listener. Siehe [Verbindungs- und Kompatibilitätsdetails](docs/remote-command-server.md). Die folgenden Beispiele beschreiben den vorhandenen lokalen Proxy-/Listener-Modus.
 
+Mit **Befehlsserver suchen** lässt sich ein Controller finden und die Freigabe durch den Betreiber anfordern, ohne ein Gerätetoken zu kopieren. Tauri prüft zuerst das native DNS und kann bei einem leeren Ergebnis auf ein ausdrücklich eingerichtetes Bereitstellungsprofil zurückgreifen; Browser-, LG- und Capacitor-Player verwenden den Browser-Profilpfad. Die Home-Erkennungsmetadaten können unabhängig vom Controller auf here.now gehostet werden. Allgemeine Builds enthalten dieses Home-Profil nicht automatisch, und ein Update ersetzt keine gespeicherten Verbindungen. Siehe [Plattformverhalten, Profileinrichtung und Fehlerbehebung](docs/remote-command-server.md#discovery-and-one-time-approval).
+
 Lokale HTTP-Fernsteuerung ist im Browser-/OTT-Server-Player, in Tauri und Capacitor **standardmäßig aus**. Aktivieren Sie sie unter **Player-Einstellungen → Fernsteuerung**, um einen geheimen Gerätecode zu erzeugen. Befehle sind JSON-Objekte mit einem Feld `"command"`; HTTP-Anfragen benötigen `Authorization: Bearer <device-code>`.
 
 <a id="architecture"></a>
@@ -687,8 +689,10 @@ Teilzeichenfolgensuche ohne Beachtung der Groß-/Kleinschreibung. Der erste Tref
 
 #### `random_channel` — Zufälligen Kanal wählen
 
+Dieser ältere Befehl wählt zulässige Kanäle aus der aktuellen Liste/Kategorie. Kanalnummern und Bereiche beziehen sich auf Positionen in dieser Liste; siehe [Regeln für die sichere Zufallsauswahl](docs/remote-command-server.md#safe-random-playback).
+
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -703,7 +707,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | Feld | Typ | Standard | Beschreibung |
 |---|---|---|---|
-| `random_range` | [start, end] | alle Kanäle | Bereich, ab 1 |
+| `random_range` | [start, end] | aktuelle Liste | Bereich, ab 1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

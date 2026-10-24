@@ -591,6 +591,8 @@ De speler ondersteunt 24 apparaattypen. Detectie: eerst via URL `/f/{device_id}/
 
 Gebruik voor een afzonderlijke dienst met meerdere apparaten [OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) en de sectie **Opdrachtserver** onder **Instellingen → Afstandsbediening**. Voer het IP/adres en de apparaattoegangscode van deze speler in; beide opslaan start automatisch pollen voor volume-, zender- en andere opdrachten. Een IP zonder poort gebruikt HTTP-poort 8081. Wis het adres of kies **Verbinding verbreken** om te stoppen. Deze uitgaande verbinding ondersteunt bevestigde aflevering en vereist geen lokale listener. Zie [verbinding en compatibiliteit](docs/remote-command-server.md). De voorbeelden hieronder beschrijven de bestaande lokale proxy-/listenermodus.
 
+Met **Opdrachtserver zoeken** kunt u een controller vinden en goedkeuring van de beheerder aanvragen zonder een apparaattoken te kopiëren. Tauri controleert eerst het native DNS en kan bij een leeg resultaat terugvallen op een expliciet ingesteld implementatieprofiel; browser-, LG- en Capacitor-spelers gebruiken de browserprofielroute. De Home-detectiemetadata kunnen onafhankelijk van de controller op here.now worden gehost. Algemene builds bevatten dat Home-profiel niet automatisch en updates vervangen geen opgeslagen verbindingen. Zie [platformgedrag, profielinstelling en probleemoplossing](docs/remote-command-server.md#discovery-and-one-time-approval).
+
 Lokale HTTP-afstandsbediening staat **standaard uit** in de browser-/OTT-server-speler, Tauri en Capacitor. Schakel deze in via **Spelerinstellingen → Afstandsbediening** om een geheime apparaatcode te genereren. Opdrachten zijn JSON-objecten met een veld `"command"`; HTTP-aanvragen vereisen `Authorization: Bearer <device-code>`.
 
 <a id="architecture"></a>
@@ -689,8 +691,10 @@ Zoeken op deeltekst zonder onderscheid tussen hoofdletters. De eerste overeenkom
 
 #### `random_channel` — Naar een willekeurige zender wisselen
 
+Deze oudere opdracht kiest toegestane zenders uit de huidige lijst of categorie. Zendernummers en bereiken verwijzen naar posities in die lijst; zie de [regels voor veilige willekeurige selectie](docs/remote-command-server.md#safe-random-playback).
+
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -705,7 +709,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | Veld | Type | Standaard | Beschrijving |
 |---|---|---|---|
-| `random_range` | [start, end] | alle zenders | Bereik beginnend bij 1 |
+| `random_range` | [start, end] | huidige lijst | Bereik beginnend bij 1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

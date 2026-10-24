@@ -589,6 +589,8 @@ Le lecteur prend en charge 24 types d’appareil. La détection utilise d’abor
 
 Pour un service multiappareils distinct, utilisez [OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) et la section **Serveur de commandes** dans **Réglages → Télécommande**. Saisissez son IP/adresse et le code d’accès de ce lecteur ; enregistrer les deux démarre automatiquement l’interrogation des commandes de volume, chaîne et autres. Une IP sans port utilise HTTP 8081. Effacez l’adresse ou choisissez **Déconnecter** pour arrêter. Cette connexion sortante prend en charge la livraison confirmée et ne nécessite aucun écouteur local. Voir [connexion et compatibilité](docs/remote-command-server.md). Les exemples suivants décrivent le mode proxy/écouteur local existant.
 
+**Rechercher un serveur de commandes** permet de trouver un contrôleur et de demander l’approbation de l’opérateur sans copier de jeton d’appareil. Tauri interroge d’abord le DNS natif et peut, si le résultat est vide, utiliser un profil de déploiement explicitement configuré ; les lecteurs sur navigateur, LG et Capacitor utilisent le parcours du profil navigateur. Les métadonnées de découverte Home peuvent être hébergées sur here.now indépendamment du contrôleur. Les versions génériques n’incluent pas automatiquement ce profil Home et les mises à jour ne remplacent pas les connexions enregistrées. Voir [le comportement des plateformes, la configuration du profil et le dépannage](docs/remote-command-server.md#discovery-and-one-time-approval).
+
 La télécommande HTTP locale est **désactivée par défaut** dans le lecteur navigateur/OTT server, Tauri et Capacitor. Activez-la dans **Paramètres du lecteur → Télécommande** pour générer un code secret d’appareil. Les commandes sont des objets JSON contenant `"command"` ; les requêtes HTTP exigent `Authorization: Bearer <device-code>`.
 
 <a id="architecture"></a>
@@ -687,8 +689,10 @@ Recherche de sous-chaîne insensible à la casse. La première correspondance es
 
 #### `random_channel` — Choisir une chaîne aléatoire
 
+Cette ancienne commande sélectionne les chaînes admissibles dans la liste ou catégorie actuelle. Les numéros de chaîne et les plages désignent les positions dans cette liste ; voir les [règles de sélection aléatoire sûre](docs/remote-command-server.md#safe-random-playback).
+
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -703,7 +707,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | Champ | Type | Valeur par défaut | Description |
 |---|---|---|---|
-| `random_range` | [start, end] | toutes les chaînes | Plage commençant à 1 |
+| `random_range` | [start, end] | liste actuelle | Plage commençant à 1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

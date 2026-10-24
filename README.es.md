@@ -589,6 +589,8 @@ El reproductor admite 24 tipos de dispositivo. Primero detecta mediante el URL `
 
 Para un servicio separado con varios dispositivos, use [OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) y la sección **Servidor de comandos** en **Ajustes → Control remoto**. Introduzca su IP/dirección y el código de acceso de este reproductor; guardar ambos inicia automáticamente el sondeo de comandos de volumen, canal y otros. Una IP sin puerto usa HTTP 8081. Vacíe la dirección o seleccione **Desconectar** para detenerlo. Esta conexión saliente admite entrega confirmada y no necesita un receptor local. Consulte [detalles de conexión y compatibilidad](docs/remote-command-server.md). Los ejemplos siguientes describen el modo existente de proxy/receptor local.
 
+**Buscar servidor de órdenes** permite encontrar un controlador y solicitar la aprobación del operador sin copiar un token de dispositivo. Tauri consulta primero el DNS nativo y, si el resultado está vacío, puede recurrir a un perfil de despliegue configurado explícitamente; los reproductores de navegador, LG y Capacitor usan la ruta del perfil del navegador. Los metadatos de descubrimiento de Home pueden alojarse en here.now de forma independiente del controlador. Las compilaciones genéricas no incluyen automáticamente ese perfil Home y las actualizaciones no sustituyen las conexiones guardadas. Consulte [el comportamiento por plataforma, la configuración del perfil y la resolución de problemas](docs/remote-command-server.md#discovery-and-one-time-approval).
+
 El control remoto HTTP local está **desactivado por defecto** en navegador/reproductor OTT server, Tauri y Capacitor. Actívelo en **Ajustes del reproductor → Control remoto** para generar un código secreto de dispositivo. Los comandos son objetos JSON con campo `"command"`; las solicitudes HTTP requieren `Authorization: Bearer <device-code>`.
 
 <a id="architecture"></a>
@@ -687,8 +689,10 @@ Búsqueda de subcadena sin distinguir mayúsculas. Se usa la primera coincidenci
 
 #### `random_channel` — cambiar a canal aleatorio
 
+Este comando heredado selecciona canales aptos de la lista o categoría actual. Los números de canal y los intervalos indican posiciones en esa lista; consulte la [política de selección aleatoria segura](docs/remote-command-server.md#safe-random-playback).
+
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -703,7 +707,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | Campo | Tipo | Predeterminado | Descripción |
 |---|---|---|---|
-| `random_range` | [start, end] | todos los canales | Intervalo que empieza en 1 |
+| `random_range` | [start, end] | lista actual | Intervalo que empieza en 1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

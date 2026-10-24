@@ -589,6 +589,8 @@ Il lettore supporta 24 tipi. Rilevamento prima tramite URL `/f/{device_id}/`, po
 
 Per un servizio separato multidispositivo usare [OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) e **Server comandi** in **Impostazioni → Controllo remoto**. Inserire IP/indirizzo e codice d’accesso del dispositivo; salvare entrambi avvia automaticamente il polling per volume, canali e altri comandi. Un IP senza porta usa HTTP 8081. Svuotare l’indirizzo o selezionare **Disconnetti** per fermarlo. Questa connessione in uscita supporta consegna confermata e non richiede listener locale. Vedere [connessione e compatibilità](docs/remote-command-server.md). Gli esempi seguenti descrivono il modo proxy/listener locale esistente.
 
+**Trova server comandi** consente di individuare un controller e richiedere l’approvazione dell’operatore senza copiare un token del dispositivo. Tauri verifica prima il DNS nativo e, se il risultato è vuoto, può ricorrere a un profilo di distribuzione configurato esplicitamente; i lettori browser, LG e Capacitor usano il percorso del profilo browser. I metadati di rilevamento Home possono essere ospitati su here.now indipendentemente dal controller. Le build generiche non includono automaticamente quel profilo Home e gli aggiornamenti non sostituiscono le connessioni salvate. Vedere [comportamento delle piattaforme, configurazione del profilo e risoluzione dei problemi](docs/remote-command-server.md#discovery-and-one-time-approval).
+
 Il controllo remoto HTTP locale è **disattivato per impostazione predefinita** nel browser/OTT server, Tauri e Capacitor. Attivarlo in **Impostazioni lettore → Controllo remoto** per generare un codice segreto. I comandi sono oggetti JSON con campo `"command"`; le richieste HTTP richiedono `Authorization: Bearer <device-code>`.
 
 <a id="architecture"></a>
@@ -687,8 +689,10 @@ Ricerca per sottostringa senza distinzione maiuscole/minuscole. Vince la prima c
 
 #### `random_channel` — Passare a un canale casuale
 
+Questo comando precedente seleziona i canali idonei dall’elenco o dalla categoria corrente. I numeri dei canali e gli intervalli indicano le posizioni in quell’elenco; vedere le [regole di selezione casuale sicura](docs/remote-command-server.md#safe-random-playback).
+
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -703,7 +707,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | Campo | Tipo | Predefinito | Descrizione |
 |---|---|---|---|
-| `random_range` | [start, end] | tutti i canali | Intervallo con indici da 1 |
+| `random_range` | [start, end] | elenco corrente | Intervallo con indici da 1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

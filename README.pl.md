@@ -591,6 +591,8 @@ Odtwarzacz obsługuje 24 typy urządzeń. Wykrywanie: najpierw URL `/f/{device_i
 
 Dla oddzielnej usługi wielourządzeniowej użyj [OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) i sekcji **Serwer poleceń** w **Ustawienia → Sterowanie zdalne**. Wpisz IP/adres oraz kod dostępu tego odtwarzacza; zapis obu automatycznie rozpoczyna odpytywanie o głośność, kanały i inne polecenia. IP bez portu używa HTTP 8081. Wyczyść adres lub wybierz **Rozłącz**, aby zatrzymać. To połączenie wychodzące obsługuje potwierdzane dostarczanie i nie wymaga lokalnego nasłuchu. Zobacz [szczegóły połączenia i zgodności](docs/remote-command-server.md). Poniższe przykłady opisują istniejący tryb lokalnego proxy/nasłuchu.
 
+**Znajdź serwer poleceń** pozwala wykryć kontroler i poprosić operatora o zatwierdzenie bez kopiowania tokenu urządzenia. Tauri najpierw sprawdza natywny DNS, a przy pustym wyniku może użyć jawnie skonfigurowanego profilu wdrożenia; odtwarzacze przeglądarkowe, LG i Capacitor korzystają ze ścieżki profilu przeglądarki. Metadane wykrywania Home można hostować w here.now niezależnie od kontrolera. Ogólne kompilacje nie zawierają automatycznie tego profilu Home, a aktualizacja nie zastępuje zapisanych połączeń. Zobacz [zachowanie platform, konfigurację profilu i rozwiązywanie problemów](docs/remote-command-server.md#discovery-and-one-time-approval).
+
 Lokalne sterowanie HTTP jest **domyślnie wyłączone** w odtwarzaczu przeglądarkowym/OTT server, Tauri i Capacitor. Włącz je w **Ustawienia odtwarzacza → Sterowanie zdalne**, aby wygenerować tajny kod urządzenia. Polecenia są obiektami JSON z polem `"command"`; żądania HTTP wymagają `Authorization: Bearer <device-code>`.
 
 <a id="architecture"></a>
@@ -689,8 +691,10 @@ Wyszukiwanie fragmentu bez rozróżniania wielkości liter. Wygrywa pierwsze dop
 
 #### `random_channel` — Przełącz na losowy kanał
 
+To starsze polecenie wybiera dozwolone kanały z bieżącej listy lub kategorii. Numery kanałów i zakresy oznaczają pozycje na tej liście; zobacz [zasady bezpiecznego losowego wyboru](docs/remote-command-server.md#safe-random-playback).
+
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -705,7 +709,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | Pole | Typ | Domyślnie | Opis |
 |---|---|---|---|
-| `random_range` | [start, end] | wszystkie kanały | Zakres liczony od 1 |
+| `random_range` | [start, end] | bieżąca lista | Zakres liczony od 1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

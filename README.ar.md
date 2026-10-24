@@ -735,6 +735,8 @@ src/
 
 لخدمة منفصلة متعددة الأجهزة استخدم [OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) وقسم **خادم الأوامر** في **الإعدادات ← التحكم عن بُعد**. أدخل IP/عنوانه ورمز وصول هذا المشغّل؛ يبدأ حفظ الاثنين الاستقصاء تلقائيًا لأوامر الصوت والقنوات وغيرها. يستخدم IP دون منفذ HTTP 8081. امسح العنوان أو اختر **قطع الاتصال** للتوقف. يدعم هذا الاتصال الصادر تسليمًا مؤكّد الاستلام ولا يتطلب مستمعًا محليًا. راجع [تفاصيل الاتصال والتوافق](docs/remote-command-server.md). تصف الأمثلة التالية وضع الوكيل/المستمع المحلي الحالي.
 
+تتيح ميزة **البحث عن خادم الأوامر** اكتشاف وحدة تحكم وطلب موافقة المشغّل بدلًا من نسخ رمز وصول الجهاز. يتحقق Tauri أولًا عبر DNS الأصلي، ويمكنه الرجوع إلى ملف تعريف نشر محدد صراحةً إذا كانت النتيجة فارغة؛ أما مشغّلات المتصفح وLG وCapacitor فتستخدم مسار ملف التعريف في المتصفح. يمكن استضافة بيانات اكتشاف Home على here.now بشكل مستقل عن وحدة التحكم. لا تتضمن البنيات العامة ملف تعريف Home تلقائيًا، ولا يستبدل التحديث الاتصالات المحفوظة. راجع [سلوك المنصات وإعداد ملف التعريف واستكشاف الأخطاء وإصلاحها](docs/remote-command-server.md#discovery-and-one-time-approval).
+
 التحكم المحلي عبر HTTP **معطّل افتراضيًا** في مشغّل المتصفح/OTT server وTauri وCapacitor. فعّله في **إعدادات المشغّل ← التحكم عن بُعد** لتوليد رمز جهاز سري. الأوامر كائنات JSON بحقل `"command"`؛ وتتطلب طلبات HTTP الترويسة `Authorization: Bearer <device-code>`.
 
 <a id="architecture"></a>
@@ -865,12 +867,14 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 #### `random_channel` — الانتقال لقناة عشوائية
 
+يختار هذا الأمر القديم القنوات المؤهلة من القائمة أو الفئة الحالية. تشير أرقام القنوات والنطاقات إلى مواضعها في تلك القائمة؛ راجع [سياسة الاختيار العشوائي الآمن](docs/remote-command-server.md#safe-random-playback).
+
 </div>
 
 <div dir="ltr">
 
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -889,7 +893,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | الحقل | النوع | الافتراضي | الوصف |
 |---|---|---|---|
-| `random_range` | [start, end] | جميع القنوات | نطاق يبدأ من 1 |
+| `random_range` | [start, end] | القائمة الحالية | نطاق يبدأ من 1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 

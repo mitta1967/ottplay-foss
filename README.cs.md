@@ -591,6 +591,8 @@ Přehrávač podporuje 24 typů zařízení. Detekce: nejprve URL `/f/{device_id
 
 Pro samostatnou službu s více zařízeními použijte [OTT-play Control Server](https://github.com/open-ott-play/ottplay-control-server) a část **Příkazový server** v **Nastavení → Dálkové ovládání**. Zadejte IP/adresu a přístupový kód tohoto přehrávače; uložení obou automaticky spustí dotazování na hlasitost, kanál a další příkazy. IP bez portu používá HTTP port 8081. Pro zastavení smažte adresu nebo zvolte **Odpojit**. Toto odchozí spojení podporuje potvrzené doručení a nepotřebuje místní naslouchání. Viz [připojení a kompatibilita](docs/remote-command-server.md). Následující příklady popisují dosavadní režim místního proxy/naslouchání.
 
+Funkce **Najít příkazový server** dokáže vyhledat řadič a požádat o schválení operátorem bez kopírování tokenu zařízení. Tauri nejprve zkouší nativní DNS a při prázdném výsledku může přejít na výslovně nastavený profil nasazení; přehrávače v prohlížeči, LG a Capacitor používají cestu přes profil prohlížeče. Metadata vyhledávání Home lze hostovat na here.now nezávisle na řadiči. Obecná sestavení profil Home automaticky neobsahují a aktualizace nenahrazuje uložená připojení. Viz [chování platforem, nastavení profilu a řešení problémů](docs/remote-command-server.md#discovery-and-one-time-approval).
+
 Místní dálkové ovládání HTTP je **standardně vypnuté** v prohlížeči/přehrávači OTT serveru, Tauri a Capacitoru. Zapněte jej přes **Nastavení přehrávače → Dálkové ovládání**, čímž vytvoříte tajný kód zařízení. Příkazy jsou objekty JSON s polem `"command"`; HTTP požadavky vyžadují `Authorization: Bearer <device-code>`.
 
 <a id="architecture"></a>
@@ -689,8 +691,10 @@ Hledání podřetězce nerozlišuje velikost písmen. Platí první shoda.
 
 #### `random_channel` — Přepnout na náhodný kanál
 
+Tento starší příkaz vybírá způsobilé kanály z aktuálního seznamu či kategorie. Čísla kanálů a rozsahy označují pozice v tomto seznamu; viz [pravidla bezpečného náhodného výběru](docs/remote-command-server.md#safe-random-playback).
+
 ```bash
-# Random from all channels
+# Random from the current channel list
 curl -X POST http://192.168.1.50:8081/api/webhook/commands \
   -H "Authorization: Bearer $OTTPLAY_QUEUE_HTTP_TOKEN" \
   -H "Content-Type: application/json" \
@@ -705,7 +709,7 @@ curl -X POST http://192.168.1.50:8081/api/webhook/commands \
 
 | Pole | Typ | Výchozí | Popis |
 |---|---|---|---|
-| `random_range` | [start, end] | všechny kanály | Rozsah počítaný od 1 |
+| `random_range` | [start, end] | aktuální seznam | Rozsah počítaný od 1 |
 
 <a id="change_provider--switch-iptv-provider"></a>
 
