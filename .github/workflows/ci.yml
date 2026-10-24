@@ -249,6 +249,23 @@ jobs:
       - name: Test device boot and remote navigation in Chromium
         run: npm run test:devices:browser
 
+      - name: Check out the pinned Home Assistant controller fixture
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: open-ott-play/ottplay-control-server
+          ref: 5d5b6d2aa50fa0e2714aace0c3cbe2d847995774
+          path: .control-ha-smoke
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+
+      - name: Test Home Assistant events with the built player
+        timeout-minutes: 5
+        run: node .control-ha-smoke/scripts/smoke_home_assistant.cjs .
+
       # Linux WebKit exercises MSE here; native HLS needs the macOS media stack.
       # The complete engine matrix is required by Native Shells' apple job.
       - name: Test MSE aspect persistence in Linux WebKit
