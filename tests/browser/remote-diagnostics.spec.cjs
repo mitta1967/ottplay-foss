@@ -18,6 +18,7 @@ async function fixture(page, context, baseURL) {
         errors: [],
         legacy: [],
         localDebug: [],
+        notifications: [],
     };
     let consentEpoch = "";
     let revision = 0;
@@ -49,6 +50,16 @@ async function fixture(page, context, baseURL) {
         if (url.pathname === "/api/webhook/commands") {
             observed.legacy.push(request.method());
             return route.fulfill({ headers, json: { commands: [] } });
+        }
+        // Notifications use the device credential, independently of diagnostics.
+        // Model an older controller without this optional endpoint.
+        if (url.pathname === "/api/notifications") {
+            expect(request.method()).toBe("GET");
+            observed.notifications.push({
+                authorization: request.headers().authorization,
+                origin: url.origin,
+            });
+            return route.fulfill({ headers, status: 404 });
         }
         const path = url.pathname.replace("/api/v2/diagnostics", "");
         const body = request.postDataJSON();
@@ -962,6 +973,12 @@ test("connection authorizes bounded diagnostics; capture starts only on operator
     expect(server.calls.filter((c) => c.path === "/events").length).toBe(
         uploads
     );
+    await expect.poll(() => server.notifications.length).toBeGreaterThan(0);
+    expect(
+        server.notifications.every(
+            (call) => call.authorization === "Bearer " + DEVICE_TOKEN
+        )
+    ).toBe(true);
     expect(
         server.calls.filter((c) => c.path === "/runtimes")[0].authorization
     ).toBe("Bearer " + DEVICE_TOKEN);
@@ -1077,6 +1094,14 @@ test("HTTP controller remains unsupported without a separate approval option", a
     await expect(page.locator("#remoteDiagnosticsToggle")).toHaveCount(0);
     await expect(page.locator("#remoteDiagnosticsTrust")).toHaveCount(0);
     expect(await page.evaluate(() => window.__ottDebug.enabled)).toBe(false);
+    await expect.poll(() => server.notifications.length).toBeGreaterThan(0);
+    expect(
+        server.notifications.every(
+            (call) =>
+                call.origin === HTTP_CONTROLLER &&
+                call.authorization === "Bearer " + DEVICE_TOKEN
+        )
+    ).toBe(true);
     expect(server.calls).toEqual([]);
     expect(server.errors).toEqual([]);
 });

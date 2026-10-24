@@ -1390,6 +1390,11 @@ test.describe("LG Magic Remote pointer and button transitions", () => {
             const url = new URL(request.url());
             methods.push(request.method());
             expect(request.headers().authorization).toBe("Bearer " + token);
+            // This legacy controller does not implement notification delivery.
+            if (url.pathname.endsWith("/api/notifications")) {
+                expect(request.method()).toBe("GET");
+                return route.fulfill({ status: 404 });
+            }
             let body;
             if (url.pathname.endsWith("/api/responses")) {
                 expect(request.method()).toBe("POST");

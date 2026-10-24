@@ -26,6 +26,9 @@ for (const provider of ["m3u", "vportal"]) {
             const request = route.request(),
                 url = new URL(request.url());
             if (url.pathname.startsWith("/fixture-control/")) {
+                // This legacy controller does not implement notification delivery.
+                if (url.pathname.endsWith("/api/notifications"))
+                    return route.fulfill({ status: 404 });
                 if (request.method() === "POST") {
                     if (url.pathname.endsWith("/responses"))
                         replies.push(request.postDataJSON());
