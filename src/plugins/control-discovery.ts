@@ -293,7 +293,7 @@ export function createControlDiscovery(
             }
         );
     }
-    function accept(value: any): void {
+    function accept(value: any, profile?: unknown): void {
         try {
             if (
                 !value ||
@@ -326,15 +326,18 @@ export function createControlDiscovery(
             finish("error", "The discovery response is invalid.");
             return;
         }
-        w.clearTimeout(deadlineTimer);
-        deadlineTimer = null;
         if (!servers.length) {
-            finish(
-                "unavailable",
-                "No command server was found on this network."
-            );
+            // The browser path validates the profile without extending the deadline.
+            if (profile) browserDiscover();
+            else
+                finish(
+                    "unavailable",
+                    "No command server was found on this network."
+                );
             return;
         }
+        w.clearTimeout(deadlineTimer);
+        deadlineTimer = null;
         var expected = generation;
         var single = servers.length === 1;
         notify(
@@ -432,7 +435,8 @@ export function createControlDiscovery(
                 try {
                     nativeDiscover().then(
                         function (value) {
-                            if (current(expected)) accept(value);
+                            if (current(expected))
+                                accept(value, w.__OTT_CONTROL_DISCOVERY_URL__);
                         },
                         function () {
                             if (current(expected)) browserDiscover();
