@@ -113,6 +113,7 @@ const CLASSIC_MODULES = [
     "build/plugins/jquery-bridge.js",
     "build/plugins/native-http.js",
     "build/plugins/local-http-remote.js",
+    "build/plugins/remote-notifications.js",
     "build/plugins/command-server.js",
     "build/plugins/diagnostic-buffer.js",
     "build/plugins/remote-diagnostics.js",

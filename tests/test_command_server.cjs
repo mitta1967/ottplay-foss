@@ -21,6 +21,10 @@ const moduleContext = {
     Date: { now: () => clock },
     exports: {},
     require(name) {
+        if (name === "./remote-notifications")
+            return require("./helpers/remote-notifications.cjs")({
+                Date: { now: () => clock },
+            });
         assert.equal(name, "../shared/wire-contracts");
         return require("./load-wire.cjs")();
     },
@@ -1987,3 +1991,68 @@ console.log(
     rpc.next();
     assert.equal(rpc.requests.at(-1).request.method, "GET");
 }
+
+{
+    const originalClock = clock;
+    const withNotifications = harness();
+    withNotifications.w.document = {
+        hidden: false,
+        visibilityState: "visible",
+    };
+    withNotifications.connect({ address: "server.local?device_id=lounge" });
+    withNotifications.respond({
+        commands: [
+            {
+                command: "popup_message",
+                id: "notice-control",
+                message: "Control still works",
+            },
+        ],
+    });
+    assert.equal(withNotifications.delivered.length, 1);
+    const notificationRequest = withNotifications.requests[1];
+    assert.match(
+        notificationRequest.request.url,
+        /\/api\/notifications\?device_id=lounge&runtime=/
+    );
+    assert.equal(withNotifications.controller.status().state, "connected");
+    withNotifications.next();
+    assert.match(
+        withNotifications.requests[2].request.url,
+        /\/commands\/ack\?/
+    );
+    notificationRequest.complete({ body: "", status: 404 });
+    assert.equal(
+        withNotifications.controller.status().state,
+        "connected",
+        "optional endpoint 404 cannot change control health"
+    );
+    withNotifications.respond({ status: "ok" });
+    withNotifications.next();
+    clock += 5000;
+    withNotifications.respond({ commands: [] });
+    assert.equal(
+        withNotifications.requests.length,
+        4,
+        "normal control polling continues during notification backoff"
+    );
+    withNotifications.next();
+    clock += 55000;
+    withNotifications.respond({ commands: [] });
+    assert.equal(
+        withNotifications.requests.length,
+        6,
+        "optional endpoint retried after its own backoff"
+    );
+    const pendingNotification = withNotifications.requests.at(-1);
+    withNotifications.connect({ enabled: false });
+    assert.equal(
+        pendingNotification.aborted,
+        true,
+        "disconnect cancels notification request too"
+    );
+    assert.equal(withNotifications.jobs.size, 0);
+    clock = originalClock;
+}
+
+require("./test_remote_notifications.cjs");

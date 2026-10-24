@@ -115,6 +115,7 @@ for (const profile of ["typescript", "static-core"]) {
         c.window = c;
         require("./helpers/shared-core-runtime.cjs")(c);
         Object.assign(c, require("./load-wire.cjs")());
+        Object.assign(c, require("./helpers/remote-notifications.cjs")());
         vm.runInContext(policy + controller + cloud, c);
         c.__ottCommandServer = c.createCommandServer(
             c,

@@ -5,6 +5,7 @@ import {
     validDeviceToken,
     wire,
 } from "../shared/wire-contracts";
+import { createRemoteNotifications } from "./remote-notifications";
 
 /** Outbound command delivery. Independent of native HTTP listening and WebCrypto. */
 export interface CommandServerConfig {
@@ -113,6 +114,7 @@ export function createCommandServer(
     ) => (() => void) | void,
     acceptRequest?: (request: any) => boolean
 ): any {
+    var notifications = createRemoteNotifications(w, send);
     var config: CommandServerConfig = {
         address: "",
         enabled: false,
@@ -213,6 +215,7 @@ export function createCommandServer(
         if (listener) listener();
     }
     function stop(): void {
+        notifications.stop();
         generation++;
         if (timer !== null) w.clearTimeout(timer);
         timer = null;
@@ -351,6 +354,7 @@ export function createCommandServer(
                     failed();
                     return;
                 }
+                notifications.poll();
                 moreRequests = false;
                 var now = Date.now();
                 for (var j = 0; j < data.commands.length; j++) {
@@ -802,6 +806,7 @@ export function createCommandServer(
                 );
             config.enabled = true;
             persist(config);
+            notifications.configure(config.address, config.token);
             update("connecting", "Connecting...");
             poll();
         } catch (error) {
