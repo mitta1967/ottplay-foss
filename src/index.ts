@@ -1329,6 +1329,11 @@ function stbSetOsdOpacity(val: number): void {
               ? "8,8,8"
               : classicColorRgb(settings.highlightColorB);
     $(".osd").css("background-color", "rgba(" + rgb + "," + val / 100 + ")");
+    // Keep notification surfaces slightly denser than the footer, not their text.
+    document.documentElement.style.setProperty(
+        "--ott-notify-alpha",
+        String(val / 100 + 0.08)
+    );
 }
 
 /**

@@ -214,13 +214,45 @@ for (const viewport of [
             const card = cards.nth(i);
             for (const side of ["top", "right", "bottom", "left"]) {
                 await expect(card).toHaveCSS(`border-${side}-color`, colors[i]);
-                await expect(card).toHaveCSS(
-                    `border-${side}-width`,
-                    side === "left" ? "3px" : "1px"
-                );
+                await expect(card).toHaveCSS(`border-${side}-width`, "1px");
                 await expect(card).toHaveCSS(`border-${side}-style`, "solid");
             }
         }
+        await expect(cards.first()).toHaveCSS("opacity", "1");
+        await expect(cards.first()).toHaveCSS(
+            "background-color",
+            "rgba(22, 28, 39, 0.78)"
+        );
+        await expect(cards.first().locator(".remote-notify-message")).toHaveCSS(
+            "opacity",
+            "1"
+        );
+        await expect(cards.first().locator(".remote-notify-icon")).toHaveCSS(
+            "opacity",
+            "1"
+        );
+        const footerAlpha = await page
+            .locator("#info1")
+            .evaluate((node) =>
+                Number(
+                    getComputedStyle(node).backgroundColor.match(
+                        /, ([\d.]+)\)$/
+                    )[1]
+                )
+            );
+        expect(footerAlpha).toBeCloseTo(0.7);
+        await page.evaluate(() => window.stbSetOsdOpacity(90));
+        await expect(cards.first()).toHaveCSS(
+            "background-color",
+            "rgba(22, 28, 39, 0.98)"
+        );
+        await page.evaluate(() => window.stbSetOsdOpacity(100));
+        await expect(cards.first()).toHaveCSS(
+            "background-color",
+            "rgb(22, 28, 39)"
+        );
+        await page.evaluate(() => window.stbSetOsdOpacity(70));
+
         for (const g of geometry) {
             expect(g.x).toBeGreaterThanOrEqual(0);
             expect(g.y).toBeGreaterThanOrEqual(0);

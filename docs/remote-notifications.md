@@ -14,12 +14,18 @@ lines. Long titles and messages are clipped to bounded previews so three
 simultaneous notifications fit normal small windows. This is a transient preview,
 not a complete event history; keep controller messages concise.
 
-An opaque dark background keeps contrast stable over bright or dark video.
-Severity has a text label, a decorative badge and a thin closed outline in the
-same accent color, with a stronger left edge. Older WebViews use solid
-background, fixed-font, word-wrap and bounded-height fallbacks; layout does not
-require backdrop filters, flex gap, JavaScript resize handlers or external fonts.
-Reduced-motion settings disable the entrance animation.
+Only the dark surface is translucent; text and icons retain full opacity.
+The default information footer has alpha 0.70 (30% transparency). Notification
+surfaces add 0.08 opacity, giving alpha 0.78 (22% transparency), capped at 1.0.
+The value updates with the footer's opacity setting. Older WebViews without CSS
+custom properties use the same 0.78 default surface. The solid RGB base is
+22,28,39; no gradient or container opacity dilutes text contrast.
+
+Severity has a text label, decorative badge and a uniformly thin, closed
+1 CSS pixel outline in the same accent color. Older WebViews retain fixed-font,
+word-wrap and bounded-height fallbacks. Layout does not require backdrop filters,
+flex gap, JavaScript resize handlers or external fonts. Reduced-motion settings
+disable the entrance animation.
 
 Presentation does not change delivery: cards never take focus or pointer input,
 never wake a sleeping player, retain the bounded three-card queue and existing

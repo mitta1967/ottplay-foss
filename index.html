@@ -49,7 +49,7 @@
             animation: notifyOut 0.3s ease-in forwards;
         }
         /* Remote home events use viewport sizing, independent of the TV skin's
-           em scale. Solid backing is deliberate: video must not reduce contrast. */
+           em scale. Only the surface is translucent; text keeps full contrast. */
         .notify.remote-notify {
             box-sizing: border-box;
             display: flex;
@@ -62,10 +62,9 @@
             font-weight: normal;
             line-height: 1.4;
             color: #f5f7fb;
-            background: #161c27;
-            background: linear-gradient(135deg, #202a3a, #131923);
+            background: rgba(22, 28, 39, 0.78);
+            background: rgba(22, 28, 39, var(--ott-notify-alpha, 0.78));
             border: 1px solid #79bbff;
-            border-left: 3px solid #79bbff;
             border-radius: 1em;
             box-shadow: 0 0.5em 1.7em rgba(0, 0, 0, 0.42);
             pointer-events: none;
