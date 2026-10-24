@@ -190,6 +190,7 @@ import {
     stbDelItem,
     stbGetAllItems,
     stbGetItem,
+    stbGetNotificationSetting,
     stbGetPersistedItem,
     stbSetItem,
     storage,
@@ -327,6 +328,7 @@ declare var $: any;
 
 // Command handler (push commands via webhook)
 import { type Command, handleCommand, showPopup } from "./commands";
+import { readNotificationsEnabled } from "./commands/remote-notifications";
 import { executeRemoteRequest } from "./commands/remote-requests";
 import { remotePlayerInfo } from "./commands/remote-restart";
 // Key handler
@@ -2126,6 +2128,9 @@ function onStbReady(): void {
         installSettingsFacade(window as any);
         (window as any).__ottKiosk.init();
         (window as any).__ottLocalHttpRemote.init();
+        (window as any).__ottRemoteNotifications.setEnabled(
+            readNotificationsEnabled(window)
+        );
         (window as any).__ottCommandServer.configure({
             address: settings.commandServerAddress,
             enabled: settings.commandServerEnabled === 1,
@@ -5633,6 +5638,7 @@ if (window.__TAURI__ || window.__TAURI_INTERNALS__) {
     });
 }
 (window as any).stbGetPersistedItem = stbGetPersistedItem;
+(window as any).stbGetNotificationSetting = stbGetNotificationSetting;
 window.stbSetItem = stbSetItem;
 window.stbDelItem = stbDelItem;
 window.stbClearAllItems = stbClearAllItems;

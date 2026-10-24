@@ -998,6 +998,29 @@ export function stbGetPersistedItem(key: string): string | null {
         : null;
 }
 
+/** Strict notification policy read: unavailable storage is not an absent opt-out. */
+export function stbGetNotificationSetting(): string | null {
+    if (settingsRecoveryRequired()) throw new Error("storage_unavailable");
+    // A hidden/corrupt cookie override can supersede localStorage. Do not guess.
+    document.cookie;
+    var cookies = readStorageCookies();
+    var overrides = readStorageFallback(cookies);
+    var key = "sNotificationsEnabled";
+    if (overrides === null) throw new Error("storage_unavailable");
+    if (overrides.indexOf(key) >= 0) {
+        // A marked override without a readable value is not a new installation.
+        if (!Object.prototype.hasOwnProperty.call(cookies, key))
+            throw new Error("storage_unavailable");
+        return cookies[key];
+    }
+    try {
+        var backing = window.localStorage;
+        if (backing) return backing.getItem(key);
+    } catch (_unavailable) {}
+    if (Object.prototype.hasOwnProperty.call(cookies, key)) return cookies[key];
+    throw new Error("storage_unavailable");
+}
+
 /**
  * Backward-compatible alias — store an item in the underlying storage.
  * @see StorageAdapter.set
@@ -1027,6 +1050,7 @@ export function stbGetAllItems(): Record<string, string> {
             key === "__ottKioskV1" ||
             key === "offlineProfileBindings" ||
             key === "__ottStandbyV1" ||
+            key === "sNotificationsEnabled" ||
             isStorageMetadataKey(key)
         )
             delete items[key];
@@ -1040,6 +1064,7 @@ export function isPortableSettingsKey(key: string): boolean {
         key !== "__ottKioskV1" &&
         key !== "offlineProfileBindings" &&
         key !== "__ottStandbyV1" &&
+        key !== "sNotificationsEnabled" &&
         !isStorageMetadataKey(key) &&
         (window as any).OttPlayCore.classicPortableKey(key, true)
     );
@@ -1058,6 +1083,7 @@ export function portableSettingsSnapshot(
             key === "__ottKioskV1" ||
             key === "offlineProfileBindings" ||
             key === "__ottStandbyV1" ||
+            key === "sNotificationsEnabled" ||
             isStorageMetadataKey(key)
         )
             delete result[key];
@@ -1114,6 +1140,7 @@ export function restoreLocalSettingsSnapshot(items: Record<string, any>): void {
             return (
                 key !== "offlineProfileBindings" &&
                 key !== "__ottStandbyV1" &&
+                key !== "sNotificationsEnabled" &&
                 !isStorageMetadataKey(key)
             );
         })
