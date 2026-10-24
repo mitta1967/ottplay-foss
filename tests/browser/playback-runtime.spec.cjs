@@ -1669,3 +1669,230 @@ test("kiosk locks UI selection, retries a stopped channel and restores the lock"
     expect((await rpc("play", { query: "2" })).status).toBe("ok");
     expect(errors).toEqual([]);
 });
+
+test("shipped playback feedback bounds waits and suppresses late events after pause and standby", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const origin = new URL(baseURL).origin;
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await context.route("**/*", (route) =>
+        new URL(route.request().url()).origin === origin
+            ? route.continue()
+            : route.abort("blockedbyclient")
+    );
+    await context.routeWebSocket("**/*", (socket) => socket.close());
+    await context.addInitScript(() => {
+        localStorage.setItem("ottplaylang", "_eng");
+        localStorage.setItem("ottplayprov", "demo");
+        // Keep real DOM/event handlers and the shipped engine lease, without a
+        // decoder race or external stream deciding when this test is playing.
+        Object.defineProperty(HTMLMediaElement.prototype, "src", {
+            configurable: true,
+            get() {
+                return this.__feedbackSource || "";
+            },
+            set(value) {
+                this.__feedbackSource = String(value);
+            },
+        });
+        HTMLMediaElement.prototype.play = function () {
+            return Promise.resolve();
+        };
+    });
+    await page.goto("/f/pc/");
+    await page.waitForFunction(
+        () => window.__ottDevice && window.__ottPlaybackFeedback
+    );
+    await page.evaluate(() => {
+        window.$.fx.off = true;
+        window.stbStop();
+        window.setPlayerMode(0);
+    });
+    await page.clock.install();
+    const label = page.locator("#playback_status");
+    const busy = page.locator("#buffering");
+    const event = (name) =>
+        page.evaluate((name) => {
+            document.querySelector("#video").dispatchEvent(new Event(name));
+        }, name);
+    const start = () =>
+        page.evaluate(() => window.stbPlay("/feedback-fixture.mp4"));
+    await page.evaluate(() => window.infoBarHide());
+    await start();
+    await expect(label).toContainText("Connecting");
+    await expect(label).toBeVisible();
+    await expect(busy).toBeVisible();
+    // The ordinary resolution/bitrate ticker must not erase active feedback.
+    await page.clock.fastForward(20000);
+    await expect(label).toContainText("Connecting");
+    // Reproduce a hide started before this status update. The still-animating
+    // footer is :visible until slideUp completes, even with a new message.
+    expect(
+        await page.evaluate(() => {
+            window.$("#info1").stop(true, true).show();
+            window.$.fx.off = false;
+            window.$("#info1").slideUp(60000);
+            window.$.fx.off = true;
+            return (
+                window.$("#info1").is(":animated") &&
+                window.$("#info1").is(":visible")
+            );
+        })
+    ).toBe(true);
+    await event("waiting");
+    await expect(label).toContainText("Buffering");
+    // Completing any remaining old hide must not win over the newer status.
+    await page.evaluate(() => window.$("#info1").stop(true, true));
+    await expect(label).toBeVisible();
+    await expect(busy).toBeVisible();
+    await page.evaluate(() => {
+        document.getElementById("programm_descr").textContent =
+            "Programme details";
+        window.showChannelInfo(2);
+    });
+    await expect(page.locator("#descr")).toBeVisible();
+    await event("waiting");
+    await expect(page.locator("#descr")).toBeVisible();
+    await page.evaluate(() => {
+        window.infoBarHide();
+        window.showChannelInfo(1);
+        // A stalled live element can remain unpaused; the ordinary hide poll
+        // must retain the terminal status even when playback reports playing.
+        window.__feedbackIsPlaying = window.stbIsPlaying;
+        window.stbIsPlaying = () => true;
+    });
+    await page.clock.fastForward(16000);
+    await expect(label).toContainText("timed out");
+    await expect(label).toBeVisible();
+    await page.evaluate(() => {
+        window.stbIsPlaying = window.__feedbackIsPlaying;
+    });
+    await expect(busy).toBeHidden();
+    await event("waiting");
+    await event("canplay");
+    await page.clock.fastForward(1000);
+    await expect(label).toContainText("timed out");
+    await expect(busy).toBeHidden();
+    await event("playing");
+    await expect(label).not.toContainText("timed out");
+
+    await page.evaluate(() => {
+        window.__ottCoreTransport.configure({
+            prepareSource(_url, ready) {
+                window.__feedbackReady = ready;
+                return () => {};
+            },
+        });
+    });
+    await start();
+    expect(await page.locator("#video").evaluate((video) => video.paused)).toBe(
+        true
+    );
+    await page.evaluate(() => window.stbPause());
+    await page.clock.fastForward(31000);
+    await expect(label).not.toContainText("timed out");
+    await expect(busy).toBeHidden();
+    await page.evaluate(() => window.__feedbackReady("/feedback-fixture.mp4"));
+    await event("loadstart");
+    await page.clock.fastForward(31000);
+    await expect(label).not.toContainText("timed out");
+    await expect(busy).toBeHidden();
+    expect(await page.evaluate(() => window.forcePlay)).toBe(false);
+    await page.evaluate(() =>
+        window.__ottCoreTransport.configure({ prepareSource: null })
+    );
+
+    await start();
+    await page.evaluate(() => window.stbSetStandby(true));
+    await event("waiting");
+    await event("loadstart");
+    await event("error");
+    await page.clock.fastForward(46000);
+    await expect(label).toHaveText("");
+    await expect(busy).toBeHidden();
+    expect(await page.evaluate(() => window.__ottStandby.blocked())).toBe(true);
+    expect(errors).toEqual([]);
+});
+
+test("fresh Chrome without native HLS or a saved engine uses lazy MSE through the normal channel path", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const origin = new URL(baseURL).origin;
+    const engines = [];
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("request", (request) => {
+        const path = new URL(request.url()).pathname;
+        if (/\/js\/(hls.min|shaka-player.compiled)\.js$/.test(path))
+            engines.push(path);
+    });
+    await context.route("**/*", (route) => {
+        const url = new URL(route.request().url());
+        if (url.hostname === "playlist.test")
+            return route.fulfill({
+                body: '#EXTM3U\n#EXTINF:-1 tvg-id="fresh" group-title="Test",Fresh HLS\nhttps://media.test/fresh/index.m3u8\n',
+                contentType: "text/plain",
+                headers: { "Access-Control-Allow-Origin": "*" },
+            });
+        if (url.hostname === "media.test") {
+            const segment = url.pathname.endsWith(".ts");
+            return route.fulfill({
+                body: fs.readFileSync(
+                    path.join(
+                        mediaRoot,
+                        segment ? "segment00.ts" : "index.m3u8"
+                    )
+                ),
+                contentType: segment
+                    ? "video/mp2t"
+                    : "application/vnd.apple.mpegurl",
+                headers: { "Access-Control-Allow-Origin": "*" },
+            });
+        }
+        return url.origin === origin
+            ? route.continue()
+            : route.abort("blockedbyclient");
+    });
+    await context.routeWebSocket("**/*", (socket) => socket.close());
+    await context.addInitScript(() => {
+        // Model desktop generations without native HLS; keep real MSE codecs,
+        // media decoding and all normal provider/default-engine initialization.
+        const canPlayType = HTMLMediaElement.prototype.canPlayType;
+        HTMLMediaElement.prototype.canPlayType = function (mime) {
+            return /(?:mpegurl|m3u8)/i.test(mime)
+                ? ""
+                : canPlayType.call(this, mime);
+        };
+        localStorage.setItem("ottplaylang", "_eng");
+        localStorage.setItem("ottplayprov", "m3u");
+        localStorage.setItem(
+            "m3um3uArr",
+            JSON.stringify({
+                active: 0,
+                M3Us: [{ www: "https://playlist.test/fresh.m3u" }],
+            })
+        );
+    });
+    await page.goto("/f/pc/");
+    await page.waitForFunction(() => {
+        const media = document.querySelector("video");
+        return (
+            media &&
+            !media.paused &&
+            media.currentTime > 0 &&
+            media.videoWidth > 0 &&
+            media.getVideoPlaybackQuality().totalVideoFrames > 0
+        );
+    });
+    expect(await page.evaluate(() => window.playerMode)).toBe(1);
+    expect(
+        await page.evaluate(() => window.providerHasItemValue("sPlayers"))
+    ).toBe(false);
+    expect(engines).toEqual(["/js/hls.min.js"]);
+    expect(errors).toEqual([]);
+});

@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, "..");
 const source = [
     "src/core/standby.ts",
     "src/plugins/access-media.ts",
+    "src/core/buffer-policy.ts",
     "src/core/native-hls.ts",
     "src/playback/stream-policy.ts",
     "src/core/index.ts",
@@ -2059,6 +2060,49 @@ test("screen suspension cancels a queued stream retry before resuming a fresh le
     );
     w.stbStop();
 });
+test("lazy PiP keeps its owning lease through engine readiness and releases the decoder", () => {
+    const { w, players } = fixture();
+    const callbacks = [];
+    w.playerMode = 1;
+    w.__ottLoadMediaEngine = (engine, callback) => callbacks.push(callback);
+    w.stbPlayPip("https://fixture.test/pip.m3u8");
+    const handle = w.__ottCoreBackend().current("pip");
+    assert.equal(callbacks.length, 1);
+    callbacks[0](true);
+    assert.equal(
+        handle.diagnosticEngine(),
+        "hls.js",
+        "loaded engine still belongs to original PiP lease"
+    );
+    players[0].events.manifest();
+    assert.equal(w.videoPip.paused, false);
+    w.stbStopPip();
+    assert.equal(players[0].destroyCalls, 1);
+    assert.equal(w.videoPip.paused, true);
+    assert.equal(w.videoPip.src, "");
+    assert.equal(w.videoPip.loadCalls, 1);
+    callbacks[0](true);
+    assert.equal(
+        players.length,
+        1,
+        "late readiness cannot restore stopped PiP"
+    );
+});
+test("stopping pending lazy PiP invalidates readiness before engine construction", () => {
+    const { w, players } = fixture();
+    let ready;
+    w.playerMode = 1;
+    w.__ottLoadMediaEngine = (_engine, callback) => {
+        ready = callback;
+    };
+    w.stbPlayPip("https://fixture.test/pip.m3u8");
+    w.stbStopPip();
+    ready(true);
+    assert.equal(players.length, 0);
+    assert.equal(w.videoPip.paused, true);
+    assert.equal(w.videoPip.src, "");
+});
+
 test("PiP diagnostics use their own attached engine and clear on stop", () => {
     const { w } = fixture();
     w.playerMode = 1;
@@ -2073,6 +2117,92 @@ test("PiP diagnostics use their own attached engine and clear on stop", () => {
     assert.equal(pip.diagnosticEngine(), null);
     assert.equal(main.diagnosticEngine(), "hls.js");
     w.stbStop();
+});
+
+test("shared HLS policy uses measured RAM, source identity and saved seconds without changing retries", () => {
+    const { w, players } = fixture();
+    w.navigator = { deviceMemory: 2, userAgent: "Android" };
+    w.playerMode = 1;
+    w.stbGetItem = (key) => (key === "sBufSize" ? "7" : null);
+    w.stbPlay("https://engine/ace/manifest.m3u8?id=abc");
+    const config = players[0].config;
+    assert.equal(config.maxBufferLength, 7);
+    assert.equal(config.maxBufferSize, 32000000);
+    assert.equal(config.backBufferLength, 15);
+    assert.equal(config.maxMaxBufferLength, 120);
+    assert.equal(config.fragLoadingMaxRetry, undefined);
+    assert.equal(w.__ottBufferPolicy.profile, "low-memory/acestream");
+    assert.equal(JSON.stringify(w.__ottBufferPolicy).includes("abc"), false);
+    w.stbStop();
+});
+test("shared Shaka policy applies on Android with no RAM hint and preserves quality settings", () => {
+    const { w, shakas } = fixture();
+    w.ott_device = "android";
+    w.playerMode = 2;
+    w.sStreamMaxHeight = 720;
+    w.stbPlay("https://media/live.mpd");
+    assert.equal(shakas[0].config.streaming.bufferingGoal, 30);
+    assert.equal(shakas[0].config.streaming.bufferBehind, 30);
+    assert.equal(shakas[0].config.streaming.rebufferingGoal, 2);
+    assert.equal(shakas[0].config.restrictions.maxHeight, 720);
+    w.stbStop();
+});
+
+test("repeated Play on ready media does not create a feedback deadline; pause and resume does", () => {
+    const { w } = fixture();
+    const timers = new Map();
+    let serial = 0;
+    const label = { style: {}, textContent: "" },
+        details = { textContent: "" },
+        spinner = { style: {} };
+    w.document.getElementById = (id) =>
+        ({ buffering: spinner, playback_status: label, video_res: details })[
+            id
+        ] || null;
+    w.setTimeout = (fn, ms) => {
+        timers.set(++serial, { fn, ms });
+        return serial;
+    };
+    w.clearTimeout = (id) => timers.delete(id);
+    vm.runInContext(
+        ts.transpileModule(
+            fs.readFileSync(
+                path.join(root, "src/core/playback-feedback.ts"),
+                "utf8"
+            ),
+            {
+                compilerOptions: { target: ts.ScriptTarget.ES5 },
+            }
+        ).outputText,
+        w
+    );
+    w.__ottPlaybackFeedback.bind(w.video);
+    w.playerMode = 0;
+    w.stbPlay("https://fixture.test/film.mp4");
+    w.video.readyState = 4;
+    w.video.paused = false;
+    for (const callback of w.video.listeners.playing) callback();
+    assert.equal(timers.size, 0);
+    w.stbResume();
+    w.stbResume();
+    assert.equal(
+        timers.size,
+        0,
+        "ready Play must not await a playing event that will not fire"
+    );
+    assert.equal(label.textContent, "");
+    w.stbPause();
+    w.stbResume();
+    assert.equal(timers.size, 1, "a real pause/resume arms startup feedback");
+    const deadline = [...timers.keys()];
+    w.stbResume();
+    assert.deepEqual(
+        [...timers.keys()],
+        deadline,
+        "pending wait is not extended by repeated Play"
+    );
+    w.stbStop();
+    assert.equal(timers.size, 0);
 });
 
 (async () => {
