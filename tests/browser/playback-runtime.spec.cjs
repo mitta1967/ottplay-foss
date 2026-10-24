@@ -138,6 +138,9 @@ test("remote archive receipt resolves without playback and starts the selected p
             url.origin === origin &&
             url.pathname.startsWith("/fixture-control/")
         ) {
+            // This legacy controller does not implement notification delivery.
+            if (url.pathname.endsWith("/api/notifications"))
+                return route.fulfill({ status: 404 });
             if (request.method() === "POST") {
                 const result = request.postDataJSON();
                 results.push(result);
@@ -458,6 +461,9 @@ async function episodeFixture(
             url.origin === origin &&
             url.pathname.startsWith("/fixture-control/")
         ) {
+            // This legacy controller does not implement notification delivery.
+            if (url.pathname.endsWith("/api/notifications"))
+                return route.fulfill({ status: 404 });
             if (request.method() === "POST") {
                 remoteResults.push(request.postDataJSON());
                 return route.fulfill({ json: { status: "ok" } });
@@ -1560,6 +1566,9 @@ test("kiosk locks UI selection, retries a stopped channel and restores the lock"
             url.origin === origin &&
             url.pathname.startsWith("/fixture-control/")
         ) {
+            // This legacy controller does not implement notification delivery.
+            if (url.pathname.endsWith("/api/notifications"))
+                return route.fulfill({ status: 404 });
             if (request.method() === "POST") {
                 if (url.pathname.endsWith("/responses"))
                     results.push(request.postDataJSON());

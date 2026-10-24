@@ -34,6 +34,9 @@ async function fixture(page, context, baseURL, media = {}) {
         if (url.origin !== origin) return route.abort("blockedbyclient");
         if (media.control && url.pathname.startsWith("/standby-control/")) {
             const control = media.control;
+            // This legacy controller does not implement notification delivery.
+            if (url.pathname.endsWith("/api/notifications"))
+                return route.fulfill({ status: 404 });
             if (route.request().method() === "POST") {
                 if (url.pathname.endsWith("/responses"))
                     control.replies.push(route.request().postDataJSON());
