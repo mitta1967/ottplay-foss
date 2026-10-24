@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import plistlib
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -56,7 +57,7 @@ class InstanceApps(unittest.TestCase):
             return self.running
         if args[0] == "ditto":
             shutil.copytree(args[-2], args[-1], symlinks=True)
-        elif args[0] != "codesign":
+        elif args[0] not in ("codesign", INSTALL.LSREGISTER):
             self.fail(f"Unexpected command {args[0]}")
         return ""
 
@@ -69,6 +70,13 @@ class InstanceApps(unittest.TestCase):
         self.prepare()
         result = INSTALL.apply(self.work)
         self.assertEqual(result["status"], "installed_pending_runtime_verification")
+        self.assertTrue(result["launchServicesRefreshed"])
+        registered = [call.args for call in self.mock_run.call_args_list
+                      if call.args[0] == INSTALL.LSREGISTER]
+        self.assertEqual(registered, [
+            (INSTALL.LSREGISTER, "-f", str(self.apps / f"OttPlay FOSS {n}.app"))
+            for n in self.ports
+        ])
         self.assertEqual(INSTALL.tree(self.main), original)
         for n, port in self.ports.items():
             app = self.apps / f"OttPlay FOSS {n}.app"
@@ -152,6 +160,34 @@ class InstanceApps(unittest.TestCase):
         (app / INSTALL.EXECUTABLE).write_text("#!/bin/sh\nunknown-launch\n")
         with self.assertRaisesRegex(RuntimeError, "Unrecognized instance launcher"):
             self.prepare()
+
+    def test_registration_failure_restores_and_reregisters_original_apps(self):
+        originals = {n: INSTALL.tree(self.apps / f"OttPlay FOSS {n}.app") for n in self.ports}
+        self.prepare()
+        original = self.run_tool
+        registrations = []
+        failed = False
+
+        def registration_failure(*args):
+            nonlocal failed
+            if args[0] == INSTALL.LSREGISTER:
+                registrations.append(args)
+                if not failed and args[1] == "-f" and args[2].endswith("3.app"):
+                    failed = True
+                    raise subprocess.CalledProcessError(1, args)
+            return original(*args)
+
+        with patch.object(INSTALL, "run", side_effect=registration_failure):
+            with self.assertRaises(subprocess.CalledProcessError):
+                INSTALL.apply(self.work)
+        for n in self.ports:
+            self.assertEqual(INSTALL.tree(self.apps / f"OttPlay FOSS {n}.app"), originals[n])
+        expected_paths = [str(self.apps / f"OttPlay FOSS {n}.app") for n in (2, 3)]
+        self.assertEqual(registrations, [
+            (INSTALL.LSREGISTER, mode, app)
+            for mode in ("-f", "-u", "-f") for app in expected_paths
+        ])
+        self.assertTrue((self.work / "stores/2").is_dir())
 
     def test_existing_instance_without_store_is_not_reset(self):
         shutil.rmtree(self.old_stores[2])

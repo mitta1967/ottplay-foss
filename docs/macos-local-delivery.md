@@ -111,7 +111,10 @@ Preparation records the main bundle, existing copies, and source/destination
 store fingerprints. Apply rechecks them, refuses running players or a replayed
 transaction, keeps the previous application bundles as backups, and rolls back
 the applications and newly copied stores if a swap fails. It does not launch a
-player. Verify saved profiles, remote identities and playback after reopening;
+player. After swapping, it force-refreshes only these three paths in
+LaunchServices so cached launcher metadata cannot retain the old environment.
+If registration fails, it restores the applications and re-registers their
+original metadata. Verify saved profiles, remote identities and playback after reopening;
 also test closing and reopening the default player while the other three remain
 open. Keep the migration backup until these checks pass.
 

@@ -10,7 +10,7 @@
     var sampledAt = 0;
     var refreshInfo: (() => void) | undefined;
     function sourceKey(): string {
-        return media ? media.src + "\n" + media.currentSrc : "";
+        return media ? media.currentSrc || media.src : "";
     }
     function sample(): void {
         source = sourceKey();
@@ -27,7 +27,7 @@
         var next = media.currentTime;
         var elapsed = (Date.now() - sampledAt) / 1000;
         var delta = next - position;
-        var rate = Math.abs(media.playbackRate || 1);
+        var rate = media.playbackRate || 1;
         var advanced =
             armed &&
             !media.seeking &&
@@ -42,19 +42,20 @@
         if (progressing() && (timer || expired)) {
             clear();
             expired = false;
-            render("", false);
+            render("");
         }
     }
     function clear(): void {
         clearTimeout(timer!);
         timer = null;
     }
-    function render(message: string, busy: boolean): void {
+    function render(message: string): void {
         // Keep status inside the existing metadata column. Its normal footer
         // timeout owns visibility; media events must not reopen the footer.
         var spinner = document.getElementById("buffering");
         var label = document.getElementById("video_res");
-        if (spinner) spinner.style.display = busy ? "block" : "none";
+        if (spinner)
+            spinner.style.display = message && !expired ? "block" : "none";
         if (!label) return;
         label.className = message ? "playback-feedback" : "";
         label.textContent = message && expired ? host._("ERROR!") : message;
@@ -67,45 +68,40 @@
         clear();
         expired = true;
         render(
-            message || host._("Stream timed out. Select the channel to retry."),
-            false
+            message || host._("Stream timed out. Select the channel to retry.")
         );
     }
     function waiting(message: string, deadline: number): void {
         if (!active) {
-            render("", false);
+            render("");
             return;
         }
         if (expired) {
             fail();
             return;
         }
-        render(message, true);
+        render(message);
         // Repeated progress/waiting/retry events must not extend the deadline.
         if (!timer) {
             sample();
             timer = setTimeout(function () {
                 observe();
-                if (active && timer) fail();
+                if (timer) fail();
             }, deadline);
         }
     }
     function begin(paused?: boolean, resuming?: boolean): void {
-        if (paused) return stop();
         clear();
-        active = true;
+        active = !paused;
         expired = false;
         // begin runs before the previous source is detached. Its remaining
         // frames cannot acknowledge the replacement source's startup.
         armed = !!resuming;
-        sample();
-        waiting(host._("Connecting..."), 30000);
+        if (active) waiting(host._("Connecting..."), 30000);
+        else render("");
     }
     function stop(): void {
-        active = false;
-        expired = false;
-        clear();
-        render("", false);
+        begin(true);
     }
     host.__ottPlaybackFeedback = {
         begin: begin,
@@ -129,7 +125,6 @@
             on("waiting", buffering);
             on("stalled", buffering);
             on("timeupdate", observe);
-            on("seeking", sample);
             on("seeked", sample);
             on("pause", function () {
                 // Engine preparation also pauses media: only explicit pause intent
@@ -152,7 +147,7 @@
         },
         stop: stop,
         visible: function (): boolean {
-            return active && !!(timer || expired);
+            return !!(timer || expired);
         },
     };
 })(window as any);

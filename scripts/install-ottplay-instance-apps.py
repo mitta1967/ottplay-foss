@@ -15,6 +15,7 @@ import uuid
 
 IDENTIFIER = "com.ottplay.foss"
 EXECUTABLE = "Contents/MacOS/ottplay-tauri"
+LSREGISTER = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 
 def require(value, message):
@@ -188,7 +189,7 @@ def apply(work):
     (work / "apply-intent.json").write_text(json.dumps({"plan": expected}) + "\n")
     backups = work / "backups"
     backups.mkdir()
-    installed, migrated = [], []
+    installed, migrated, registered = [], [], []
     try:
         for entry in plan["entries"]:
             app, candidate, store = map(Path, (entry["app"], entry["candidate"], entry["store"]))
@@ -203,7 +204,20 @@ def apply(work):
                 os.replace(entry["stagedStore"], store)
                 migrated.append((store, Path(entry["stagedStore"])))
         require(tree(main) == plan["mainTree"], "Main app changed during apply")
-    except Exception:
+        for app, _, _ in installed:
+            # A same-path replacement can retain the former shell launcher's
+            # cached environment. Refresh only these three application paths.
+            registered.append(app)
+            run(LSREGISTER, "-f", str(app))
+    except Exception as error:
+        registration_errors = []
+        # Unregister while each new app still exists, including a registration
+        # call that failed after partially updating LaunchServices.
+        for app in registered:
+            try:
+                run(LSREGISTER, "-u", str(app))
+            except (OSError, subprocess.SubprocessError):
+                registration_errors.append(str(app))
         for store, stage in reversed(migrated):
             os.replace(store, stage)
         for app, candidate, backup in reversed(installed):
@@ -211,10 +225,20 @@ def apply(work):
                 os.replace(app, candidate)
             if backup.exists():
                 os.replace(backup, app)
+        for app in registered:
+            if app.exists():
+                try:
+                    run(LSREGISTER, "-f", str(app))
+                except (OSError, subprocess.SubprocessError):
+                    registration_errors.append(str(app))
+        if registration_errors:
+            raise RuntimeError("Application files restored; LaunchServices registration needs repair: "
+                               + ", ".join(registration_errors)) from error
         raise
     result = {"status": "installed_pending_runtime_verification", "version": plan["version"],
               "instances": [2, 3, 4], "originalProfilesRetained": True,
-              "backupDirectory": str(backups), "selfUpdate": "managed_by_main_app_refresh"}
+              "backupDirectory": str(backups), "selfUpdate": "managed_by_main_app_refresh",
+              "launchServicesRefreshed": True}
     (work / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     return result
 

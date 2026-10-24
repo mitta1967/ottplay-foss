@@ -279,6 +279,36 @@ function fixture() {
     assert.match(f.text(), /timed out/);
     f.w.close();
 }
+{
+    const f = fixture();
+    let attached = "https://example.test/old.mp4";
+    Object.defineProperty(f.video, "currentSrc", { get: () => attached });
+    f.video.src = attached;
+    f.api.begin();
+    f.video.src = "https://example.test/new.mp4";
+    f.advance(1000);
+    f.video.currentTime = 1;
+    f.event("timeupdate");
+    f.advance(1000);
+    f.video.currentTime = 2;
+    f.event("timeupdate");
+    assert.equal(
+        f.busy(),
+        true,
+        "pending src cannot acknowledge old attached frames"
+    );
+    attached = f.video.src;
+    f.event("timeupdate");
+    f.advance(1000);
+    f.video.currentTime = 3;
+    f.event("timeupdate");
+    assert.equal(
+        f.text(),
+        "",
+        "new attached source recovers only on its own progress"
+    );
+    f.w.close();
+}
 console.log(
     "playback feedback: bounded waits, confirmed progress, late recovery, seeks, pause/stop and source replacement PASS"
 );
