@@ -354,7 +354,10 @@ export function createCommandServer(
                     failed();
                     return;
                 }
-                notifications.poll();
+                // Optional banner failures must not stop command delivery or retries.
+                try {
+                    notifications.poll();
+                } catch (_error) {}
                 moreRequests = false;
                 var now = Date.now();
                 for (var j = 0; j < data.commands.length; j++) {

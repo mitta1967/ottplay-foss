@@ -1993,6 +1993,36 @@ console.log(
 }
 
 {
+    const notificationFailure = harness();
+    notificationFailure.connect();
+    notificationFailure.w.__ottRemoteNotifications.poll = () => {
+        throw new Error("Fixture: notification cleanup failed");
+    };
+    assert.doesNotThrow(() =>
+        notificationFailure.respond({
+            commands: [
+                {
+                    command: "set_volume",
+                    id: "notification-failure",
+                    volume_step: 1,
+                },
+            ],
+        })
+    );
+    assert.equal(notificationFailure.delivered.length, 1);
+    assert.equal(notificationFailure.next(), 0);
+    assert.match(
+        notificationFailure.requests.at(-1).request.url,
+        /\/commands\/ack$/
+    );
+    notificationFailure.respond({ status: "ok" });
+    assert.equal(notificationFailure.next(), 1000);
+    assert.equal(notificationFailure.requests.at(-1).request.method, "GET");
+    assert.doesNotThrow(() => notificationFailure.respond({ commands: [] }));
+    assert.equal(notificationFailure.next(), 1000);
+}
+
+{
     const originalClock = clock;
     const withNotifications = harness();
     withNotifications.w.document = {
