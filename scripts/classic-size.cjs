@@ -338,7 +338,12 @@ const { gzipSync } = require("node:zlib");
 // checks and independent failure handling. Same-identity Node 26.8.2 comparison:
 // 1018045/312970 -> 1021481/314181 raw/gzip (+3436/+1211). Allocate +3500/+1250
 // for this feature, preserving existing native, Node 22 and release headroom.
-const BUDGET = Object.freeze({ bytes: 1022000, gzipBytes: 315450 });
+// Compact HA cards with footer-linked translucency measure 315473 native gzip
+// bytes in the reviewed Node 22.23.3 UI preflight, before a candidate suffix.
+// Reserve 100 entry gzip bytes for this presentation feature and candidate
+// identity variation, including the separately checked beta metadata;
+// retain raw and per-provider limits and count this reserve once in the total.
+const BUDGET = Object.freeze({ bytes: 1022000, gzipBytes: 315550 });
 // The SJCL repair changes only the entry; retain the previous per-provider caps.
 const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // Count every optional family as well, so moving code out of the entry bundle
@@ -504,7 +509,10 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // External-seek hooks measure 363232 gzip on clean Node 22 builds.
 // The same beta identity measures 1153219 raw bytes including provider bundles.
 // Count the measured notifications entry increment once; provider limits stay fixed.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1156800, gzipBytes: 364850 });
+// The same reviewed Node 22.23.3 UI preflight totals 364883 gzip bytes,
+// before a candidate suffix. Count the 100-byte entry reserve
+// once here; all provider assets remain included and their own caps stay fixed.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1156800, gzipBytes: 364950 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",

@@ -104,10 +104,26 @@ function fixture() {
     h.reply([notice, notice]);
     const banner = h.w.document.querySelector(".remote-notify");
     assert.equal(
-        banner.textContent,
-        '<b>Home</b>\n<img src=x onerror="bad()"> & نص'
+        banner.querySelector(".remote-notify-title").textContent,
+        "<b>Home</b>"
     );
-    assert.equal(banner.children.length, 0);
+    assert.equal(
+        banner.querySelector(".remote-notify-message").textContent,
+        '<img src=x onerror="bad()"> & نص'
+    );
+    assert.equal(banner.querySelectorAll("img,b").length, 0);
+    assert.equal(
+        banner.querySelector(".remote-notify-label").textContent,
+        "Home update"
+    );
+    assert.equal(
+        banner.querySelector(".remote-notify-icon").getAttribute("aria-hidden"),
+        "true"
+    );
+    assert.equal(
+        banner.querySelectorAll("a,button,input,[tabindex]").length,
+        0
+    );
     assert.equal(banner.dir, "auto");
     assert.equal(banner.getAttribute("role"), "status");
     assert.equal(h.w.document.querySelectorAll(".remote-notify").length, 1);

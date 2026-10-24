@@ -253,7 +253,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: open-ott-play/ottplay-control-server
-          ref: 5d5b6d2aa50fa0e2714aace0c3cbe2d847995774
+          ref: efb67ab9a493465065d291bf51c3814196d676f7
           path: .control-ha-smoke
           persist-credentials: false
 

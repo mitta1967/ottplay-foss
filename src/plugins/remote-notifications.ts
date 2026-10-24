@@ -148,9 +148,25 @@ export function createRemoteNotifications(
             "notify remote-notify remote-notify-" + item.severity;
         element.dir = "auto";
         element.setAttribute("role", "status");
-        element.textContent = item.title
-            ? item.title + "\n" + item.message
-            : item.message;
+        function part(kind: string, value: string, parent: any): any {
+            var child = document.createElement("div");
+            child.className = "remote-notify-" + kind;
+            child.dir = "auto";
+            child.textContent = value;
+            parent.appendChild(child);
+            return child;
+        }
+        part("icon", "", element).setAttribute("aria-hidden", "true");
+        var content = part("content", "", element);
+        part(
+            "label",
+            { critical: "Alert", info: "Home update", warning: "Attention" }[
+                item.severity as "info" | "warning" | "critical"
+            ],
+            content
+        );
+        if (item.title) part("title", item.title, content);
+        part("message", item.message, content);
         container.appendChild(element);
         var banner = { element: element, timer: null as any };
         banners.push(banner);
