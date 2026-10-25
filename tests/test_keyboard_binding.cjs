@@ -868,13 +868,13 @@ for (const device of ["pc", "pc2"]) {
             return actions.slice(before);
         }
         assert.deepEqual(
-            press({ key: "s", code: "KeyS", keyCode: 83 }),
+            press({ code: "KeyS", key: "s", keyCode: 83 }),
             ["audio"],
             device + " S opens the advertised audio action, not stream restart"
         );
         for (const keyCode of [0, 83, 178])
             assert.deepEqual(
-                press({ key: "MediaStop", code: "MediaStop", keyCode }),
+                press({ code: "MediaStop", key: "MediaStop", keyCode }),
                 ["stop"],
                 device + " preserves the named physical MediaStop action"
             );
@@ -885,7 +885,7 @@ for (const device of ["pc", "pc2"]) {
         );
         assert.deepEqual(
             press(
-                { key: "s", code: "KeyS", keyCode: 83 },
+                { code: "KeyS", key: "s", keyCode: 83 },
                 w.document.querySelector("input")
             ),
             [],
