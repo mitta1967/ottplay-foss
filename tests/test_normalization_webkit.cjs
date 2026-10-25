@@ -169,7 +169,7 @@ const servedFiles = new Set();
             0
         );
         front = require("node:https").createServer(
-            { key: fs.readFileSync(keyFile), cert: fs.readFileSync(certFile) },
+            { cert: fs.readFileSync(certFile), key: fs.readFileSync(keyFile) },
             async (req, res) => {
                 if (playerDist && !req.url.startsWith("/normalize/")) {
                     const pathname = new URL(req.url, origin).pathname;
@@ -202,15 +202,15 @@ const servedFiles = new Set();
                         return res.end();
                     }
                     const types = {
+                        ".css": "text/css",
                         ".html": "text/html",
                         ".js": "application/javascript",
-                        ".css": "text/css",
                         ".json": "application/json",
                         ".png": "image/png",
                         ".svg": "image/svg+xml",
+                        ".ttf": "font/ttf",
                         ".woff": "font/woff",
                         ".woff2": "font/woff2",
-                        ".ttf": "font/ttf",
                     };
                     res.setHeader(
                         "content-type",
@@ -251,7 +251,7 @@ const servedFiles = new Set();
                         snapshotIndex < 200
                     ) {
                         const folder = process.env.OTT_TEST_ARTIFACT_DIR;
-                        fs.mkdirSync(folder, { recursive: true, mode: 0o700 });
+                        fs.mkdirSync(folder, { mode: 0o700, recursive: true });
                         const name = new URL(req.url, origin).pathname
                             .split("/")
                             .at(-1);
@@ -435,8 +435,8 @@ const servedFiles = new Set();
                 (
                     window.__ottCoreBackend().current()?.tracks("audio") || []
                 ).map((track) => ({
-                    language: track.language,
                     enabled: track.selected,
+                    language: track.language,
                 }));
             window.selectAudioTrack = (index) => {
                 window.stbToggleAudioTrack();
@@ -451,11 +451,11 @@ const servedFiles = new Set();
             window.hlsErrors = [];
             window.hls.on(window.Hls.Events.ERROR, (_, data) =>
                 window.hlsErrors.push({
-                    type: data.type,
                     details: data.details,
+                    error: data.error?.message,
                     fatal: data.fatal,
                     reason: data.reason,
-                    error: data.error?.message,
+                    type: data.type,
                 })
             );
             window.hls.attachMedia(video);
@@ -468,8 +468,8 @@ const servedFiles = new Set();
         window.readAudioTracks = () =>
             window.hls
                 ? window.hls.audioTracks.map((track, i) => ({
-                      language: track.lang,
                       enabled: window.hls.audioTrack === i,
+                      language: track.lang,
                   }))
                 : Array.from(video.audioTracks || []);
         window.selectAudioTrack = (index) => {
@@ -515,10 +515,10 @@ const servedFiles = new Set();
     const before = await page.evaluate(() => {
         const video = document.querySelector("video");
         return {
+            enabled: window.readAudioTracks().map((track) => track.enabled),
+            frames: window.readFrames(),
             languages: window.readAudioTracks().map((track) => track.language),
             time: video.currentTime,
-            frames: window.readFrames(),
-            enabled: window.readAudioTracks().map((track) => track.enabled),
         };
     });
     if (!process.env.OTT_TEST_PASSTHROUGH)
@@ -615,12 +615,12 @@ const servedFiles = new Set();
             const response = await fetch(
                 `http://127.0.0.1:${port}/normalize/api`,
                 {
-                    method: "POST",
+                    body: JSON.stringify({ lease: activeLease, op: "close" }),
                     headers: {
-                        "content-type": "application/json",
                         authorization: `Bearer ${key}`,
+                        "content-type": "application/json",
                     },
-                    body: JSON.stringify({ op: "close", lease: activeLease }),
+                    method: "POST",
                 }
             );
             assert.equal(response.status, 204);
@@ -643,19 +643,19 @@ const servedFiles = new Set();
         await page.waitForFunction(
             ({ time, seconds }) =>
                 document.querySelector("video").currentTime > time + seconds,
-            { time: before.time, seconds },
+            { seconds, time: before.time },
             { timeout: (seconds + (restart ? 30 : 12)) * 1000 }
         );
     }
     if (restart) await restart;
     const continuing = await page.evaluate(() => ({
-        time: document.querySelector("video").currentTime,
         frames: window.readFrames(),
+        time: document.querySelector("video").currentTime,
     }));
     await new Promise((resolve) => setTimeout(resolve, 3000));
     const continued = await page.evaluate(() => ({
-        time: document.querySelector("video").currentTime,
         frames: window.readFrames(),
+        time: document.querySelector("video").currentTime,
     }));
     assert(
         continued.time > continuing.time + 1,
@@ -679,8 +679,8 @@ const servedFiles = new Set();
         );
     const finalTracks = await page.evaluate(() =>
         window.readAudioTracks().map((track) => ({
-            language: track.language,
             enabled: track.enabled,
+            language: track.language,
         }))
     );
     diagnostics.finalTracks = finalTracks;
@@ -724,21 +724,21 @@ const servedFiles = new Set();
             "decoded video frames must advance through the observation interval"
         );
     result = {
-        restart: Boolean(restart),
-        workerCrash: Boolean(process.env.OTT_TEST_CRASH),
-        transientFailure: Boolean(process.env.OTT_TEST_FAIL_START_ONCE),
         audioTracks: before.languages,
+        decodedFrames: before.frames === null ? null : frames - before.frames,
         engine: useHls ? "Hls.js/Chromium" : "WebKit",
         englishSelected: !process.env.OTT_TEST_SKIP_SWITCH,
-        playbackAdvanced: true,
         framesAdvanced: before.frames === null ? null : true,
-        decodedFrames: before.frames === null ? null : frames - before.frames,
-        secondsAdvanced: Math.round((endTime - before.time) * 100) / 100,
+        playbackAdvanced: true,
+        playbackEngine: actualEngine,
         realSegmentFixture: Boolean(process.env.OTT_TEST_SEGMENT_FILE),
         realSource: Boolean(realSource),
-        sharedPlayer: Boolean(playerDist),
-        playbackEngine: actualEngine,
+        restart: Boolean(restart),
         result: "PASS",
+        secondsAdvanced: Math.round((endTime - before.time) * 100) / 100,
+        sharedPlayer: Boolean(playerDist),
+        transientFailure: Boolean(process.env.OTT_TEST_FAIL_START_ONCE),
+        workerCrash: Boolean(process.env.OTT_TEST_CRASH),
     };
 })()
     .catch(async (error) => {
@@ -753,12 +753,15 @@ const servedFiles = new Set();
                         ),
                         ended: v.ended,
                         error: v.error?.code,
+                        feedback: window.__normalizationShared
+                            ? document.querySelector("#video_res")?.textContent
+                            : undefined,
                         hlsErrors: window.hlsErrors,
                         hlsLevel: window.hls?.levels?.map((level) => ({
+                            age: level.details?.age,
+                            endSN: level.details?.endSN,
                             live: level.details?.live,
                             startSN: level.details?.startSN,
-                            endSN: level.details?.endSN,
-                            age: level.details?.age,
                         })),
                         network: v.networkState,
                         paused: v.paused,
@@ -768,13 +771,10 @@ const servedFiles = new Set();
                             { length: v.seekable.length },
                             (_, i) => [v.seekable.start(i), v.seekable.end(i)]
                         ),
-                        time: v.currentTime,
                         sharedMode: window.__normalizationShared
                             ? window.playerMode
                             : undefined,
-                        feedback: window.__normalizationShared
-                            ? document.querySelector("#video_res")?.textContent
-                            : undefined,
+                        time: v.currentTime,
                         tracks: window
                             .readAudioTracks?.()
                             .map((t) => t.language),

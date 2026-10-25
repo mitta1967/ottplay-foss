@@ -753,8 +753,8 @@ test("registered normalization routes use per-source MSE without changing prefer
     for (const url of [play, lease])
         for (const mode of [0, 2, 3]) {
             const f = fixture({
+                globals: { location: { href: "https://player.test/" }, URL },
                 savedPlayerMode: mode,
-                globals: { URL, location: { href: "https://player.test/" } },
             });
             f.w.stbPlay(url);
             assert.equal(f.players.length, 1);
@@ -773,8 +773,8 @@ test("normalization matching uses the exact parsed route and falls back without 
     const root =
         "https://gateway.test/normalize/play/example/" + "a".repeat(48);
     const f = fixture({
+        globals: { location: { href: "https://player.test/" }, URL },
         savedPlayerMode: 0,
-        globals: { URL, location: { href: "https://player.test/" } },
     });
     for (const url of [
         root + "/track_0.m3u8",
@@ -793,9 +793,9 @@ test("normalization matching uses the exact parsed route and falls back without 
         assert.equal(f.players.length, 0);
     }
     const unsupported = fixture({
-        savedPlayerMode: 0,
+        globals: { location: { href: "https://player.test/" }, URL },
         hlsMissing: true,
-        globals: { URL, location: { href: "https://player.test/" } },
+        savedPlayerMode: 0,
     });
     unsupported.w.stbPlay(root + "/master.m3u8");
     assert.equal(unsupported.w.video.src, root + "/master.m3u8");
@@ -809,9 +809,9 @@ test("normalized CSS PiP uses MSE only when supported and owns its lifetime", ()
         "/master.m3u8";
     for (const supported of [true, false]) {
         const f = fixture({
-            savedPlayerMode: 0,
+            globals: { location: { href: "https://player.test/" }, URL },
             hlsSupported: supported,
-            globals: { URL, location: { href: "https://player.test/" } },
+            savedPlayerMode: 0,
         });
         f.w.stbPlay("https://ordinary.test/main.m3u8");
         f.w.stbPlayPip(url);
