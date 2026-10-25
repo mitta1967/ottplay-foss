@@ -584,12 +584,12 @@ async fn directory_size(directory: &Path) -> Result<u64> {
     let mut entries = tokio::fs::read_dir(directory).await?;
     let mut size = 0u64;
     while let Some(entry) = entries.next_entry().await? {
-        size = size.saturating_add(directory_entry_size(&entry).await?);
+        size = size.saturating_add(directory_entry_size(entry.metadata().await)?);
     }
     Ok(size)
 }
-async fn directory_entry_size(entry: &tokio::fs::DirEntry) -> Result<u64> {
-    match entry.metadata().await {
+fn directory_entry_size(metadata: std::io::Result<std::fs::Metadata>) -> Result<u64> {
+    match metadata {
         Ok(metadata) => Ok(metadata.len()),
         // FFmpeg may delete a segment or rename a temporary playlist during the scan.
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(0),
@@ -693,11 +693,30 @@ mod tests {
         tokio::fs::write(&file, b"segment").await.unwrap();
         let mut entries = tokio::fs::read_dir(&directory).await.unwrap();
         let entry = entries.next_entry().await.unwrap().unwrap();
-        assert_eq!(directory_entry_size(&entry).await.unwrap(), 7);
+        assert_eq!(directory_entry_size(entry.metadata().await).unwrap(), 7);
         tokio::fs::remove_file(file).await.unwrap();
-        assert_eq!(directory_entry_size(&entry).await.unwrap(), 0);
+        // Windows DirEntry metadata is cached by enumeration; Unix reads it afresh.
+        #[cfg(unix)]
+        assert_eq!(directory_entry_size(entry.metadata().await).unwrap(), 0);
         assert_eq!(directory_size(&directory).await.unwrap(), 0);
         tokio::fs::remove_dir_all(directory).await.unwrap();
+    }
+
+    #[test]
+    fn disk_scan_ignores_only_missing_entry_metadata() {
+        assert_eq!(
+            directory_entry_size(Err(std::io::Error::from(std::io::ErrorKind::NotFound)))
+                .unwrap(),
+            0
+        );
+        let error = directory_entry_size(Err(std::io::Error::from(
+            std::io::ErrorKind::PermissionDenied,
+        )))
+        .unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<std::io::Error>().unwrap().kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
     }
 
     #[tokio::test]
