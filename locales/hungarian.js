@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 perc ugrás vissza / előre",
     "Background color": "Háttérszín",
     "Background color of selected item": "Kijelölt elem háttérszíne",
+    "Background opacity": "Háttér fedettsége",
     "Backup state changed": "A biztonsági mentés állapota megváltozott",
     "Backup streams": "Tartalék streamek",
     "Balance, $": "Egyenleg, $",
@@ -531,6 +532,7 @@ var keyStrings = {
     "First Run Setup": "Első indítás beállításai",
     "Fit to screen": "Képernyőhöz igazítás",
     Folders: "Mappák",
+    "Font size": "Betűméret",
     "Font type": "Betűtípus",
     "For download settings file open":
         "A beállításfájl letöltéséhez nyissa meg:",
@@ -701,6 +703,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play távoli szövegbevitel",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Elérhető az OttPlay FOSS %1. Letölti és telepíti most?",
+    "Outline thickness": "Körvonal vastagsága",
     "Overwrite current settings?": "Felülírja a jelenlegi beállításokat?",
     off: "kikapcsolva",
     on: "bekapcsolva",
@@ -850,6 +853,7 @@ var keyStrings = {
     "Request sended!": "Kérés elküldve!",
     "Requesting approval for %1": "Jóváhagyás kérése ehhez: %1",
     "Reset order": "Csatornák rendezése: „Változatlanul”",
+    "Reset to default": "Alapértelmezés visszaállítása",
     "Restart player": "Lejátszó újraindítása",
     "Restart stream": "Adatfolyam újraindítása",
     "Restart stream / Live": "Adatfolyam újraindítása / élő",
@@ -1026,6 +1030,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "V H K Sze Cs P Szo",
     "Subscription information": "Előfizetési adatok",
     Subtitle: "Feliratok",
+    "Subtitle appearance": "Feliratok megjelenése",
     Switch: "Váltás",
     "Switch sound track": "Hangsáv váltása",
     "Switch subtitle": "Felirat váltása",
@@ -1039,6 +1044,7 @@ var keyStrings = {
     system: "rendszer",
     Tabox: "Tabox",
     "Tabox settings": "Tabox beállításai",
+    "Text color": "Szövegszín",
     "Text is too long for remote input.":
         "A szöveg túl hosszú a távoli bevitelhez.",
     "Text is too long. Please shorten it before sending.":

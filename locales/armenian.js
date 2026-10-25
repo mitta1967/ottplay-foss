@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 րոպե հետ / առաջ",
     "Background color": "Ֆոնի գույն",
     "Background color of selected item": "Ընտրված տարրի ֆոնի գույն",
+    "Background opacity": "Ֆոնի անթափանցիկություն",
     "Backup state changed": "Պահուստավորման վիճակը փոխվել է",
     "Backup streams": "Պահեստային հոսքեր",
     "Balance, $": "Մնացորդ, $",
@@ -525,6 +526,7 @@ var keyStrings = {
     "First Run Setup": "Առաջին գործարկման կարգավորում",
     "Fit to screen": "Հարմարեցնել էկրանին",
     Folders: "Թղթապանակներ",
+    "Font size": "Տառաչափ",
     "Font type": "Տառատեսակ",
     "For download settings file open":
         "Կարգավորումների ֆայլը ներբեռնելու համար բացեք",
@@ -694,6 +696,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play հեռակառավարման մուտք",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Հասանելի է OttPlay FOSS %1-ը։ Ներբեռնե՞լ և տեղադրե՞լ հիմա։",
+    "Outline thickness": "Եզրագծի հաստություն",
     "Overwrite current settings?": "Վերագրե՞լ ընթացիկ կարգավորումները։",
     off: "անջատված",
     on: "միացված",
@@ -844,6 +847,7 @@ var keyStrings = {
     "Request sended!": "Հարցումն ուղարկված է։",
     "Requesting approval for %1": "Հաստատում է պահանջվում %1-ի համար",
     "Reset order": "Դասավորել ալիքները: «Ինչպես կա»",
+    "Reset to default": "Վերականգնել լռելյայն արժեքները",
     "Restart player": "Վերագործարկել նվագարկիչը",
     "Restart stream": "Վերագործարկել հոսքը",
     "Restart stream / Live": "Վերագործարկել հոսքը / ուղիղ եթեր",
@@ -1019,6 +1023,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Կիր Երկ Երք Չրք Հնգ Ուրբ Շբթ",
     "Subscription information": "Բաժանորդագրության տվյալներ",
     Subtitle: "Ենթագրեր",
+    "Subtitle appearance": "Ենթագրերի տեսք",
     Switch: "Փոխել",
     "Switch sound track": "Փոխել ձայնաշերտը",
     "Switch subtitle": "Փոխել ենթագրերը",
@@ -1032,6 +1037,7 @@ var keyStrings = {
     system: "համակարգային",
     Tabox: "Tabox",
     "Tabox settings": "Tabox կարգավորումներ",
+    "Text color": "Տեքստի գույն",
     "Text is too long for remote input.":
         "Տեքստը չափազանց երկար է հեռավոր մուտքագրման համար:",
     "Text is too long. Please shorten it before sending.":

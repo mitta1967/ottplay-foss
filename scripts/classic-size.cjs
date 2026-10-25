@@ -523,7 +523,16 @@ const PROVIDER_BUDGET = Object.freeze({ bytes: 863400, gzipBytes: 268490 });
 // once here; all provider assets remain included and their own caps stay fixed.
 // Count the same notification entry growth once; provider limits are unchanged.
 // Count the same +4500/+1400 safe-random entry allocation once; providers unchanged.
-const TOTAL_BUDGET = Object.freeze({ bytes: 1176800, gzipBytes: 370850 });
+// On-demand subtitle appearance and interface settings: separately bounded,
+// counted in every complete payload, never paid by the default startup entry.
+// Direct ES5 optimization measures 6880 raw / 2881 gzip on Node 26; retain
+// bounded engine/identity and Node 22 compression headroom without growing entry.
+const LEGACY_TOTAL_BUDGET = Object.freeze({
+    bytes: 1176800,
+    gzipBytes: 370850,
+});
+const OPTIONAL_BUDGET = Object.freeze({ bytes: 7800, gzipBytes: 3300 });
+const TOTAL_BUDGET = Object.freeze({ bytes: 1184600, gzipBytes: 374150 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
@@ -557,7 +566,10 @@ function inspectBundles(root, artifacts = ARTIFACTS) {
 }
 
 function inspectBundleSets(root, artifacts = ARTIFACTS, providerKinds) {
-    const { CLASSIC_PROVIDER_BUNDLES } = require("./classic-bundle.cjs");
+    const {
+        CLASSIC_PROVIDER_BUNDLES,
+        CLASSIC_OPTIONAL_BUNDLES,
+    } = require("./classic-bundle.cjs");
     const kinds = providerKinds || Object.keys(CLASSIC_PROVIDER_BUNDLES);
     if (
         new Set(kinds).size !== kinds.length ||
@@ -587,7 +599,29 @@ function inspectBundleSets(root, artifacts = ARTIFACTS, providerKinds) {
                 PROVIDER_BUDGET
             );
         });
-        const total = [entry, ...providers].reduce(
+        const optionalAssets = Object.keys(CLASSIC_OPTIONAL_BUNDLES).map(
+            (name) => {
+                const file = path.join(directory, name + ".js");
+                return measureBundle(
+                    fs.readFileSync(path.join(root, file)),
+                    file,
+                    OPTIONAL_BUDGET
+                );
+            }
+        );
+        const legacyTotal = [entry, ...providers].reduce(
+            (sum, item) => ({
+                bytes: sum.bytes + item.bytes,
+                gzipBytes: sum.gzipBytes + item.gzipBytes,
+            }),
+            { bytes: 0, gzipBytes: 0 }
+        );
+        for (const key of ["bytes", "gzipBytes"])
+            if (legacyTotal[key] > LEGACY_TOTAL_BUDGET[key])
+                throw new Error(
+                    `${entry.path}: legacy complete player ${key} ${legacyTotal[key]} exceeds budget ${LEGACY_TOTAL_BUDGET[key]}`
+                );
+        const total = [entry, ...providers, ...optionalAssets].reduce(
             (sum, item) => ({
                 bytes: sum.bytes + item.bytes,
                 gzipBytes: sum.gzipBytes + item.gzipBytes,
@@ -600,7 +634,13 @@ function inspectBundleSets(root, artifacts = ARTIFACTS, providerKinds) {
                     `${entry.path}: complete player ${key} ${total[key]} exceeds budget ${TOTAL_BUDGET[key]}`
                 );
         }
-        return { entry: entry.path, providers, total };
+        return {
+            entry: entry.path,
+            legacyTotal,
+            optionalAssets,
+            providers,
+            total,
+        };
     });
 }
 
@@ -620,8 +660,10 @@ function writeBundleReport(
     const report = {
         artifacts: measured,
         budget: BUDGET,
+        legacyTotalBudget: LEGACY_TOTAL_BUDGET,
         modules,
         optimizer,
+        optionalBudget: OPTIONAL_BUDGET,
         privateModules: Object.fromEntries(
             Object.entries(CLASSIC_PRIVATE_MODULES).filter(([file]) =>
                 modules.includes(file)
@@ -658,7 +700,9 @@ module.exports = {
     BUDGET,
     inspectBundleSets,
     inspectBundles,
+    LEGACY_TOTAL_BUDGET,
     measureBundle,
+    OPTIONAL_BUDGET,
     PROVIDER_BUDGET,
     TOTAL_BUDGET,
     writeBundleReport,

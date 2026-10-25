@@ -105,6 +105,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Tsallaka minti 1 baya / gaba",
     "Background color": "Launin bango",
     "Background color of selected item": "Launin bangon abin da aka zaɓa",
+    "Background opacity": "Rashin bayyanar bango",
     "Backup state changed": "An canza yanayin Ajiyayyen",
     "Backup streams": "Rafukan madadi",
     "Balance, $": "Ragowar kuɗi, $",
@@ -528,6 +529,7 @@ var keyStrings = {
     "First Run Setup": "Saitin farawa na farko",
     "Fit to screen": "Daidaita da allo",
     Folders: "Manyan fayiloli",
+    "Font size": "Girman haruffa",
     "Font type": "Nau'in rubutu",
     "For download settings file open": "Don sauke fayil ɗin saituna, buɗe",
     "For enter value open": "Don shigar da ƙima, buɗe",
@@ -696,6 +698,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play shigarwar nesa",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Akwai OttPlay FOSS %1. A sauke kuma a girka yanzu?",
+    "Outline thickness": "Kaurin layin kewaye",
     "Overwrite current settings?": "Maye gurbin saitunan yanzu?",
     off: "a kashe",
     on: "a kunne",
@@ -844,6 +847,7 @@ var keyStrings = {
     "Request sended!": "An aika buƙata!",
     "Requesting approval for %1": "Ana neman amincewa ga %1",
     "Reset order": 'Tsara tashoshi: "Kamar yadda yake"',
+    "Reset to default": "Mayar da saitunan asali",
     "Restart player": "Sake kunna manhajar kunnawa",
     "Restart stream": "Sake kunna rafi",
     "Restart stream / Live": "Sake kunna rafi / Kai tsaye",
@@ -1011,6 +1015,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Lah Lit Tal Lar Alh Jum Asa",
     "Subscription information": "Bayanan biyan kuɗin sabis",
     Subtitle: "Rubutun fassara",
+    "Subtitle appearance": "Siffar rubutun ƙasa",
     Switch: "Sauya",
     "Switch sound track": "Sauya layin sauti",
     "Switch subtitle": "Sauya rubutun fassara",
@@ -1024,6 +1029,7 @@ var keyStrings = {
     system: "tsarin na'ura",
     Tabox: "Tabox",
     "Tabox settings": "Saitunan Tabox",
+    "Text color": "Launin rubutu",
     "Text is too long for remote input.":
         "Rubutun ya yi tsawo sosai don shigarwa daga nesa.",
     "Text is too long. Please shorten it before sending.":

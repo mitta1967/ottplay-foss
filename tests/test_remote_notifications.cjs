@@ -2,6 +2,8 @@ const assert = require("node:assert/strict");
 const { JSDOM } = require("jsdom");
 const load = require("./helpers/remote-notifications.cjs");
 
+// Exit animation consumes the end of the lifetime, never extending its expiry.
+
 function fixture(onAbort, extraGlobals = {}) {
     let clock = 1000000;
     let sequence = 0;
@@ -85,6 +87,47 @@ function fixture(onAbort, extraGlobals = {}) {
         requests,
         w,
     };
+}
+
+{
+    const h = fixture();
+    h.configure();
+    h.poll();
+    h.reply([h.item({ duration_ms: 1000 })]);
+    const banner = h.w.document.querySelector(".remote-notify");
+    h.advance(679, true);
+    assert.equal(banner.classList.contains("remote-notify-out"), false);
+    h.advance(1, true);
+    assert.equal(banner.classList.contains("remote-notify-out"), true);
+    assert.equal(banner.isConnected, true);
+    h.advance(320, true);
+    assert.equal(banner.isConnected, false);
+    assert.equal(h.jobs.size, 0);
+}
+
+{
+    const h = fixture();
+    h.configure();
+    h.poll();
+    h.reply([h.item({ duration_ms: 1000 })]);
+    h.advance(680, true);
+    h.client.suspend();
+    assert.equal(h.w.document.querySelector(".remote-notify"), null);
+    assert.equal(h.jobs.size, 0, "suspending cancels an in-progress exit");
+}
+
+{
+    const h = fixture();
+    h.configure();
+    h.poll();
+    h.reply([h.item({ expires_at: 1700000000.35 })]);
+    h.advance(101, true);
+    assert.equal(h.w.document.querySelector(".remote-notify"), null);
+    assert.equal(
+        h.jobs.size,
+        0,
+        "short remaining validity wins over animation timing"
+    );
 }
 
 {
@@ -307,7 +350,11 @@ for (const overrides of [
         3,
         "bounded DOM banners"
     );
-    assert.equal(h.jobs.size, 3, "eviction cancels old timer");
+    assert.equal(
+        h.jobs.size,
+        6,
+        "eviction cancels both old animation and expiry timers"
+    );
     assert.equal(
         h.w.document.querySelectorAll(".remote-notify-critical").length,
         1
@@ -457,7 +504,7 @@ for (const invalid of [
     h.poll();
     h.reply([h.item()], { capabilities: { enabled: true } });
     assert.equal(h.w.document.querySelectorAll(".remote-notify").length, 1);
-    assert.equal(h.jobs.size, 1);
+    assert.equal(h.jobs.size, 2);
     h.client.setEnabled(false);
     assert.equal(h.client.enabled(), false);
     assert.equal(
@@ -631,6 +678,74 @@ function mediaFixture() {
     };
     const caps = { capabilities: { enabled: true, media: ["jpeg-v1"] } };
     return { caps, h, images, loads, media };
+}
+{
+    const { h, loads, media, caps, images } = mediaFixture();
+    h.reply([h.item({ media })], caps);
+    const banner = h.w.document.querySelector(".remote-notify");
+    assert.equal(banner.style.display, "none");
+    assert.equal(
+        banner.style.animationDuration,
+        "",
+        "hidden media has not started its entrance"
+    );
+    h.advance(2000, true);
+    let revoked = 0;
+    loads[0].complete({
+        dispose: () => revoked++,
+        height: 180,
+        remainingMs: 3000,
+        url: "blob:delayed-frame",
+        width: 320,
+    });
+    h.advance(500, true);
+    Object.defineProperty(images[0], "naturalWidth", { value: 320 });
+    Object.defineProperty(images[0], "naturalHeight", { value: 180 });
+    images[0].onload();
+    assert.equal(banner.style.display, "block");
+    const durations = banner.style.animationDuration.split(",").map(parseFloat);
+    assert.equal(durations[0], 480);
+    assert.ok(
+        Math.abs(durations[1] - 1520) < 5,
+        "fade uses the 2500ms actually left after fetch/decode"
+    );
+    h.advance(2179, true);
+    assert.equal(banner.classList.contains("remote-notify-out"), false);
+    h.advance(1, true);
+    assert.equal(banner.classList.contains("remote-notify-out"), true);
+    h.advance(320, true);
+    assert.equal(
+        banner.isConnected,
+        false,
+        "loading never extends the original 5000ms TTL"
+    );
+    assert.equal(revoked, 1);
+    assert.equal(h.jobs.size, 0);
+}
+{
+    const { h, loads, media, caps, images } = mediaFixture();
+    h.reply([h.item({ media })], caps);
+    h.advance(2000, true);
+    loads[0].complete({
+        dispose() {},
+        height: 180,
+        remainingMs: 1500,
+        url: "blob:short-frame",
+        width: 320,
+    });
+    h.advance(500, true);
+    Object.defineProperty(images[0], "naturalWidth", { value: 320 });
+    Object.defineProperty(images[0], "naturalHeight", { value: 180 });
+    images[0].onload();
+    const banner = h.w.document.querySelector(".remote-notify");
+    assert.ok(parseFloat(banner.style.animationDuration.split(",")[1]) <= 20);
+    h.advance(1000, true);
+    assert.equal(
+        banner.isConnected,
+        false,
+        "shorter private-media expiry wins over banner TTL"
+    );
+    assert.equal(h.jobs.size, 0);
 }
 {
     const { h, loads, media, caps } = mediaFixture();

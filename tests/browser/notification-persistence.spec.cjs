@@ -8,10 +8,15 @@ test.use({
     launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] },
 });
 
-async function setup(page, context, baseURL, legacy = false) {
+async function setup(page, context, baseURL, legacy = false, options = {}) {
     const origin = new URL(baseURL).origin;
     const polls = [];
     const errors = [];
+    let releaseImage;
+    const imageReady = new Promise((resolve) => {
+        releaseImage = resolve;
+    });
+    let imageRequests = 0;
     let sequence = 0;
     let message = "Before disabling";
     page.on("pageerror", (error) => errors.push(error.message));
@@ -44,6 +49,25 @@ async function setup(page, context, baseURL, legacy = false) {
             expect(route.request().headers().authorization).toBe(
                 "Bearer " + TOKEN
             );
+            if (url.pathname.endsWith("/api/notifications/media")) {
+                imageRequests++;
+                await imageReady;
+                const now = Date.now() / 1000;
+                return route.fulfill({
+                    json: {
+                        bytes: options.imageData.bytes,
+                        content_type: "image/jpeg",
+                        data_base64: options.imageData.data,
+                        expires_at: now + (options.durationMs || 15000) / 1000,
+                        height: 90,
+                        id: "f".repeat(32),
+                        runtime: url.searchParams.get("runtime"),
+                        server_time: now,
+                        version: 1,
+                        width: 160,
+                    },
+                });
+            }
             if (url.pathname.endsWith("/api/notifications")) {
                 const runtime = url.searchParams.get("runtime");
                 polls.push({
@@ -69,18 +93,49 @@ async function setup(page, context, baseURL, legacy = false) {
                         version: 1,
                         ...(legacy
                             ? {}
-                            : { capabilities: { enabled: true, media: [] } }),
-                        notifications: [
-                            {
-                                duration_ms: 15000,
-                                expires_at: now + 15,
-                                id: (++sequence).toString(16).padStart(32, "0"),
-                                message,
-                                runtime,
-                                severity: "info",
-                                title: "Home Assistant",
-                            },
-                        ],
+                            : {
+                                  capabilities: {
+                                      enabled: true,
+                                      media: options.image ? ["jpeg-v1"] : [],
+                                  },
+                              }),
+                        notifications:
+                            (options.once && sequence > 0) ||
+                            url.searchParams.get("active") !== "true"
+                                ? []
+                                : [
+                                      {
+                                          duration_ms:
+                                              options.durationMs || 15000,
+                                          expires_at:
+                                              now +
+                                              (options.remainingMs ||
+                                                  options.durationMs ||
+                                                  15000) /
+                                                  1000,
+                                          id: (++sequence)
+                                              .toString(16)
+                                              .padStart(32, "0"),
+                                          message,
+                                          runtime,
+                                          severity: "info",
+                                          title: "Home Assistant",
+                                          ...(options.image
+                                              ? {
+                                                    media: {
+                                                        bytes: options.imageData
+                                                            .bytes,
+                                                        content_type:
+                                                            "image/jpeg",
+                                                        height: 90,
+                                                        id: "f".repeat(32),
+                                                        kind: "image",
+                                                        width: 160,
+                                                    },
+                                                }
+                                              : {}),
+                                      },
+                                  ],
                     },
                 });
             }
@@ -92,7 +147,7 @@ async function setup(page, context, baseURL, legacy = false) {
     });
     await context.routeWebSocket("**/*", (socket) => socket.close());
     await context.addInitScript(
-        ({ origin, token }) => {
+        ({ origin, token, disabled }) => {
             const nativeGet = Storage.prototype.getItem;
             if (!localStorage.getItem("notificationFixtureSeeded")) {
                 localStorage.setItem("notificationFixtureSeeded", "1");
@@ -114,6 +169,8 @@ async function setup(page, context, baseURL, legacy = false) {
                 );
                 localStorage.setItem("commandServerEnabled", "1");
                 localStorage.setItem("commandServerToken", token);
+                if (disabled)
+                    localStorage.setItem("sNotificationsEnabled", "0");
             }
             if (
                 nativeGet.call(localStorage, "notificationFixtureBlockRead") ===
@@ -131,7 +188,7 @@ async function setup(page, context, baseURL, legacy = false) {
                 return play.call(this);
             };
         },
-        { origin, token: TOKEN }
+        { disabled: options.disabled, origin, token: TOKEN }
     );
     async function ready() {
         await page.waitForFunction(
@@ -161,11 +218,24 @@ async function setup(page, context, baseURL, legacy = false) {
     }
     await page.goto("/f/pc/");
     await ready();
+    if (options.image)
+        options.imageData = await page.evaluate(() => {
+            const canvas = document.createElement("canvas");
+            canvas.width = 160;
+            canvas.height = 90;
+            const paint = canvas.getContext("2d");
+            paint.fillStyle = "#4a765b";
+            paint.fillRect(0, 0, 160, 90);
+            const data = canvas.toDataURL("image/jpeg").split(",")[1];
+            return { bytes: atob(data).length, data };
+        });
     return {
         errors,
+        imageRequests: () => imageRequests,
         policy,
         polls,
         ready,
+        releaseImage: () => releaseImage(),
         rpc,
         setMessage: (value) => (message = value),
     };
@@ -335,5 +405,194 @@ test("legacy controller keeps text notifications without new query parameters", 
     expect(h.polls.every((p) => p.enabled === null && p.media === null)).toBe(
         true
     );
+    expect(h.errors).toEqual([]);
+});
+
+async function timedBanner(page, context, baseURL, options = {}) {
+    const h = await setup(page, context, baseURL, false, {
+        disabled: true,
+        durationMs: 5000,
+        once: true,
+        ...options,
+    });
+    await page.clock.install();
+    await page.clock.pauseAt(Date.now() + 100);
+    await page.evaluate(() => {
+        document.documentElement.style.setProperty(
+            "--ott-notify-alpha",
+            "0.37"
+        );
+    });
+    await h.policy("set", true);
+    await page.evaluate(() => window.__ottRemoteNotifications.poll());
+    const banner = page.locator(".remote-notify");
+    await expect(banner).toHaveCount(1);
+    return { ...h, banner };
+}
+
+async function animationStyle(banner, time) {
+    return banner.evaluate((element, time) => {
+        for (const animation of element.getAnimations()) {
+            animation.pause();
+            animation.currentTime = time;
+        }
+        const style = getComputedStyle(element);
+        return {
+            background: style.backgroundColor,
+            clip: style.clipPath,
+            names: element
+                .getAnimations()
+                .map((animation) => animation.animationName),
+            opacity: Number(style.opacity),
+            width: element.offsetWidth,
+            x: new DOMMatrix(style.transform).m41,
+        };
+    }, time);
+}
+
+test("remote banner slides and reveals, holds then fades without restarting or extending expiry", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const h = await timedBanner(page, context, baseURL);
+    const start = await animationStyle(h.banner, 0);
+    expect(start.names.sort()).toEqual(["remoteNotifyFade", "remoteNotifyIn"]);
+    expect(start.x).toBeGreaterThan(start.width);
+    expect(start.clip).toContain("46%");
+    expect(start.opacity).toBeLessThanOrEqual(0.05);
+    expect(start.background).toBe("rgba(22, 28, 39, 0.37)");
+
+    const shown = await animationStyle(h.banner, 480);
+    expect(shown.x).toBeCloseTo(0, 3);
+    expect(shown.clip).not.toContain("46%");
+    expect(shown.opacity).toBeCloseTo(1, 3);
+    expect((await animationStyle(h.banner, 979)).opacity).toBeCloseTo(1, 3);
+    const fading = await animationStyle(h.banner, 2500);
+    expect(fading.opacity).toBeLessThan(0.9);
+    expect(fading.opacity).toBeGreaterThan(0.4);
+    await h.banner.evaluate((element) => {
+        element.__fixtureFade = element
+            .getAnimations()
+            .find(
+                (animation) => animation.animationName === "remoteNotifyFade"
+            );
+    });
+
+    await page.clock.runFor(4679);
+    await expect(h.banner).not.toHaveClass(/remote-notify-out/);
+    await page.clock.runFor(1);
+    await expect(h.banner).toHaveClass(/remote-notify-out/);
+    const exiting = await h.banner.evaluate((element) => {
+        const fade = element
+            .getAnimations()
+            .find(
+                (animation) => animation.animationName === "remoteNotifyFade"
+            );
+        const exit = element
+            .getAnimations()
+            .find((animation) => animation.animationName === "remoteNotifyOut");
+        exit.pause();
+        exit.currentTime = 160;
+        const style = getComputedStyle(element);
+        return {
+            background: style.backgroundColor,
+            fadeTime: fade.currentTime,
+            opacity: Number(style.opacity),
+            sameFade: fade === element.__fixtureFade,
+            x: new DOMMatrix(style.transform).m41,
+        };
+    });
+    expect(exiting.sameFade).toBe(true);
+    expect(exiting.fadeTime).toBeCloseTo(2500, 1);
+    expect(exiting.opacity).toBeCloseTo(fading.opacity, 3);
+    expect(exiting.x).toBeGreaterThan(0);
+    expect(exiting.background).toBe(start.background);
+    await page.clock.runFor(319);
+    await expect(h.banner).toHaveCount(1);
+    await page.clock.runFor(1);
+    await expect(h.banner).toHaveCount(0);
+    expect(h.errors).toEqual([]);
+});
+
+test("remote banner reduced motion keeps configured alpha and the original expiry", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const h = await timedBanner(page, context, baseURL, { durationMs: 1000 });
+    const style = await h.banner.evaluate((element) => ({
+        animations: element.getAnimations().length,
+        background: getComputedStyle(element).backgroundColor,
+        opacity: getComputedStyle(element).opacity,
+    }));
+    expect(style).toEqual({
+        animations: 0,
+        background: "rgba(22, 28, 39, 0.37)",
+        opacity: "1",
+    });
+    await page.clock.runFor(680);
+    await expect(h.banner).toHaveClass(/remote-notify-out/);
+    expect(
+        await h.banner.evaluate((element) => element.getAnimations().length)
+    ).toBe(0);
+    await page.clock.runFor(319);
+    await expect(h.banner).toHaveCount(1);
+    await page.clock.runFor(1);
+    await expect(h.banner).toHaveCount(0);
+    expect(h.errors).toEqual([]);
+});
+
+test("short remaining notification TTL wins over entrance, hold and fade", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const h = await timedBanner(page, context, baseURL, {
+        durationMs: 1000,
+        remainingMs: 250,
+    });
+    await page.clock.runFor(249);
+    await expect(h.banner).toHaveCount(1);
+    await page.clock.runFor(1);
+    await expect(h.banner).toHaveCount(0);
+    expect(h.errors).toEqual([]);
+});
+
+test("delayed image banner fits its fade and exit inside the original privacy deadline", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const h = await timedBanner(page, context, baseURL, { image: true });
+    await expect.poll(h.imageRequests).toBe(1);
+    await expect(h.banner).toBeHidden();
+    await page.clock.runFor(2000);
+    h.releaseImage();
+    await expect(h.banner.locator("img")).toBeVisible();
+    const durations = await h.banner.evaluate((element) =>
+        element
+            .getAnimations()
+            .map((animation) => [
+                animation.animationName,
+                animation.effect.getTiming().duration,
+            ])
+    );
+    expect(durations).toContainEqual(["remoteNotifyIn", 480]);
+    expect(durations).toContainEqual(["remoteNotifyFade", 2020]);
+    expect((await animationStyle(h.banner, 480)).opacity).toBeCloseTo(1, 3);
+    expect((await animationStyle(h.banner, 979)).opacity).toBeCloseTo(1, 3);
+    expect((await animationStyle(h.banner, 3000)).opacity).toBeLessThanOrEqual(
+        0.05
+    );
+    await page.clock.runFor(2679);
+    await expect(h.banner).not.toHaveClass(/remote-notify-out/);
+    await page.clock.runFor(1);
+    await expect(h.banner).toHaveClass(/remote-notify-out/);
+    await page.clock.runFor(319);
+    await expect(h.banner).toHaveCount(1);
+    await page.clock.runFor(1);
+    await expect(h.banner).toHaveCount(0);
     expect(h.errors).toEqual([]);
 });

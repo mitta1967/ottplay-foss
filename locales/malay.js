@@ -102,6 +102,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Undur / maju 1 minit",
     "Background color": "Warna latar",
     "Background color of selected item": "Warna latar item dipilih",
+    "Background opacity": "Kelegapan latar belakang",
     "Backup state changed": "Keadaan sandaran berubah",
     "Backup streams": "Strim sandaran",
     "Balance, $": "Baki, $",
@@ -525,6 +526,7 @@ var keyStrings = {
     "First Run Setup": "Persediaan kali pertama",
     "Fit to screen": "Muatkan pada skrin",
     Folders: "Folder",
+    "Font size": "Saiz fon",
     "Font type": "Jenis fon",
     "For download settings file open": "Untuk memuat turun fail tetapan, buka",
     "For enter value open": "Untuk memasukkan nilai, buka",
@@ -692,6 +694,7 @@ var keyStrings = {
     "OTT-play remote input": "Input jauh OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 tersedia. Muat turun dan pasang sekarang?",
+    "Outline thickness": "Ketebalan garis luar",
     "Overwrite current settings?": "Tulis ganti tetapan semasa?",
     off: "mati",
     on: "hidup",
@@ -838,6 +841,7 @@ var keyStrings = {
     "Request sended!": "Permintaan dihantar!",
     "Requesting approval for %1": "Meminta kelulusan untuk %1",
     "Reset order": 'Isih saluran: "Asal"',
+    "Reset to default": "Tetapkan semula kepada lalai",
     "Restart player": "Mulakan semula pemain",
     "Restart stream": "Mulakan semula strim",
     "Restart stream / Live": "Mulakan semula strim / langsung",
@@ -1008,6 +1012,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Ahd Isn Sel Rab Kha Jum Sab",
     "Subscription information": "Maklumat langganan",
     Subtitle: "Sari kata",
+    "Subtitle appearance": "Rupa sari kata",
     Switch: "Tukar",
     "Switch sound track": "Tukar trek audio",
     "Switch subtitle": "Tukar sari kata",
@@ -1021,6 +1026,7 @@ var keyStrings = {
     system: "sistem",
     Tabox: "Tabox",
     "Tabox settings": "Tetapan Tabox",
+    "Text color": "Warna teks",
     "Text is too long for remote input.":
         "Teks terlalu panjang untuk input jauh.",
     "Text is too long. Please shorten it before sending.":

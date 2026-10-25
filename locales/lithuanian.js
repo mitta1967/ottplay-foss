@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 minutę atgal / pirmyn",
     "Background color": "Fono spalva",
     "Background color of selected item": "Pasirinkto elemento fono spalva",
+    "Background opacity": "Fono nepermatomumas",
     "Backup state changed": "Pakeista atsarginės kopijos būsena",
     "Backup streams": "Atsarginiai srautai",
     "Balance, $": "Likutis, $",
@@ -527,6 +528,7 @@ var keyStrings = {
     "First Run Setup": "Pirmojo paleidimo nustatymas",
     "Fit to screen": "Pritaikyti ekranui",
     Folders: "Aplankai",
+    "Font size": "Šrifto dydis",
     "Font type": "Šriftas",
     "For download settings file open":
         "Norėdami atsisiųsti nustatymų failą, atverkite",
@@ -697,6 +699,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play nuotolinė įvestis",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Yra OttPlay FOSS %1. Atsisiųsti ir įdiegti dabar?",
+    "Outline thickness": "Kontūro storis",
     "Overwrite current settings?": "Perrašyti dabartinius nustatymus?",
     off: "išjungta",
     on: "įjungta",
@@ -842,6 +845,7 @@ var keyStrings = {
     "Request sended!": "Užklausa išsiųsta!",
     "Requesting approval for %1": "Prašoma patvirtinimo: %1",
     "Reset order": "Rikiuoti kanalus: „Kaip yra“",
+    "Reset to default": "Atkurti numatytąsias nuostatas",
     "Restart player": "Paleisti grotuvą iš naujo",
     "Restart stream": "Paleisti srautą iš naujo",
     "Restart stream / Live": "Paleisti srautą iš naujo / tiesiogiai",
@@ -1011,6 +1015,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Sk Pr An Tr Kt Pn Št",
     "Subscription information": "Prenumeratos informacija",
     Subtitle: "Subtitrai",
+    "Subtitle appearance": "Subtitrų išvaizda",
     Switch: "Perjungti",
     "Switch sound track": "Keisti garso takelį",
     "Switch subtitle": "Keisti subtitrus",
@@ -1024,6 +1029,7 @@ var keyStrings = {
     system: "sistemos",
     Tabox: "Tabox",
     "Tabox settings": "Tabox nustatymai",
+    "Text color": "Teksto spalva",
     "Text is too long for remote input.":
         "Tekstas per ilgas nuotoliniam įvedimui.",
     "Text is too long. Please shorten it before sending.":

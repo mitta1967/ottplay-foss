@@ -104,6 +104,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Dib / hore ugu bood 1 daqiiqo",
     "Background color": "Midabka asalka",
     "Background color of selected item": "Midabka asalka shayga la doortay",
+    "Background opacity": "Hufnaan la'aanta asalka",
     "Backup state changed": "Xaaladda kaabta ayaa isbedelay",
     "Backup streams": "Qulqullo kayd ah",
     "Balance, $": "Hadhaaga, $",
@@ -537,6 +538,7 @@ var keyStrings = {
     "First Run Setup": "Dejinta bilowga koowaad",
     "Fit to screen": "Ku habbee shaashadda",
     Folders: "Galalka faylasha",
+    "Font size": "Cabbirka farta",
     "Font type": "Nooca farta",
     "For download settings file open":
         "Si aad u soo dejisato faylka dejinta, fur",
@@ -709,6 +711,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play gelinta fog",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 waa la heli karaa. Ma la soo dejiyaa oo hadda la rakibaa?",
+    "Outline thickness": "Dhumucda xariiqda hareeraha",
     "Overwrite current settings?": "Ma lagu dul qoraa dejinta hadda jirta?",
     off: "dansan",
     on: "shidan",
@@ -860,6 +863,7 @@ var keyStrings = {
     "Request sended!": "Codsiga waa la diray!",
     "Requesting approval for %1": "Waxaa loo codsanayaa oggolaansho %1",
     "Reset order": 'Kala hormari kanaallada: "Sida uu yahay"',
+    "Reset to default": "Ku celi dejinta caadiga ah",
     "Restart player": "Dib u bilow daaraha",
     "Restart stream": "Dib u bilow baahinta",
     "Restart stream / Live": "Dib u bilow baahinta / toos",
@@ -1030,6 +1034,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Axa Isn Tal Arb Kha Jim Sab",
     "Subscription information": "Macluumaadka isdiiwaangelinta",
     Subtitle: "Qoraal-hoosaadyo",
+    "Subtitle appearance": "Muuqaalka qoraal-hoosaadka",
     Switch: "Beddel",
     "Switch sound track": "Beddel jidka codka",
     "Switch subtitle": "Beddel qoraal-hoosaadyada",
@@ -1043,6 +1048,7 @@ var keyStrings = {
     system: "nidaamka",
     Tabox: "Tabox",
     "Tabox settings": "Dejinta Tabox",
+    "Text color": "Midabka qoraalka",
     "Text is too long for remote input.":
         "Qoraalku aad buu ugu dheer yahay gelinta fog.",
     "Text is too long. Please shorten it before sending.":

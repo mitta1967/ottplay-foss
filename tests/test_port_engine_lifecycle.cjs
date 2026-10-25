@@ -512,6 +512,14 @@ test("shared native track collection preserves audio index zero and does not alt
         [true, false]
     );
     assert.equal(w.video.textTracks[0].mode, "showing");
+    for (const index of [-1, 2, 0.5, NaN, Infinity]) {
+        w.setAudioTrack(index);
+        assert.deepEqual(
+            Array.from(w.video.audioTracks, (t) => t.enabled),
+            [true, false],
+            "invalid saved audio indices must preserve the active track"
+        );
+    }
 });
 test("anonymous active native captions stay selectable after Off without exposing placeholders", () => {
     const { w, boxes } = fixture();
@@ -744,6 +752,20 @@ test("native late-track listeners belong to their engine lease", () => {
     assert.equal(restores, 2);
     w.stbStop();
     assert.equal(listeners.length, 0);
+});
+test("subtitle appearance refresh follows main and preview geometry changes", () => {
+    const { w, styles } = fixture();
+    let refreshes = 0;
+    w.document.getElementById = () => null;
+    w.applySubtitleAppearance = () => {
+        refreshes++;
+    };
+    w.applyAspectRatio();
+    assert.equal(refreshes, 1);
+    assert.ok(styles["#video"]);
+    w.setPipPosition();
+    assert.equal(refreshes, 2);
+    assert.ok(styles["#videopip"]);
 });
 test("main engine restores aspect before metadata, including the next video", () => {
     const { w, styles } = fixture();

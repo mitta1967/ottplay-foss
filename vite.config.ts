@@ -49,8 +49,12 @@ const { configureNativeDev } = classicRequire(
 const { embedPlayerBuildIdentity } = classicRequire(
     resolve(__dirname, "scripts/player-build-identity.cjs")
 );
-const { assembleClassic, CLASSIC_MAIN_MODULES, CLASSIC_PROVIDER_BUNDLES } =
-    classicRequire(resolve(__dirname, "scripts/classic-bundle.cjs"));
+const {
+    assembleClassic,
+    CLASSIC_MAIN_MODULES,
+    CLASSIC_PROVIDER_BUNDLES,
+    CLASSIC_OPTIONAL_BUNDLES,
+} = classicRequire(resolve(__dirname, "scripts/classic-bundle.cjs"));
 const { isRetiredRuntimeScript } = classicRequire(
     resolve(__dirname, "scripts/runtime-assets.cjs")
 );
@@ -163,6 +167,7 @@ function removeDuplicatePlayerAssets(directory: string): void {
         ...Object.keys(CLASSIC_PROVIDER_BUNDLES).map(
             (kind) => "provider-" + kind + ".js"
         ),
+        ...Object.keys(CLASSIC_OPTIONAL_BUNDLES).map((name) => name + ".js"),
     ]) {
         const flat = join(directory, file);
         const nested = join(directory, "dist", file);
@@ -215,10 +220,15 @@ function stageTauriFrontend(
     if (existsSync(bundleSrc)) {
         mkdirSync(join(stageDir, "dist"), { recursive: true });
         cpSync(bundleSrc, join(stageDir, "dist", "player.js"));
-        for (const kind of Object.keys(CLASSIC_PROVIDER_BUNDLES)) {
-            const file = "provider-" + kind + ".js";
+        for (const file of [
+            ...Object.keys(CLASSIC_PROVIDER_BUNDLES).map(
+                (kind) => "provider-" + kind + ".js"
+            ),
+            ...Object.keys(CLASSIC_OPTIONAL_BUNDLES).map(
+                (name) => name + ".js"
+            ),
+        ])
             cpSync(join(distDir, file), join(stageDir, "dist", file));
-        }
     }
 
     // Preserve nested vendor paths (lg/webos, samsung/tizen, etc.).
@@ -459,6 +469,19 @@ export default defineConfig(({ mode }) => ({
                         providerResult.code
                     );
                 }
+                for (const [name, files] of Object.entries(
+                    CLASSIC_OPTIONAL_BUNDLES
+                )) {
+                    const source = assembleClassic(
+                        androidFlavor ? androidCompileRoot : __dirname,
+                        files as string[]
+                    );
+                    const asset = await optimizeClassic(
+                        source,
+                        CLASSIC_PLAYER_NAME_POLICY
+                    );
+                    writeFileSync(join(outDir, name + ".js"), asset.code);
+                }
                 console.log(
                     "Classic bundle: " +
                         result.report.inputBytes +
@@ -514,10 +537,13 @@ export default defineConfig(({ mode }) => ({
                 rmSync(join(outDir, "dist"), { force: true, recursive: true });
                 mkdirSync(join(outDir, "dist"), { recursive: true });
                 cpSync(outPath, join(outDir, "dist", "player.js"));
-                for (const kind of providerKinds) {
-                    const file = "provider-" + kind + ".js";
+                for (const file of [
+                    ...providerKinds.map((kind) => "provider-" + kind + ".js"),
+                    ...Object.keys(CLASSIC_OPTIONAL_BUNDLES).map(
+                        (name) => name + ".js"
+                    ),
+                ])
                     cpSync(join(outDir, file), join(outDir, "dist", file));
-                }
                 console.log("Nested Cap contract: dist/dist/player.js");
                 // Retire media left by older builds; demo streams now live on here.now.
                 rmSync(join(outDir, "demo"), { force: true, recursive: true });

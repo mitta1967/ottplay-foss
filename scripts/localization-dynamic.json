@@ -112,7 +112,7 @@
       "reason": "Forwarded translation parameter: callers and explicit wrapper/schema rules in localization-catalog.cjs provide the finite key set; provider titles and external error details are runtime data."
     },
     {
-      "file": "src/index.ts",
+      "file": "src/ui/subtitle-appearance.ts",
       "expression": "tz[0]",
       "reason": "Forwarded translation parameter: callers and explicit wrapper/schema rules in localization-catalog.cjs provide the finite key set; provider titles and external error details are runtime data."
     },

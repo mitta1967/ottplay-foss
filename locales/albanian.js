@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "Ngjyra e sfondit",
     "Background color of selected item":
         "Ngjyra e sfondit të artikullit të zgjedhur",
+    "Background opacity": "Patejdukshmëria e sfondit",
     "Backup state changed": "Gjendja e rezervimit ndryshoi",
     "Backup streams": "Transmetime rezervë",
     "Balance, $": "Bilanci, $",
@@ -537,6 +538,7 @@ var keyStrings = {
     "First Run Setup": "Konfigurimi i ekzekutimit të parë",
     "Fit to screen": "Përshtatet në ekran",
     Folders: "Dosjet",
+    "Font size": "Madhësia e shkronjave",
     "Font type": "Lloji i shkronjave",
     "For download settings file open":
         "Për të shkarkuar skedarin e cilësimeve, hapeni",
@@ -708,6 +710,7 @@ var keyStrings = {
     "OTT-play remote input": "Futje në distancë për OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 disponohet. Të shkarkohet dhe të instalohet tani?",
+    "Outline thickness": "Trashësia e konturit",
     "Overwrite current settings?": "Të mbishkruhen cilësimet aktuale?",
     off: "joaktiv",
     on: "aktiv",
@@ -859,6 +862,7 @@ var keyStrings = {
     "Request sended!": "Kërkesa u dërgua!",
     "Requesting approval for %1": "Kërkimi i miratimit për %1",
     "Reset order": 'Rendit kanalet: "Siç është"',
+    "Reset to default": "Rivendos vlerat e parazgjedhura",
     "Restart player": "Rinisni luajtësin e mediave",
     "Restart stream": "Rinis transmetimin",
     "Restart stream / Live": "Rinis transmetimin / drejtpërdrejt",
@@ -1031,6 +1035,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Die Hën Mar Mër Enj Pre Sht",
     "Subscription information": "Informacioni i abonimit",
     Subtitle: "Titrat",
+    "Subtitle appearance": "Pamja e titrave",
     Switch: "Kalo",
     "Switch sound track": "Ndërro pistën audio",
     "Switch subtitle": "Ndërro titrat",
@@ -1044,6 +1049,7 @@ var keyStrings = {
     system: "sistemi",
     Tabox: "Tabox",
     "Tabox settings": "Cilësimet Tabox",
+    "Text color": "Ngjyra e tekstit",
     "Text is too long for remote input.":
         "Teksti është shumë i gjatë për futje në distancë.",
     "Text is too long. Please shorten it before sending.":

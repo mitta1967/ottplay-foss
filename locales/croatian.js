@@ -100,6 +100,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Preskočite 1 minutu unatrag/naprijed",
     "Background color": "Boja pozadine",
     "Background color of selected item": "Boja pozadine odabrane stavke",
+    "Background opacity": "Neprozirnost pozadine",
     "Backup state changed": "Stanje sigurnosne kopije promijenjeno",
     "Backup streams": "Rezervni tokovi",
     "Balance, $": "Stanje, $",
@@ -530,6 +531,7 @@ var keyStrings = {
     "First Run Setup": "Postavljanje za prvo pokretanje",
     "Fit to screen": "Prilagodi zaslonu",
     Folders: "mape",
+    "Font size": "Veličina fonta",
     "Font type": "Vrsta fonta",
     "For download settings file open":
         "Za preuzimanje datoteke postavki otvorite",
@@ -699,6 +701,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play daljinski ulaz",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 je dostupan. Preuzeti i instalirati sada?",
+    "Outline thickness": "Debljina obruba",
     "Overwrite current settings?": "Prepisati trenutne postavke?",
     off: "isključeno",
     on: "uključeno",
@@ -847,6 +850,7 @@ var keyStrings = {
     "Request sended!": "Zahtjev poslan!",
     "Requesting approval for %1": "Traženje odobrenja za %1",
     "Reset order": 'Poredaj kanale: "Kakav jest"',
+    "Reset to default": "Vrati zadane postavke",
     "Restart player": "Ponovo pokrenite medijski reproduktor",
     "Restart stream": "Ponovno pokrenite stream",
     "Restart stream / Live": "Ponovno pokrenite stream / Uživo",
@@ -1019,6 +1023,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Ned Pon Uto Sri Čet Pet Sub",
     "Subscription information": "Podaci o pretplati",
     Subtitle: "Titlovi",
+    "Subtitle appearance": "Izgled titlova",
     Switch: "Prebacite",
     "Switch sound track": "Promijeni zvučni zapis",
     "Switch subtitle": "Promijeni titlove",
@@ -1032,6 +1037,7 @@ var keyStrings = {
     system: "sustav",
     Tabox: "Tabox",
     "Tabox settings": "Tabox postavke",
+    "Text color": "Boja teksta",
     "Text is too long for remote input.": "Tekst je predug za daljinski unos.",
     "Text is too long. Please shorten it before sending.":
         "Tekst je predug. Molimo skratite ga prije slanja.",

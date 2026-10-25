@@ -14,18 +14,27 @@ lines. Long titles and messages are clipped to bounded previews so three
 simultaneous notifications fit normal small windows. This is a transient preview,
 not a complete event history; keep controller messages concise.
 
-Only the dark surface is translucent; text and icons retain full opacity.
+At full visibility, only the dark surface is translucent; text and icons retain full opacity.
 The default information footer has alpha 0.70 (30% transparency). Notification
 surfaces add 0.08 opacity, giving alpha 0.78 (22% transparency), capped at 1.0.
 The value updates with the footer's opacity setting. Older WebViews without CSS
 custom properties use the same 0.78 default surface. The solid RGB base is
-22,28,39; no gradient or container opacity dilutes text contrast.
+22,28,39. The entrance and fade animate the opacity of the whole card without
+changing this configured surface alpha.
+
+Cards enter from the right over 480 ms, revealing their height and becoming
+visible from an initial opacity of 0.04. After the entrance finishes, they hold
+for 500 ms, then gradually become more transparent until expiry. The final
+320 ms also slide and close the card to the right without restarting the fade.
+Images use their actual display time for this animation; loading an image never
+extends the original expiry. A short remaining lifetime can truncate the
+entrance or hold. Inactivity and explicit clearing still remove cards immediately.
 
 Severity has a text label, decorative badge and a uniformly thin, closed
 1 CSS pixel outline in the same accent color. Older WebViews retain fixed-font,
 word-wrap and bounded-height fallbacks. Layout does not require backdrop filters,
 flex gap, JavaScript resize handlers or external fonts. Reduced-motion settings
-disable the entrance animation.
+disable all card motion and fading.
 
 Presentation does not change delivery: cards never take focus or pointer input,
 never wake a sleeping player, retain the bounded three-card queue and existing

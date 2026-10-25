@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Expose native and in-band HLS caption tracks in the subtitle menu, retain
+  explicit selections including Off, and keep preview track ownership isolated.
+- Add subtitle font, size, text colour, outline and background controls using
+  the standard settings interface. Load the editor on demand and preserve cue
+  positioning, timing and profile backup compatibility.
+- Animate notification banners from the right with a vertical reveal, then
+  gradually fade after a half-second hold and exit to the right. Preserve
+  configured background opacity, expiry deadlines and reduced-motion settings.
+
 - Clear obsolete stream timeout feedback when video actually advances. Keep
   status in the existing metadata line and allow normal footer auto-hide.
 - Install independent macOS instance apps so the default player can reopen

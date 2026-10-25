@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "Couleur de fond",
     "Background color of selected item":
         "Couleur de fond de l'élément sélectionné",
+    "Background opacity": "Opacité du fond",
     "Backup state changed": "L'état de la sauvegarde a été modifié",
     "Backup streams": "Flux de secours",
     "Balance, $": "Solde, $",
@@ -546,6 +547,7 @@ var keyStrings = {
     "First Run Setup": "Configuration initiale",
     "Fit to screen": "Adapter à l’écran",
     Folders: "Dossiers",
+    "Font size": "Taille de la police",
     "Font type": "Police de caractères",
     "For download settings file open":
         "Pour télécharger le fichier de paramètres, ouvrez",
@@ -718,6 +720,7 @@ var keyStrings = {
     "OTT-play remote input": "Saisie à distance OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 est disponible. Télécharger et installer maintenant ?",
+    "Outline thickness": "Épaisseur du contour",
     "Overwrite current settings?": "Remplacer les paramètres actuels ?",
     off: "désactivé",
     on: "activée",
@@ -868,6 +871,7 @@ var keyStrings = {
     "Request sended!": "Demande envoyée !",
     "Requesting approval for %1": "Demande d’approbation pour %1",
     "Reset order": 'Trier les chaînes: "Tel quel"',
+    "Reset to default": "Rétablir les valeurs par défaut",
     "Restart player": "Redémarrer le lecteur",
     "Restart stream": "Redémarrer le flux",
     "Restart stream / Live": "Redémarrer le flux / direct",
@@ -1045,6 +1049,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Di Lu Ma Me Je Ve Sa",
     "Subscription information": "Informations sur l’abonnement",
     Subtitle: "Sous-titres",
+    "Subtitle appearance": "Apparence des sous-titres",
     Switch: "Changer",
     "Switch sound track": "Changer de piste audio",
     "Switch subtitle": "Changer de sous-titres",
@@ -1058,6 +1063,7 @@ var keyStrings = {
     system: "système",
     Tabox: "Tabox",
     "Tabox settings": "Paramètres de Tabox",
+    "Text color": "Couleur du texte",
     "Text is too long for remote input.":
         "Le texte est trop long pour une saisie à distance.",
     "Text is too long. Please shorten it before sending.":

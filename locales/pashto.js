@@ -102,6 +102,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 دقیقه شاته / مخکی پریږدئ",
     "Background color": "د شاليد رنګ",
     "Background color of selected item": "د غوره شوي توکي د شاليد رنګ",
+    "Background opacity": "د شالید نا روڼتیا",
     "Backup state changed": "د بیک اپ حالت بدل شو",
     "Backup streams": "بدیلې خپرونې",
     "Balance, $": "بیلانس، $",
@@ -522,6 +523,7 @@ var keyStrings = {
     "First Run Setup": "د لومړي ځل لپاره ترتیب",
     "Fit to screen": "د سکرین سره سم",
     Folders: "فولډرې",
+    "Font size": "د لیکبڼې کچه",
     "Font type": "د فونټ ډول",
     "For download settings file open":
         "د ترتیباتو فایل ډاونلوډ کولو لپاره، خلاص کړئ",
@@ -691,6 +693,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play ریموټ ان پټ",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 شتون لري. همدا اوس ډاونلوډ او نصب کړئ؟",
+    "Outline thickness": "د څنډې ضخامت",
     "Overwrite current settings?": "اوسني ترتیبات بیا ولیکي؟",
     off: "بند",
     on: "فعال شوی",
@@ -837,6 +840,7 @@ var keyStrings = {
     "Request sended!": "غوښتنه لیږل شوې!",
     "Requesting approval for %1": "د %1 لپاره د تصویب غوښتنه",
     "Reset order": 'چینلونه ترتیب کړئ: "لکه څنګه چې دی"',
+    "Reset to default": "اصلي امستنې بېرته راوګرځوئ",
     "Restart player": "میډیا پلیر بیا پیل کړئ",
     "Restart stream": "جریان بیا پیل کړئ",
     "Restart stream / Live": "خپرونه بیا پیل کړئ / ژوندۍ خپرونه",
@@ -1006,6 +1010,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "یکشنبه دوشنبه سېشنبه چهارشنبه پنجشنبه جمعه شنبه",
     "Subscription information": "د ګډون معلومات",
     Subtitle: "فرعي سرلیکونه",
+    "Subtitle appearance": "د فرعي سرلیکونو بڼه",
     Switch: "بدلول",
     "Switch sound track": "آډیو ټریک بدل کړئ",
     "Switch subtitle": "فرعي سرلیکونه بدل کړئ",
@@ -1019,6 +1024,7 @@ var keyStrings = {
     system: "سیسټم",
     Tabox: "Tabox",
     "Tabox settings": "د Tabox ترتیبات",
+    "Text color": "د متن رنګ",
     "Text is too long for remote input.": "متن د لرې ننوتلو لپاره ډېر اوږد دی.",
     "Text is too long. Please shorten it before sending.":
         "متن ډیر اوږد دی. مهرباني وکړئ د لیږلو دمخه یې لنډ کړئ.",

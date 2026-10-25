@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Hyppää taaksepäin/eteenpäin 1 minuutti",
     "Background color": "Taustaväri",
     "Background color of selected item": "Valitun kohteen taustaväri",
+    "Background opacity": "Taustan peittävyys",
     "Backup state changed": "Varmuuskopiointitila muutettu",
     "Backup streams": "Varavirrat",
     "Balance, $": "Saldo, $",
@@ -527,6 +528,7 @@ var keyStrings = {
     "First Run Setup": "Ensiasennus",
     "Fit to screen": "Sovita näyttöön",
     Folders: "Kansiot",
+    "Font size": "Fonttikoko",
     "Font type": "Fonttityyppi",
     "For download settings file open":
         "Lataa asetustiedosto laitteelle avaamalla",
@@ -695,6 +697,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play-etätekstinsyöttö",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 on saatavilla. Lataa ja asenna nyt?",
+    "Outline thickness": "Reunaviivan paksuus",
     "Overwrite current settings?": "Korvaako nykyiset asetukset?",
     off: "pois",
     on: "päällä",
@@ -842,6 +845,7 @@ var keyStrings = {
     "Request sended!": "Pyyntö lähetetty!",
     "Requesting approval for %1": "Pyydetään hyväksyntää kohteelle %1",
     "Reset order": 'Lajittele kanavat: "niin kuin on"',
+    "Reset to default": "Palauta oletusasetukset",
     "Restart player": "Käynnistä mediasoitin uudelleen",
     "Restart stream": "Käynnistä stream uudelleen",
     "Restart stream / Live": "Käynnistä stream uudelleen / Suora lähetys",
@@ -1011,6 +1015,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "su ma ti ke to pe la",
     "Subscription information": "Tilaustiedot",
     Subtitle: "Tekstitys",
+    "Subtitle appearance": "Tekstityksen ulkoasu",
     Switch: "Vaihda",
     "Switch sound track": "Vaihda ääniraita",
     "Switch subtitle": "Vaihda tekstitys",
@@ -1024,6 +1029,7 @@ var keyStrings = {
     system: "järjestelmä",
     Tabox: "Tabox",
     "Tabox settings": "Tabox asetukset",
+    "Text color": "Tekstin väri",
     "Text is too long for remote input.":
         "Teksti on liian pitkä etäsyöttöä varten.",
     "Text is too long. Please shorten it before sending.":

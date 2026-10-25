@@ -642,3 +642,40 @@ async fn standby_hls_lease_remains_pending_until_last_relay_owner_exits() {
         while !background.status().quiescent { tokio::task::yield_now().await; }
     }).await.unwrap();
 }
+
+#[test]
+fn relay_preserves_six_audio_renditions_and_their_group() {
+    let session = Session::new(None, None).unwrap();
+    let base = Url::parse("https://media.example/live/master.m3u8").unwrap();
+    let languages = ["ru", "en", "fr", "es", "und", "tr"];
+    let mut source = String::from("#EXTM3U\n");
+    for (index, language) in languages.iter().enumerate() {
+        source.push_str(&format!(
+            "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"sound\",NAME=\"Audio {index}\",LANGUAGE=\"{language}\",DEFAULT={},AUTOSELECT=YES,URI=\"audio/{index}.m3u8\"\n",
+            if index == 0 { "YES" } else { "NO" }
+        ));
+    }
+    source.push_str("#EXT-X-STREAM-INF:BANDWIDTH=2000000,AUDIO=\"sound\"\nvideo.m3u8\n");
+    let rewritten =
+        rewrite_manifest(&session, &base, "master", true, "/hls/test/", &source).unwrap();
+    let audio: Vec<_> = rewritten
+        .lines()
+        .filter(|line| line.starts_with("#EXT-X-MEDIA:"))
+        .collect();
+    assert_eq!(audio.len(), languages.len());
+    let mut uris = std::collections::BTreeSet::new();
+    for (index, (line, language)) in audio.iter().zip(languages.iter()).enumerate() {
+        assert_eq!(attribute(line, "GROUP-ID").as_deref(), Some("sound"));
+        assert_eq!(attribute(line, "LANGUAGE").as_deref(), Some(*language));
+        assert_eq!(attribute(line, "NAME"), Some(format!("Audio {index}")));
+        assert_eq!(
+            attribute(line, "DEFAULT").as_deref(),
+            Some(if index == 0 { "YES" } else { "NO" })
+        );
+        let uri = attribute(line, "URI").unwrap();
+        assert!(uri.starts_with("/hls/test/"));
+        uris.insert(uri);
+    }
+    assert_eq!(uris.len(), 6, "each rendition retains a separate playlist");
+    assert!(rewritten.contains("AUDIO=\"sound\""));
+}

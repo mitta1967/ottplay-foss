@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1分戻る/進む",
     "Background color": "背景色",
     "Background color of selected item": "選択した項目の背景色",
+    "Background opacity": "背景の不透明度",
     "Backup state changed": "バックアップ状態が変更されました",
     "Backup streams": "予備ストリーム",
     "Balance, $": "残高、$",
@@ -527,6 +528,7 @@ var keyStrings = {
     "First Run Setup": "初回セットアップ",
     "Fit to screen": "画面に合わせる",
     Folders: "フォルダー",
+    "Font size": "文字サイズ",
     "Font type": "フォントの種類",
     "For download settings file open": "設定ファイルをダウンロードするには、",
     "For enter value open": "値を入力するには、 を開きます。",
@@ -694,6 +696,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-playリモート入力",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1がございます。今すぐダウンロードしてインストールしますか?",
+    "Outline thickness": "縁取りの太さ",
     "Overwrite current settings?": "現在の設定を上書きしますか？",
     off: "オフ",
     on: "オン",
@@ -843,6 +846,7 @@ var keyStrings = {
     "Request sended!": "リクエスト送信しました！",
     "Requesting approval for %1": "%1の承認を求める",
     "Reset order": "チャンネルを並べ替える: 「ありのまま」",
+    "Reset to default": "初期設定に戻す",
     "Restart player": "プレーヤーを再起動します",
     "Restart stream": "ストリーム再開",
     "Restart stream / Live": "配信再開 / ライブ",
@@ -1014,6 +1018,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "日 月 火 水 木 金 土",
     "Subscription information": "定期購読のご案内",
     Subtitle: "字幕",
+    "Subtitle appearance": "字幕の表示設定",
     Switch: "スイッチ",
     "Switch sound track": "音声トラックを切り替え",
     "Switch subtitle": "字幕を切り替え",
@@ -1027,6 +1032,7 @@ var keyStrings = {
     system: "システム",
     Tabox: "Tabox",
     "Tabox settings": "Taboxの設定",
+    "Text color": "文字色",
     "Text is too long for remote input.":
         "リモート入力するにはテキストが長すぎます。",
     "Text is too long. Please shorten it before sending.":

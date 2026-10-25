@@ -481,6 +481,129 @@ for (const [suffix, type] of [
     assert.equal(f.sources[0].type, type);
     lease.dispose();
 }
+{
+    const f = fixture();
+    const owner = { __ottExplicitTracks: {}, active: () => true };
+    let current = owner;
+    f.w.__ottCoreBackend = () => ({ current: () => current });
+    const lease = f.open();
+    f.ready[0]();
+    const player = f.players[0];
+    player.emit("loadedmetadata");
+    const oldPreference = f.preferences.find((entry) => entry.name === "aSubs");
+    // Local media may have no per-channel preference target. The explicit Off
+    // choice still belongs to this public backend handle for its whole life.
+    owner.__ottExplicitTracks.subtitle = 1;
+    const tracks = player.textTracks();
+    let mode = "showing",
+        writes = 0;
+    Object.defineProperty(tracks[1], "mode", {
+        get: () => mode,
+        set(value) {
+            mode = value;
+            writes++;
+            tracks.emit("change");
+        },
+    });
+    oldPreference.cb(2);
+    assert.equal(mode, "disabled", "late preference cannot undo explicit Off");
+    assert.equal(
+        writes,
+        1,
+        "restoring Off is safe when writes synchronously emit change"
+    );
+    player.emit("loadedmetadata");
+    tracks.emit("change");
+    assert.equal(
+        writes,
+        1,
+        "unchanged track mode is not rewritten on replay/change"
+    );
+    tracks.push({ kind: "captions", label: "Late captions", mode: "showing" });
+    tracks.emit("addtrack");
+    assert.equal(
+        tracks[2].mode,
+        "disabled",
+        "late automatic captions stay Off"
+    );
+    assert.equal(tracks[0].mode, "hidden", "metadata tracks are untouched");
+    const staleChange = tracks.handlers.change[0];
+    current = { __ottExplicitTracks: { subtitle: 3 }, active: () => true };
+    mode = "showing";
+    staleChange();
+    assert.equal(
+        mode,
+        "showing",
+        "old lease does not borrow replacement choices"
+    );
+    lease.dispose();
+    assert.equal(
+        tracks.handlers.change.length,
+        0,
+        "dispose removes text change listener"
+    );
+    assert.equal(player.audioTracks().handlers.change.length, 0);
+    staleChange();
+    assert.equal(mode, "showing", "queued retired callbacks have no authority");
+}
+{
+    const f = fixture();
+    const owner = {
+        __ottExplicitTracks: { audio: 1, subtitle: 3 },
+        active: () => true,
+    };
+    f.w.__ottCoreBackend = () => ({ current: () => owner });
+    const lease = f.open();
+    f.ready[0]();
+    const player = f.players[0];
+    const audio = player.audioTracks();
+    let enabled = [false, true],
+        audioWrites = 0;
+    audio.forEach((track, index) =>
+        Object.defineProperty(track, "enabled", {
+            get: () => enabled[index],
+            set(value) {
+                enabled[index] = value;
+                audioWrites++;
+                audio.emit("change");
+            },
+        })
+    );
+    player.emit("loadedmetadata");
+    assert.equal(
+        audio[0].enabled,
+        true,
+        "encoded explicit audio index zero is preserved"
+    );
+    assert.equal(audio[1].enabled, false);
+    assert.equal(
+        audioWrites,
+        2,
+        "only changed audio flags are written despite synchronous change events"
+    );
+    assert.equal(
+        player.textTracks()[1].mode,
+        "showing",
+        "positive explicit subtitle is restored"
+    );
+    assert.equal(
+        f.preferences.length,
+        0,
+        "explicit choices precede automatic preferences"
+    );
+    enabled = [false, true];
+    audio.emit("change");
+    assert.equal(audio[0].enabled, true);
+    assert.equal(audio[1].enabled, false);
+    assert.equal(audioWrites, 4);
+    audio.emit("change");
+    assert.equal(
+        audioWrites,
+        4,
+        "stable audio selection does not loop or rewrite"
+    );
+    lease.dispose();
+}
 const fallback = { version: "fixture" };
 fallback.window = fallback;
 vm.runInNewContext(code, fallback);

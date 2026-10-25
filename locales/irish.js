@@ -104,6 +104,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Téigh siar / ar aghaidh 1 nóiméad",
     "Background color": "Dath an chúlra",
     "Background color of selected item": "Dath cúlra na míre roghnaithe",
+    "Background opacity": "Teimhneacht an chúlra",
     "Backup state changed": "Athraíodh an staid chúltaca",
     "Backup streams": "Sruthanna cúltaca",
     "Balance, $": "Iarmhéid, $",
@@ -535,6 +536,7 @@ var keyStrings = {
     "First Run Setup": "Socrú an chéad rite",
     "Fit to screen": "Oiriúnaigh don scáileán",
     Folders: "Fillteáin",
+    "Font size": "Méid an chló",
     "Font type": "Cló",
     "For download settings file open":
         "Chun an comhad socruithe a íoslódáil, oscail",
@@ -706,6 +708,7 @@ var keyStrings = {
     "OTT-play remote input": "ionchur cianda OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Tá OttPlay FOSS %1 ar fáil. Íoslódáil agus suiteáil anois?",
+    "Outline thickness": "Tiús na himlíne",
     "Overwrite current settings?": "Forscríobh na socruithe reatha?",
     off: "múchta",
     on: "ar siúl",
@@ -852,6 +855,7 @@ var keyStrings = {
     "Request sended!": "Seoladh an t-iarratas!",
     "Requesting approval for %1": "Cead á iarraidh do %1",
     "Reset order": 'Sórtáil cainéil: "Mar atá"',
+    "Reset to default": "Athshocraigh go réamhshocrú",
     "Restart player": "Atosaigh an seinnteoir",
     "Restart stream": "Atosaigh an sruth",
     "Restart stream / Live": "Atosaigh an sruth / Beo",
@@ -1027,6 +1031,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Do Lu Má Cé Dé Ao Sa",
     "Subscription information": "Faisnéis síntiúis",
     Subtitle: "Fotheidil",
+    "Subtitle appearance": "Cuma na bhfotheideal",
     Switch: "Athraigh",
     "Switch sound track": "Athraigh an rian fuaime",
     "Switch subtitle": "Athraigh na fotheidil",
@@ -1040,6 +1045,7 @@ var keyStrings = {
     system: "córas",
     Tabox: "Tabox",
     "Tabox settings": "Socruithe Tabox",
+    "Text color": "Dath an téacs",
     "Text is too long for remote input.":
         "Tá an téacs rófhada don chianionchur.",
     "Text is too long. Please shorten it before sending.":

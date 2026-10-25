@@ -100,6 +100,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 நிமிடம் பின்னால் / முன்னால் செல்",
     "Background color": "பின்னணி நிறம்",
     "Background color of selected item": "தேர்ந்தெடுக்கப்பட்ட பொருளின் பின்னணி நிறம்",
+    "Background opacity": "பின்னணியின் ஒளிபுகாமை",
     "Backup state changed": "காப்புப் பிரதி நிலை மாற்றப்பட்டது",
     "Backup streams": "மாற்று ஸ்ட்ரீம்கள்",
     "Balance, $": "இருப்பு, $",
@@ -523,6 +524,7 @@ var keyStrings = {
     "First Run Setup": "முதல்-ரன் அமைப்பு",
     "Fit to screen": "திரைக்கு பொருந்தும்",
     Folders: "கோப்புறைகள்",
+    "Font size": "எழுத்துரு அளவு",
     "Font type": "எழுத்துரு வகை",
     "For download settings file open": "அமைப்புகள் கோப்பைப் பதிவிறக்க, திறக்கவும்",
     "For enter value open": "மதிப்பை உள்ளிட, திறக்கவும்",
@@ -690,6 +692,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play ரிமோட் உள்ளீடு",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 கிடைக்கிறது. பதிவிறக்கி இப்போது நிறுவவா?",
+    "Outline thickness": "வெளிக்கோட்டின் தடிமன்",
     "Overwrite current settings?": "தற்போதைய அமைப்புகளை மேலெழுதவா?",
     off: "முடக்கம்",
     on: "இயக்கம்",
@@ -835,6 +838,7 @@ var keyStrings = {
     "Request sended!": "கோரிக்கை அனுப்பப்பட்டது!",
     "Requesting approval for %1": "%1 க்கு அனுமதி கோருகிறது",
     "Reset order": 'சேனல்களை வரிசைப்படுத்தவும்: "அப்படியே"',
+    "Reset to default": "இயல்புநிலைக்கு மீட்டமை",
     "Restart player": "பிளேயரை மறுதொடக்கம் செய்யவும்",
     "Restart stream": "ஸ்ட்ரீமை மறுதொடக்கம் செய்யவும்",
     "Restart stream / Live": "ஸ்ட்ரீம் / நேரலையை மறுதொடக்கம் செய்யுங்கள்",
@@ -1004,6 +1008,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "ஞாயி திங் செவ் புதன் வியா வெள் சனி",
     "Subscription information": "சந்தா தகவல்",
     Subtitle: "வசனங்கள்",
+    "Subtitle appearance": "வசனங்களின் தோற்றம்",
     Switch: "மாறவும்",
     "Switch sound track": "ஆடியோ டிராக்கை மாற்றவும்",
     "Switch subtitle": "வசனங்களை மாற்றவும்",
@@ -1017,6 +1022,7 @@ var keyStrings = {
     system: "அமைப்பு",
     Tabox: "Tabox",
     "Tabox settings": "Tabox அமைப்புகள்",
+    "Text color": "உரை நிறம்",
     "Text is too long for remote input.":
         "தொலைநிலை உள்ளீட்டிற்கு உரை மிக நீளமாக உள்ளது.",
     "Text is too long. Please shorten it before sending.":

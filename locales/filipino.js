@@ -105,6 +105,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Laktawan pabalik / pasulong ng 1 minuto",
     "Background color": "Kulay ng background",
     "Background color of selected item": "Kulay ng background ng napiling item",
+    "Background opacity": "Opasidad ng background",
     "Backup state changed": "Nagbago ang status ng backup",
     "Backup streams": "Mga reserbang stream",
     "Balance, $": "Balanse, $",
@@ -538,6 +539,7 @@ var keyStrings = {
     "First Run Setup": "Unang-run na setup",
     "Fit to screen": "Pagkasyahin sa screen",
     Folders: "Mga folder",
+    "Font size": "Laki ng font",
     "Font type": "Uri ng font",
     "For download settings file open":
         "Upang i-download ang file ng mga setting, buksan",
@@ -710,6 +712,7 @@ var keyStrings = {
     "OTT-play remote input": "Malayuang pag-input sa OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Available ang OttPlay FOSS %1. I-download at i-install ngayon?",
+    "Outline thickness": "Kapal ng balangkas",
     "Overwrite current settings?": "I-overwrite ang mga kasalukuyang setting?",
     off: "naka-off",
     on: "naka-on",
@@ -860,6 +863,7 @@ var keyStrings = {
     "Request sended!": "Ipinadala ang kahilingan!",
     "Requesting approval for %1": "Humihiling ng pag-apruba para sa %1",
     "Reset order": 'Pagbukud-bukurin ang mga channel: "Gaya ng"',
+    "Reset to default": "Ibalik sa default",
     "Restart player": "I-restart ang media player",
     "Restart stream": "I-restart ang stream",
     "Restart stream / Live":
@@ -1039,6 +1043,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Lin Lun Mar Miy Huw Biy Sab",
     "Subscription information": "Impormasyon sa subscription",
     Subtitle: "Mga subtitle",
+    "Subtitle appearance": "Hitsura ng mga subtitle",
     Switch: "Lumipat",
     "Switch sound track": "Palitan ang audio track",
     "Switch subtitle": "Palitan ang mga subtitle",
@@ -1052,6 +1057,7 @@ var keyStrings = {
     system: "sistema",
     Tabox: "Tabox",
     "Tabox settings": "Tabox na mga setting",
+    "Text color": "Kulay ng teksto",
     "Text is too long for remote input.":
         "Masyadong mahaba ang text para sa malayuang pag-input.",
     "Text is too long. Please shorten it before sending.":

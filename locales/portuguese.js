@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Recuar / avançar 1 minuto",
     "Background color": "Cor de fundo",
     "Background color of selected item": "Cor de fundo do item selecionado",
+    "Background opacity": "Opacidade do fundo",
     "Backup state changed": "Estado de backup alterado",
     "Backup streams": "Fluxos alternativos",
     "Balance, $": "Saldo, $",
@@ -535,6 +536,7 @@ var keyStrings = {
     "First Run Setup": "Configuração inicial",
     "Fit to screen": "Ajustar ao ecrã",
     Folders: "Pastas",
+    "Font size": "Tamanho da fonte",
     "Font type": "Tipo de letra",
     "For download settings file open":
         "Para transferir o ficheiro de configurações, abra",
@@ -706,6 +708,7 @@ var keyStrings = {
     "OTT-play remote input": "Entrada remota OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 está disponível. Transferir e instalar agora?",
+    "Outline thickness": "Espessura do contorno",
     "Overwrite current settings?": "Substituir as configurações atuais?",
     off: "desligado",
     on: "ativado",
@@ -854,6 +857,7 @@ var keyStrings = {
     "Request sended!": "Pedido enviado!",
     "Requesting approval for %1": "A solicitar aprovação para %1",
     "Reset order": 'Ordenar canais: "Original"',
+    "Reset to default": "Restaurar valores padrão",
     "Restart player": "Reiniciar leitor",
     "Restart stream": "Reiniciar fluxo",
     "Restart stream / Live": "Reiniciar fluxo / direto",
@@ -1028,6 +1032,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Do Se Te Qu Qu Se Sá",
     "Subscription information": "Informações da subscrição",
     Subtitle: "Legendas",
+    "Subtitle appearance": "Aparência das legendas",
     Switch: "Mudar",
     "Switch sound track": "Mudar faixa de áudio",
     "Switch subtitle": "Mudar legendas",
@@ -1041,6 +1046,7 @@ var keyStrings = {
     system: "sistema",
     Tabox: "Tabox",
     "Tabox settings": "Configurações de Tabox",
+    "Text color": "Cor do texto",
     "Text is too long for remote input.":
         "O texto é muito longo para entrada remota.",
     "Text is too long. Please shorten it before sending.":

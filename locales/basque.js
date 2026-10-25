@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "Atzeko planoaren kolorea",
     "Background color of selected item":
         "Hautatutako elementuaren atzeko planoaren kolorea",
+    "Background opacity": "Atzeko planoaren opakutasuna",
     "Backup state changed": "Babeskopia-egoera aldatu da",
     "Backup streams": "Ordezko korronteak",
     "Balance, $": "Saldoa, $",
@@ -535,6 +536,7 @@ var keyStrings = {
     "First Run Setup": "Lehen abiaraztearen konfigurazioa",
     "Fit to screen": "Egokitu pantailara",
     Folders: "Karpetak",
+    "Font size": "Letra-tamaina",
     "Font type": "Letra-tipoa",
     "For download settings file open":
         "Ezarpen-fitxategia deskargatzeko, ireki",
@@ -704,6 +706,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play urrutiko sarrera",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 erabilgarri dago. Orain deskargatu eta instalatu?",
+    "Outline thickness": "Ingeradaren lodiera",
     "Overwrite current settings?": "Uneko ezarpenak gainidatzi?",
     off: "desaktibatuta",
     on: "aktibatuta",
@@ -853,6 +856,7 @@ var keyStrings = {
     "Request sended!": "Eskaera bidali da!",
     "Requesting approval for %1": "%1(r)entzako baimena eskatzen",
     "Reset order": 'Ordenatu kanalak: "Bere horretan"',
+    "Reset to default": "Berrezarri balio lehenetsiak",
     "Restart player": "Berrabiarazi erreproduzitzailea",
     "Restart stream": "Berrabiarazi transmisioa",
     "Restart stream / Live": "Berrabiarazi transmisioa / Zuzenean",
@@ -1025,6 +1029,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Ig Al Ar Az Og Or La",
     "Subscription information": "Harpidetzaren informazioa",
     Subtitle: "Azpitituluak",
+    "Subtitle appearance": "Azpitituluen itxura",
     Switch: "Aldatu",
     "Switch sound track": "Aldatu audio-pista",
     "Switch subtitle": "Aldatu azpitituluak",
@@ -1038,6 +1043,7 @@ var keyStrings = {
     system: "sistema",
     Tabox: "Tabox",
     "Tabox settings": "Tabox ezarpenak",
+    "Text color": "Testuaren kolorea",
     "Text is too long for remote input.":
         "Testua luzeegia da urruneko sarrerarako.",
     "Text is too long. Please shorten it before sending.":

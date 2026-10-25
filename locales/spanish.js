@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "Color de fondo",
     "Background color of selected item":
         "Color de fondo del elemento seleccionado",
+    "Background opacity": "Opacidad del fondo",
     "Backup state changed": "Estado de copia de seguridad cambiado",
     "Backup streams": "Flujos de respaldo",
     "Balance, $": "Saldo, $",
@@ -538,6 +539,7 @@ var keyStrings = {
     "First Run Setup": "Configuración inicial",
     "Fit to screen": "Ajustar a la pantalla",
     Folders: "Carpetas",
+    "Font size": "Tamaño de fuente",
     "Font type": "Tipo de letra",
     "For download settings file open":
         "Para descargar el archivo de ajustes, abre",
@@ -708,6 +710,7 @@ var keyStrings = {
     "OTT-play remote input": "Entrada remota OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 está disponible. ¿Descargar e instalar ahora?",
+    "Outline thickness": "Grosor del contorno",
     "Overwrite current settings?": "¿Sobrescribir los ajustes actuales?",
     off: "desactivado",
     on: "activado",
@@ -856,6 +859,7 @@ var keyStrings = {
     "Request sended!": "¡Solicitud enviada!",
     "Requesting approval for %1": "Solicitando aprobación para %1",
     "Reset order": 'Ordenar canales: "Tal cual"',
+    "Reset to default": "Restablecer valores predeterminados",
     "Restart player": "Reiniciar reproductor",
     "Restart stream": "Reiniciar flujo",
     "Restart stream / Live": "Reiniciar flujo / directo",
@@ -1031,6 +1035,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Do Lu Ma Mi Ju Vi Sá",
     "Subscription information": "Información de la suscripción",
     Subtitle: "Subtítulos",
+    "Subtitle appearance": "Apariencia de los subtítulos",
     Switch: "Cambiar",
     "Switch sound track": "Cambiar pista de audio",
     "Switch subtitle": "Cambiar subtítulos",
@@ -1044,6 +1049,7 @@ var keyStrings = {
     system: "sistema",
     Tabox: "Tabox",
     "Tabox settings": "Ajustes de Tabox",
+    "Text color": "Color del texto",
     "Text is too long for remote input.":
         "El texto es demasiado largo para la entrada remota.",
     "Text is too long. Please shorten it before sending.":

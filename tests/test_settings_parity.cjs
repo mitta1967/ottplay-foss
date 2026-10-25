@@ -21,7 +21,10 @@ function selectedSource(file, functions, assignments = [], variables = []) {
                 (ts.isExpressionStatement(node) &&
                     ts.isBinaryExpression(node.expression) &&
                     assignments.includes(
-                        node.expression.left.getText(ast).replace("window.", "")
+                        node.expression.left
+                            .getText(ast)
+                            .replace(/\(window as any\)/g, "window")
+                            .replace("window.", "")
                     ))
         )
         .map((node) => node.getText(ast))
@@ -304,8 +307,29 @@ function fixture(
         compile(
             selectedSource(
                 "src/index.ts",
-                ["createSettingsPage", "setListArrays"],
-                ["_setSetup", ...menus]
+                [
+                    "createSettingsPage",
+                    "setListArrays",
+                    "loadSubtitleAppearance",
+                    "openSubtitleAppearance",
+                ],
+                [
+                    "_setSetup",
+                    ...menus,
+                    "settingsSubtitles",
+                    "__ottAppearanceHost",
+                    "applySubtitleAppearance",
+                ],
+                ["subtitleAppearanceLoading", "subtitleAppearanceOpen"]
+            )
+        ),
+        w
+    );
+    vm.runInContext(
+        compile(
+            fs.readFileSync(
+                path.join(root, "src/ui/subtitle-appearance.ts"),
+                "utf8"
             )
         ),
         w
@@ -1757,4 +1781,63 @@ console.log(
 }
 console.log(
     "OK: quality ceiling choices persist semantic height and bitrate values"
+);
+
+for (const profile of [
+    "server",
+    "tauri",
+    "capacitor-ios",
+    "capacitor-android",
+]) {
+    const { w, stored, typed } = fixture(profile);
+    const keys = [
+        "subtitleFontFamily",
+        "subtitleFontSize",
+        "subtitleTextColor",
+        "subtitleOutline",
+        "subtitleBackground",
+    ];
+    w.settingsSubtitles();
+    w.listArray
+        .filter((row) => row.settingId)
+        .forEach((row) => {
+            row.val = 2;
+        });
+    assert(
+        keys.every((key) => typed()[key] === 0),
+        "draft does not change playing captions"
+    );
+    w.listKeyHandlerFn(w.keys.RETURN);
+    assert(
+        keys.every((key) => typed()[key] === 0),
+        "Cancel retains all defaults"
+    );
+    w.settingsSubtitles();
+    w.listArray
+        .filter((row) => row.settingId)
+        .forEach((row) => {
+            row.val = 2;
+        });
+    save(w);
+    assert(
+        keys.every((key) => typed()[key] === 2),
+        "Save commits all appearance controls"
+    );
+    assert(
+        keys.every(
+            (key) =>
+                stored.get("s" + key[0].toUpperCase() + key.slice(1)) === "2"
+        )
+    );
+    w.settingsSubtitles();
+    w.listArray.find((row) => row.name === "Reset to default").values();
+    assert(
+        keys.every((key) => typed()[key] === 2),
+        "Reset remains a draft until Save"
+    );
+    save(w);
+    assert(keys.every((key) => typed()[key] === 0));
+}
+console.log(
+    "OK: subtitle appearance Save/Cancel/reset across player settings variants"
 );

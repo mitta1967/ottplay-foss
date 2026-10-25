@@ -106,6 +106,7 @@ var keyStrings = {
     "Background color": "Lokon'ny ambadika",
     "Background color of selected item":
         "Lokon'ny ambadik'ilay singa voafantina",
+    "Background opacity": "Haavon'ny tsy fahitana ao ambadika",
     "Backup state changed": "Niova ny toetry ny backup",
     "Backup streams": "Fandefasana solony",
     "Balance, $": "Vola sisa, $",
@@ -549,6 +550,7 @@ var keyStrings = {
     "First Run Setup": "Fikirakirana voalohany",
     "Fit to screen": "Ampifanaraho amin'ny efijery",
     Folders: "Lahatahiry",
+    "Font size": "Haben'ny endri-tsoratra",
     "Font type": "Karazana endri-tsoratra",
     "For download settings file open":
         "Mba hisintona ny rakitra fikirakirana, sokafy",
@@ -724,6 +726,7 @@ var keyStrings = {
     "OTT-play remote input": "Fampidirana soratra lavitra amin’ny OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Misy OttPlay FOSS %1. Hisintona sy hametraka azy izao?",
+    "Outline thickness": "Hatevin'ny tsipika manodidina",
     "Overwrite current settings?": "Soloina ny fikirakirana ankehitriny?",
     off: "maty",
     on: "mandeha",
@@ -876,6 +879,7 @@ var keyStrings = {
     "Request sended!": "Nalefa ny fangatahana!",
     "Requesting approval for %1": "Mangataka fankatoavana ho an'ny %1",
     "Reset order": 'Alaharo ny fantsona: "Araka ny misy azy"',
+    "Reset to default": "Avereno amin'ny sanda mahazatra",
     "Restart player": "Avereno atomboka ny mpamaky",
     "Restart stream": "Avereno atomboka ny fikorianana",
     "Restart stream / Live": "Avereno atomboka ny fikorianana / Mivantana",
@@ -1056,6 +1060,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Alah Alats Tal Alar Alak Zom Asab",
     "Subscription information": "Mombamomba ny famandrihana",
     Subtitle: "Dikanteny",
+    "Subtitle appearance": "Endriky ny dikanteny",
     Switch: "Ovao",
     "Switch sound track": "Ovao ny raki-peo",
     "Switch subtitle": "Ovao ny dikanteny",
@@ -1069,6 +1074,7 @@ var keyStrings = {
     system: "rafitra",
     Tabox: "Tabox",
     "Tabox settings": "Fikirakirana Tabox",
+    "Text color": "Lokon'ny soratra",
     "Text is too long for remote input.":
         "Lava loatra ny soratra ho an'ny fampidirana lavitra.",
     "Text is too long. Please shorten it before sending.":

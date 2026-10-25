@@ -103,6 +103,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 دقیقه به عقب / جلو پرش کنید",
     "Background color": "رنگ پس زمینه",
     "Background color of selected item": "رنگ پس زمینه مورد انتخاب شده",
+    "Background opacity": "تیرگی پس‌زمینه",
     "Backup state changed": "وضعیت پشتیبان گیری تغییر کرد",
     "Backup streams": "جریان‌های پشتیبان",
     "Balance, $": "موجودی، دلار",
@@ -520,6 +521,7 @@ var keyStrings = {
     "First Run Setup": "راه اندازی اولین بار",
     "Fit to screen": "متناسب با صفحه نمایش",
     Folders: "پوشه ها",
+    "Font size": "اندازهٔ قلم",
     "Font type": "نوع قلم",
     "For download settings file open": "برای دانلود فایل تنظیمات، را باز کنید",
     "For enter value open": "برای وارد کردن مقدار، باز کنید",
@@ -687,6 +689,7 @@ var keyStrings = {
     "OTT-play remote input": "ورودی راه دور OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 موجود است. دانلود و نصب کنید؟",
+    "Outline thickness": "ضخامت دورخط",
     "Overwrite current settings?": "تنظیمات فعلی رونویسی کنیم؟",
     off: "خاموش",
     on: "روشن",
@@ -836,6 +839,7 @@ var keyStrings = {
     "Request sended!": "درخواست ارسال شد!",
     "Requesting approval for %1": "درخواست تایید برای %1",
     "Reset order": 'مرتب سازی کانال ها: "همانطور که هست"',
+    "Reset to default": "بازنشانی به پیش‌فرض",
     "Restart player": "پخش کننده را دوباره راه اندازی کنید",
     "Restart stream": "جریان را دوباره راه اندازی کنید",
     "Restart stream / Live": "پخش جریانی / زنده را دوباره راه اندازی کنید",
@@ -1008,6 +1012,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "یک دو سه چهار پنج جمعه شنبه",
     "Subscription information": "اطلاعات اشتراک",
     Subtitle: "زیرنویس",
+    "Subtitle appearance": "ظاهر زیرنویس",
     Switch: "سوئیچ",
     "Switch sound track": "تغییر مسیر صوتی",
     "Switch subtitle": "تغییر زیرنویس",
@@ -1021,6 +1026,7 @@ var keyStrings = {
     system: "سیستم",
     Tabox: "Tabox",
     "Tabox settings": "تنظیمات Tabox",
+    "Text color": "رنگ متن",
     "Text is too long for remote input.":
         "متن برای ورودی از راه دور خیلی طولانی است.",
     "Text is too long. Please shorten it before sending.":

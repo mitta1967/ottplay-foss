@@ -103,6 +103,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Wstecz / do przodu o 1 minutę",
     "Background color": "Kolor tła",
     "Background color of selected item": "Kolor tła zaznaczonej pozycji",
+    "Background opacity": "Nieprzezroczystość tła",
     "Backup state changed": "Zmieniono stan kopii zapasowej",
     "Backup streams": "Strumienie zapasowe",
     "Balance, $": "Saldo, $",
@@ -536,6 +537,7 @@ var keyStrings = {
     "First Run Setup": "Konfiguracja początkowa",
     "Fit to screen": "Dopasuj do ekranu",
     Folders: "Foldery",
+    "Font size": "Rozmiar czcionki",
     "Font type": "Krój czcionki",
     "For download settings file open": "Aby pobrać plik ustawień, otwórz",
     "For enter value open": "Aby wprowadzić wartość, otwórz",
@@ -704,6 +706,7 @@ var keyStrings = {
     "OTT-play remote input": "Zdalne wprowadzanie tekstu OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Dostępny jest OttPlay FOSS %1. Pobrać i zainstalować teraz?",
+    "Outline thickness": "Grubość obrysu",
     "Overwrite current settings?": "Nadpisać bieżące ustawienia?",
     off: "wyłączony",
     on: "włączone",
@@ -850,6 +853,7 @@ var keyStrings = {
     "Request sended!": "Żądanie wysłane!",
     "Requesting approval for %1": "Żądanie zatwierdzenia dla %1",
     "Reset order": "Sortuj kanały: „Bez zmian”",
+    "Reset to default": "Przywróć ustawienia domyślne",
     "Restart player": "Uruchom ponownie odtwarzacz",
     "Restart stream": "Uruchom ponownie strumień",
     "Restart stream / Live": "Uruchom ponownie strumień / na żywo",
@@ -1020,6 +1024,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Nd Pn Wt Śr Cz Pt So",
     "Subscription information": "Informacje o subskrypcji",
     Subtitle: "Napisy",
+    "Subtitle appearance": "Wygląd napisów",
     Switch: "Przełącz",
     "Switch sound track": "Zmień ścieżkę dźwiękową",
     "Switch subtitle": "Zmień napisy",
@@ -1033,6 +1038,7 @@ var keyStrings = {
     system: "systemowy",
     Tabox: "Tabox",
     "Tabox settings": "Ustawienia Tabox",
+    "Text color": "Kolor tekstu",
     "Text is too long for remote input.":
         "Tekst jest za długi, aby można go było wprowadzić zdalnie.",
     "Text is too long. Please shorten it before sending.":

@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Hüppa tagasi/edasi 1 minut",
     "Background color": "Taustavärv",
     "Background color of selected item": "Valitud üksuse taustavärv",
+    "Background opacity": "Tausta läbipaistmatus",
     "Backup state changed": "Varunduse olek muudetud",
     "Backup streams": "Varuvood",
     "Balance, $": "Saldo, $",
@@ -524,6 +525,7 @@ var keyStrings = {
     "First Run Setup": "Esmakordne seadistamine",
     "Fit to screen": "Ekraanile sobitamine",
     Folders: "Kaustad",
+    "Font size": "Fondi suurus",
     "Font type": "Fondi tüüp",
     "For download settings file open": "Seadete faili allalaadimiseks ava",
     "For enter value open": "Väärtuse sisestamiseks avage",
@@ -691,6 +693,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play kaugsisend",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 on saadaval. Laadige alla ja installige kohe?",
+    "Outline thickness": "Kontuuri paksus",
     "Overwrite current settings?": "Kas kirjutada praegused seaded üle?",
     off: "väljas",
     on: "sees",
@@ -840,6 +843,7 @@ var keyStrings = {
     "Request sended!": "Taotlus saadetud!",
     "Requesting approval for %1": "Kinnituse taotlemine %1 jaoks",
     "Reset order": 'Sorteeri kanaleid: "Nagu on"',
+    "Reset to default": "Taasta vaikesätted",
     "Restart player": "Taaskäivitage meediumipleier",
     "Restart stream": "Taaskäivitage voog",
     "Restart stream / Live": "Taaskäivitage voog / Otse",
@@ -1009,6 +1013,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "P E T K N R L",
     "Subscription information": "Tellimuse teave",
     Subtitle: "Subtiitrid",
+    "Subtitle appearance": "Subtiitrite välimus",
     Switch: "Lüliti",
     "Switch sound track": "Vaheta helirada",
     "Switch subtitle": "Vaheta subtiitreid",
@@ -1022,6 +1027,7 @@ var keyStrings = {
     system: "süsteem",
     Tabox: "Tabox",
     "Tabox settings": "Tabox seaded",
+    "Text color": "Teksti värv",
     "Text is too long for remote input.":
         "Tekst on kaugsisestuse jaoks liiga pikk.",
     "Text is too long. Please shorten it before sending.":

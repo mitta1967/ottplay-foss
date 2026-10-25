@@ -2266,6 +2266,11 @@ export function captureAspectTarget(): any {
     };
 }
 
+function refreshSubtitleStyle(): void {
+    var apply = (window as any).applySubtitleAppearance;
+    if (apply) apply();
+}
+
 /**
  * Apply the current aspectRatio to the #video element's CSS `object-fit` property.
  * Index 0 → "contain", index 1 → "cover".
@@ -2333,6 +2338,7 @@ export function applyAspectRatio(): void {
                 width: w + "px",
             });
         }
+        refreshSubtitleStyle();
         return;
     }
     // Fallback before metadata: CSS contain max-box / cover fill + flex center.
@@ -2365,6 +2371,7 @@ export function applyAspectRatio(): void {
             width: "100%",
         });
     }
+    refreshSubtitleStyle();
 }
 
 /**
@@ -2462,6 +2469,14 @@ function avTracks(
         }
     }
     var native = media && (media as any)[audio ? "audioTracks" : "textTracks"];
+    if (
+        audio &&
+        selected !== undefined &&
+        (Math.floor(selected) !== selected ||
+            selected < 0 ||
+            selected >= ((hls ? manifest : native) || []).length)
+    )
+        return rows;
     collect(hls ? manifest : native, !hls);
     if (hls) {
         if (!audio) collect(native, true);
@@ -2692,6 +2707,7 @@ export function setPipPosition(): void {
         top: pipPosition == 0 || pipPosition == 3 ? bufferY : "auto",
         width: 30 * m + "px",
     });
+    refreshSubtitleStyle();
 }
 
 /**

@@ -102,6 +102,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 minut yza / öňe geçir",
     "Background color": "Fon reňki",
     "Background color of selected item": "Saýlanan bölegiň fon reňki",
+    "Background opacity": "Fonuň dury dälligi",
     "Backup state changed": "Ätiýaçlyk nusganyň ýagdaýy üýtgedi",
     "Backup streams": "Ätiýaçlyk akymlar",
     "Balance, $": "Balans, $",
@@ -524,6 +525,7 @@ var keyStrings = {
     "First Run Setup": "Başlangyç sazlama",
     "Fit to screen": "Ekrana sygdyr",
     Folders: "Bukjalar",
+    "Font size": "Şriftiň ululygy",
     "Font type": "Şrift görnüşi",
     "For download settings file open": "Sazlama faýlyny almak üçin açyň",
     "For enter value open": "Baha girizmek üçin açyň",
@@ -692,6 +694,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play uzakdan giriş",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 elýeterli. Häzir ýükläp gurnamalymy?",
+    "Outline thickness": "Daşky çyzygyň galyňlygy",
     "Overwrite current settings?": "Häzirki sazlamalar çalşyrylsynmy?",
     off: "öçürilen",
     on: "işledilen",
@@ -837,6 +840,7 @@ var keyStrings = {
     "Request sended!": "Haýyş iberildi!",
     "Requesting approval for %1": "%1 üçin rugsat soralýar",
     "Reset order": 'Kanallary tertiple: "Bolşy ýaly"',
+    "Reset to default": "Deslapky sazlamalary dikelt",
     "Restart player": "Pleýeri täzeden işlet",
     "Restart stream": "Ýaýlymy täzeden başlat",
     "Restart stream / Live": "Ýaýlymy täzeden başlat / Göni ýaýlym",
@@ -1004,6 +1008,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Ýek Duş Siş Çar Pen Ann Şen",
     "Subscription information": "Abuna ýazylma maglumaty",
     Subtitle: "Subtitrler",
+    "Subtitle appearance": "Subtitrleriň görnüşi",
     Switch: "Çalyş",
     "Switch sound track": "Ses ýazgysyny çalyş",
     "Switch subtitle": "Subtitrleri çalyş",
@@ -1017,6 +1022,7 @@ var keyStrings = {
     system: "ulgam",
     Tabox: "Tabox",
     "Tabox settings": "Tabox sazlamalary",
+    "Text color": "Tekstiň reňki",
     "Text is too long for remote input.":
         "Tekst uzakdan girizmek üçin juda uzyn.",
     "Text is too long. Please shorten it before sending.":

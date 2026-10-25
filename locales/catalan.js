@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "Color de fons",
     "Background color of selected item":
         "Color de fons de l’element seleccionat",
+    "Background opacity": "Opacitat del fons",
     "Backup state changed": "L'estat de la còpia de seguretat ha canviat",
     "Backup streams": "Fluxos de reserva",
     "Balance, $": "Saldo, $",
@@ -543,6 +544,7 @@ var keyStrings = {
     "First Run Setup": "Configuració inicial",
     "Fit to screen": "Ajusta a la pantalla",
     Folders: "Carpetes",
+    "Font size": "Mida de la lletra",
     "Font type": "Tipus de lletra",
     "For download settings file open":
         "Per baixar el fitxer de configuració, obre",
@@ -718,6 +720,7 @@ var keyStrings = {
     "OTT-play remote input": "Entrada remota OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 està disponible. El vols baixar i instal·lar ara?",
+    "Outline thickness": "Gruix del contorn",
     "Overwrite current settings?": "Vols sobreescriure la configuració actual?",
     off: "desactivat",
     on: "activat",
@@ -868,6 +871,7 @@ var keyStrings = {
     "Request sended!": "Sol·licitud enviada!",
     "Requesting approval for %1": "S’està demanant aprovació per a %1",
     "Reset order": 'Ordena els canals: "Tal com és"',
+    "Reset to default": "Restableix els valors predeterminats",
     "Restart player": "Reinicia el reproductor",
     "Restart stream": "Reinicia la transmissió",
     "Restart stream / Live": "Reinicia la transmissió / En directe",
@@ -1046,6 +1050,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Dg Dl Dt Dc Dj Dv Ds",
     "Subscription information": "Informació de la subscripció",
     Subtitle: "Subtítols",
+    "Subtitle appearance": "Aparença dels subtítols",
     Switch: "Canvia",
     "Switch sound track": "Canvia la pista d’àudio",
     "Switch subtitle": "Canvia els subtítols",
@@ -1059,6 +1064,7 @@ var keyStrings = {
     system: "sistema",
     Tabox: "Tabox",
     "Tabox settings": "Configuració de Tabox",
+    "Text color": "Color del text",
     "Text is too long for remote input.":
         "El text és massa llarg per a l’entrada remota.",
     "Text is too long. Please shorten it before sending.":
