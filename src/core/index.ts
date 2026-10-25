@@ -1369,6 +1369,26 @@ function startCoreEngine(
     window.playTime = window.playTime ?? 0;
 }
 
+/** The registered normalization routes require separate rendition playback. */
+function coreNormalizedMse(url: string): boolean {
+    try {
+        if (typeof URL !== "function") return false;
+        var parsed = new URL(url, window.location && window.location.href);
+        return (
+            /^(https?:)$/.test(parsed.protocol) &&
+            !parsed.username &&
+            !parsed.password &&
+            !parsed.search &&
+            !parsed.hash &&
+            /^\/normalize\/(?:play\/[A-Za-z0-9_-]{1,64}\/[A-Za-z0-9_-]{32,128}|lease\/[a-f0-9]{32}\/[a-f0-9]{32})\/master\.m3u8$/.test(
+                parsed.pathname
+            )
+        );
+    } catch (_) {
+        return false;
+    }
+}
+
 /**
  * Start main-video playback using hls.js, Shaka, or native HTML5.
  * Configure transport, resume seeking, and session-scoped Auto HLS fallback.
@@ -1389,6 +1409,7 @@ function startCorePlayback(
     forceMse = false,
     engineLoaded = false
 ): void {
+    forceMse = forceMse || (!nativeFile && coreNormalizedMse(originalUrl));
     if (
         !engineLoaded &&
         !nativeFile &&
@@ -2530,8 +2551,12 @@ function startCorePipEngine(url: string, engineLoaded = false): void {
     // Loading an optional engine is part of this same lease, not another play.
     // Advancing twice makes the original lease unable to pause or dispose it.
     var session = engineLoaded ? _corePipSession : ++_corePipSession;
-    var requestedMode =
-        playerMode === 3 ? coreAutoMode(url, videoPip) : playerMode;
+    var normalized = coreNormalizedMse(url);
+    var requestedMode = normalized
+        ? 1
+        : playerMode === 3
+          ? coreAutoMode(url, videoPip)
+          : playerMode;
     var local = !!(
         (window as any).__ottLocalMedia &&
         (window as any).__ottLocalMedia.isPlaybackUrl(url)
@@ -2564,7 +2589,12 @@ function startCorePipEngine(url: string, engineLoaded = false): void {
     }
     var auto = playerMode === 3 && getDefaultPlayerMode() === 3;
     var canHls = typeof Hls !== "undefined" && Hls.isSupported();
-    var mode = auto ? coreAutoMode(url, videoPip) : playerMode;
+    var mode =
+        normalized && canHls
+            ? 1
+            : auto
+              ? coreAutoMode(url, videoPip)
+              : playerMode;
     var startHls = function (): void {
         var pipHls = new Hls(
             coreBufferPolicy(window, url, url, bufSize, true, true).hls
