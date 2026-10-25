@@ -70,6 +70,8 @@ struct Inner {
     directory_slots: Arc<Semaphore>,
     sessions: Mutex<HashMap<String, Arc<Session>>>,
     retired: Mutex<VecDeque<String>>,
+    #[cfg(test)]
+    cleanup_gate: Mutex<Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>>,
 }
 #[derive(Clone)]
 pub struct Manager(Arc<Inner>);
@@ -110,6 +112,8 @@ impl Manager {
             config,
             sessions: Mutex::new(HashMap::new()),
             retired: Mutex::new(VecDeque::new()),
+            #[cfg(test)]
+            cleanup_gate: Mutex::new(None),
         })))
     }
 
@@ -232,7 +236,16 @@ impl Manager {
                 })
                 .await;
         });
-        ready_rx.await.context("normalization startup stopped")??;
+        let started = ready_rx
+            .await
+            .context("normalization startup stopped")
+            .and_then(|result| result);
+        if let Err(error) = started {
+            self.close_and_wait(&id)
+                .await
+                .context("normalization startup cleanup failed")?;
+            return Err(error);
+        }
         guard.0 = None;
         Ok(id)
     }
@@ -346,11 +359,13 @@ impl Manager {
             ready,
         } = job;
         let config = &self.0.config;
+        let mut permit = Some(_permit);
         let mut ready = Some(ready);
         let mut retain = false;
         let result: Result<()> = async {
             let mut command = Command::new(&config.ffmpeg);
-            command.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-rw_timeout", "10000000", "-protocol_whitelist", "http,https,tcp,tls,crypto", "-format_whitelist", "hls,mpegts,mov,aac,mp3,ac3,eac3,webvtt", "-max_streams", "32", "-re", "-live_start_index", "-3", "-i", &source, "-map", "0:v:0"]);
+            // Match inventory bounds so sparse live input cannot delay worker startup.
+            command.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-rw_timeout", "10000000", "-protocol_whitelist", "http,https,tcp,tls,crypto", "-format_whitelist", "hls,mpegts,mov,aac,mp3,ac3,eac3,webvtt", "-max_streams", "32", "-probesize", "2097152", "-analyzeduration", "3000000", "-re", "-live_start_index", "-3", "-i", &source, "-map", "0:v:0"]);
             for (index,track) in tracks.iter().enumerate() {
                 command.args(["-map", &format!("0:a:{index}")]);
                 if track.codec_name=="aac" { command.args([&format!("-bsf:a:{index}"),"aac_adtstoasc"]); }
@@ -405,12 +420,22 @@ impl Manager {
             if let Some(oldest) = oldest {
                 let _ = self.close_and_wait(&oldest).await;
             }
-            drop(_permit);
+            drop(permit.take());
             if !*cancel.borrow() {
                 tokio::select! { _ = cancel.changed() => {}, _ = tokio::time::sleep_until(deadline.into()) => {} }
             }
         }
+        #[cfg(test)]
+        {
+            let gate = self.0.cleanup_gate.lock().unwrap().take();
+            if let Some((entered, release)) = gate {
+                entered.notify_one();
+                release.notified().await;
+            }
+        }
         let _ = tokio::fs::remove_dir_all(&session.directory).await;
+        drop(permit.take());
+        drop(_directory_permit);
         self.0.sessions.lock().unwrap().remove(&id);
         self.0
             .retired
@@ -651,6 +676,79 @@ mod tests {
             assert!(validate_source(source).is_err());
         }
     }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn failed_start_waits_for_cleanup_before_same_id_retry() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = std::env::temp_dir().join(format!("ott-retry-{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir(&directory).await.unwrap();
+        for name in ["ffmpeg", "ffprobe"] {
+            let file = directory.join(name);
+            tokio::fs::write(&file, format!("#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then echo '{name} version test'; exit 0; fi\nexit 1\n")).await.unwrap();
+            std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let manager = Manager::new(Config {
+            ffmpeg: directory.join("ffmpeg"),
+            ffprobe: directory.join("ffprobe"),
+            directory: directory.join("sessions"),
+            sessions: 1,
+            disk_limit: 1024 * 1024,
+            startup_timeout: Duration::from_secs(1),
+            idle_timeout: Duration::from_secs(1),
+            lease_duration: Duration::from_secs(1),
+        })
+        .await
+        .unwrap();
+        let tracks = vec![
+            AudioTrack {
+                index: 0,
+                codec_name: "aac".into(),
+                tags: HashMap::new()
+            };
+            2
+        ];
+        let id = "a".repeat(32);
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        *manager.0.cleanup_gate.lock().unwrap() = Some((entered.clone(), release.clone()));
+        let worker = manager.clone();
+        let worker_id = id.clone();
+        let worker_tracks = tracks.clone();
+        let mut first = tokio::spawn(async move {
+            worker
+                .start_named(worker_id, "http://localhost/live.m3u8", &worker_tracks)
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(2), entered.notified())
+            .await
+            .unwrap();
+        let premature = tokio::time::timeout(Duration::from_millis(50), &mut first).await;
+        release.notify_one();
+        assert!(
+            premature.is_err(),
+            "failed startup returned while old cleanup could still erase a retry"
+        );
+        assert!(tokio::time::timeout(Duration::from_secs(2), first)
+            .await
+            .unwrap()
+            .unwrap()
+            .is_err());
+        assert!(!manager.0.sessions.lock().unwrap().contains_key(&id));
+        assert!(!directory.join("sessions").join(&id).exists());
+        assert_eq!(manager.0.slots.available_permits(), 1);
+        assert_eq!(manager.0.directory_slots.available_permits(), 2);
+        assert!(tokio::time::timeout(
+            Duration::from_secs(2),
+            manager.start_named(id.clone(), "http://localhost/live.m3u8", &tracks),
+        )
+        .await
+        .unwrap()
+        .is_err());
+        assert!(!manager.0.sessions.lock().unwrap().contains_key(&id));
+        assert!(!directory.join("sessions").join(&id).exists());
+        tokio::fs::remove_dir_all(directory).await.unwrap();
+    }
+
     #[tokio::test]
     async fn readiness_requires_complete_three_target_duration_window() {
         let directory =

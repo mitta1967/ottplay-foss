@@ -29,6 +29,7 @@ let source, reserver, worker, browser, result, page, front, activeLease;
 let snapshotIndex = 0;
 const diagnostics = { masters: [] };
 const servedFiles = new Set();
+const lifecycleLog = path.join(directory, "lifecycle.log");
 (async () => {
     const languages = ["rus", "eng", "fre", "spa", "qaa", "tur"];
     let upstream, sourceURL;
@@ -125,11 +126,11 @@ const servedFiles = new Set();
         configuredFfmpeg = path.join(directory, "capture-ffmpeg");
         const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
         const failure = process.env.OTT_TEST_FAIL_START_ONCE
-            ? `if [ -f ${quote(path.join(directory, "fail-next-worker"))} ]; then rm ${quote(path.join(directory, "fail-next-worker"))}; printf failed >${quote(path.join(directory, "worker.failed"))}; exit 1; fi;`
+            ? `if [ -f ${quote(path.join(directory, "fail-next-worker"))} ]; then rm ${quote(path.join(directory, "fail-next-worker"))}; printf failed >${quote(path.join(directory, "worker.failed"))}; printf 'worker-failed %s %s\\n' "$(date +%s)" "$$" >>${quote(lifecycleLog)}; exit 1; fi;`
             : "";
         fs.writeFileSync(
             configuredFfmpeg,
-            `#!/bin/sh\nif [ "$1" != "-version" ]; then printf '%s' "$$" >${quote(path.join(directory, "worker.pid"))}; ${failure} fi\nexec ${quote(ffmpeg)} "$@" 2>>${quote(path.join(directory, "worker.stderr"))}\n`,
+            `#!/bin/sh\nif [ "$1" != "-version" ]; then printf 'worker-start %s %s\\n' "$(date +%s)" "$$" >>${quote(lifecycleLog)}; printf '%s' "$$" >${quote(path.join(directory, "worker.pid"))}; ${failure} fi\nexec ${quote(ffmpeg)} "$@" 2>>${quote(path.join(directory, "worker.stderr"))}\n`,
             { mode: 0o700 }
         );
     }
@@ -138,7 +139,7 @@ const servedFiles = new Set();
         const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
         fs.writeFileSync(
             configuredFfprobe,
-            `#!/bin/sh\n${quote(ffprobe)} "$@" >${quote(path.join(directory, "probe.stdout"))} 2>>${quote(path.join(directory, "probe.stderr"))}\nstatus=$?\ncat ${quote(path.join(directory, "probe.stdout"))}\nexit "$status"\n`,
+            `#!/bin/sh\nif [ "$1" = "-version" ]; then exec ${quote(ffprobe)} "$@"; fi\noutput=${quote(path.join(directory, "probe-"))}"$$.stdout"\nprintf 'probe-start %s %s\n' "$(date +%s)" "$$" >>${quote(lifecycleLog)}\n${quote(ffprobe)} "$@" >"$output" 2>>${quote(path.join(directory, "probe.stderr"))}\nstatus=$?\nprintf 'probe-exit %s %s %s\n' "$(date +%s)" "$$" "$status" >>${quote(lifecycleLog)}\ncat "$output"\nexit "$status"\n`,
             { mode: 0o700 }
         );
     }
@@ -609,6 +610,10 @@ const servedFiles = new Set();
                         "1",
                         { mode: 0o600 }
                     );
+                fs.appendFileSync(
+                    lifecycleLog,
+                    `worker-kill ${Math.floor(Date.now() / 1000)} ${pid}\n`
+                );
                 process.kill(pid, "SIGKILL");
                 return;
             }
@@ -790,9 +795,21 @@ const servedFiles = new Set();
                       .replace(/https?:\/\/\S+/g, "[redacted]")
                 : "not started";
             try {
+                const attempts = fs
+                    .readdirSync(directory)
+                    .filter((name) => /^probe-\d+\.stdout$/.test(name))
+                    .sort(
+                        (a, b) =>
+                            fs.statSync(path.join(directory, a)).mtimeMs -
+                            fs.statSync(path.join(directory, b)).mtimeMs
+                    );
+                diagnostics.probeAttempts = attempts.map((name) => ({
+                    bytes: fs.statSync(path.join(directory, name)).size,
+                    file: name,
+                }));
                 const result = JSON.parse(
                     fs.readFileSync(
-                        path.join(directory, "probe.stdout"),
+                        path.join(directory, attempts.at(-1)),
                         "utf8"
                     )
                 );
@@ -802,6 +819,12 @@ const servedFiles = new Set();
                 }));
             } catch {}
         }
+        if (fs.existsSync(lifecycleLog))
+            diagnostics.lifecycle = fs
+                .readFileSync(lifecycleLog, "utf8")
+                .trim()
+                .split("\n")
+                .slice(-64);
         const workerLog = path.join(directory, "worker.stderr");
         if (process.env.OTT_TEST_CAPTURE_WORKER && fs.existsSync(workerLog))
             diagnostics.worker = fs
