@@ -95,6 +95,24 @@ struct Source {
     #[serde(default)]
     headers: HashMap<String, String>,
     playback_key: String,
+    #[serde(default = "default_preparation_budget_seconds")]
+    preparation_budget_seconds: u64,
+    #[serde(default = "default_preparation_attempts")]
+    preparation_attempts: u8,
+}
+fn default_preparation_budget_seconds() -> u64 {
+    30
+}
+fn default_preparation_attempts() -> u8 {
+    2
+}
+impl Source {
+    fn preparation_budget(&self) -> Duration {
+        Duration::from_secs(self.preparation_budget_seconds)
+    }
+    fn preparation_wait(&self) -> Duration {
+        self.preparation_budget() + Duration::from_secs(5)
+    }
 }
 struct Resources {
     urls: VecDeque<(usize, String)>,
@@ -654,6 +672,11 @@ fn validate_settings(settings: &Settings) -> Result<()> {
     }
     let _: HeaderValue = format!("Bearer {}", settings.key).parse()?;
     for (id, source) in &settings.sources {
+        if !(30..=60).contains(&source.preparation_budget_seconds)
+            || !(1..=3).contains(&source.preparation_attempts)
+        {
+            bail!("invalid source preparation limits");
+        }
         if id.is_empty()
             || id.len() > 64
             || !id
@@ -710,10 +733,50 @@ fn permitted(source: &Source, url: &reqwest::Url) -> Result<()> {
     Ok(())
 }
 fn expired(lease: &Lease) -> bool {
+    let preparing = {
+        let state = lease.state.lock().unwrap();
+        if state.closed {
+            return true;
+        }
+        !state.ready && !state.failed
+    };
     lease.retired.lock().unwrap().map_or_else(
-        || lease.touched.lock().unwrap().elapsed() > Duration::from_secs(40),
+        || {
+            if preparing {
+                // Reading/heartbeating a pending lease must not renew its absolute deadline.
+                lease.created.elapsed() > lease.source.preparation_wait()
+            } else {
+                lease.touched.lock().unwrap().elapsed() > Duration::from_secs(40)
+            }
+        },
         |retired| retired.elapsed() > Duration::from_secs(180),
-    ) || lease.state.lock().unwrap().closed
+    )
+}
+
+async fn prepare_with_budget<T, F, Fut>(
+    deadline: tokio::time::Instant,
+    attempts: u8,
+    mut attempt: F,
+) -> Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T>>,
+{
+    tokio::time::timeout_at(deadline, async {
+        let mut result = Err(anyhow::anyhow!("normalization unavailable"));
+        for index in 0..attempts {
+            result = attempt().await;
+            if result.is_ok() {
+                break;
+            }
+            if index + 1 < attempts {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        }
+        result
+    })
+    .await
+    .context("normalization preparation timed out")?
 }
 
 fn same_secret(expected: &str, supplied: &str) -> bool {
@@ -834,80 +897,85 @@ fn prepare(gateway: &Shared, source_id: &str, source: Source) -> Result<String> 
     tokio::spawn(async move {
         let _finished = Finish(lease.done.clone());
         let source = format!("{}/fetch/{task_id}/0.m3u8", worker.internal);
-        let work = async {
-            tokio::time::timeout(Duration::from_secs(30), async {
-                let mut result = Err(anyhow::anyhow!("normalization unavailable"));
-                for attempt in 0..2 {
-                    result = async {
-                        let tracks = worker.manager.probe(&source).await?;
-                        if tracks.len() < 2 {
-                            return Ok(None);
-                        }
-                        let session = worker
-                            .manager
-                            .start_named(task_id.clone(), &source, &tracks)
-                            .await?;
-                        for track in 0..=tracks.len() {
-                            let admitted = async {
-                                let bytes = worker
-                                    .manager
-                                    .read(&session, &format!("track_{track}.m3u8"))
-                                    .await?;
-                                let playlist = std::str::from_utf8(&bytes)?;
-                                let target = playlist_number(playlist, "#EXT-X-TARGETDURATION:")
-                                    .context("missing target duration")?;
-                                let fixed = worker.generation.lock().unwrap().target(
-                                    &lease.source_id,
-                                    track as u16,
-                                    target,
-                                )?;
-                                validate_live_window(playlist, fixed)
-                            }
-                            .await;
-                            if let Err(error) = admitted {
-                                worker.manager.close_and_wait(&session).await?;
-                                return Err(error);
-                            }
-                        }
-                        Ok(Some(session))
-                    }
-                    .await;
-                    if result.is_ok() {
-                        break;
-                    }
-                    if attempt == 0 {
-                        tokio::time::sleep(Duration::from_secs(1)).await;
-                    }
+        let deadline =
+            tokio::time::Instant::from_std(lease.created + lease.source.preparation_budget());
+        let work = prepare_with_budget(deadline, lease.source.preparation_attempts, || async {
+            let tracks = worker.manager.probe(&source).await?;
+            if tracks.len() < 2 {
+                return Ok(None);
+            }
+            let session = worker
+                .manager
+                .start_named(task_id.clone(), &source, &tracks)
+                .await?;
+            for track in 0..=tracks.len() {
+                let admitted = async {
+                    let bytes = worker
+                        .manager
+                        .read(&session, &format!("track_{track}.m3u8"))
+                        .await?;
+                    let playlist = std::str::from_utf8(&bytes)?;
+                    let target = playlist_number(playlist, "#EXT-X-TARGETDURATION:")
+                        .context("missing target duration")?;
+                    let fixed = worker.generation.lock().unwrap().target(
+                        &lease.source_id,
+                        track as u16,
+                        target,
+                    )?;
+                    validate_live_window(playlist, fixed)
                 }
-                result
-            })
-            .await
-            .context("normalization preparation timed out")?
-        };
-        // Abort both probe and pending start when the playback lease closes.
-        tokio::pin!(work);
+                .await;
+                if let Err(error) = admitted {
+                    worker.manager.close_and_wait(&session).await?;
+                    return Err(error);
+                }
+            }
+            Ok(Some(session))
+        });
+        // Own the future so expiry drops a pending probe before waiting for producer cleanup.
+        let mut work = Box::pin(work);
         let result = loop {
             tokio::select! {
                 result = &mut work => break result,
-                _ = tokio::time::sleep(Duration::from_millis(100)) => { if expired(&lease) { return; } }
-            }
-        };
-        let mut state = lease.state.lock().unwrap();
-        match result {
-            Ok(session) => {
-                if state.closed {
-                    if let Some(id) = session {
-                        worker.manager.close(&id);
+                _ = tokio::time::sleep(Duration::from_millis(100)) => {
+                    if expired(&lease) {
+                        drop(work);
+                        let _ = worker.manager.close_and_wait(&task_id).await;
+                        return;
                     }
-                } else {
-                    state.session = session;
-                    state.ready = true;
                 }
             }
-            Err(_) => state.failed = true,
+        };
+        drop(work);
+        if result.is_err() {
+            // A deadline may expire after the producer starts but during admission.
+            let _ = worker.manager.close_and_wait(&task_id).await;
+        }
+        if let Some(session) = complete_preparation(&lease, result) {
+            worker.manager.close(&session);
         }
     });
     Ok(id)
+}
+
+// Returns a producer that completed after explicit close and must be revoked.
+fn complete_preparation(lease: &Lease, result: Result<Option<String>>) -> Option<String> {
+    let mut state = lease.state.lock().unwrap();
+    match result {
+        Ok(session) if state.closed => return session,
+        Ok(session) => {
+            *lease.touched.lock().unwrap() = Instant::now();
+            state.session = session;
+            state.ready = true;
+        }
+        Err(_) => {
+            if !state.closed {
+                *lease.touched.lock().unwrap() = Instant::now();
+            }
+            state.failed = true;
+        }
+    }
+    None
 }
 
 async fn admin_auth(
@@ -1428,18 +1496,21 @@ async fn play(
         Ok(lease) => lease,
         Err(_) => return StatusCode::GONE.into_response(),
     };
-    let waited = tokio::time::timeout(Duration::from_secs(35), async {
-        loop {
-            let finished = {
-                let state = lease.state.lock().unwrap();
-                state.ready || state.failed || state.closed
-            };
-            if finished {
-                return;
+    let waited = tokio::time::timeout_at(
+        tokio::time::Instant::from_std(lease.created + lease.source.preparation_wait()),
+        async {
+            loop {
+                let finished = {
+                    let state = lease.state.lock().unwrap();
+                    state.ready || state.failed || state.closed
+                };
+                if finished {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
             }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    })
+        },
+    )
     .await;
     let session = lease.state.lock().unwrap().session.clone();
     let Some(session) = session else {
@@ -1737,6 +1808,361 @@ fn rewrite(playlist: &str, mut resource: impl FnMut(&str) -> Result<String>) -> 
 mod tests {
     use super::*;
     use serde_json::Value;
+    fn sample_source() -> Source {
+        serde_json::from_value(json!({
+            "url":"https://media.example/stream.m3u8",
+            "allowed_origins":["https://media.example"],
+            "playback_key":"p".repeat(40)
+        }))
+        .unwrap()
+    }
+    fn sample_settings(source: Source) -> Settings {
+        Settings {
+            key: "k".repeat(40),
+            public_base: "https://media.example".into(),
+            origins: vec![],
+            ffmpeg: "/unused/ffmpeg".into(),
+            ffprobe: "/unused/ffprobe".into(),
+            directory: "/unused/state".into(),
+            profiles: HashMap::new(),
+            sources: HashMap::from([("demo".into(), source)]),
+        }
+    }
+    fn sample_lease(created: Duration, touched: Duration) -> Lease {
+        Lease {
+            source_id: "demo".into(),
+            generation: 1,
+            sequence_starts: HashMap::new(),
+            play_key: "p".repeat(40),
+            source: sample_source(),
+            resources: Mutex::new(Resources {
+                urls: VecDeque::new(),
+                next: 1,
+                bytes: 0,
+            }),
+            media_expiry: Mutex::new(VecDeque::new()),
+            playlists: Mutex::new(HashMap::new()),
+            previous: Mutex::new(None),
+            state: Mutex::new(Progress::default()),
+            touched: Mutex::new(Instant::now() - touched),
+            created: Instant::now() - created,
+            retired: Mutex::new(None),
+            done: tokio::sync::watch::channel(false).0,
+        }
+    }
+    #[test]
+    fn preparation_defaults_and_bounds_are_explicit() {
+        let source = sample_source();
+        assert_eq!(source.preparation_budget_seconds, 30);
+        assert_eq!(source.preparation_attempts, 2);
+        assert_eq!(source.preparation_wait(), Duration::from_secs(35));
+        assert!(validate_settings(&sample_settings(source)).is_ok());
+        for (budget, attempts, valid) in [
+            (30, 1, true),
+            (60, 3, true),
+            (29, 2, false),
+            (61, 2, false),
+            (45, 0, false),
+            (45, 4, false),
+        ] {
+            let mut source = sample_source();
+            source.preparation_budget_seconds = budget;
+            source.preparation_attempts = attempts;
+            assert_eq!(validate_settings(&sample_settings(source)).is_ok(), valid);
+        }
+    }
+    #[test]
+    fn preparing_expiry_is_absolute_and_ready_idle_policy_is_unchanged() {
+        let mut lease = sample_lease(Duration::from_secs(44), Duration::from_secs(44));
+        lease.source.preparation_budget_seconds = 45;
+        assert!(
+            !expired(&lease),
+            "extended preparation must survive the normal40s idle deadline"
+        );
+        lease.created = Instant::now() - Duration::from_secs(51);
+        *lease.touched.lock().unwrap() = Instant::now();
+        assert!(expired(&lease), "heartbeat cannot extend preparation");
+        lease.state.lock().unwrap().ready = true;
+        assert!(
+            !expired(&lease),
+            "ready uses last activity rather than creation"
+        );
+        *lease.touched.lock().unwrap() = Instant::now() - Duration::from_secs(41);
+        assert!(expired(&lease));
+        *lease.touched.lock().unwrap() = Instant::now();
+        lease.state.lock().unwrap().closed = true;
+        assert!(expired(&lease), "explicit close is immediate");
+    }
+    #[test]
+    fn long_preparation_completion_starts_a_fresh_idle_window() {
+        let mut lease = sample_lease(Duration::from_secs(44), Duration::from_secs(44));
+        lease.source.preparation_budget_seconds = 45;
+        assert!(!expired(&lease));
+        assert_eq!(
+            complete_preparation(&lease, Ok(Some("producer".into()))),
+            None
+        );
+        assert!(lease.state.lock().unwrap().ready);
+        assert!(
+            !expired(&lease),
+            "completed producer must remain usable after the old40s threshold"
+        );
+        assert!(lease.touched.lock().unwrap().elapsed() < Duration::from_secs(1));
+        lease.state.lock().unwrap().closed = true;
+        assert_eq!(
+            complete_preparation(&lease, Ok(Some("late".into()))),
+            Some("late".into())
+        );
+        assert!(expired(&lease));
+    }
+
+    #[tokio::test]
+    async fn third_preparation_attempt_can_recover_within_one_budget() {
+        let calls = std::sync::atomic::AtomicU8::new(0);
+        let result = prepare_with_budget(
+            tokio::time::Instant::now() + Duration::from_secs(10),
+            3,
+            || async {
+                if calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < 2 {
+                    bail!("cold source");
+                }
+                Ok(6)
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(result, 6);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 3);
+    }
+    #[tokio::test]
+    async fn preparation_does_not_retry_after_budget_or_attempt_limit() {
+        let calls = std::sync::atomic::AtomicU8::new(0);
+        let result: Result<()> = prepare_with_budget(
+            tokio::time::Instant::now() + Duration::from_millis(20),
+            3,
+            || async {
+                calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                Ok(())
+            },
+        )
+        .await;
+        assert!(result.is_err());
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+        let result: Result<()> = prepare_with_budget(
+            tokio::time::Instant::now() + Duration::from_secs(1),
+            1,
+            || async {
+                calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                bail!("one attempt only")
+            },
+        )
+        .await;
+        assert!(result.is_err());
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+    #[tokio::test]
+    async fn cancelling_preparation_drops_inflight_work() {
+        struct Released(Arc<std::sync::atomic::AtomicBool>);
+        impl Drop for Released {
+            fn drop(&mut self) {
+                self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+        let released = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let signal = Arc::new(tokio::sync::Notify::new());
+        let mut work = Box::pin(prepare_with_budget(
+            tokio::time::Instant::now() + Duration::from_secs(45),
+            3,
+            || {
+                let released = released.clone();
+                let signal = signal.clone();
+                async move {
+                    let _guard = Released(released);
+                    signal.notify_one();
+                    std::future::pending::<Result<()>>().await
+                }
+            },
+        ));
+        tokio::select! { _=&mut work=>panic!("pending attempt completed"), _=signal.notified()=>{} }
+        drop(work);
+        assert!(released.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn third_real_probe_attempt_admits_producer_and_close_removes_output() {
+        use std::os::unix::fs::PermissionsExt;
+        use tower::ServiceExt;
+        let root = std::env::temp_dir().join(format!("ott-three-probes-{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir(&root).await.unwrap();
+        let probe = root.join("ffprobe");
+        let mux = root.join("ffmpeg");
+        let count = root.join("count");
+        let streams = json!({"streams":(1..=6).map(|index|json!({"index":index,"codec_name":"aac","tags":{"language":"eng"}})).collect::<Vec<_>>()});
+        tokio::fs::write(&probe, format!("#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then echo ffprobe version test; exit 0; fi\nn=0; test ! -f '{0}' || n=$(cat '{0}'); n=$((n+1)); echo $n > '{0}'\nif [ $n -lt 3 ]; then exit 1; fi\nprintf '%s' '{1}'\n",count.display(),streams)).await.unwrap();
+        let mut script = String::from("#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then echo ffmpeg version test; exit 0; fi\ncat > master.m3u8 <<'END'\n#EXTM3U\n");
+        for index in 1..=6 {
+            script.push_str(&format!("#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"sound\",NAME=\"{index}\",URI=\"track_{index}.m3u8\"\n"));
+        }
+        script.push_str("#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO=\"sound\"\ntrack_0.m3u8\nEND\n");
+        for index in 0..=6 {
+            script.push_str(&format!("printf '0123456789' > track_{index}_init.mp4\ncat > track_{index}.m3u8 <<'END'\n#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:0\n"));
+            for segment in 0..3 {
+                script.push_str(&format!("#EXTINF:2,\ntrack_{index}_{segment}.m4s\n"));
+            }
+            script.push_str("END\n");
+            for segment in 0..3 {
+                script.push_str(&format!("printf 'segment' > track_{index}_{segment}.m4s\n"));
+            }
+        }
+        script.push_str("exec sleep 60\n");
+        tokio::fs::write(&mux, script).await.unwrap();
+        for file in [&probe, &mux] {
+            std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let mut source = sample_source();
+        source.url = "http://127.0.0.1:9/source.m3u8".into();
+        source.allowed_origins = vec!["http://127.0.0.1:9".into()];
+        source.preparation_attempts = 3;
+        source.preparation_budget_seconds = 45;
+        let mut settings = sample_settings(source);
+        settings.ffmpeg = mux;
+        settings.ffprobe = probe;
+        settings.directory = root.join("state");
+        let app = configured_routes(settings).await.unwrap();
+        let uri = format!("/normalize/play/demo/{}/master.m3u8", "p".repeat(40));
+        let response = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri(uri)
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 65536)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::str::from_utf8(&body)
+                .unwrap()
+                .matches("TYPE=AUDIO")
+                .count(),
+            6
+        );
+        assert_eq!(tokio::fs::read_to_string(&count).await.unwrap().trim(), "3");
+        let mut entries = tokio::fs::read_dir(root.join("state")).await.unwrap();
+        let mut id = None;
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            if entry.file_type().await.unwrap().is_dir() {
+                id = Some(entry.file_name().to_string_lossy().to_string());
+            }
+        }
+        let id = id.expect("admitted producer directory");
+        let response = app
+            .oneshot(
+                axum::http::Request::builder()
+                    .method("POST")
+                    .uri("/normalize/api")
+                    .header("authorization", format!("Bearer {}", "k".repeat(40)))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"op":"close","lease":id}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        assert!(!root.join("state").join(id).exists());
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn closing_extended_preparation_reaps_probe_and_cleans_session() {
+        use std::os::unix::fs::PermissionsExt;
+        use tower::ServiceExt;
+        let root =
+            std::env::temp_dir().join(format!("ott-preparation-close-{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir(&root).await.unwrap();
+        let probe = root.join("ffprobe");
+        let mux = root.join("ffmpeg");
+        let pidfile = root.join("probe.pid");
+        tokio::fs::write(&probe, format!("#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then echo ffprobe version test; exit 0; fi\necho $$ > '{}'\nexec sleep 60\n", pidfile.display())).await.unwrap();
+        tokio::fs::write(&mux, b"#!/bin/sh\necho ffmpeg version test\n")
+            .await
+            .unwrap();
+        for file in [&probe, &mux] {
+            std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let mut source = sample_source();
+        source.url = "http://127.0.0.1:9/source.m3u8".into();
+        source.allowed_origins = vec!["http://127.0.0.1:9".into()];
+        source.preparation_budget_seconds = 45;
+        source.preparation_attempts = 3;
+        let mut settings = sample_settings(source);
+        settings.ffmpeg = mux;
+        settings.ffprobe = probe;
+        settings.directory = root.join("state");
+        let app = configured_routes(settings).await.unwrap();
+        let request = |value: Value| {
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/normalize/api")
+                .header("authorization", format!("Bearer {}", "k".repeat(40)))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(value.to_string()))
+                .unwrap()
+        };
+        let response = app
+            .clone()
+            .oneshot(request(json!({"op":"prepare","sourceId":"demo"})))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let bytes = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let prepared: Value = serde_json::from_slice(&bytes).unwrap();
+        let id = prepared["lease"].as_str().unwrap();
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while !pidfile.exists() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let pid = tokio::fs::read_to_string(&pidfile).await.unwrap();
+        let response = app
+            .oneshot(request(json!({"op":"close","lease":id})))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                let status = tokio::process::Command::new("kill")
+                    .args(["-0", pid.trim()])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status()
+                    .await
+                    .unwrap();
+                if !status.success() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(!root.join("state").join(id).exists());
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
     #[test]
     fn replacement_playlist_overlaps_old_tail_before_new_discontinuity() {
         let old = "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:10\n#EXT-X-DISCONTINUITY-SEQUENCE:1\n#EXT-X-MAP:URI=\"old-init\"\n#EXTINF:2,\nold-10\n#EXTINF:2,\nold-11\n";
@@ -1861,6 +2287,8 @@ mod tests {
             allowed_origins: vec!["https://media.example".into()],
             headers: HashMap::new(),
             playback_key: "p".repeat(32),
+            preparation_budget_seconds: 30,
+            preparation_attempts: 2,
         };
         for url in [
             "http://media.example/a",
@@ -2052,6 +2480,8 @@ mod tests {
                 allowed_origins: vec![format!("http://{address}")],
                 headers: HashMap::new(),
                 playback_key: playback.clone(),
+                preparation_budget_seconds: 30,
+                preparation_attempts: 2,
             },
         );
         sources.insert(
@@ -2061,6 +2491,8 @@ mod tests {
                 allowed_origins: vec![format!("http://{address}")],
                 headers: HashMap::new(),
                 playback_key: playback.clone(),
+                preparation_budget_seconds: 30,
+                preparation_attempts: 2,
             },
         );
         sources.insert(
@@ -2070,6 +2502,8 @@ mod tests {
                 allowed_origins: vec![format!("http://{address}")],
                 headers: HashMap::from([("x-tenant".into(), "other".into())]),
                 playback_key: "q".repeat(40),
+                preparation_budget_seconds: 30,
+                preparation_attempts: 2,
             },
         );
         let profile_file = directory.join("home.m3u");
@@ -2566,6 +3000,8 @@ mod tests {
                         allowed_origins: vec![format!("http://{address}")],
                         headers: HashMap::new(),
                         playback_key: playback.clone(),
+                        preparation_budget_seconds: 30,
+                        preparation_attempts: 2,
                     },
                 )]),
             })
@@ -2634,6 +3070,8 @@ mod tests {
                         allowed_origins: vec![format!("http://{address}")],
                         headers: HashMap::new(),
                         playback_key: playback.clone(),
+                        preparation_budget_seconds: 30,
+                        preparation_attempts: 2,
                     },
                 )]),
             })
