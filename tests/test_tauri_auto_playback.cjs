@@ -1869,36 +1869,76 @@ test("fresh Chrome selects lazy HLS without a saved player preference", () => {
     assert.match(f.w.video.src, /^blob:hls-/);
 });
 
-
 test("only normalized initial masters extend actual HLS manifest policy", () => {
     const context = {
-        console: { log() {}, warn() {}, error() {} },
-        setTimeout, clearTimeout, setInterval, clearInterval, performance,
-        URL, TextDecoder, TextEncoder, exports: {}, module: { exports: {} },
+        clearInterval,
+        clearTimeout,
+        console: { error() {}, log() {}, warn() {} },
+        exports: {},
+        module: { exports: {} },
         navigator: { userAgent: "test" },
+        performance,
+        setInterval,
+        setTimeout,
+        TextDecoder,
+        TextEncoder,
+        URL,
     };
     context.self = context;
-    vm.runInNewContext(fs.readFileSync(path.join(root, "js/hls.min.js"), "utf8"), context);
+    vm.runInNewContext(
+        fs.readFileSync(path.join(root, "js/hls.min.js"), "utf8"),
+        context
+    );
     const RealHls = context.module.exports;
     const key = "a".repeat(48);
     const urls = [
-        ["https://gateway.test/normalize/play/example/" + key + "/master.m3u8", 75000],
+        [
+            "https://gateway.test/normalize/play/example/" +
+                key +
+                "/master.m3u8",
+            75000,
+        ],
         ["https://ordinary.test/live.m3u8", 20000],
-        ["https://gateway.test/normalize/lease/" + "b".repeat(32) + "/" + "c".repeat(32) + "/master.m3u8", 20000],
-        ["https://gateway.test/normalize/play/example/" + key + "/master.m3u8?other=1", 20000],
+        [
+            "https://gateway.test/normalize/lease/" +
+                "b".repeat(32) +
+                "/" +
+                "c".repeat(32) +
+                "/master.m3u8",
+            20000,
+        ],
+        [
+            "https://gateway.test/normalize/play/example/" +
+                key +
+                "/master.m3u8?other=1",
+            20000,
+        ],
     ];
     for (const [url, timeout] of urls) {
-        const f = fixture({ savedPlayerMode: 1, globals: { URL } });
+        const f = fixture({ globals: { URL }, savedPlayerMode: 1 });
         f.w.stbPlay(url);
         f.w.stbPlayPip(url);
         assert.equal(f.players.length, 2);
         for (const player of f.players) {
             const actual = new RealHls(player.config);
-            assert.equal(actual.config.manifestLoadPolicy.default.maxLoadTimeMs, timeout);
+            assert.equal(
+                actual.config.manifestLoadPolicy.default.maxLoadTimeMs,
+                timeout
+            );
             if (timeout === 75000)
-                assert.equal(actual.config.manifestLoadPolicy.default.maxTimeToFirstByteMs, timeout);
-            assert.equal(actual.config.playlistLoadPolicy.default.maxLoadTimeMs, 20000);
-            assert.equal(actual.config.fragLoadPolicy.default.maxLoadTimeMs, 120000);
+                assert.equal(
+                    actual.config.manifestLoadPolicy.default
+                        .maxTimeToFirstByteMs,
+                    timeout
+                );
+            assert.equal(
+                actual.config.playlistLoadPolicy.default.maxLoadTimeMs,
+                20000
+            );
+            assert.equal(
+                actual.config.fragLoadPolicy.default.maxLoadTimeMs,
+                120000
+            );
             actual.destroy();
         }
     }

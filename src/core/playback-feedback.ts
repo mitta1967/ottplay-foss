@@ -90,7 +90,11 @@
             }, deadline);
         }
     }
-    function begin(paused?: boolean, resuming?: boolean, timeout?: number): void {
+    function begin(
+        paused?: boolean,
+        resuming?: boolean,
+        timeout?: number
+    ): void {
         clear();
         active = !paused;
         expired = false;

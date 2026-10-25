@@ -1222,7 +1222,11 @@ function startCoreEngine(
     (window as any).forcePlay = !paused;
     if (video && paused) video.autoplay = false;
     if ((window as any).__ottPlaybackFeedback)
-        (window as any).__ottPlaybackFeedback.begin(paused, false, coreNormalizedTimeout(url));
+        (window as any).__ottPlaybackFeedback.begin(
+            paused,
+            false,
+            coreNormalizedTimeout(url)
+        );
     var session = _playSession;
     var plexHint = corePlexPlaybackHint(url);
     if (hlsInstance) {
@@ -2601,7 +2605,10 @@ function startCorePipEngine(url: string, engineLoaded = false): void {
               : playerMode;
     var startHls = function (): void {
         var pipHls = new Hls(
-            coreHlsConfig(coreBufferPolicy(window, url, url, bufSize, true, true).hls, url)
+            coreHlsConfig(
+                coreBufferPolicy(window, url, url, bufSize, true, true).hls,
+                url
+            )
         );
         hlsPipInstance = pipHls;
         pipHls.on(Hls.Events.MANIFEST_PARSED, function () {

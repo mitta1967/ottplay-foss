@@ -336,7 +336,11 @@ function fixture() {
     f.advance(70000);
     f.api.retry();
     f.advance(5000);
-    assert.match(f.text(), /timed out/, "startup retries cannot extend75-second deadline");
+    assert.match(
+        f.text(),
+        /timed out/,
+        "startup retries cannot extend75-second deadline"
+    );
     f.api.begin();
     f.advance(30000);
     assert.match(f.text(), /timed out/, "next normal source retains30 seconds");
