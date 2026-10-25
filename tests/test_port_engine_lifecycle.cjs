@@ -468,27 +468,250 @@ test("HLS restores late subtitle lists only for the current stream", () => {
     w.playerMode = 1;
     w.stbPlay("a.m3u8");
     const old = players[0];
+    old.subtitleTracks = [{ name: "A" }, { name: "B" }];
     old.events.subtitles();
     assert.equal(old.subtitleTrack, 1);
     w.stbPlay("b.m3u8");
     const count = restorations;
     old.events.subtitles();
     assert.equal(restorations, count);
+    players[1].subtitleTracks = [{ name: "A" }, { name: "B" }];
     players[1].events.subtitles();
     assert.equal(restorations, count + 1);
     assert.equal(players[1].subtitleTrack, 1);
+});
+test("shared native track collection preserves audio index zero and does not alter captions", () => {
+    const { w } = fixture();
+    w.video.audioTracks = [
+        { enabled: true, label: "A" },
+        { enabled: false, label: "B" },
+    ];
+    w.video.textTracks = [{ kind: "captions", mode: "showing" }];
+    w.stbPlay("tracks.mp4");
+    assert.equal(w.stbAudioTracksExists(), true);
+    w.setAudioTrack(1);
+    assert.deepEqual(
+        Array.from(w.video.audioTracks, (t) => t.enabled),
+        [false, true]
+    );
+    w.setAudioTrack(0);
+    assert.deepEqual(
+        Array.from(w.video.audioTracks, (t) => t.enabled),
+        [true, false]
+    );
+    assert.equal(w.video.textTracks[0].mode, "showing");
+});
+test("anonymous active native captions stay selectable after Off without exposing placeholders", () => {
+    const { w, boxes } = fixture();
+    const placeholder = { cues: [], kind: "subtitles", mode: "hidden" };
+    const caption = {
+        activeCues: [{}],
+        cues: [],
+        kind: "captions",
+        mode: "showing",
+    };
+    const metadata = { kind: "metadata", label: "Timing", mode: "hidden" };
+    w.video.textTracks = [placeholder, metadata, caption];
+    w.stbPlay("native.m3u8");
+    const owner = w.__ottCoreBackend().current();
+    assert.equal(w.stbSubtitleExists(), 1);
+    assert.equal(
+        owner.tracks("subtitle")[0].id,
+        3,
+        "raw native index survives filtering"
+    );
+    w.stbToggleSubtitle();
+    const box = boxes.at(-1);
+    assert.equal(box[1][0], "Off");
+    box[2](0);
+    assert.equal(caption.mode, "disabled");
+    assert.equal(
+        metadata.mode,
+        "hidden",
+        "metadata must not be changed by Off"
+    );
+    assert.equal(
+        w.stbSubtitleExists(),
+        1,
+        "discovered captions remain available for re-enabling"
+    );
+    owner.selectTrack("subtitle", 3);
+    assert.equal(caption.mode, "showing");
+});
+test("explicit Off survives late native changes without a channel preference target", () => {
+    const { w, boxes } = fixture();
+    const events = {};
+    const tracks = [{ cues: [{}], kind: "captions", mode: "showing" }];
+    tracks.addEventListener = (name, callback) => {
+        events[name] = callback;
+    };
+    tracks.removeEventListener = (name, callback) => {
+        if (events[name] === callback) delete events[name];
+    };
+    w.video.textTracks = tracks;
+    w.applyChannelPreference = () => {}; // Local media has no channel storage target.
+    w.stbPlay("local.mp4");
+    w.stbToggleSubtitle();
+    boxes.at(-1)[2](0);
+    tracks[0].mode = "showing";
+    events.change();
+    assert.equal(tracks[0].mode, "disabled");
+    tracks.push({ cues: [{}], kind: "captions", mode: "showing" });
+    events.addtrack();
+    assert.equal(tracks[1].mode, "disabled");
+    const stale = events.change;
+    w.stbStop();
+    tracks[1].mode = "showing";
+    stale();
+    assert.equal(
+        tracks[1].mode,
+        "showing",
+        "stopped lease cannot modify another source"
+    );
+});
+test("all exposed caption services remain selectable even before receiving cues", () => {
+    const { w } = fixture();
+    w.video.textTracks = Array.from({ length: 4 }, (_, i) => ({
+        cues: i ? [] : [{}],
+        kind: "captions",
+        mode: i ? "disabled" : "showing",
+    }));
+    w.stbPlay("services.m3u8");
+    assert.equal(w.stbSubtitleExists(), 4);
+    const owner = w.__ottCoreBackend().current();
+    owner.selectTrack("subtitle", 4);
+    assert.deepEqual(
+        Array.from(w.video.textTracks, (t) => t.mode),
+        ["disabled", "disabled", "disabled", "showing"]
+    );
+    owner.selectTrack("subtitle", 0);
+    assert.ok(w.video.textTracks.every((t) => t.mode === "disabled"));
+});
+test("HLS picker includes in-band captions, de-duplicates manifest TextTracks and silences both", () => {
+    const { w, players } = fixture();
+    const duplicate = {
+        kind: "subtitles",
+        label: "English",
+        language: "en",
+        mode: "showing",
+    };
+    const caption = { cues: [{}], kind: "captions", mode: "showing" };
+    w.video.textTracks = [duplicate, caption];
+    w.playerMode = 1;
+    w.stbPlay("captions.m3u8");
+    const hls = players[0];
+    const owner = w.__ottCoreBackend().current();
+    assert.equal(
+        w.stbSubtitleExists(),
+        2,
+        "native captions remain available with empty manifest"
+    );
+    hls.subtitleTracks = [
+        { lang: "en", name: "English", trackNode: { track: duplicate } },
+    ];
+    hls.subtitleTrack = 0;
+    assert.equal(
+        w.stbSubtitleExists(),
+        2,
+        "manifest render track is not duplicated"
+    );
+    const ids = Array.from(owner.tracks("subtitle"), (t) => t.id);
+    assert.deepEqual(ids, [1, 10002]);
+    owner.selectTrack("subtitle", 0);
+    assert.equal(hls.subtitleTrack, -1);
+    assert.equal(hls.subtitleDisplay, false);
+    assert.equal(caption.mode, "disabled");
+    assert.equal(duplicate.mode, "disabled");
+    owner.selectTrack("subtitle", 10002);
+    assert.equal(caption.mode, "showing");
+    assert.equal(hls.subtitleTrack, -1);
+    owner.selectTrack("subtitle", 1);
+    assert.equal(hls.subtitleTrack, 0);
+    assert.equal(hls.subtitleDisplay, true);
+    assert.equal(caption.mode, "disabled");
+});
+test("HLS manifest mirror restoration is idempotent and repairs external hiding", () => {
+    const { w, players, boxes } = fixture();
+    const events = {},
+        queued = [];
+    let mode = "disabled",
+        writes = 0;
+    const mirror = { kind: "subtitles", label: "English" };
+    Object.defineProperty(mirror, "mode", {
+        get: () => mode,
+        set: (value) => {
+            if (mode !== value) {
+                mode = value;
+                queued.push(() => events.change?.());
+            }
+        },
+    });
+    const tracks = [mirror];
+    tracks.addEventListener = (name, callback) => {
+        events[name] = callback;
+    };
+    tracks.removeEventListener = (name) => {
+        delete events[name];
+    };
+    w.video.textTracks = tracks;
+    w.playerMode = 1;
+    w.stbPlay("mirror.m3u8");
+    const hls = players[0];
+    hls.subtitleTracks = [{ name: "English", trackNode: { track: mirror } }];
+    let selected = -1,
+        display = false;
+    Object.defineProperty(hls, "subtitleTrack", {
+        get: () => selected,
+        set: (value) => {
+            writes++;
+            selected = value;
+            mirror.mode = value === 0 ? "showing" : "disabled";
+        },
+    });
+    Object.defineProperty(hls, "subtitleDisplay", {
+        get: () => display,
+        set: (value) => {
+            writes++;
+            display = value;
+            mirror.mode = value && selected === 0 ? "showing" : "disabled";
+        },
+    });
+    function drain() {
+        let turns = 0;
+        while (queued.length) {
+            assert.ok(++turns < 10, "mode change restoration must settle");
+            queued.shift()();
+        }
+    }
+    w.stbToggleSubtitle();
+    boxes.at(-1)[2](1);
+    drain();
+    assert.equal(mirror.mode, "showing");
+    const stableWrites = writes;
+    mirror.mode = "disabled";
+    drain();
+    assert.equal(
+        mirror.mode,
+        "showing",
+        "same-index external hiding is repaired"
+    );
+    assert.equal(
+        writes,
+        stableWrites,
+        "native repair does not churn HLS setters"
+    );
 });
 test("native late-track listeners belong to their engine lease", () => {
     const { w } = fixture();
     const listeners = [];
     w.video.textTracks = {
         addEventListener(name, callback) {
-            assert.equal(name, "addtrack");
-            listeners.push(callback);
+            if (name === "addtrack") listeners.push(callback);
         },
         length: 0,
         removeEventListener(name, callback) {
-            listeners.splice(listeners.indexOf(callback), 1);
+            if (name === "addtrack")
+                listeners.splice(listeners.indexOf(callback), 1);
         },
     };
     let restores = 0;

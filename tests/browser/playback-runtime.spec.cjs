@@ -2043,3 +2043,99 @@ test("healthy HLS playback clears stalled feedback without growing or pinning th
     await expect(label).not.toHaveText("Error!");
     expect(errors).toEqual([]);
 });
+
+test("native anonymous captions appear in Menu and explicit Off survives late tracks", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const origin = new URL(baseURL).origin;
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await context.route("**/*", (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname === "/diagnostics/av-v1.mp4")
+            return route.fulfill({
+                body: fs.readFileSync(
+                    path.resolve(__dirname, "../../diagnostics/av-v1.mp4")
+                ),
+                contentType: "video/mp4",
+            });
+        return url.origin === origin
+            ? route.continue()
+            : route.abort("blockedbyclient");
+    });
+    await context.routeWebSocket("**/*", (socket) => socket.close());
+    await context.addInitScript(() => {
+        localStorage.setItem("ottplaylang", "_eng");
+        localStorage.setItem("ottplayprov", "demo");
+    });
+    await page.goto("/f/pc/");
+    await page.waitForFunction(() => window.__ottDevice);
+    await page.evaluate(() => {
+        window.stbStop();
+        window.setPlayerMode(0);
+        const video = document.querySelector("#video");
+        video.muted = true;
+        video.loop = true;
+        window.stbPlay(location.origin + "/diagnostics/av-v1.mp4");
+    });
+    await page.waitForFunction(
+        () => document.querySelector("#video").currentTime > 0
+    );
+    await page.evaluate(() => {
+        const track = document
+            .querySelector("#video")
+            .addTextTrack("captions", "", "");
+        track.addCue(new VTTCue(0, 1000, "Native caption fixture"));
+        track.mode = "showing";
+        window.__captionFixture = track;
+    });
+    await page.waitForFunction(
+        () => window.__captionFixture.activeCues?.length === 1
+    );
+    expect(await page.evaluate(() => window.stbSubtitleExists())).toBe(1);
+    await page.evaluate(() => window.popupList());
+    await expect(page.locator("#listIn")).toContainText("Switch subtitle");
+    await page.evaluate(() => {
+        window.stbToggleSubtitle();
+        window._doKey(window.keys.UP);
+        window._doKey(window.keys.ENTER);
+    });
+    await expect
+        .poll(() => page.evaluate(() => window.__captionFixture.mode))
+        .toBe("disabled");
+    await expect
+        .poll(() =>
+            page.evaluate(() => window.__captionFixture.activeCues?.length || 0)
+        )
+        .toBe(0);
+    // A later platform auto-selection must respect the explicit saved Off.
+    await page.evaluate(() => {
+        const track = document
+            .querySelector("#video")
+            .addTextTrack("captions", "", "");
+        track.addCue(new VTTCue(0, 1000, "Late caption fixture"));
+        track.mode = "showing";
+        window.__lateCaptionFixture = track;
+    });
+    await expect
+        .poll(() => page.evaluate(() => window.__lateCaptionFixture.mode))
+        .toBe("disabled");
+    await page.evaluate(() => {
+        window.stbPlay(location.origin + "/diagnostics/av-v1.mp4");
+    });
+    await page.waitForFunction(
+        () => document.querySelector("#video").currentTime > 0
+    );
+    await page.evaluate(() => {
+        window.__captionFixture.mode = "showing";
+    });
+    await expect
+        .poll(() => page.evaluate(() => window.__captionFixture.mode))
+        .toBe("disabled");
+    await page.screenshot({
+        path: test.info().outputPath("native-captions-off.png"),
+    });
+    expect(errors).toEqual([]);
+});
