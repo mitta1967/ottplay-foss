@@ -2017,7 +2017,7 @@ mod tests {
         let bytes = tokio::fs::read(&input).await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
-        let upstream=Router::new().route("/master.m3u8",get(||async{"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:12\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:12,\nsix.ts\n#EXT-X-ENDLIST\n"})).route("/six.ts",get(move||{let bytes=bytes.clone();async move{bytes}}));
+        let upstream=Router::new().route("/master.m3u8",get(||async{"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:12\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:12,\nsix.ts\n"})).route("/six.ts",get(move||{let bytes=bytes.clone();async move{bytes}}));
         let slow_started = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let started = slow_started.clone();
         let upstream = upstream.route(
