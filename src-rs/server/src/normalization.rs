@@ -1900,7 +1900,7 @@ mod tests {
             "key": "a".repeat(40), "public_base": "https://media.example", "origins": [],
             "ffmpeg": "/bin/ffmpeg", "ffprobe": "/bin/ffprobe", "directory": "/private/state",
             "sources": {"demo": {"url": "https://source.example/a", "allowed_origins": ["https://source.example"], "playback_key": "b".repeat(40)}},
-            "profiles": {"home": {"file": "/private/home.m3u", "key": "c".repeat(40)}}
+            "profiles": {"home": {"file": std::env::temp_dir().join("ott-profile-test.m3u"), "key": "c".repeat(40)}}
         })).unwrap();
         assert!(validate_settings(&settings).is_ok());
         for key in [
