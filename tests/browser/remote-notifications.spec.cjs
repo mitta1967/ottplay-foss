@@ -189,6 +189,26 @@ for (const viewport of [
         }
         const cards = page.locator(".remote-notify");
         await expect(cards).toHaveCount(3);
+        // Measure the resting layout, not an intermediate slide-in frame.
+        // Keep the real animation enabled and wait for its actual completion.
+        await cards.evaluateAll(async (nodes) => {
+            await Promise.all(
+                nodes.map((node) => {
+                    const entrance = node
+                        .getAnimations()
+                        .find(
+                            (animation) =>
+                                animation.animationName === "remoteNotifyIn"
+                        );
+                    if (!entrance)
+                        throw new Error(
+                            "Notification entrance animation missing"
+                        );
+                    return entrance.finished;
+                })
+            );
+        });
+        await expect(cards.first()).toHaveCSS("opacity", "1");
         const geometry = await cards.evaluateAll((nodes) =>
             nodes.map((node) => {
                 const r = node.getBoundingClientRect(),
@@ -218,7 +238,6 @@ for (const viewport of [
                 await expect(card).toHaveCSS(`border-${side}-style`, "solid");
             }
         }
-        await expect(cards.first()).toHaveCSS("opacity", "1");
         await expect(cards.first()).toHaveCSS(
             "background-color",
             "rgba(22, 28, 39, 0.78)"
