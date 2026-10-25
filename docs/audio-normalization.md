@@ -164,7 +164,29 @@ media in every generated audio/video playlist, plus each initialization file; a
 playlist header alone is insufficient. Sources whose GOP/segment duration cannot
 provide that window within the 25-second producer deadline use the authorized
 original-stream fallback; they are not advertised as ready. Preparation permits
-one retry after one second, within a 30-second total deadline. Existing normalized
+two attempts by default, separated by one second, within one absolute 30-second
+preparation deadline. An individual source with slow cold startup can opt into:
+
+```json
+"preparation_budget_seconds": 45,
+"preparation_attempts": 3
+```
+
+Deploy a build that supports these fields before adding them to a private registry;
+older builds reject unknown source fields. These optional source fields accept
+30–60 seconds and 1–3 total attempts. Omitted
+fields retain the existing 30-second/two-attempt policy. The single budget covers
+all probes, retry delays, producer startup and admission; it is not multiplied by
+the attempt count. Individual probes remain limited to eight seconds and producer
+startup to 25 seconds. The example gives two cold failed probes room for a third
+attempt without keeping a permanent warm-up worker.
+
+While preparing, a lease expires at its creation time plus its preparation budget
+and five seconds of response grace. Heartbeats cannot extend that absolute bound.
+The playback entry waits only until that same deadline. On completion the normal
+40-second reader idle clock begins; explicit close still cancels immediately and
+waits for cleanup. Session count, storage, authentication and upstream limits are
+unchanged. Existing normalized
 child playlists return retryable failure instead of receiving an incompatible
 original master; original fallback is exposed only through the master entry.
 This entry is intended for ordinary live MPEG-TS HLS sources; it does not add
