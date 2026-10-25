@@ -240,7 +240,7 @@ for (const viewport of [
         }
         await expect(cards.first()).toHaveCSS(
             "background-color",
-            "rgba(22, 28, 39, 0.78)"
+            "rgba(22, 28, 39, 0.624)"
         );
         await expect(cards.first().locator(".remote-notify-message")).toHaveCSS(
             "opacity",
@@ -263,12 +263,12 @@ for (const viewport of [
         await page.evaluate(() => window.stbSetOsdOpacity(90));
         await expect(cards.first()).toHaveCSS(
             "background-color",
-            "rgba(22, 28, 39, 0.98)"
+            "rgba(22, 28, 39, 0.784)"
         );
         await page.evaluate(() => window.stbSetOsdOpacity(100));
         await expect(cards.first()).toHaveCSS(
             "background-color",
-            "rgb(22, 28, 39)"
+            "rgba(22, 28, 39, 0.8)"
         );
         await page.evaluate(() => window.stbSetOsdOpacity(70));
 

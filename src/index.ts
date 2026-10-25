@@ -1327,10 +1327,10 @@ function stbSetOsdOpacity(val: number): void {
               ? "8,8,8"
               : classicColorRgb(settings.highlightColorB);
     $(".osd").css("background-color", "rgba(" + rgb + "," + val / 100 + ")");
-    // Keep notification surfaces slightly denser than the footer, not their text.
+    // Reduce notification background opacity by 20%, without dimming the text.
     document.documentElement.style.setProperty(
         "--ott-notify-alpha",
-        String(val / 100 + 0.08)
+        String(Math.min(1, val / 100 + 0.08) * 0.8)
     );
 }
 

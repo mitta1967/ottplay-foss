@@ -16,9 +16,10 @@ not a complete event history; keep controller messages concise.
 
 At full visibility, only the dark surface is translucent; text and icons retain full opacity.
 The default information footer has alpha 0.70 (30% transparency). Notification
-surfaces add 0.08 opacity, giving alpha 0.78 (22% transparency), capped at 1.0.
-The value updates with the footer's opacity setting. Older WebViews without CSS
-custom properties use the same 0.78 default surface. The solid RGB base is
+surfaces use 80% of the previous capped footer-plus-0.08 opacity, giving default
+alpha 0.624 (37.6% transparency). The value updates with the footer's opacity
+setting and never exceeds 0.8. Older WebViews without CSS custom properties use
+the same 0.624 default surface. The solid RGB base is
 22,28,39. The entrance and fade animate the opacity of the whole card without
 changing this configured surface alpha.
 
