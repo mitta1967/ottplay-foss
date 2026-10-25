@@ -584,9 +584,17 @@ async fn directory_size(directory: &Path) -> Result<u64> {
     let mut entries = tokio::fs::read_dir(directory).await?;
     let mut size = 0u64;
     while let Some(entry) = entries.next_entry().await? {
-        size = size.saturating_add(entry.metadata().await?.len());
+        size = size.saturating_add(directory_entry_size(&entry).await?);
     }
     Ok(size)
+}
+async fn directory_entry_size(entry: &tokio::fs::DirEntry) -> Result<u64> {
+    match entry.metadata().await {
+        Ok(metadata) => Ok(metadata.len()),
+        // FFmpeg may delete a segment or rename a temporary playlist during the scan.
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(0),
+        Err(error) => Err(error.into()),
+    }
 }
 async fn capture(mut command: Command, timeout: Duration, limit: usize) -> Result<Vec<u8>> {
     let mut child = command
@@ -676,6 +684,30 @@ mod tests {
             assert!(validate_source(source).is_err());
         }
     }
+    #[tokio::test]
+    async fn disk_scan_tolerates_a_segment_removed_after_enumeration() {
+        let directory =
+            std::env::temp_dir().join(format!("ott-disk-scan-{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir(&directory).await.unwrap();
+        let file = directory.join("track_0_1.m4s");
+        tokio::fs::write(&file, b"segment").await.unwrap();
+        let mut entries = tokio::fs::read_dir(&directory).await.unwrap();
+        let entry = entries.next_entry().await.unwrap().unwrap();
+        assert_eq!(directory_entry_size(&entry).await.unwrap(), 7);
+        tokio::fs::remove_file(file).await.unwrap();
+        assert_eq!(directory_entry_size(&entry).await.unwrap(), 0);
+        assert_eq!(directory_size(&directory).await.unwrap(), 0);
+        tokio::fs::remove_dir_all(directory).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn disk_scan_preserves_invalid_directory_errors() {
+        let file = std::env::temp_dir().join(format!("ott-disk-error-{}", uuid::Uuid::new_v4()));
+        tokio::fs::write(&file, b"not a directory").await.unwrap();
+        assert!(directory_size(&file).await.is_err());
+        tokio::fs::remove_file(file).await.unwrap();
+    }
+
     #[cfg(unix)]
     #[tokio::test]
     async fn failed_start_waits_for_cleanup_before_same_id_retry() {
