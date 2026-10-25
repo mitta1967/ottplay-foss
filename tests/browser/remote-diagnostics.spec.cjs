@@ -727,8 +727,28 @@ for (const stopKey of [false, true]) {
                 () => window.__ottRemoteDiagnostics.status().enabled
             )
         ).toBe(true);
-        if (stopKey) await page.keyboard.press("s");
-        else await page.locator("#remoteDiagnosticsIndicator").click();
+        async function pressStop() {
+            // Playwright's desktop key table has no MediaStop entry.
+            // Dispatch it through the real DOM listener with the browser key code.
+            await page.evaluate(() => {
+                document.body.dispatchEvent(
+                    new KeyboardEvent("keydown", {
+                        bubbles: true,
+                        cancelable: true,
+                        code: "MediaStop",
+                        key: "MediaStop",
+                        keyCode: 178,
+                    })
+                );
+            });
+        }
+        if (stopKey) {
+            await page.keyboard.press("s");
+            await expect(
+                page.locator("#remoteDiagnosticsIndicator")
+            ).toHaveCount(1);
+            await pressStop();
+        } else await page.locator("#remoteDiagnosticsIndicator").click();
         await expect(page.locator("#remoteDiagnosticsIndicator")).toHaveCount(
             0
         );
@@ -751,7 +771,7 @@ for (const stopKey of [false, true]) {
                 (c) => c.path === "/poll" && c.body.consent.granted === false
             )
         ).toBe(true);
-        await page.keyboard.press("s");
+        await pressStop();
         await page.waitForTimeout(250);
         expect(await registrationCount(server)).toBe(2);
         expect(
