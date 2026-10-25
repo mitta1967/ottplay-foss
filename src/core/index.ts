@@ -1222,7 +1222,7 @@ function startCoreEngine(
     (window as any).forcePlay = !paused;
     if (video && paused) video.autoplay = false;
     if ((window as any).__ottPlaybackFeedback)
-        (window as any).__ottPlaybackFeedback.begin(paused);
+        (window as any).__ottPlaybackFeedback.begin(paused, false, coreNormalizedTimeout(url));
     var session = _playSession;
     var plexHint = corePlexPlaybackHint(url);
     if (hlsInstance) {
@@ -1381,6 +1381,16 @@ function coreNormalizedMse(url: string): boolean {
     } catch (error) {
         return false;
     }
+}
+
+/** Only the registered initial master may wait for bounded server preparation. */
+function coreNormalizedTimeout(url: string): number {
+    return coreNormalizedMse(url) && url.indexOf("/play/") > 0 ? 75000 : 0;
+}
+function coreHlsConfig(config: any, url: string): any {
+    var timeout = coreNormalizedTimeout(url);
+    if (timeout) config.manifestLoadingTimeOut = timeout;
+    return config;
 }
 
 /**
@@ -1542,7 +1552,7 @@ function startCorePlayback(
             hlsConfig.levelLoadingMaxRetry = 1;
             hlsConfig.manifestLoadingMaxRetry = 1;
         }
-        hlsInstance = new Hls(hlsConfig);
+        hlsInstance = new Hls(coreHlsConfig(hlsConfig, originalUrl));
         var playbackHls = hlsInstance;
         var bitrateMeter = createCoreHlsBitrateMeter();
         _coreHlsBitrate = bitrateMeter;
@@ -2591,7 +2601,7 @@ function startCorePipEngine(url: string, engineLoaded = false): void {
               : playerMode;
     var startHls = function (): void {
         var pipHls = new Hls(
-            coreBufferPolicy(window, url, url, bufSize, true, true).hls
+            coreHlsConfig(coreBufferPolicy(window, url, url, bufSize, true, true).hls, url)
         );
         hlsPipInstance = pipHls;
         pipHls.on(Hls.Events.MANIFEST_PARSED, function () {
