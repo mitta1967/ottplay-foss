@@ -699,8 +699,7 @@ declare var removeOption: (fn: () => void) => void;
 // popupActions/popupArray/popupDetail defined as export let above
 
 var providerSelectionUnlockCount = 0,
-    providerSettingsUnlockCount = 0,
-    _clearAll = 0;
+    providerSettingsUnlockCount = 0;
 
 /**
  * Toggle the "Show providers?" / "Hide providers?" setting.
