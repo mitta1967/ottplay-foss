@@ -239,6 +239,10 @@ async function fixturePage(
         ["/js/runtime-polyfills.js", read(stage + "js/runtime-polyfills.js")],
         ["/js/ottplay-core.js", read(stage + "js/ottplay-core.js")],
         ["/dist/player.js", read(stage + "dist/player.js")],
+        [
+            "/dist/subtitle-appearance.js",
+            read(stage + "dist/subtitle-appearance.js"),
+        ],
         ["/styles/player.css", read(stage + "styles/player.css")],
     ]);
     for (const file of scripts.filter((file) =>
@@ -1163,8 +1167,11 @@ for (const profile of ["server", "tauri"]) {
             const fixture = await fixturePage(browser, profile);
             const page = fixture.page;
             try {
+                await page.evaluate(() => settingsInterface());
+                await page.waitForFunction(() =>
+                    listArray.some((row) => row.settingId === "interfaceTheme")
+                );
                 await page.evaluate(() => {
-                    settingsInterface();
                     window.__valueRow = listArray.find(
                         (row) => row.settingId === "interfaceTheme"
                     );
@@ -1208,6 +1215,9 @@ for (const profile of ["server", "tauri"]) {
                 // The value picker updates the draft; cancelling Settings keeps saved state.
                 await page.evaluate(() => _doKey(keys.RETURN));
                 await page.evaluate(() => settingsInterface());
+                await page.waitForFunction(() =>
+                    listArray.some((row) => row.settingId === "interfaceTheme")
+                );
                 expect(
                     await page.evaluate(
                         () =>
@@ -2929,6 +2939,9 @@ for (const profile of ["server", "tauri"]) {
                 await page.evaluate(() => changeSelect(1));
                 await expect(page.locator("#_name")).toHaveCount(0);
                 await page.evaluate(() => settingsInterface());
+                await page.waitForFunction(() =>
+                    listArray.some((row) => row.settingId === "interfaceTheme")
+                );
                 await expect(page.locator("#listIn .ott-selected")).toHaveCSS(
                     "color",
                     "rgb(17, 33, 25)"
