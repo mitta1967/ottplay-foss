@@ -1063,7 +1063,7 @@ function setFontSize(): void {
     });
     $("#nprogramm_name").css({ width: 900 * t + "px" });
     $("#data").css({ "font-size": 22 * e + "px", width: 80 * t + "px" });
-    $("#current_s, #video_res, #playback_status").css({
+    $("#current_s, #video_res").css({
         "font-size": 16 * e + "px",
     });
     $("#descr").css({
