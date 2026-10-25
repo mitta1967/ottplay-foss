@@ -480,6 +480,18 @@ test("HLS restores late subtitle lists only for the current stream", () => {
     assert.equal(restorations, count + 1);
     assert.equal(players[1].subtitleTrack, 1);
 });
+test("PiP track discovery reads its own native media element", () => {
+    const { w } = fixture();
+    w.video.audioTracks = [{ enabled: true, label: "Main audio" }];
+    w.videoPip.audioTracks = [{ enabled: true, label: "Preview audio" }];
+    w.videoPip.textTracks = [
+        { kind: "captions", label: "Preview captions", mode: "showing" },
+    ];
+    w.stbPlayPip("preview.mp4");
+    const pip = w.__ottCoreBackend().current("pip");
+    assert.equal(pip.tracks("audio")[0].name, "Preview audio");
+    assert.equal(pip.tracks("subtitle")[0].name, "Preview captions");
+});
 test("shared native track collection preserves audio index zero and does not alter captions", () => {
     const { w } = fixture();
     w.video.audioTracks = [

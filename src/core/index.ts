@@ -2389,7 +2389,7 @@ export function stbToggleAspectRatio(): void {
  * @returns `true` if multiple audio tracks exist.
  */
 export function stbAudioTracksExists(): boolean {
-    return avTracks(undefined, true).length > 1;
+    return avTracks(video, undefined, true).length > 1;
 }
 
 /** Preserve identified native captions when Off clears their active cues. */
@@ -2407,7 +2407,11 @@ function hasText(t: any): boolean {
     );
 }
 
-function avTracks(selected?: number, audio?: boolean): any[] {
+function avTracks(
+    media: HTMLVideoElement | null,
+    selected?: number,
+    audio?: boolean
+): any[] {
     var hls = hlsInstance,
         key = audio ? "audioTrack" : "subtitleTrack";
     var rows: any[] = [],
@@ -2457,7 +2461,7 @@ function avTracks(selected?: number, audio?: boolean): any[] {
                 });
         }
     }
-    var native = video && (video as any)[audio ? "audioTracks" : "textTracks"];
+    var native = media && (media as any)[audio ? "audioTracks" : "textTracks"];
     collect(hls ? manifest : native, !hls);
     if (hls) {
         if (!audio) collect(native, true);
@@ -2486,12 +2490,12 @@ function setSubtitleTrack(index?: number): void {
         if (!choice) return applyChannelPreference("aSubs", setSubtitleTrack);
         index = choice - 1;
     }
-    avTracks(index);
+    avTracks(video, index);
 }
 
 /** The menu and picker use the same engine-aware track discovery. */
 export function stbSubtitleExists(): number {
-    return avTracks().length;
+    return avTracks(video).length;
 }
 
 /**
@@ -3078,7 +3082,7 @@ function videoEvent(event: Event): void {
  * Side effects: Mutates hlsInstance.audioTrack or video!.audioTracks[i].enabled.
  */
 function setAudioTrack(index: number): void {
-    avTracks(index, true);
+    avTracks(video, index, true);
 }
 
 /**
@@ -3637,7 +3641,7 @@ function openCoreEngineLease(
         supportsPausedStart: !pip,
         tracks: function (kind: string) {
             if (!active() || !media) return [];
-            return avTracks(undefined, kind === "audio");
+            return avTracks(media, undefined, kind === "audio");
         },
     };
     try {
