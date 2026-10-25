@@ -186,7 +186,11 @@ and five seconds of response grace. Heartbeats cannot extend that absolute bound
 The playback entry waits only until that same deadline. On completion the normal
 40-second reader idle clock begins; explicit close still cancels immediately and
 waits for cleanup. Session count, storage, authentication and upstream limits are
-unchanged. Existing normalized
+unchanged. The client gives only the initial `/normalize/play/` master a
+75-second Hls.js manifest deadline, including picture-in-picture. Main-video
+startup feedback uses the same bounded window. Later playlist/segment loads,
+stalls, `/normalize/lease/` requests and ordinary sources retain their existing
+limits. Existing normalized
 child playlists return retryable failure instead of receiving an incompatible
 original master; original fallback is exposed only through the master entry.
 This entry is intended for ordinary live MPEG-TS HLS sources; it does not add
