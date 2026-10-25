@@ -9,12 +9,16 @@ const {
     BUDGET,
     PROVIDER_BUDGET,
     TOTAL_BUDGET,
+    LEGACY_TOTAL_BUDGET,
     inspectBundleSets,
     inspectBundles,
     measureBundle,
     writeBundleReport,
 } = require("../scripts/classic-size.cjs");
-const { CLASSIC_PROVIDER_BUNDLES } = require("../scripts/classic-bundle.cjs");
+const {
+    CLASSIC_PROVIDER_BUNDLES,
+    CLASSIC_OPTIONAL_BUNDLES,
+} = require("../scripts/classic-bundle.cjs");
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "ottplay-size-test-"));
 const androidOutput = fs.mkdtempSync(
     path.join(os.tmpdir(), "ottplay-size-android-output-")
@@ -47,11 +51,17 @@ try {
                 source
             );
     }
+    for (const file of ARTIFACTS)
+        for (const name of Object.keys(CLASSIC_OPTIONAL_BUNDLES))
+            fs.writeFileSync(
+                path.join(root, path.dirname(file), name + ".js"),
+                source
+            );
     const sets = inspectBundleSets(root);
     assert.equal(sets.length, 3);
     assert.equal(sets[0].providers.length, 8);
-    assert.equal(sets[0].total.bytes, measurement.bytes * 9);
-    assert.equal(sets[0].total.gzipBytes, measurement.gzipBytes * 9);
+    assert.equal(sets[0].total.bytes, measurement.bytes * 10);
+    assert.equal(sets[0].total.gzipBytes, measurement.gzipBytes * 10);
     const extra = path.join(root, "dist/provider-old.js");
     fs.writeFileSync(extra, source);
     assert.throws(() => inspectBundleSets(root), /Unexpected provider bundle/);
@@ -79,6 +89,18 @@ try {
     );
     fs.writeFileSync(oversizedSet, source);
     fs.writeFileSync(additional, source);
+    fs.writeFileSync(oversizedSet, "x".repeat(800000));
+    fs.writeFileSync(
+        additional,
+        "y".repeat(LEGACY_TOTAL_BUDGET.bytes - 800000)
+    );
+    assert.throws(
+        () => inspectBundleSets(root),
+        /legacy complete player bytes .* exceeds budget 1176800/,
+        "legacy payload cannot borrow unused optional-asset headroom"
+    );
+    fs.writeFileSync(oversizedSet, source);
+    fs.writeFileSync(additional, source);
     const optimizer = { outputSha256: measurement.sha256 };
     // Android Play ships exactly the four permitted provider families.
     // Check both its retained flat export and the nested Capacitor entry point.
@@ -88,6 +110,8 @@ try {
         const directory = path.join(root, path.dirname(file));
         fs.mkdirSync(directory, { recursive: true });
         fs.writeFileSync(path.join(root, file), source);
+        for (const name of Object.keys(CLASSIC_OPTIONAL_BUNDLES))
+            fs.writeFileSync(path.join(directory, name + ".js"), source);
         for (const kind of playKinds)
             fs.writeFileSync(
                 path.join(directory, "provider-" + kind + ".js"),
@@ -97,8 +121,8 @@ try {
     const playSets = inspectBundleSets(root, playArtifacts, playKinds);
     assert.equal(playSets.length, 2);
     assert.equal(playSets[0].providers.length, 4);
-    assert.equal(playSets[0].total.bytes, measurement.bytes * 5);
-    assert.equal(playSets[0].total.gzipBytes, measurement.gzipBytes * 5);
+    assert.equal(playSets[0].total.bytes, measurement.bytes * 6);
+    assert.equal(playSets[0].total.gzipBytes, measurement.gzipBytes * 6);
     // Android's configured output may be outside the repository entirely.
     // Both inventories are relative to that output root, not the default dist.
     const androidArtifacts = ["player.js", "dist/player.js"];
@@ -106,6 +130,8 @@ try {
         const directory = path.join(androidOutput, path.dirname(file));
         fs.mkdirSync(directory, { recursive: true });
         fs.writeFileSync(path.join(androidOutput, file), source);
+        for (const name of Object.keys(CLASSIC_OPTIONAL_BUNDLES))
+            fs.writeFileSync(path.join(directory, name + ".js"), source);
         for (const kind of playKinds)
             fs.writeFileSync(
                 path.join(directory, "provider-" + kind + ".js"),
@@ -117,6 +143,83 @@ try {
         fs.readFileSync(path.join(__dirname, "../vite.config.ts"), "utf8"),
         ts.ScriptTarget.Latest,
         true
+    );
+    // Exercise the actual staging functions, not just the final size inventory.
+    const helpers = config.statements
+        .filter(
+            (node) =>
+                ts.isFunctionDeclaration(node) &&
+                ["stageTauriFrontend", "removeDuplicatePlayerAssets"].includes(
+                    node.name?.text
+                )
+        )
+        .map((node) => node.getText(config))
+        .join("\n");
+    const packaging = {
+        ...fs,
+        autoPlaybackScript: () => "fixture",
+        CLASSIC_OPTIONAL_BUNDLES,
+        CLASSIC_PROVIDER_BUNDLES,
+        console: { log() {} },
+        copyRuntimeAssets() {},
+        join: path.join,
+        stageNativeRuntime() {},
+        stagePlayerAssets() {},
+    };
+    vm.createContext(packaging);
+    vm.runInContext(
+        ts.transpileModule(helpers, {
+            compilerOptions: {
+                module: ts.ModuleKind.None,
+                target: ts.ScriptTarget.ES2020,
+            },
+        }).outputText,
+        packaging
+    );
+    const nativeStage = path.join(root, "native-stage");
+    packaging.stageTauriFrontend(root, path.join(root, "dist"), nativeStage);
+    assert.equal(
+        fs.readFileSync(
+            path.join(nativeStage, "dist/subtitle-appearance.js"),
+            "utf8"
+        ),
+        source
+    );
+    const nestedLoops = [];
+    function findNestedLoop(node) {
+        if (
+            ts.isForOfStatement(node) &&
+            node.getText(config).includes("providerKinds.map") &&
+            node.getText(config).includes("CLASSIC_OPTIONAL_BUNDLES")
+        )
+            nestedLoops.push(node);
+        ts.forEachChild(node, findNestedLoop);
+    }
+    findNestedLoop(config);
+    assert.equal(nestedLoops.length, 1);
+    const mobileStage = path.join(root, "mobile-stage");
+    fs.cpSync(path.join(root, "dist"), mobileStage, { recursive: true });
+    fs.mkdirSync(path.join(mobileStage, "dist"));
+    fs.copyFileSync(
+        path.join(mobileStage, "player.js"),
+        path.join(mobileStage, "dist/player.js")
+    );
+    vm.runInNewContext(nestedLoops[0].getText(config), {
+        ...packaging,
+        outDir: mobileStage,
+        providerKinds: Object.keys(CLASSIC_PROVIDER_BUNDLES),
+    });
+    assert.equal(
+        fs.readFileSync(
+            path.join(mobileStage, "dist/subtitle-appearance.js"),
+            "utf8"
+        ),
+        source
+    );
+    packaging.removeDuplicatePlayerAssets(mobileStage);
+    assert(!fs.existsSync(path.join(mobileStage, "subtitle-appearance.js")));
+    assert(
+        fs.existsSync(path.join(mobileStage, "dist/subtitle-appearance.js"))
     );
     const androidGates = [];
     function findAndroidGate(node) {
@@ -142,7 +245,7 @@ try {
         Array.from(androidSets, (set) => set.entry),
         androidArtifacts
     );
-    assert.equal(androidSets[1].total.bytes, measurement.bytes * 5);
+    assert.equal(androidSets[1].total.bytes, measurement.bytes * 6);
     const externalChunk = path.join(androidOutput, "dist/provider-m3u.js");
     fs.unlinkSync(externalChunk);
     assert.throws(

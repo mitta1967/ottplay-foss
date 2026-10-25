@@ -70,6 +70,7 @@ const CLASSIC_MODULES = [
     "build/ui/menu-registry.js",
     "build/ui/accessibility.js",
     "build/ui/index.js",
+    "build/ui/subtitle-appearance.js",
     "build/key-handler/index.js",
     "build/provider/runtime.js",
     "build/provider/driver-profiles.js",
@@ -159,7 +160,13 @@ const CLASSIC_PROVIDER_BUNDLES = Object.freeze({
     vportal: ["build/provider/vportal-driver.js"],
     xtream: ["build/provider/xtream-media.js"],
 });
-const providerModules = new Set(Object.values(CLASSIC_PROVIDER_BUNDLES).flat());
+const CLASSIC_OPTIONAL_BUNDLES = Object.freeze({
+    "subtitle-appearance": ["build/ui/subtitle-appearance.js"],
+});
+const providerModules = new Set([
+    ...Object.values(CLASSIC_PROVIDER_BUNDLES).flat(),
+    ...Object.values(CLASSIC_OPTIONAL_BUNDLES).flat(),
+]);
 const CLASSIC_MAIN_MODULES = CLASSIC_MODULES.filter(
     (file) => !providerModules.has(file)
 );
@@ -279,6 +286,9 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
     "build/ui/menu-registry.js": Object.freeze(["window.__ottMenuRegistry"]),
     "build/ui/screen-controller.js": Object.freeze([
         "window.__ottScreenController",
+    ]),
+    "build/ui/subtitle-appearance.js": Object.freeze([
+        "window.__ottSubtitleAppearance",
     ]),
 });
 const fs = require("node:fs");
@@ -1037,6 +1047,7 @@ module.exports = {
     assembleClassic,
     CLASSIC_MAIN_MODULES,
     CLASSIC_MODULES,
+    CLASSIC_OPTIONAL_BUNDLES,
     CLASSIC_PRIVATE_MODULES,
     CLASSIC_PROVIDER_BUNDLES,
 };

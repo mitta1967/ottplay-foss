@@ -40,6 +40,7 @@ const channelCode = functions("src/channels/index.ts", [
     "saveChannelPreference",
 ]);
 const coreCode = functions("src/core/index.ts", [
+    "refreshSubtitleStyle",
     "setAspect",
     "captureAspectTarget",
     "applyAspectRatio",

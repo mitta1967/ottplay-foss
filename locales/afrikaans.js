@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Spring 1 minuut terug / vorentoe",
     "Background color": "Agtergrondkleur",
     "Background color of selected item": "Agtergrondkleur van die gekose item",
+    "Background opacity": "Agtergronddekking",
     "Backup state changed": "Rugsteunstatus verander",
     "Backup streams": "Rugsteunstrome",
     "Balance, $": "Saldo, $",
@@ -528,6 +529,7 @@ var keyStrings = {
     "First Run Setup": "Eerste opstelling",
     "Fit to screen": "Pas by skerm",
     Folders: "Vouers",
+    "Font size": "Lettergrootte",
     "Font type": "Lettertipe",
     "For download settings file open":
         "Om die instellingslêer af te laai, maak oop",
@@ -698,6 +700,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play-afstandinvoer",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 is beskikbaar. Wil jy dit nou aflaai en installeer?",
+    "Outline thickness": "Dikte van die buitelyn",
     "Overwrite current settings?": "Oorskryf huidige instellings?",
     off: "af",
     on: "aan",
@@ -846,6 +849,7 @@ var keyStrings = {
     "Request sended!": "Versoek gestuur!",
     "Requesting approval for %1": "Versoek goedkeuring vir %1",
     "Reset order": 'Sorteer kanale: "Soos dit is"',
+    "Reset to default": "Herstel verstekwaardes",
     "Restart player": "Herbegin speler",
     "Restart stream": "Herbegin stroom",
     "Restart stream / Live": "Herbegin stroom / Regstreeks",
@@ -1015,6 +1019,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "So. Ma. Di. Wo. Do. Vr. Sa.",
     "Subscription information": "Intekeninginligting",
     Subtitle: "Ondertitels",
+    "Subtitle appearance": "Voorkoms van onderskrifte",
     Switch: "Wissel",
     "Switch sound track": "Wissel oudiospoor",
     "Switch subtitle": "Wissel ondertitels",
@@ -1028,6 +1033,7 @@ var keyStrings = {
     system: "stelsel",
     Tabox: "Tabox",
     "Tabox settings": "Tabox-instellings",
+    "Text color": "Tekskleur",
     "Text is too long for remote input.": "Teks is te lank vir afstandinvoer.",
     "Text is too long. Please shorten it before sending.":
         "Teks is te lank. Verkort dit asseblief voordat u dit stuur.",

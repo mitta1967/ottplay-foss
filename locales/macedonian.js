@@ -103,6 +103,7 @@ var keyStrings = {
     "Background color": "Боја на позадината",
     "Background color of selected item":
         "Боја на позадината на избраната ставка",
+    "Background opacity": "Непроѕирност на заднината",
     "Backup state changed": "Состојбата на резервната копија е променета",
     "Backup streams": "Резервни текови",
     "Balance, $": "Состојба, $",
@@ -536,6 +537,7 @@ var keyStrings = {
     "First Run Setup": "Поставување при првото стартување",
     "Fit to screen": "Приспособи на екранот",
     Folders: "Папки",
+    "Font size": "Големина на фонтот",
     "Font type": "Тип на фонт",
     "For download settings file open":
         "За да ја преземете датотеката со поставки, отворете",
@@ -707,6 +709,7 @@ var keyStrings = {
     "OTT-play remote input": "Далечински внес во OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Достапен е OttPlay FOSS %1. Дали да се преземе и инсталира сега?",
+    "Outline thickness": "Дебелина на контурата",
     "Overwrite current settings?": "Да се препишат тековните поставки?",
     off: "исклучено",
     on: "вклучено",
@@ -856,6 +859,7 @@ var keyStrings = {
     "Request sended!": "Барањето е испратено!",
     "Requesting approval for %1": "Се бара одобрение за %1",
     "Reset order": 'Подреди канали: "Како што е"',
+    "Reset to default": "Врати ги стандардните поставки",
     "Restart player": "Рестартирај го плеерот",
     "Restart stream": "Рестартирај го стримот",
     "Restart stream / Live": "Рестартирај стрим / Во живо",
@@ -1027,6 +1031,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Нед Пон Вто Сре Чет Пет Саб",
     "Subscription information": "Информации за претплатата",
     Subtitle: "Титлови",
+    "Subtitle appearance": "Изглед на титловите",
     Switch: "Префрли",
     "Switch sound track": "Смени аудиозапис",
     "Switch subtitle": "Смени титлови",
@@ -1040,6 +1045,7 @@ var keyStrings = {
     system: "системски",
     Tabox: "Tabox",
     "Tabox settings": "Поставки за Tabox",
+    "Text color": "Боја на текстот",
     "Text is too long for remote input.":
         "Текстот е предолг за далечински внес.",
     "Text is too long. Please shorten it before sending.":

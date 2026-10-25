@@ -104,6 +104,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 дақиқа ақиб / пеш гузаронед",
     "Background color": "Ранги замина",
     "Background color of selected item": "Ранги заминаи сатри интихобшуда",
+    "Background opacity": "Ношаффофии замина",
     "Backup state changed": "Ҳолати нусхабардорӣ тағйир ёфт",
     "Backup streams": "Ҷараёнҳои эҳтиётӣ",
     "Balance, $": "Бақия, $",
@@ -532,6 +533,7 @@ var keyStrings = {
     "First Run Setup": "Танзими оғози аввал",
     "Fit to screen": "Ба экран мувофиқ кунед",
     Folders: "Ҷузвдонҳо",
+    "Font size": "Андозаи ҳуруф",
     "Font type": "Навъи ҳуруф",
     "For download settings file open": "Барои боргирии файли танзимот кушоед",
     "For enter value open": "Барои ворид кардани қимат кушоед",
@@ -700,6 +702,7 @@ var keyStrings = {
     "OTT-play remote input": "Вуруди дурдасти OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 дастрас аст. Ҳозир боргирӣ ва насб карда шавад?",
+    "Outline thickness": "Ғафсии ҳошия",
     "Overwrite current settings?": "Танзимоти ҷорӣ иваз карда шаванд?",
     off: "хомӯш",
     on: "фаъол",
@@ -847,6 +850,7 @@ var keyStrings = {
     "Request sended!": "Дархост фиристода шуд!",
     "Requesting approval for %1": "Дархости тасдиқ барои %1",
     "Reset order": 'Каналҳоро мураттаб кунед: "Бетағйир"',
+    "Reset to default": "Барқарор кардани танзимоти пешфарз",
     "Restart player": "Плеерро аз нав оғоз кунед",
     "Restart stream": "Пахшро аз нав оғоз кунед",
     "Restart stream / Live": "Оғози дубораи пахш / Пахши зинда",
@@ -1019,6 +1023,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Якш Душ Сеш Чор Пан Ҷум Шан",
     "Subscription information": "Маълумоти обуна",
     Subtitle: "Зернависҳо",
+    "Subtitle appearance": "Намуди зернависҳо",
     Switch: "Иваз кунед",
     "Switch sound track": "Роҳи садоро иваз кунед",
     "Switch subtitle": "Зернависҳоро иваз кунед",
@@ -1032,6 +1037,7 @@ var keyStrings = {
     system: "система",
     Tabox: "Tabox",
     "Tabox settings": "Танзимоти Tabox",
+    "Text color": "Ранги матн",
     "Text is too long for remote input.":
         "Матн барои вуруди дурдаст хеле дароз аст.",
     "Text is too long. Please shorten it before sending.":

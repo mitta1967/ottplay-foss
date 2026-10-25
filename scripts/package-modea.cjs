@@ -6,7 +6,10 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { stageOfflineShell } = require("./offline-shell.cjs");
-const { CLASSIC_PROVIDER_BUNDLES } = require("./classic-bundle.cjs");
+const {
+    CLASSIC_OPTIONAL_BUNDLES,
+    CLASSIC_PROVIDER_BUNDLES,
+} = require("./classic-bundle.cjs");
 
 const root = path.resolve(__dirname, "..");
 // Keep deployable archives outside Capacitor's dist/ web root.
@@ -59,6 +62,12 @@ try {
         (kind) => {
             const file = "provider-" + kind + ".js";
             return { file, kind, source: requirePath("dist/" + file, false) };
+        }
+    );
+    const optionalBundles = Object.keys(CLASSIC_OPTIONAL_BUNDLES).map(
+        (name) => {
+            const file = name + ".js";
+            return { file, name, source: requirePath("dist/" + file, false) };
         }
     );
     const assets = [
@@ -115,6 +124,17 @@ try {
             sha256: sha256(staged),
         };
     });
+    const optionalMetadata = {};
+    optionalBundles.forEach(({ file, name, source }) => {
+        const relative = "dist/" + file;
+        const staged = path.join(webRoot, relative);
+        fs.copyFileSync(source, staged);
+        optionalMetadata[name] = {
+            bytes: fs.statSync(staged).size,
+            file: relative,
+            sha256: sha256(staged),
+        };
+    });
     assets.forEach((name, i) => {
         fs.cpSync(sources[i], path.join(webRoot, name), {
             preserveTimestamps: true,
@@ -124,6 +144,7 @@ try {
     stageOfflineShell(webRoot);
     const metadata = {
         bundleSha256: sha256(path.join(webRoot, "dist", "player.js")),
+        optionalBundles: optionalMetadata,
         providerBundles: providerMetadata,
         revision: revision(),
         version: pkg.version,

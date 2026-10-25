@@ -100,6 +100,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Назад / вперёд на 1 минуту",
     "Background color": "Цвет фона",
     "Background color of selected item": "Цвет фона выбранного пункта",
+    "Background opacity": "Непрозрачность фона",
     "Backup state changed": "Состояние резервной копии изменилось",
     "Backup streams": "Резервные потоки",
     "Balance, $": "Баланс, $",
@@ -524,6 +525,7 @@ var keyStrings = {
     "First Run Setup": "Первоначальная настройка",
     "Fit to screen": "Вписать в экран",
     Folders: "Папки",
+    "Font size": "Размер шрифта",
     "Font type": "Шрифт",
     "For download settings file open": "Для скачивания файла настроек откройте",
     "For enter value open": "Для ввода значения откройте",
@@ -692,6 +694,7 @@ var keyStrings = {
     "OTT-play remote input": "Удалённый ввод OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Доступен OttPlay FOSS %1. Скачать и установить сейчас?",
+    "Outline thickness": "Толщина обводки",
     "Overwrite current settings?": "Перезаписать текущие настройки?",
     off: "отключен",
     on: "включен",
@@ -838,6 +841,7 @@ var keyStrings = {
     "Request sended!": "Запрос отправлен!",
     "Requesting approval for %1": "Запрос подтверждения для %1",
     "Reset order": "Сбросить порядок",
+    "Reset to default": "Сбросить настройки",
     "Restart player": "Перезапустить плеер",
     "Restart stream": "Перезапустить поток",
     "Restart stream / Live": "Перезапустить поток / прямой эфир",
@@ -1007,6 +1011,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Вс Пн Вт Ср Чт Пт Сб",
     "Subscription information": "Информация о подписке",
     Subtitle: "Субтитры",
+    "Subtitle appearance": "Оформление субтитров",
     Switch: "Переключить",
     "Switch sound track": "Сменить звуковую дорожку",
     "Switch subtitle": "Сменить субтитры",
@@ -1020,6 +1025,7 @@ var keyStrings = {
     system: "системный",
     Tabox: "Tabox",
     "Tabox settings": "Настройки Tabox",
+    "Text color": "Цвет текста",
     "Text is too long for remote input.":
         "Текст слишком длинный для удалённого ввода.",
     "Text is too long. Please shorten it before sending.":

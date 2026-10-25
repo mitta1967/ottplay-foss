@@ -696,4 +696,37 @@ check(
         }
     }
 );
+check(
+    "subtitle appearance round-trips portable profiles and rejects invalid values",
+    () => {
+        const f = fixture();
+        f.mount();
+        const values = {
+            subtitleBackground: 5,
+            subtitleFontFamily: 3,
+            subtitleFontSize: 4,
+            subtitleOutline: 3,
+            subtitleTextColor: 2,
+        };
+        assert.equal(f.w.saveSettings(values), true);
+        const exported = f.export();
+        for (const key of Object.keys(values))
+            assert.equal(exported.settings[key], values[key]);
+        assert.equal(
+            f.w.saveSettings(
+                Object.fromEntries(Object.keys(values).map((key) => [key, 0]))
+            ),
+            true
+        );
+        f.import(exported);
+        assert.equal(f.accept(), true);
+        for (const key of Object.keys(values))
+            assert.equal(f.w.settings[key], values[key]);
+        const invalid = f.export();
+        invalid.settings.subtitleFontSize = 99;
+        f.import(invalid);
+        assert.equal(f.result(), false);
+        assert.equal(f.w.settings.subtitleFontSize, 4);
+    }
+);
 console.log("OK: " + count + " settings/library backup integration groups");

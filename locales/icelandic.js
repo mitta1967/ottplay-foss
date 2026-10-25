@@ -99,6 +99,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Fara til baka / áfram um 1 mínútu",
     "Background color": "Bakgrunnslitur",
     "Background color of selected item": "Bakgrunnslitur valins atriðis",
+    "Background opacity": "Ógagnsæi bakgrunns",
     "Backup state changed": "Afritunarstöðu breytt",
     "Backup streams": "Varastreymi",
     "Balance, $": "Inneign, $",
@@ -517,6 +518,7 @@ var keyStrings = {
     "First Run Setup": "Uppsetning við fyrstu keyrslu",
     "Fit to screen": "Laga að skjá",
     Folders: "Möppur",
+    "Font size": "Leturstærð",
     "Font type": "Leturgerð",
     "For download settings file open": "Til að sækja stillingaskrá skaltu opna",
     "For enter value open": "Til að slá inn gildi skaltu opna",
@@ -683,6 +685,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play fjarskráning texta",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 er tiltækt. Sækja og setja upp núna?",
+    "Outline thickness": "Þykkt útlínu",
     "Overwrite current settings?": "Skrifa yfir núverandi stillingar?",
     off: "slökkt",
     on: "kveikt",
@@ -831,6 +834,7 @@ var keyStrings = {
     "Request sended!": "Beiðni send!",
     "Requesting approval for %1": "Bið um samþykki fyrir %1",
     "Reset order": 'Raða rásum: "Óbreytt"',
+    "Reset to default": "Endurheimta sjálfgefnar stillingar",
     "Restart player": "Endurræsa spilara",
     "Restart stream": "Endurræsa straum",
     "Restart stream / Live": "Endurræsa straum / Beint",
@@ -1000,6 +1004,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Sun Mán Þri Mið Fim Fös Lau",
     "Subscription information": "Áskriftarupplýsingar",
     Subtitle: "Skjátextar",
+    "Subtitle appearance": "Útlit skjátexta",
     Switch: "Skipta",
     "Switch sound track": "Skipta um hljóðrás",
     "Switch subtitle": "Skipta um skjátexta",
@@ -1013,6 +1018,7 @@ var keyStrings = {
     system: "kerfi",
     Tabox: "Tabox",
     "Tabox settings": "Stillingar fyrir Tabox",
+    "Text color": "Textalitur",
     "Text is too long for remote input.":
         "Textinn er of langur fyrir fjarinnslátt.",
     "Text is too long. Please shorten it before sending.":

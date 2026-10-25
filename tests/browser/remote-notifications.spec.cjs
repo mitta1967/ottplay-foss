@@ -70,7 +70,11 @@ test("active player renders a literal banner and standby removes it immediately"
         '<img src=x onerror="bad()"> Door opened'
     );
     await expect(banner.locator("img")).toHaveCount(0);
-    await expect(banner).toHaveCSS("border-left-color", "rgb(255, 146, 156)");
+    expect(
+        await banner.evaluate(
+            (element) => getComputedStyle(element, "::before").borderLeftColor
+        )
+    ).toBe("rgb(255, 146, 156)");
     await expect(banner).toHaveCSS("pointer-events", "none");
     await expect(banner.locator(".remote-notify-message")).toHaveCSS(
         "white-space",
@@ -189,6 +193,26 @@ for (const viewport of [
         }
         const cards = page.locator(".remote-notify");
         await expect(cards).toHaveCount(3);
+        // Measure the resting layout, not an intermediate slide-in frame.
+        // Keep the real animation enabled and wait for its actual completion.
+        await cards.evaluateAll(async (nodes) => {
+            await Promise.all(
+                nodes.map((node) => {
+                    const entrance = node
+                        .getAnimations()
+                        .find(
+                            (animation) =>
+                                animation.animationName === "remoteNotifyIn"
+                        );
+                    if (!entrance)
+                        throw new Error(
+                            "Notification entrance animation missing"
+                        );
+                    return entrance.finished;
+                })
+            );
+        });
+        await expect(cards.first()).toHaveCSS("opacity", "1");
         const geometry = await cards.evaluateAll((nodes) =>
             nodes.map((node) => {
                 const r = node.getBoundingClientRect(),
@@ -213,16 +237,28 @@ for (const viewport of [
         for (let i = 0; i < colors.length; i++) {
             const card = cards.nth(i);
             for (const side of ["top", "right", "bottom", "left"]) {
-                await expect(card).toHaveCSS(`border-${side}-color`, colors[i]);
-                await expect(card).toHaveCSS(`border-${side}-width`, "1px");
-                await expect(card).toHaveCSS(`border-${side}-style`, "solid");
+                const border = await card.evaluate((element, side) => {
+                    const style = getComputedStyle(element, "::before");
+                    return [
+                        style.getPropertyValue(`border-${side}-color`),
+                        style.getPropertyValue(`border-${side}-width`),
+                        style.getPropertyValue(`border-${side}-style`),
+                    ];
+                }, side);
+                expect(border).toEqual([colors[i], "1px", "solid"]);
             }
         }
-        await expect(cards.first()).toHaveCSS("opacity", "1");
-        await expect(cards.first()).toHaveCSS(
-            "background-color",
-            "rgba(22, 28, 39, 0.78)"
-        );
+        await expect
+            .poll(() =>
+                cards
+                    .first()
+                    .evaluate(
+                        (element) =>
+                            getComputedStyle(element, "::before")
+                                .backgroundColor
+                    )
+            )
+            .toBe("rgba(22, 28, 39, 0.624)");
         await expect(cards.first().locator(".remote-notify-message")).toHaveCSS(
             "opacity",
             "1"
@@ -242,15 +278,29 @@ for (const viewport of [
             );
         expect(footerAlpha).toBeCloseTo(0.7);
         await page.evaluate(() => window.stbSetOsdOpacity(90));
-        await expect(cards.first()).toHaveCSS(
-            "background-color",
-            "rgba(22, 28, 39, 0.98)"
-        );
+        await expect
+            .poll(() =>
+                cards
+                    .first()
+                    .evaluate(
+                        (element) =>
+                            getComputedStyle(element, "::before")
+                                .backgroundColor
+                    )
+            )
+            .toBe("rgba(22, 28, 39, 0.784)");
         await page.evaluate(() => window.stbSetOsdOpacity(100));
-        await expect(cards.first()).toHaveCSS(
-            "background-color",
-            "rgb(22, 28, 39)"
-        );
+        await expect
+            .poll(() =>
+                cards
+                    .first()
+                    .evaluate(
+                        (element) =>
+                            getComputedStyle(element, "::before")
+                                .backgroundColor
+                    )
+            )
+            .toBe("rgba(22, 28, 39, 0.8)");
         await page.evaluate(() => window.stbSetOsdOpacity(70));
 
         for (const g of geometry) {

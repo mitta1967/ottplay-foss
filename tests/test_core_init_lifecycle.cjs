@@ -92,7 +92,8 @@ function fixture() {
             return timerId;
         },
         setSleepTimeout() {},
-        setSubtitleTrack() {},
+        // This helper owns subtitle preference restoration and explicit Off.
+        setSubtitleTrack: () => preferences.push("aSubs"),
         setZoom() {},
         showViewportSizeIndicator: () => calls.resize++,
         stbBindKeyHandler: () => calls.binds++,

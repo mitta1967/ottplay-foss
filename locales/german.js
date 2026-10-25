@@ -102,6 +102,7 @@ var keyStrings = {
     "Background color": "Hintergrundfarbe",
     "Background color of selected item":
         "Hintergrundfarbe des ausgewählten Eintrags",
+    "Background opacity": "Deckkraft des Hintergrunds",
     "Backup state changed": "Sicherungsstatus geändert",
     "Backup streams": "Ersatzstreams",
     "Balance, $": "Guthaben, $",
@@ -538,6 +539,7 @@ var keyStrings = {
     "First Run Setup": "Ersteinrichtung",
     "Fit to screen": "An Bildschirm anpassen",
     Folders: "Ordner",
+    "Font size": "Schriftgröße",
     "Font type": "Schriftart",
     "For download settings file open":
         "Zum Herunterladen der Einstellungsdatei öffnen Sie",
@@ -710,6 +712,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play Ferneingabe",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 ist verfügbar. Jetzt herunterladen und installieren?",
+    "Outline thickness": "Konturstärke",
     "Overwrite current settings?": "Aktuelle Einstellungen überschreiben?",
     off: "aus",
     on: "ein",
@@ -857,6 +860,7 @@ var keyStrings = {
     "Request sended!": "Anfrage gesendet!",
     "Requesting approval for %1": "Genehmigung für %1 wird angefordert",
     "Reset order": 'Sender sortieren: "Unverändert"',
+    "Reset to default": "Standardwerte wiederherstellen",
     "Restart player": "Player neu starten",
     "Restart stream": "Stream neu starten",
     "Restart stream / Live": "Stream neu starten / Live",
@@ -1034,6 +1038,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "So Mo Di Mi Do Fr Sa",
     "Subscription information": "Abonnementinformationen",
     Subtitle: "Untertitel",
+    "Subtitle appearance": "Untertiteldarstellung",
     Switch: "Umschalten",
     "Switch sound track": "Tonspur wechseln",
     "Switch subtitle": "Untertitel wechseln",
@@ -1047,6 +1052,7 @@ var keyStrings = {
     system: "System",
     Tabox: "Tabox",
     "Tabox settings": "Einstellungen für Tabox",
+    "Text color": "Textfarbe",
     "Text is too long for remote input.":
         "Der Text ist zu lang für die Remote-Eingabe.",
     "Text is too long. Please shorten it before sending.":

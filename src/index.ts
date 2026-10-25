@@ -1327,10 +1327,10 @@ function stbSetOsdOpacity(val: number): void {
               ? "8,8,8"
               : classicColorRgb(settings.highlightColorB);
     $(".osd").css("background-color", "rgba(" + rgb + "," + val / 100 + ")");
-    // Keep notification surfaces slightly denser than the footer, not their text.
+    // Reduce notification background opacity by 20%, without dimming the text.
     document.documentElement.style.setProperty(
         "--ott-notify-alpha",
-        String(val / 100 + 0.08)
+        String(Math.min(1, val / 100 + 0.08) * 0.8)
     );
 }
 
@@ -2150,6 +2150,7 @@ function onStbReady(): void {
         if (typeof stbSetBuffer === "function") stbSetBuffer();
         setTimezone();
         setFontSize();
+        (window as any).applySubtitleAppearance?.();
         setListPos();
         setColor();
         setEditor();
@@ -4375,239 +4376,93 @@ function createSettingsPage(
  * Conditionally removes rows for unsupported features (no PiP, no volume,
  * etc.).
  */
-window.settingsInterface = function (): void {
+var subtitleAppearanceLoading = false;
+var subtitleAppearanceGeneration = 0;
+var subtitleAppearanceOpen: ((loaded: boolean) => void) | null = null;
+function loadSubtitleAppearance(open?: (loaded: boolean) => void): void {
     var w = window as any;
-    var showPlayerChoice =
-        w.ott_device !== "lg/webos" &&
-        !(w.ott_device === "pc2" && typeof w.videojs === "function");
-    /**
-     * Persist all interface settings and re-apply them.
-     * Conditionally saves PiP, OSD opacity, volume step, and editor
-     * settings based on capability. Calls all apply-functions after saving.
-     */
-    var page = createSettingsPage(
-        w,
-        "settingsInterface",
-        "Interface settings",
-        true,
-        false
-    );
-    var choice = page.choice;
-    var label = page.label;
-
-    var mediaLanguageCodes = Object.keys(languageNames);
-    var mediaLanguageLabels = mediaLanguageCodes.map(function (code) {
-        return languageNames[code];
+    if (open) subtitleAppearanceOpen = open;
+    if (w.__ottSubtitleAppearance) {
+        var action = subtitleAppearanceOpen;
+        subtitleAppearanceOpen = null;
+        w.__ottSubtitleAppearance.apply();
+        if (action) action(true);
+        return;
+    }
+    if (subtitleAppearanceLoading) return;
+    subtitleAppearanceLoading = true;
+    var generation = ++subtitleAppearanceGeneration;
+    var script = document.createElement("script");
+    var timer = window.setTimeout(function () {
+        finish(false);
+    }, 15000);
+    function finish(loaded: boolean): void {
+        if (generation !== subtitleAppearanceGeneration) return;
+        ++subtitleAppearanceGeneration;
+        window.clearTimeout(timer);
+        script.onload = script.onerror = null;
+        if (script.parentNode) script.parentNode.removeChild(script);
+        subtitleAppearanceLoading = false;
+        var action = subtitleAppearanceOpen;
+        subtitleAppearanceOpen = null;
+        loaded = loaded && !!w.__ottSubtitleAppearance;
+        if (loaded) w.__ottSubtitleAppearance.apply();
+        if (action) action(loaded);
+    }
+    script.src = hostUrl + "/dist/subtitle-appearance.js?" + PLAYER_VERSION;
+    script.crossOrigin = "anonymous";
+    script.onload = function () {
+        finish(true);
+    };
+    script.onerror = function () {
+        finish(false);
+    };
+    try {
+        (document.head || document.body).appendChild(script);
+    } catch (_error) {
+        finish(false);
+    }
+}
+function openSubtitleAppearance(method: string): void {
+    var w = window as any;
+    var owner =
+        w.__ottClassicScreenPort && w.__ottClassicScreenPort.listOwner();
+    var source = w.p_pref,
+        driver = w.__ottActiveProviderDriver;
+    loadSubtitleAppearance(function (loaded) {
+        if (
+            source !== w.p_pref ||
+            driver !== w.__ottActiveProviderDriver ||
+            (owner && !owner.active()) ||
+            w.__ottStandby?.blocked()
+        )
+            return;
+        if (loaded) w.__ottSubtitleAppearance[method]();
+        else w.showShift(w._("Failed to load!"));
     });
-    var noyes = [label("no"), label("yes")];
-    var tz = (w.arrTimezone || ["system", "0"]).slice();
-    tz[0] = w._(tz[0]) || tz[0];
-    setListArrays(
-        w,
-        page.rows([
-            choice(w._("Interface theme"), "interfaceTheme", [
-                w._("Classic"),
-                "PLi-HD",
-                "Studio 2026",
-            ]),
-            {
-                name: label("Preferred audio language"),
-                settingId: "preferredAudioLanguage",
-                settingValues: [""].concat(mediaLanguageCodes),
-                values: [label("Player default")].concat(mediaLanguageLabels),
-            },
-            {
-                name: label("Preferred subtitle language"),
-                settingId: "preferredSubtitleLanguage",
-                settingValues: ["", "off"].concat(mediaLanguageCodes),
-                values: [label("Player default"), label("Off")].concat(
-                    mediaLanguageLabels
-                ),
-            },
-            choice(
-                label("Black screen while switching the channel"),
-                "stopPlay",
-                noyes
-            ),
-            choice(label("PiP window size"), "pipSize", [
-                label("small"),
-                label("medium"),
-                label("large"),
-            ]),
-            choice(label("PiP window position"), "pipPosition", [
-                label("top-right"),
-                label("bottom-right"),
-                label("left-bottom"),
-                label("top-left"),
-            ]),
-            choice(
-                label("Font type"),
-                "fontSize",
-                w.__ottNativeFontOptions || [
-                    '<span style="font-family:Helvetica, Arial, sans-serif;">' +
-                        label("system") +
-                        "</span>",
-                    '<span style="font-family:Roboto;">Roboto</span>',
-                    '<span style="font-family:RobotoCondensed;">Roboto Condensed</span>',
-                    '<span style="font-family:Caveat;">Caveat</span>',
-                    '<span style="font-family:Liberation;">Liberation</span>',
-                    '<span style="font-family:Gabriela;">Gabriela</span>',
-                    '<span style="font-family:PTSansNarrow;">PTSansNarrow</span>',
-                ]
-            ),
-            choice(label("Timezone"), "timezone", tz),
-            choice(label("Sleep timer"), "sleepTimeout", [
-                label("off"),
-                label("30 minutes"),
-                label("1 hour"),
-                label("2 hours"),
-                label("3 hours"),
-            ]),
-            choice(label("Interface transparency"), "osdOpacity", [
-                "100%",
-                "90%",
-                "80%",
-                "70%",
-                "60%",
-                "50%",
-                "40%",
-                "30%",
-                "20%",
-                "10%",
-                "0%",
-            ]),
-            {
-                name: label("Volume step, %"),
-                settingId: "volumeStep",
-                settingOffset: 3,
-                values: [3, 4, 5, 6, 7, 8, 9, 10],
-            },
-            {
-                cur: label("select"),
-                name: w._("Color spectrum") + " (" + w._("Classic") + ")",
-                settingId: "highlightColor",
-                values: w.colorDialog,
-            },
-            {
-                cur: label("select"),
-                name:
-                    w._("Background color of selected item") +
-                    " (" +
-                    w._("Classic") +
-                    ")",
-                settingId: "highlightColorSel",
-                values: w.selColorDialog,
-            },
-            {
-                cur: label("select"),
-                name: w._("Background color") + " (" + w._("Classic") + ")",
-                settingId: "highlightColorB",
-                values: w.backColorDialog,
-            },
-            choice(label("Permanent clock on screen"), "permanentTime", [
-                label("no"),
-                label("yes"),
-                label("transparent"),
-            ]),
-            choice(
-                label("Graphical indication"),
-                "useGraphicalIndicators",
-                noyes
-            ),
-            choice(
-                label("Position shift -10 seconds after pause"),
-                "resumeWithTenSecondRewind",
-                noyes
-            ),
-            choice(
-                label("Remember previous channels"),
-                "prevCount",
-                [1, 5, 10, 15, 20]
-            ),
-            choice(label("History in Media Library"), "medCount", [
-                label("no"),
-                10,
-                20,
-                30,
-                40,
-                50,
-            ]),
-            choice(label("Editor"), "editor", [
-                label("built-in"),
-                label("native"),
-            ]),
-            choice(
-                label("Type of player for streaming"),
-                "players",
-                w.playerModeNames
-            ),
-            {
-                name: label("Maximum video height") + " (HLS/Shaka)",
-                settingId: "streamMaxHeight",
-                settingValues: [0, 360, 480, 720, 1080, 2160],
-                values: [
-                    label("Automatic"),
-                    "360p",
-                    "480p",
-                    "720p",
-                    "1080p",
-                    "2160p",
-                ],
-            },
-            {
-                name: label("Maximum stream bitrate") + " (HLS/Shaka)",
-                settingId: "streamMaxBitrate",
-                settingValues: [
-                    0, 1000000, 2000000, 4000000, 8000000, 16000000,
-                ],
-                values: [
-                    label("Automatic"),
-                    "1 Mbps",
-                    "2 Mbps",
-                    "4 Mbps",
-                    "8 Mbps",
-                    "16 Mbps",
-                ],
-            },
-            choice(label("Buffer Size, s"), "bufSize", w.bufferSizes),
-        ])
-    );
-    setListArrays(
-        w,
-        w.listArray.filter(function (row: any): boolean {
-            if (
-                row.settingId === "preferredAudioLanguage" ||
-                row.settingId === "preferredSubtitleLanguage"
-            )
-                return (
-                    !!w.__ottCoreTransport &&
-                    w.stbPlay === w.__ottCoreTransport.play
-                );
-            if (row.settingId === "players") {
-                if (Array.isArray(w.stbPlayers)) row.values = w.stbPlayers;
-                return showPlayerChoice;
-            }
-            if (row.settingId === "bufSize") {
-                if (w.stbBufferSizes) row.values = w.stbBufferSizes;
-                return typeof w.stbSetBuffer === "function";
-            }
-            if (row.settingId === "editor")
-                return typeof w.showEditKey2 === "function";
-            if (row.settingId === "medCount")
-                return (
-                    typeof w.getMediaArray === "function" ||
-                    !!(w.__ottNasLibrary && w.__ottNasLibrary.available())
-                );
-            if (row.settingId === "volumeStep")
-                return typeof w.stbGetVolume === "function";
-            if (row.settingId === "osdOpacity")
-                return typeof w.stbSetOsdOpacity === "function";
-            if (row.settingId === "pipSize" || row.settingId === "pipPosition")
-                return typeof w.stbPlayPip === "function";
-            return true;
-        })
-    );
-    page.attach();
+}
+window.settingsInterface = function settingsInterface(): void {
+    openSubtitleAppearance("interface");
+};
+(window as any).settingsSubtitles = function settingsSubtitles(): void {
+    openSubtitleAppearance("open");
+};
+(window as any).__ottAppearanceHost = {
+    languages: languageNames,
+    list: setListArrays,
+    page: createSettingsPage,
+};
+(window as any).applySubtitleAppearance = function (): void {
+    var w = window as any;
+    if (
+        w.__ottSubtitleAppearance ||
+        settings.subtitleFontFamily ||
+        settings.subtitleFontSize ||
+        settings.subtitleTextColor ||
+        settings.subtitleOutline ||
+        settings.subtitleBackground
+    )
+        loadSubtitleAppearance();
 };
 
 /**

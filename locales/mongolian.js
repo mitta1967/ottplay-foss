@@ -104,6 +104,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 минут ухраах / урагшлуулах",
     "Background color": "Дэвсгэрийн өнгө",
     "Background color of selected item": "Сонгосон зүйлийн дэвсгэрийн өнгө",
+    "Background opacity": "Дэвсгэрийн тунгалаг бус байдал",
     "Backup state changed": "Нөөцлөлтийн төлөв өөрчлөгдсөн",
     "Backup streams": "Нөөц урсгалууд",
     "Balance, $": "Үлдэгдэл, $",
@@ -532,6 +533,7 @@ var keyStrings = {
     "First Run Setup": "Анхны тохиргоо",
     "Fit to screen": "Дэлгэцэд багтаах",
     Folders: "Хавтаснууд",
+    "Font size": "Үсгийн хэмжээ",
     "Font type": "Үсгийн хэвийн төрөл",
     "For download settings file open":
         "Тохиргооны файлыг татахын тулд нээнэ үү",
@@ -702,6 +704,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play алсын оролт",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 бэлэн байна. Одоо татаж суулгах уу?",
+    "Outline thickness": "Хүрээний зузаан",
     "Overwrite current settings?": "Одоогийн тохиргоог дарж бичих үү?",
     off: "унтраалттай",
     on: "асаалттай",
@@ -849,6 +852,7 @@ var keyStrings = {
     "Request sended!": "Хүсэлт илгээгдлээ!",
     "Requesting approval for %1": "%1-д зөвшөөрөл хүсэж байна",
     "Reset order": 'Сувгуудыг эрэмбэлэх: "Байгаагаар нь"',
+    "Reset to default": "Анхны тохиргоог сэргээх",
     "Restart player": "Тоглуулагчийг дахин эхлүүлэх",
     "Restart stream": "Урсгалыг дахин эхлүүлэх",
     "Restart stream / Live": "Урсгалыг дахин эхлүүлэх / Шууд эфир",
@@ -1019,6 +1023,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Ня Да Мя Лх Пү Ба Бя",
     "Subscription information": "Захиалгын мэдээлэл",
     Subtitle: "Хадмал",
+    "Subtitle appearance": "Хадмалын харагдах байдал",
     Switch: "Солих",
     "Switch sound track": "Аудио зам солих",
     "Switch subtitle": "Хадмал солих",
@@ -1032,6 +1037,7 @@ var keyStrings = {
     system: "системийн",
     Tabox: "Tabox",
     "Tabox settings": "Tabox-ийн тохиргоо",
+    "Text color": "Текстийн өнгө",
     "Text is too long for remote input.":
         "Текст алсаас оруулахад хэт урт байна.",
     "Text is too long. Please shorten it before sending.":

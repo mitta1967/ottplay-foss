@@ -103,6 +103,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 daqiqa orqaga / oldinga oʻtish",
     "Background color": "Fon rangi",
     "Background color of selected item": "Tanlangan elementning fon rangi",
+    "Background opacity": "Fonning noshaffofligi",
     "Backup state changed": "Zaxira holati o'zgartirildi",
     "Backup streams": "Zaxira oqimlar",
     "Balance, $": "Balans, $",
@@ -533,6 +534,7 @@ var keyStrings = {
     "First Run Setup": "Birinchi ishga tushirish sozlamalari",
     "Fit to screen": "Ekranga moslash",
     Folders: "Papkalar",
+    "Font size": "Shrift o‘lchami",
     "Font type": "Shrift turi",
     "For download settings file open":
         "Sozlamalar faylini yuklab olish uchun oching:",
@@ -703,6 +705,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play masofaviy kiritish",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 mavjud. Hozir yuklab olib oʻrnatilsinmi?",
+    "Outline thickness": "Kontur qalinligi",
     "Overwrite current settings?": "Joriy sozlamalar ustiga yozilsinmi?",
     off: "o'chirilgan",
     on: "yoqilgan",
@@ -850,6 +853,7 @@ var keyStrings = {
     "Request sended!": "Soʻrov yuborildi!",
     "Requesting approval for %1": "%1 uchun tasdiq soʻralmoqda",
     "Reset order": "Kanallarni saralash: “Oʻz holicha”",
+    "Reset to default": "Standart sozlamalarni tiklash",
     "Restart player": "Pleyerni qayta ishga tushirish",
     "Restart stream": "Oqimni qayta ishga tushirish",
     "Restart stream / Live": "Oqimni qayta ishga tushirish / jonli efir",
@@ -1023,6 +1027,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Ya Du Se Ch Pa Ju Sh",
     "Subscription information": "Obuna ma’lumotlari",
     Subtitle: "Subtitrlar",
+    "Subtitle appearance": "Subtitrlar ko‘rinishi",
     Switch: "Almashtirish",
     "Switch sound track": "Ovoz yoʻlagini almashtirish",
     "Switch subtitle": "Subtitrlarni almashtirish",
@@ -1036,6 +1041,7 @@ var keyStrings = {
     system: "tizim",
     Tabox: "Tabox",
     "Tabox settings": "Tabox sozlamalari",
+    "Text color": "Matn rangi",
     "Text is too long for remote input.":
         "Matn uzoqdan kiritish uchun juda uzun.",
     "Text is too long. Please shorten it before sending.":

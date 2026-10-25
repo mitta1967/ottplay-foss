@@ -104,6 +104,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 منٹ پیچھے / آگے جائیں",
     "Background color": "پس منظر کا رنگ",
     "Background color of selected item": "منتخب آئٹم کے پس منظر کا رنگ",
+    "Background opacity": "پس منظر کی غیر شفافیت",
     "Backup state changed": "بیک اپ کی حالت بدل گئی۔",
     "Backup streams": "متبادل اسٹریمز",
     "Balance, $": "بیلنس، $",
@@ -529,6 +530,7 @@ var keyStrings = {
     "First Run Setup": "فرسٹ رن سیٹ اپ",
     "Fit to screen": "اسکرین پر فٹ کریں۔",
     Folders: "فولڈرز",
+    "Font size": "فونٹ کا سائز",
     "Font type": "فونٹ کی قسم",
     "For download settings file open":
         "سیٹنگ فائل ڈاؤن لوڈ کرنے کے لیے، کھولیں۔",
@@ -697,6 +699,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play ریموٹ ان پٹ",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 دستیاب ہے۔ ابھی ڈاؤن لوڈ اور انسٹال کریں؟",
+    "Outline thickness": "خاکہ کی موٹائی",
     "Overwrite current settings?": "موجودہ ترتیبات کو اوور رائٹ کریں؟",
     off: "بند",
     on: "چالو",
@@ -845,6 +848,7 @@ var keyStrings = {
     "Request sended!": "درخواست بھیج دی گئی!",
     "Requesting approval for %1": "%1 کے لیے منظوری کی درخواست",
     "Reset order": 'چینلز کو ترتیب دیں۔: "جیسا ہے"',
+    "Reset to default": "طے شدہ ترتیبات بحال کریں",
     "Restart player": "پلیئر دوبارہ شروع کریں۔",
     "Restart stream": "سلسلہ دوبارہ شروع کریں۔",
     "Restart stream / Live": "سلسلہ دوبارہ شروع کریں / لائیو",
@@ -1016,6 +1020,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "اتوار پیر منگل بدھ جمعرات جمعہ ہفتہ",
     "Subscription information": "سبسکرپشن کی معلومات",
     Subtitle: "سب ٹائٹلز",
+    "Subtitle appearance": "سب ٹائٹلز کی ظاہری شکل",
     Switch: "سوئچ کریں۔",
     "Switch sound track": "آڈیو ٹریک سوئچ کریں۔",
     "Switch subtitle": "سب ٹائٹلز سوئچ کریں۔",
@@ -1029,6 +1034,7 @@ var keyStrings = {
     system: "سسٹم",
     Tabox: "Tabox",
     "Tabox settings": "Tabox ترتیبات",
+    "Text color": "متن کا رنگ",
     "Text is too long for remote input.": "ریموٹ ان پٹ کے لیے متن بہت لمبا ہے۔",
     "Text is too long. Please shorten it before sending.":
         "متن بہت لمبا ہے۔ براہ کرم بھیجنے سے پہلے اسے مختصر کریں۔",

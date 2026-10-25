@@ -2043,3 +2043,217 @@ test("healthy HLS playback clears stalled feedback without growing or pinning th
     await expect(label).not.toHaveText("Error!");
     expect(errors).toEqual([]);
 });
+
+test("native anonymous captions appear in Menu and explicit Off survives late tracks", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const origin = new URL(baseURL).origin;
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await context.route("**/*", (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname === "/diagnostics/av-v1.mp4")
+            return route.fulfill({
+                body: fs.readFileSync(
+                    path.resolve(__dirname, "../../diagnostics/av-v1.mp4")
+                ),
+                contentType: "video/mp4",
+            });
+        return url.origin === origin
+            ? route.continue()
+            : route.abort("blockedbyclient");
+    });
+    await context.routeWebSocket("**/*", (socket) => socket.close());
+    await context.addInitScript(() => {
+        localStorage.setItem("ottplaylang", "_eng");
+        localStorage.setItem("ottplayprov", "demo");
+    });
+    await page.goto("/f/pc/");
+    await page.waitForFunction(() => window.__ottDevice);
+    await page.evaluate(() => {
+        window.stbStop();
+        window.setPlayerMode(0);
+        const video = document.querySelector("#video");
+        video.muted = true;
+        video.loop = true;
+        window.stbPlay(location.origin + "/diagnostics/av-v1.mp4");
+    });
+    await page.waitForFunction(
+        () => document.querySelector("#video").currentTime > 0
+    );
+    await page.evaluate(() => {
+        const track = document
+            .querySelector("#video")
+            .addTextTrack("captions", "", "");
+        track.addCue(new VTTCue(0, 1000, "Native caption fixture"));
+        track.mode = "showing";
+        window.__captionFixture = track;
+    });
+    await page.waitForFunction(
+        () => window.__captionFixture.activeCues?.length === 1
+    );
+    expect(await page.evaluate(() => window.stbSubtitleExists())).toBe(1);
+    await page.evaluate(() => window.popupList());
+    await expect(page.locator("#listIn")).toContainText("Switch subtitle");
+    await page.evaluate(() => {
+        window.stbToggleSubtitle();
+        window._doKey(window.keys.UP);
+        window._doKey(window.keys.ENTER);
+    });
+    await expect
+        .poll(() => page.evaluate(() => window.__captionFixture.mode))
+        .toBe("disabled");
+    await expect
+        .poll(() =>
+            page.evaluate(() => window.__captionFixture.activeCues?.length || 0)
+        )
+        .toBe(0);
+    // A later platform auto-selection must respect the explicit saved Off.
+    await page.evaluate(() => {
+        const track = document
+            .querySelector("#video")
+            .addTextTrack("captions", "", "");
+        track.addCue(new VTTCue(0, 1000, "Late caption fixture"));
+        track.mode = "showing";
+        window.__lateCaptionFixture = track;
+    });
+    await expect
+        .poll(() => page.evaluate(() => window.__lateCaptionFixture.mode))
+        .toBe("disabled");
+    await page.evaluate(() => {
+        window.stbPlay(location.origin + "/diagnostics/av-v1.mp4");
+    });
+    await page.waitForFunction(
+        () => document.querySelector("#video").currentTime > 0
+    );
+    await page.evaluate(() => {
+        window.__captionFixture.mode = "showing";
+    });
+    await expect
+        .poll(() => page.evaluate(() => window.__captionFixture.mode))
+        .toBe("disabled");
+    await page.screenshot({
+        path: test.info().outputPath("native-captions-off.png"),
+    });
+    expect(errors).toEqual([]);
+});
+
+test("subtitle appearance loads on demand and preserves native cue positioning", async ({
+    page,
+    context,
+    baseURL,
+}) => {
+    const origin = new URL(baseURL).origin;
+    const appearanceRequests = [];
+    page.on("request", (request) => {
+        if (request.url().includes("/dist/subtitle-appearance.js"))
+            appearanceRequests.push(request.url());
+    });
+    await context.route("**/*", (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname === "/diagnostics/av-v1.mp4")
+            return route.fulfill({
+                body: fs.readFileSync(
+                    path.resolve(__dirname, "../../diagnostics/av-v1.mp4")
+                ),
+                contentType: "video/mp4",
+            });
+        return url.origin === origin
+            ? route.continue()
+            : route.abort("blockedbyclient");
+    });
+    await context.routeWebSocket("**/*", (socket) => socket.close());
+    await context.addInitScript(() => {
+        localStorage.setItem("ottplaylang", "_eng");
+        localStorage.setItem("ottplayprov", "demo");
+    });
+    await page.goto("/f/pc/");
+    await page.waitForFunction(() => window.__ottDevice);
+    expect(appearanceRequests).toEqual([]);
+    await page.evaluate(() => {
+        window.stbStop();
+        window.setPlayerMode(0);
+        const media = document.querySelector("#video");
+        media.muted = true;
+        media.loop = true;
+        window.stbPlay(location.origin + "/diagnostics/av-v1.mp4");
+    });
+    await page.waitForFunction(
+        () => document.querySelector("#video").currentTime > 0
+    );
+    await page.evaluate(() => {
+        const track = document
+            .querySelector("#video")
+            .addTextTrack("captions", "Test", "en");
+        const cue = new VTTCue(0, 1000, "Subtitle appearance preview");
+        cue.line = 10;
+        cue.position = 22;
+        cue.align = "start";
+        cue.size = 50;
+        track.addCue(cue);
+        track.mode = "showing";
+        window.__appearanceCue = cue;
+        window.settingsSubtitles();
+    });
+    await expect(page.locator("#listCaption")).toHaveText(
+        "Subtitle appearance"
+    );
+    expect(appearanceRequests).toHaveLength(1);
+    await page.screenshot({
+        path: test.info().outputPath("subtitle-appearance-editor.png"),
+    });
+    await page.evaluate(() => {
+        const choices = {
+            subtitleBackground: 3,
+            subtitleFontFamily: 2,
+            subtitleFontSize: 3,
+            subtitleOutline: 3,
+            subtitleTextColor: 2,
+        };
+        for (const row of window.listArray)
+            if (row.settingId in choices) row.val = choices[row.settingId];
+        window._doKey(window.keys.RETURN);
+    });
+    await expect(page.locator("#ott-subtitle-appearance")).toHaveCount(0);
+    await page.evaluate(() => window.settingsSubtitles());
+    await expect(page.locator("#listCaption")).toHaveText(
+        "Subtitle appearance"
+    );
+    await page.evaluate(() => {
+        for (const row of window.listArray) if (row.settingId) row.val = 2;
+        window._doKey(window.keys.GREEN);
+    });
+    await expect
+        .poll(() => page.locator("#ott-subtitle-appearance").textContent())
+        .toContain("font-family:Georgia,serif");
+    await expect
+        .poll(() => page.locator("#ott-subtitle-appearance").textContent())
+        .toContain("color:#ffff00");
+    await page.screenshot({
+        path: test.info().outputPath("subtitle-appearance-custom.png"),
+    });
+    expect(
+        await page.evaluate(() => {
+            const cue = window.__appearanceCue;
+            return [cue.line, cue.position, cue.align, cue.size];
+        })
+    ).toEqual([10, 22, "start", 50]);
+    await page.evaluate(() => window.settingsSubtitles());
+    await expect(page.locator("#listCaption")).toHaveText(
+        "Subtitle appearance"
+    );
+    await page.evaluate(() => {
+        window.listArray
+            .find((row) => row.name === "Reset to default")
+            .values();
+        window._doKey(window.keys.GREEN);
+    });
+    await expect
+        .poll(() => page.locator("#ott-subtitle-appearance").textContent())
+        .toBe("");
+    await page.screenshot({
+        path: test.info().outputPath("subtitle-appearance-default.png"),
+    });
+});

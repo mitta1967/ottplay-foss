@@ -102,6 +102,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Hopp tilbake/forover 1 minutt",
     "Background color": "Bakgrunnsfarge",
     "Background color of selected item": "Bakgrunnsfarge for valgt element",
+    "Background opacity": "Bakgrunnens ugjennomsiktighet",
     "Backup state changed": "Sikkerhetskopieringstilstand endret",
     "Backup streams": "Reservestrømmer",
     "Balance, $": "Saldo, $",
@@ -525,6 +526,7 @@ var keyStrings = {
     "First Run Setup": "Førstegangsoppsett",
     "Fit to screen": "Tilpass til skjermen",
     Folders: "Mapper",
+    "Font size": "Skriftstørrelse",
     "Font type": "Skrifttype",
     "For download settings file open":
         "For å laste ned innstillingsfilen, åpne",
@@ -694,6 +696,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play fjerninntasting",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 er tilgjengelig. Laste ned og installere nå?",
+    "Outline thickness": "Konturtykkelse",
     "Overwrite current settings?": "Vil du overskrive gjeldende innstillinger?",
     off: "av",
     on: "på",
@@ -841,6 +844,7 @@ var keyStrings = {
     "Request sended!": "Forespørsel sendt!",
     "Requesting approval for %1": "Ber om godkjenning for %1",
     "Reset order": 'Sorter kanaler: "Som den er"',
+    "Reset to default": "Gjenopprett standardinnstillinger",
     "Restart player": "Start mediespilleren på nytt",
     "Restart stream": "Start strømmen på nytt",
     "Restart stream / Live": "Start strømmen på nytt / Direkte",
@@ -1010,6 +1014,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "sø ma ti on to fr lø",
     "Subscription information": "Abonnementsinformasjon",
     Subtitle: "Undertekster",
+    "Subtitle appearance": "Undertekstenes utseende",
     Switch: "Bytt",
     "Switch sound track": "Bytt lydspor",
     "Switch subtitle": "Bytt undertekster",
@@ -1023,6 +1028,7 @@ var keyStrings = {
     system: "systemet",
     Tabox: "Tabox",
     "Tabox settings": "Tabox innstillinger",
+    "Text color": "Tekstfarge",
     "Text is too long for remote input.":
         "Teksten er for lang for ekstern inntasting.",
     "Text is too long. Please shorten it before sending.":

@@ -102,6 +102,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 წუთით უკან / წინ გადახტომა",
     "Background color": "ფონის ფერი",
     "Background color of selected item": "შერჩეული ელემენტის ფონის ფერი",
+    "Background opacity": "ფონის გაუმჭვირვალობა",
     "Backup state changed": "სარეზერვო მდგომარეობა შეიცვალა",
     "Backup streams": "სარეზერვო ნაკადები",
     "Balance, $": "ნაშთი, $",
@@ -529,6 +530,7 @@ var keyStrings = {
     "First Run Setup": "პირველი გაშვების დაყენება",
     "Fit to screen": "მორგება ეკრანზე",
     Folders: "საქაღალდეები",
+    "Font size": "შრიფტის ზომა",
     "Font type": "შრიფტის ტიპი",
     "For download settings file open":
         "პარამეტრების ფაილის ჩამოსატვირთად გახსენით",
@@ -698,6 +700,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play დისტანციური შეყვანა",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 ხელმისაწვდომია. ჩამოტვირთეთ და დააინსტალირეთ ახლა?",
+    "Outline thickness": "კონტურის სისქე",
     "Overwrite current settings?": "გადავწეროთ მიმდინარე პარამეტრები?",
     off: "გამორთული",
     on: "ჩართული",
@@ -846,6 +849,7 @@ var keyStrings = {
     "Request sended!": "მოთხოვნა გაიგზავნა!",
     "Requesting approval for %1": "დამტკიცების მოთხოვნა %1-სთვის",
     "Reset order": 'არხების დახარისხება: "როგორც არის"',
+    "Reset to default": "ნაგულისხმევი პარამეტრების აღდგენა",
     "Restart player": "გადატვირთეთ მედია ფლეერი",
     "Restart stream": "გადატვირთეთ ნაკადი",
     "Restart stream / Live": "ნაკადის ხელახლა გაშვება / პირდაპირი ეთერი",
@@ -1014,6 +1018,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "კვი ორშ სამ ოთხ ხუთ პარ შაბ",
     "Subscription information": "გამოწერის ინფორმაცია",
     Subtitle: "სუბტიტრები",
+    "Subtitle appearance": "სუბტიტრების გარეგნობა",
     Switch: "შეცვლა",
     "Switch sound track": "ხმოვანი ბილიკის შეცვლა",
     "Switch subtitle": "სუბტიტრების შეცვლა",
@@ -1027,6 +1032,7 @@ var keyStrings = {
     system: "სისტემა",
     Tabox: "Tabox",
     "Tabox settings": "Tabox პარამეტრები",
+    "Text color": "ტექსტის ფერი",
     "Text is too long for remote input.":
         "ტექსტი ძალიან გრძელია დისტანციური შეყვანისთვის.",
     "Text is too long. Please shorten it before sending.":

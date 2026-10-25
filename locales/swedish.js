@@ -100,6 +100,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Bakåt / framåt 1 minut",
     "Background color": "Bakgrundsfärg",
     "Background color of selected item": "Bakgrundsfärg för valt objekt",
+    "Background opacity": "Bakgrundens ogenomskinlighet",
     "Backup state changed": "Säkerhetskopiering har ändrats",
     "Backup streams": "Reservströmmar",
     "Balance, $": "Saldo, $",
@@ -524,6 +525,7 @@ var keyStrings = {
     "First Run Setup": "Förstagångsinställning",
     "Fit to screen": "Anpassa till skärmen",
     Folders: "Mappar",
+    "Font size": "Teckenstorlek",
     "Font type": "Typsnitt",
     "For download settings file open":
         "För att ladda ned inställningsfilen, öppna",
@@ -694,6 +696,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play fjärrinmatning",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 är tillgängligt. Ladda ned och installera nu?",
+    "Outline thickness": "Konturtjocklek",
     "Overwrite current settings?": "Skriva över aktuella inställningar?",
     off: "av",
     on: "på",
@@ -842,6 +845,7 @@ var keyStrings = {
     "Request sended!": "Begäran skickad!",
     "Requesting approval for %1": "Begär godkännande för %1",
     "Reset order": "Sortera kanaler: ”Oförändrat”",
+    "Reset to default": "Återställ standardinställningar",
     "Restart player": "Starta om spelaren",
     "Restart stream": "Starta om strömmen",
     "Restart stream / Live": "Starta om strömmen / direktsändning",
@@ -1010,6 +1014,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Sö Må Ti On To Fr Lö",
     "Subscription information": "Prenumerationsinformation",
     Subtitle: "Undertexter",
+    "Subtitle appearance": "Undertexternas utseende",
     Switch: "Byt",
     "Switch sound track": "Byt ljudspår",
     "Switch subtitle": "Byt undertext",
@@ -1023,6 +1028,7 @@ var keyStrings = {
     system: "systemets",
     Tabox: "Tabox",
     "Tabox settings": "Tabox-inställningar",
+    "Text color": "Textfärg",
     "Text is too long for remote input.":
         "Texten är för lång för fjärrinmatning.",
     "Text is too long. Please shorten it before sending.":

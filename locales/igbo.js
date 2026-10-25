@@ -103,6 +103,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Gaa nkeji 1 azụ / n'ihu",
     "Background color": "Agba ndabere",
     "Background color of selected item": "Agba ndabere ihe ahọpụtara",
+    "Background opacity": "Anaghị ahụ ihe gafee ndabere",
     "Backup state changed": "Ọnọdụ ndabere gbanwere",
     "Backup streams": "Iyi nnọchi",
     "Balance, $": "Ego fọdụrụ, $",
@@ -520,6 +521,7 @@ var keyStrings = {
     "First Run Setup": "Nhazi mbido mbụ",
     "Fit to screen": "Dabara na ihuenyo",
     Folders: "Folda",
+    "Font size": "Nha mkpụrụedemede",
     "Font type": "Ụdị mkpụrụedemede",
     "For download settings file open": "Iji budata faịlụ ntọala, mepee",
     "For enter value open": "Iji tinye uru, mepee",
@@ -687,6 +689,7 @@ var keyStrings = {
     "OTT-play remote input": "Ntinye ederede dịpụrụ adịpụ OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 dị. Budata ma wụnye ugbu a?",
+    "Outline thickness": "Ọkpụrụkpụ ahịrị gbara gburugburu",
     "Overwrite current settings?": "Dochie ntọala ugbu a?",
     off: "gbanyụrụ",
     on: "agbanyere",
@@ -833,6 +836,7 @@ var keyStrings = {
     "Request sended!": "Ezipụla arịrịọ!",
     "Requesting approval for %1": "Ana arịọ nkwenye maka %1",
     "Reset order": 'Hazie ọwa: "Dị ka ọ dị"',
+    "Reset to default": "Weghachite ntọala mbụ",
     "Restart player": "Malitegharịa ihe ọkpụkpọ",
     "Restart stream": "Malitegharịa iyi",
     "Restart stream / Live": "Malitegharịa iyi / Mgbasa ozugbo",
@@ -1000,6 +1004,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Sọn Mọn Tiu Wen Tọọ Fraị Sat",
     "Subscription information": "Ozi ndenye aha",
     Subtitle: "Ndepụta okwu",
+    "Subtitle appearance": "Ọdịdị ndepụta okwu",
     Switch: "Gbanwee",
     "Switch sound track": "Gbanwee egwu ụda",
     "Switch subtitle": "Gbanwee ndepụta okwu",
@@ -1013,6 +1018,7 @@ var keyStrings = {
     system: "sistemụ",
     Tabox: "Tabox",
     "Tabox settings": "Ntọala Tabox",
+    "Text color": "Agba ederede",
     "Text is too long for remote input.":
         "Ederede toro oke maka ntinye dị anya.",
     "Text is too long. Please shorten it before sending.":

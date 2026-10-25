@@ -14,18 +14,38 @@ lines. Long titles and messages are clipped to bounded previews so three
 simultaneous notifications fit normal small windows. This is a transient preview,
 not a complete event history; keep controller messages concise.
 
-Only the dark surface is translucent; text and icons retain full opacity.
+Only the dark surface is translucent. Text and icons retain full opacity during
+entrance, folding, fading and exit.
 The default information footer has alpha 0.70 (30% transparency). Notification
-surfaces add 0.08 opacity, giving alpha 0.78 (22% transparency), capped at 1.0.
-The value updates with the footer's opacity setting. Older WebViews without CSS
-custom properties use the same 0.78 default surface. The solid RGB base is
-22,28,39; no gradient or container opacity dilutes text contrast.
+surfaces use 80% of the previous capped footer-plus-0.08 opacity, giving default
+alpha 0.624 (37.6% transparency). The value updates with the footer's opacity
+setting and never exceeds 0.8. Older WebViews without CSS custom properties use
+the same 0.624 default surface. The solid RGB base is
+22,28,39. A separate surface layer (background, outline and shadow) animates its
+opacity without dimming the text or changing this configured surface alpha.
+
+Cards enter from the right over 480 ms, revealing their height. The background
+starts at opacity 0.04; visible text stays opaque. After the entrance finishes,
+the background holds for 500 ms, then gradually becomes more transparent until expiry. The final
+320 ms also slide and close the card to the right without restarting the fade.
+As fading begins, the text moves upward: the label folds away over 480 ms,
+then the title folds away over the next 480 ms. Rows are clipped as they move,
+without fading their text. The message stays visible in
+the compact card until its original expiry. Reduced-motion mode keeps all
+three text rows static. Each new card also receives a fixed random downward
+offset of 0–5 CSS pixels, independently of its entrance and exit transforms.
+Offsets do not accumulate or move already displayed cards; this small variation
+is not a guarantee against display burn-in.
+Image snapshots retain their own entrance and fade, independently of text cards.
+Images use their actual display time for this animation; loading an image never
+extends the original expiry. A short remaining lifetime can truncate the
+entrance or hold. Inactivity and explicit clearing still remove cards immediately.
 
 Severity has a text label, decorative badge and a uniformly thin, closed
 1 CSS pixel outline in the same accent color. Older WebViews retain fixed-font,
 word-wrap and bounded-height fallbacks. Layout does not require backdrop filters,
 flex gap, JavaScript resize handlers or external fonts. Reduced-motion settings
-disable the entrance animation.
+disable all card motion and fading.
 
 Presentation does not change delivery: cards never take focus or pointer input,
 never wake a sleeping player, retain the bounded three-card queue and existing

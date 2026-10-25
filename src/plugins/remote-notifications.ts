@@ -12,6 +12,7 @@ var sessionSequence = 0;
 interface NotificationBanner {
     disposeMedia?: (() => void) | null;
     element: any;
+    exitTimer?: any;
     timer: any;
 }
 
@@ -49,6 +50,7 @@ export function createRemoteNotifications(
     function clearBanner(banner: NotificationBanner): void {
         clearMedia(banner);
         w.clearTimeout(banner.timer);
+        w.clearTimeout(banner.exitTimer);
         if (banner.element.parentNode)
             banner.element.parentNode.removeChild(banner.element);
         var index = banners.indexOf(banner);
@@ -174,7 +176,8 @@ export function createRemoteNotifications(
     function attachImage(
         banner: NotificationBanner,
         item: any,
-        remaining: number
+        remaining: number,
+        animate: (available: number) => boolean
     ): void {
         if (
             !supportsImages ||
@@ -201,7 +204,7 @@ export function createRemoteNotifications(
             expiry: any = null,
             receivedAt = 0,
             receivedMonotonic: number | null = null;
-        function valid(): boolean {
+        function mediaRemaining(): number {
             var now = monotonic();
             var elapsed = Math.max(
                 0,
@@ -210,8 +213,11 @@ export function createRemoteNotifications(
                     ? now - receivedMonotonic
                     : 0
             );
+            return result ? result.remainingMs - elapsed : remaining;
+        }
+        function valid(): boolean {
             return (
-                (!result || elapsed < result.remainingMs) &&
+                mediaRemaining() > 0 &&
                 !disposed &&
                 current === generation &&
                 activity === activityEpoch &&
@@ -276,6 +282,7 @@ export function createRemoteNotifications(
                         clearBanner(banner);
                         return;
                     }
+                    if (!animate(mediaRemaining())) return;
                     banner.element.insertBefore(
                         image,
                         banner.element.lastChild
@@ -304,6 +311,7 @@ export function createRemoteNotifications(
         element.className =
             "notify remote-notify remote-notify-" + item.severity;
         element.dir = "auto";
+        element.style.top = Math.floor(Math.random() * 6) + "px";
         element.setAttribute("role", "status");
         function part(kind: string, value: string, parent: any): any {
             var child = document.createElement("div");
@@ -333,14 +341,42 @@ export function createRemoteNotifications(
         container.appendChild(element);
         var banner: NotificationBanner = { element: element, timer: null };
         banners.push(banner);
-        banner.timer = w.setTimeout(
-            function () {
+        var lifetime = Math.min(item.duration_ms, remaining);
+        var createdAt = Date.now(),
+            createdMonotonic = monotonic();
+        function animate(available: number): boolean {
+            var now = monotonic();
+            var elapsed = Math.max(
+                0,
+                Date.now() - createdAt,
+                now !== null && createdMonotonic !== null
+                    ? now - createdMonotonic
+                    : 0
+            );
+            var left = Math.min(available, lifetime - elapsed);
+            if (left <= 0) {
                 clearBanner(banner);
-            },
-            Math.min(item.duration_ms, remaining)
-        );
-        if (media)
-            attachImage(banner, item, Math.min(item.duration_ms, remaining));
+                return false;
+            }
+            var fadeDuration = Math.max(1, left - 980) + "ms";
+            element.style.animationDuration = "480ms," + fadeDuration;
+            // Images start animating only once decoded. Keep both their media
+            // expiry and the original banner deadline authoritative.
+            w.clearTimeout(banner.exitTimer);
+            banner.exitTimer = w.setTimeout(
+                function () {
+                    element.style.animationDuration = "320ms," + fadeDuration;
+                    element.classList.add("remote-notify-out");
+                },
+                Math.max(0, left - 320)
+            );
+            return true;
+        }
+        banner.timer = w.setTimeout(function () {
+            clearBanner(banner);
+        }, lifetime);
+        if (media) attachImage(banner, item, lifetime, animate);
+        else animate(lifetime);
     }
     function poll(): void {
         var active = isActive();

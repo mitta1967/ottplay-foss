@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "Ibara ry'inyuma",
     "Background color of selected item":
         "Ibara ry'inyuma ry'ikintu cyatoranyijwe",
+    "Background opacity": "Urwego rwo kutabonerana rw'inyuma",
     "Backup state changed": "Imiterere ya kopi y’ingoboka yahindutse",
     "Backup streams": "Imiyoboro y'ingoboka",
     "Balance, $": "Amafaranga asigaye, $",
@@ -540,6 +541,7 @@ var keyStrings = {
     "First Run Setup": "Igenamiterere ryo gutangira bwa mbere",
     "Fit to screen": "Huza n'ingano ya ekara",
     Folders: "Ububiko bwa dosiye",
+    "Font size": "Ingano y'inyuguti",
     "Font type": "Ubwoko bw'imyandikire",
     "For download settings file open":
         "Kugira ngo ukuremo dosiye y'igenamiterere, fungura",
@@ -713,6 +715,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play yinjiza kure",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 iraboneka. Kuyikuramo no kuyishyiraho ubu?",
+    "Outline thickness": "Umubyimba w'umurongo uzengurutse inyuguti",
     "Overwrite current settings?": "Gusimbuza igenamiterere ririho?",
     off: "bizimye",
     on: "bifunguye",
@@ -863,6 +866,7 @@ var keyStrings = {
     "Request sended!": "Ubusabe bwoherejwe!",
     "Requesting approval for %1": "Turasaba icyemezo cya %1",
     "Reset order": 'Tondeka shene: "Uko biri"',
+    "Reset to default": "Subiza ku igenamiterere risanzwe",
     "Restart player": "Ongera utangize porogaramu yo gukina",
     "Restart stream": "Ongera utangize isakaza",
     "Restart stream / Live": "Ongera utangize isakaza / imbonankubone",
@@ -1037,6 +1041,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Cyu Mbe Kab Gtu Kan Gnu Gnd",
     "Subscription information": "Amakuru yo kwiyandikisha",
     Subtitle: "Inyandiko zisobanura amajwi",
+    "Subtitle appearance": "Imigaragarire y'inyandiko zisobanura amajwi",
     Switch: "Hindura",
     "Switch sound track": "Hindura umurongo w'amajwi",
     "Switch subtitle": "Hindura inyandiko zisobanura amajwi",
@@ -1050,6 +1055,7 @@ var keyStrings = {
     system: "sisitemu",
     Tabox: "Tabox",
     "Tabox settings": "Igenamiterere rya Tabox",
+    "Text color": "Ibara ry'inyandiko",
     "Text is too long for remote input.":
         "Inyandiko ni ndende cyane ku iyinjiza rya kure.",
     "Text is too long. Please shorten it before sending.":

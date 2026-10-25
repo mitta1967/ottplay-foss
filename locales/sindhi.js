@@ -102,6 +102,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 منٽ پوئتي / اڳتي ڪريو",
     "Background color": "پسمنظر جو رنگ",
     "Background color of selected item": "چونڊيل شيءِ جي پسمنظر جو رنگ",
+    "Background opacity": "پسمنظر جي غير شفافيت",
     "Backup state changed": "بيڪ اپ اسٽيٽ تبديل ٿي وئي",
     "Backup streams": "متبادل اسٽريم",
     "Balance, $": "بيلنس، $",
@@ -517,6 +518,7 @@ var keyStrings = {
     "First Run Setup": "پهريون ڀيرو سيٽ اپ",
     "Fit to screen": "اسڪرين ۾ پورو آڻيو",
     Folders: "فولڊر",
+    "Font size": "فونٽ جي ماپ",
     "Font type": "فونٽ جو قسم",
     "For download settings file open": "سيٽنگون فائل ڊائون لوڊ ڪرڻ لاءِ کوليو",
     "For enter value open": "قدر داخل ڪرڻ لاءِ کوليو",
@@ -683,6 +685,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play ريموٽ ان پٽ",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 موجود آهي. هاڻي ڊائون لوڊ ۽ انسٽال ڪجي؟",
+    "Outline thickness": "ٻاهرين ليڪ جي ٿولهه",
     "Overwrite current settings?": "هاڻوڪين سيٽنگن مٿان لکي ڇڏجي؟",
     off: "بند",
     on: "چالو",
@@ -831,6 +834,7 @@ var keyStrings = {
     "Request sended!": "درخواست موڪلي وئي!",
     "Requesting approval for %1": "%1 لاءِ منظوري گهري پئي وڃي",
     "Reset order": 'چينل ترتيب ڏيو: "جيئن آهي"',
+    "Reset to default": "ڊفالٽ سيٽنگون بحال ڪريو",
     "Restart player": "پليئر ٻيهر شروع ڪريو",
     "Restart stream": "اسٽريم ٻيهر شروع ڪريو",
     "Restart stream / Live": "اسٽريم ٻيهر شروع ڪريو / سڌي نشريات",
@@ -998,6 +1002,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "آچر سومر اڱارو اربع خميس جمعو ڇنڇر",
     "Subscription information": "رڪنيت جي ڄاڻ",
     Subtitle: "ذيلي عنوان",
+    "Subtitle appearance": "ذيلي عنوانن جو ڏيک",
     Switch: "بدلايو",
     "Switch sound track": "آڊيو ٽريڪ بدلايو",
     "Switch subtitle": "ذيلي عنوان بدلايو",
@@ -1011,6 +1016,7 @@ var keyStrings = {
     system: "سسٽم جو",
     Tabox: "Tabox",
     "Tabox settings": "Tabox جون سيٽنگون",
+    "Text color": "متن جو رنگ",
     "Text is too long for remote input.":
         "پري کان ان پٽ لاءِ متن تمام ڊگهو آهي.",
     "Text is too long. Please shorten it before sending.":

@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "Culoare de fundal",
     "Background color of selected item":
         "Culoarea de fundal a elementului selectat",
+    "Background opacity": "Opacitatea fundalului",
     "Backup state changed": "Starea copiei de rezervă sa schimbat",
     "Backup streams": "Fluxuri de rezervă",
     "Balance, $": "Sold, $",
@@ -539,6 +540,7 @@ var keyStrings = {
     "First Run Setup": "Configurare la prima pornire",
     "Fit to screen": "Încadrează în ecran",
     Folders: "Foldere",
+    "Font size": "Dimensiunea fontului",
     "Font type": "Tip de font",
     "For download settings file open":
         "Pentru a descărca fișierul de setări, deschideți",
@@ -710,6 +712,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play intrare de la distanţă",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 este disponibil. Descărcați și instalați acum?",
+    "Outline thickness": "Grosimea conturului",
     "Overwrite current settings?": "Suprascrieți setările curente?",
     off: "dezactivat",
     on: "activat",
@@ -861,6 +864,7 @@ var keyStrings = {
     "Request sended!": "Cerere trimisă!",
     "Requesting approval for %1": "Se solicită aprobarea pentru %1",
     "Reset order": "Sortează canalele: „Ca atare”",
+    "Reset to default": "Restabilește valorile implicite",
     "Restart player": "Repornește playerul",
     "Restart stream": "Repornește fluxul",
     "Restart stream / Live": "Repornește fluxul / în direct",
@@ -1034,6 +1038,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Du Lu Ma Mi Jo Vi Sâ",
     "Subscription information": "Informații despre abonament",
     Subtitle: "Subtitrări",
+    "Subtitle appearance": "Aspectul subtitrărilor",
     Switch: "Schimbă",
     "Switch sound track": "Schimbă pista audio",
     "Switch subtitle": "Schimbă subtitrările",
@@ -1047,6 +1052,7 @@ var keyStrings = {
     system: "sistem",
     Tabox: "Tabox",
     "Tabox settings": "Setări Tabox",
+    "Text color": "Culoarea textului",
     "Text is too long for remote input.":
         "Textul este prea lung pentru introducerea de la distanță.",
     "Text is too long. Please shorten it before sending.":

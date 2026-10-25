@@ -6,9 +6,11 @@ const http = require("node:http");
 const path = require("node:path");
 const {
     CLASSIC_PROVIDER_BUNDLES,
+    CLASSIC_OPTIONAL_BUNDLES,
 } = require("../../scripts/classic-bundle.cjs");
 const playerScripts = new Set([
     "player.js",
+    ...Object.keys(CLASSIC_OPTIONAL_BUNDLES).map((name) => name + ".js"),
     ...Object.keys(CLASSIC_PROVIDER_BUNDLES).map(
         (kind) => "provider-" + kind + ".js"
     ),

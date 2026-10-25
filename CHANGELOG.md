@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Expose native and in-band HLS caption tracks in the subtitle menu, retain
+  explicit selections including Off, and keep preview track ownership isolated.
+- Add subtitle font, size, text colour, outline and background controls using
+  the standard settings interface. Load the editor on demand and preserve cue
+  positioning, timing and profile backup compatibility.
+- Animate notification banners from the right with a vertical reveal, then
+  gradually fade after a half-second hold and exit to the right. Preserve
+  configured background opacity, expiry deadlines and reduced-motion settings.
+
 - Treat unknown or unbounded media duration as unavailable diagnostic metadata,
   preserving valid playback-progress evidence for the main and PiP streams.
   Keep rejecting invalid clocks, positions, identities and malformed durations.

@@ -100,6 +100,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1분 뒤로/앞으로 건너뛰기",
     "Background color": "배경색",
     "Background color of selected item": "선택한 항목의 배경색",
+    "Background opacity": "배경 불투명도",
     "Backup state changed": "백업 상태가 변경되었습니다.",
     "Backup streams": "예비 스트림",
     "Balance, $": "잔액, $",
@@ -519,6 +520,7 @@ var keyStrings = {
     "First Run Setup": "최초 실행 설정",
     "Fit to screen": "화면에 맞추기",
     Folders: "폴더",
+    "Font size": "글자 크기",
     "Font type": "글꼴 종류",
     "For download settings file open":
         "설정 파일을 다운로드하려면 다음을 엽니다.",
@@ -688,6 +690,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play 원격 입력",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1를 이용하실 수 있습니다. 지금 다운로드하여 설치하시겠습니까?",
+    "Outline thickness": "외곽선 두께",
     "Overwrite current settings?": "현재 설정을 덮어쓰시겠습니까?",
     off: "꺼짐",
     on: "켜짐",
@@ -834,6 +837,7 @@ var keyStrings = {
     "Request sended!": "요청이 전송되었습니다!",
     "Requesting approval for %1": "%1 승인 요청 중",
     "Reset order": '채널 정렬: "그대로"',
+    "Reset to default": "기본값으로 초기화",
     "Restart player": "플레이어 다시 시작",
     "Restart stream": "스트림 다시 시작",
     "Restart stream / Live": "스트림/라이브 다시 시작",
@@ -1001,6 +1005,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "일 월 화 수 목 금 토",
     "Subscription information": "구독정보",
     Subtitle: "자막",
+    "Subtitle appearance": "자막 모양",
     Switch: "스위치",
     "Switch sound track": "오디오 트랙 전환",
     "Switch subtitle": "자막 전환",
@@ -1014,6 +1019,7 @@ var keyStrings = {
     system: "시스템",
     Tabox: "Tabox",
     "Tabox settings": "Tabox 설정",
+    "Text color": "글자 색상",
     "Text is too long for remote input.": "원격입력에 텍스트가 너무 깁니다.",
     "Text is too long. Please shorten it before sending.":
         "텍스트가 너무 깁니다. 짧게 줄여 보내주세요.",

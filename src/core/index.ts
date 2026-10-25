@@ -1764,11 +1764,9 @@ function startCorePlayback(
         );
         hlsInstance.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function () {
             if (session !== _playSession || hlsInstance !== playbackHls) return;
-            applyChannelPreference("aSubs", setSubtitleTrack);
+            setSubtitleTrack();
         });
-        applyChannelPreference("aSubs", function (i: number) {
-            if (hlsInstance) hlsInstance.subtitleTrack = i - 1;
-        });
+        applyChannelPreference("aSubs", setSubtitleTrack);
     } else if (
         mode === 2 &&
         !_forceNative &&
@@ -2268,6 +2266,11 @@ export function captureAspectTarget(): any {
     };
 }
 
+function refreshSubtitleStyle(): void {
+    var apply = (window as any).applySubtitleAppearance;
+    if (apply) apply();
+}
+
 /**
  * Apply the current aspectRatio to the #video element's CSS `object-fit` property.
  * Index 0 → "contain", index 1 → "cover".
@@ -2335,6 +2338,7 @@ export function applyAspectRatio(): void {
                 width: w + "px",
             });
         }
+        refreshSubtitleStyle();
         return;
     }
     // Fallback before metadata: CSS contain max-box / cover fill + flex center.
@@ -2367,6 +2371,7 @@ export function applyAspectRatio(): void {
             width: "100%",
         });
     }
+    refreshSubtitleStyle();
 }
 
 /**
@@ -2391,35 +2396,126 @@ export function stbToggleAspectRatio(): void {
  * @returns `true` if multiple audio tracks exist.
  */
 export function stbAudioTracksExists(): boolean {
-    var v = hlsInstance || video;
-    return v && v.audioTracks ? v.audioTracks.length > 1 : false;
+    return avTracks(video, undefined, true).length > 1;
 }
 
-/**
- * True when a native textTrack looks like a real, selectable subtitle/caption
- * (not metadata, and not an anonymous WebKit placeholder with no label/lang).
- */
-function isUsableNativeSubtitleTrack(t: any): boolean {
-    var kind = (t && t.kind) || "";
-    if (kind && kind !== "subtitles" && kind !== "captions") return false;
-    return !!(t && (t.label || t.name || t.language || t.lang));
+/** Preserve identified native captions when Off clears their active cues. */
+function hasText(t: any): boolean {
+    if (!t || (t.kind && t.kind !== "subtitles" && t.kind !== "captions"))
+        return false;
+    if (t.mode === "showing" || (t.cues && t.cues.length)) t._ottCC = true;
+    return !!(
+        t.kind === "captions" ||
+        t.label ||
+        t.name ||
+        t.language ||
+        t.lang ||
+        t._ottCC
+    );
 }
 
-/**
- * Count available subtitle tracks worth offering in the Menu / picker.
- * hls.js: EXT-X-MEDIA subtitleTracks (0 when muxed remux has none — Chrome path).
- * Native HTML5 (Tauri/WKWebView): only subtitles/captions with label or language;
- * anonymous WebKit placeholders must not surface as "Switch subtitle".
- * @returns Number of usable subtitle/text tracks.
- */
-export function stbSubtitleExists(): number {
-    if (hlsInstance) return (hlsInstance.subtitleTracks || []).length;
-    var tt = (video && video.textTracks) || [];
-    var n = 0;
-    for (var i = 0; i < tt.length; i++) {
-        if (isUsableNativeSubtitleTrack(tt[i])) n++;
+function avTracks(
+    media: HTMLVideoElement | null,
+    selected?: number,
+    audio?: boolean
+): any[] {
+    var hls =
+            media === video
+                ? hlsInstance
+                : media === videoPip
+                  ? hlsPipInstance
+                  : null,
+        key = audio ? "audioTrack" : "subtitleTrack";
+    var rows: any[] = [],
+        manifest = (hls && hls[key + "s"]) || [];
+    function collect(source: any, native: boolean): void {
+        for (var i = 0; source && i < source.length; i++) {
+            var track = source[i],
+                managed = -1;
+            if (native && !audio) {
+                if (!hasText(track)) continue;
+                for (var j = 0; j < manifest.length; j++)
+                    if (
+                        manifest[j].trackNode &&
+                        manifest[j].trackNode.track === track
+                    )
+                        managed = j;
+            }
+            // Zero stays Off; native in-band IDs do not shift when HLS adds renditions.
+            var id = audio
+                ? i
+                : managed >= 0
+                  ? managed + 1
+                  : i + 1 + (native && hls ? 10000 : 0);
+            if (selected !== undefined) {
+                var mode: TextTrackMode =
+                    id === selected ? "showing" : "disabled";
+                if (native) {
+                    if (audio) track.enabled = id === selected;
+                    else if (track.mode !== mode) track.mode = mode;
+                }
+            } else if (managed < 0)
+                rows.push({
+                    id: id,
+                    language:
+                        track.language ||
+                        track.lang ||
+                        (audio ? undefined : "?"),
+                    name:
+                        track.label ||
+                        track.name ||
+                        (audio ? undefined : "#" + (i + 1)),
+                    selected: native
+                        ? audio
+                            ? !!track.enabled
+                            : track.mode === "showing"
+                        : hls[key] === i,
+                });
+        }
     }
-    return n;
+    var native = media && (media as any)[audio ? "audioTracks" : "textTracks"];
+    if (
+        audio &&
+        selected !== undefined &&
+        (Math.floor(selected) !== selected ||
+            selected < 0 ||
+            selected >= ((hls ? manifest : native) || []).length)
+    )
+        return rows;
+    collect(hls ? manifest : native, !hls);
+    if (hls) {
+        if (!audio) collect(native, true);
+        if (selected !== undefined) {
+            var index = audio
+                ? selected
+                : selected > 0 && selected < 10000
+                  ? selected - 1
+                  : -1;
+            if (hls[key] !== index) hls[key] = index;
+            if (!audio && hls.subtitleDisplay !== index >= 0)
+                hls.subtitleDisplay = index >= 0;
+        }
+    }
+    return rows;
+}
+
+function setSubtitleTrack(index?: number): void {
+    if (index === undefined) {
+        var owner: any = getCoreMediaBackend().current();
+        var choice =
+            owner &&
+            owner.active() &&
+            owner.__ottExplicitTracks &&
+            owner.__ottExplicitTracks.subtitle;
+        if (!choice) return applyChannelPreference("aSubs", setSubtitleTrack);
+        index = choice - 1;
+    }
+    avTracks(video, index);
+}
+
+/** The menu and picker use the same engine-aware track discovery. */
+export function stbSubtitleExists(): number {
+    return avTracks(video).length;
 }
 
 /**
@@ -2616,6 +2712,7 @@ export function setPipPosition(): void {
         top: pipPosition == 0 || pipPosition == 3 ? bufferY : "auto",
         width: 30 * m + "px",
     });
+    refreshSubtitleStyle();
 }
 
 /**
@@ -2849,7 +2946,7 @@ export function stbInit(): void {
                 if (typeof applyChannelPreference === "function") {
                     applyChannelPreference("aAspects", setAspect);
                     applyChannelPreference("aZooms", setZoom);
-                    applyChannelPreference("aSubs", setSubtitleTrack);
+                    setSubtitleTrack();
                     applyChannelPreference("aAudios", setAudioTrack);
                 }
             });
@@ -3006,12 +3103,7 @@ function videoEvent(event: Event): void {
  * Side effects: Mutates hlsInstance.audioTrack or video!.audioTracks[i].enabled.
  */
 function setAudioTrack(index: number): void {
-    if (hlsInstance) {
-        if (hlsInstance.audioTrack !== index) hlsInstance.audioTrack = index;
-        return;
-    }
-    var tracks = (video && (video as any).audioTracks) || [];
-    for (var i = 0; i < tracks.length; i++) tracks[i].enabled = i === index;
+    avTracks(video, index, true);
 }
 
 /**
@@ -3025,11 +3117,11 @@ export function stbToggleAudioTrack(): void {
 }
 
 function chooseCoreTrack(kind: string): void {
+    var audio = kind === "audio";
     var owner = getCoreMediaBackend().current();
     var tracks = owner ? owner.tracks(kind) : [];
-    var labels: string[] =
-        kind === "subtitle" ? [_(tracks.length ? "Off" : "Not found")] : [];
-    var ids: number[] = kind === "subtitle" ? [0] : [];
+    var labels: string[] = !audio ? [_("Off")] : [];
+    var ids: number[] = !audio ? [0] : [];
     var current = 0;
     tracks.forEach(function (track: any, index: number) {
         if (track.selected) current = labels.length;
@@ -3057,36 +3149,16 @@ function chooseCoreTrack(kind: string): void {
             if (!owner.active() || ids[choice] === undefined) return;
             // Track-list events must not override an explicit choice in this session,
             // including media playback where no per-channel preference is stored.
-            if (!(owner as any).__ottExplicitTracks)
-                (owner as any).__ottExplicitTracks = {};
-            (owner as any).__ottExplicitTracks[kind] = true;
+            var choices =
+                (owner as any).__ottExplicitTracks ||
+                ((owner as any).__ottExplicitTracks = {});
+            // Encode Off as a truthy explicit choice, including sources without storage targets.
+            choices[kind] = ids[choice] + 1;
             if (choice !== current) owner.selectTrack(kind, ids[choice]);
-            saveChannelPreference(
-                kind === "audio" ? "aAudios" : "aSubs",
-                ids[choice]
-            );
+            saveChannelPreference(audio ? "aAudios" : "aSubs", ids[choice]);
         },
         -1
     );
-}
-
-/**
- * Switch to a specific subtitle track.
- * For hls.js, sets hlsInstance.subtitleTrack (subtract 1 because index 0 = "Off").
- * For native HTML5, sets textTracks[i].mode to "showing" or "disabled".
- *
- * @param index - 1-based subtitle track index (0 = "Off" / disabled).
- *
- * Side effects: Mutates hlsInstance.subtitleTrack or video!.textTracks[i].mode.
- */
-function setSubtitleTrack(index: number): void {
-    if (hlsInstance) {
-        hlsInstance.subtitleTrack = index - 1;
-        return;
-    }
-    var tracks = (video && video.textTracks) || [];
-    for (var i = 0; i < tracks.length; i++)
-        (tracks[i] as any).mode = i === index - 1 ? "showing" : "disabled";
 }
 
 /**
@@ -3498,12 +3570,11 @@ function openCoreEngineLease(
                 return;
             var callback = function () {
                 if (!active()) return;
-                applyChannelPreference(
-                    kind === "audio" ? "aAudios" : "aSubs",
-                    kind === "audio" ? setAudioTrack : setSubtitleTrack
-                );
+                if (kind === "subtitle") setSubtitleTrack();
+                else applyChannelPreference("aAudios", setAudioTrack);
             };
             list.addEventListener("addtrack", callback);
+            if (kind === "subtitle") list.addEventListener("change", callback);
             trackListeners.push({ callback: callback, target: list });
         });
     }
@@ -3537,6 +3608,10 @@ function openCoreEngineLease(
             trackListeners.forEach(function (listener) {
                 listener.target.removeEventListener(
                     "addtrack",
+                    listener.callback
+                );
+                listener.target.removeEventListener(
+                    "change",
                     listener.callback
                 );
             });
@@ -3581,49 +3656,13 @@ function openCoreEngineLease(
         },
         selectTrack: function (kind: string, index: number) {
             if (!active()) return;
-            if (kind === "audio") setAudioTrack(index);
-            else if (kind === "subtitle") setSubtitleTrack(index);
+            if (kind === "audio" || kind === "subtitle")
+                avTracks(media, index, kind === "audio");
         },
         supportsPausedStart: !pip,
         tracks: function (kind: string) {
             if (!active() || !media) return [];
-            var source =
-                kind === "audio"
-                    ? hlsInstance
-                        ? hlsInstance.audioTracks
-                        : (media as any).audioTracks
-                    : hlsInstance
-                      ? hlsInstance.subtitleTracks
-                      : media.textTracks;
-            var rows: any[] = [];
-            for (var i = 0; source && i < source.length; i++) {
-                var track = source[i];
-                if (
-                    kind === "subtitle" &&
-                    !hlsInstance &&
-                    !isUsableNativeSubtitleTrack(track)
-                )
-                    continue;
-                rows.push({
-                    id: kind === "audio" ? i : i + 1,
-                    language:
-                        track.language ||
-                        track.lang ||
-                        (kind === "audio" ? undefined : "?"),
-                    name:
-                        track.label ||
-                        track.name ||
-                        (kind === "audio" ? undefined : "#" + (i + 1)),
-                    selected: hlsInstance
-                        ? (kind === "audio"
-                              ? hlsInstance.audioTrack
-                              : hlsInstance.subtitleTrack) === i
-                        : kind === "audio"
-                          ? !!track.enabled
-                          : track.mode === "showing",
-                });
-            }
-            return rows;
+            return avTracks(media, undefined, kind === "audio");
         },
     };
     try {

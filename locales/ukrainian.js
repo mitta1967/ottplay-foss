@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Назад / вперед на 1 хвилину",
     "Background color": "Колір тла",
     "Background color of selected item": "Колір тла вибраного пункту",
+    "Background opacity": "Непрозорість тла",
     "Backup state changed": "Стан резервної копії змінено",
     "Backup streams": "Резервні потоки",
     "Balance, $": "Баланс, $",
@@ -522,6 +523,7 @@ var keyStrings = {
     "First Run Setup": "Початкове налаштування",
     "Fit to screen": "Вписати в екран",
     Folders: "Папки",
+    "Font size": "Розмір шрифту",
     "Font type": "Шрифт",
     "For download settings file open":
         "Щоб завантажити файл налаштувань, відкрийте",
@@ -692,6 +694,7 @@ var keyStrings = {
     "OTT-play remote input": "Дистанційне введення OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Доступний OttPlay FOSS %1. Завантажити й установити зараз?",
+    "Outline thickness": "Товщина обведення",
     "Overwrite current settings?": "Перезаписати поточні налаштування?",
     off: "вимкнено",
     on: "увімкнено",
@@ -839,6 +842,7 @@ var keyStrings = {
     "Request sended!": "Запит надіслано!",
     "Requesting approval for %1": "Запит підтвердження для %1",
     "Reset order": "Сортувати канали: «Як є»",
+    "Reset to default": "Відновити типові налаштування",
     "Restart player": "Перезапустити програвач",
     "Restart stream": "Перезапустити потік",
     "Restart stream / Live": "Перезапустити потік / прямий ефір",
@@ -1009,6 +1013,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Нд Пн Вт Ср Чт Пт Сб",
     "Subscription information": "Інформація про передплату",
     Subtitle: "Субтитри",
+    "Subtitle appearance": "Оформлення субтитрів",
     Switch: "Перемкнути",
     "Switch sound track": "Змінити звукову доріжку",
     "Switch subtitle": "Змінити субтитри",
@@ -1022,6 +1027,7 @@ var keyStrings = {
     system: "системний",
     Tabox: "Tabox",
     "Tabox settings": "Налаштування Tabox",
+    "Text color": "Колір тексту",
     "Text is too long for remote input.":
         "Текст задовгий для дистанційного введення.",
     "Text is too long. Please shorten it before sending.":

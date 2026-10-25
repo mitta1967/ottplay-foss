@@ -102,6 +102,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 minūti atpakaļ / uz priekšu",
     "Background color": "Fona krāsa",
     "Background color of selected item": "Atlasītā vienuma fona krāsa",
+    "Background opacity": "Fona necaurspīdīgums",
     "Backup state changed": "Mainīts dublējuma stāvoklis",
     "Backup streams": "Rezerves straumes",
     "Balance, $": "Atlikums, $",
@@ -529,6 +530,7 @@ var keyStrings = {
     "First Run Setup": "Pirmās palaišanas iestatīšana",
     "Fit to screen": "Ietilpināt ekrānā",
     Folders: "Mapes",
+    "Font size": "Fonta lielums",
     "Font type": "Fonta veids",
     "For download settings file open":
         "Lai lejupielādētu iestatījumu failu, atveriet",
@@ -699,6 +701,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play attālā ievade",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Pieejams OttPlay FOSS %1. Lejupielādēt un instalēt tagad?",
+    "Outline thickness": "Kontūras biezums",
     "Overwrite current settings?": "Pārrakstīt pašreizējos iestatījumus?",
     off: "izslēgts",
     on: "ieslēgta",
@@ -848,6 +851,7 @@ var keyStrings = {
     "Request sended!": "Pieprasījums nosūtīts!",
     "Requesting approval for %1": "Tiek pieprasīts apstiprinājums: %1",
     "Reset order": "Kārtot kanālus: „Kā ir”",
+    "Reset to default": "Atjaunot noklusējuma iestatījumus",
     "Restart player": "Pārstartēt atskaņotāju",
     "Restart stream": "Pārstartēt straumi",
     "Restart stream / Live": "Pārstartēt straumi / tiešraide",
@@ -1018,6 +1022,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Sv Pr Ot Tr Ce Pk Se",
     "Subscription information": "Abonementa informācija",
     Subtitle: "Subtitri",
+    "Subtitle appearance": "Subtitru izskats",
     Switch: "Pārslēgt",
     "Switch sound track": "Mainīt skaņas celiņu",
     "Switch subtitle": "Mainīt subtitrus",
@@ -1031,6 +1036,7 @@ var keyStrings = {
     system: "sistēmas",
     Tabox: "Tabox",
     "Tabox settings": "Tabox iestatījumi",
+    "Text color": "Teksta krāsa",
     "Text is too long for remote input.":
         "Teksts ir pārāk garš attālai ievadei.",
     "Text is too long. Please shorten it before sending.":

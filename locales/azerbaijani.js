@@ -102,6 +102,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 dəqiqə geri / irəli",
     "Background color": "Fon rəngi",
     "Background color of selected item": "Seçilmiş elementin fon rəngi",
+    "Background opacity": "Fonun qeyri-şəffaflığı",
     "Backup state changed": "Yedəkləmə vəziyyəti dəyişdi",
     "Backup streams": "Ehtiyat yayımlar",
     "Balance, $": "Balans, $",
@@ -528,6 +529,7 @@ var keyStrings = {
     "First Run Setup": "İlk açılış quraşdırması",
     "Fit to screen": "Ekrana uyğunlaşdır",
     Folders: "Qovluqlar",
+    "Font size": "Şrift ölçüsü",
     "Font type": "Şrift növü",
     "For download settings file open": "Ayarlar faylını endirmək üçün açın",
     "For enter value open": "Dəyər daxil etmək üçün açın",
@@ -695,6 +697,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play uzaqdan giriş",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 mövcuddur. İndi endirilib quraşdırılsın?",
+    "Outline thickness": "Konturun qalınlığı",
     "Overwrite current settings?": "Cari ayarların üzərinə yazılsın?",
     off: "söndürülüb",
     on: "aktivdir",
@@ -841,6 +844,7 @@ var keyStrings = {
     "Request sended!": "Sorğu göndərildi!",
     "Requesting approval for %1": "%1 üçün təsdiq tələb olunur",
     "Reset order": "Kanalları sırala: “Olduğu kimi”",
+    "Reset to default": "Standart dəyərləri bərpa et",
     "Restart player": "Pleyeri yenidən başlat",
     "Restart stream": "Yayımı yenidən başlat",
     "Restart stream / Live": "Yayımı yenidən başlat / canlı yayım",
@@ -1013,6 +1017,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "B B.e. Ç.a. Ç C.a. C Ş",
     "Subscription information": "Abunəlik məlumatları",
     Subtitle: "Altyazılar",
+    "Subtitle appearance": "Altyazıların görünüşü",
     Switch: "Dəyiş",
     "Switch sound track": "Səs yolunu dəyiş",
     "Switch subtitle": "Altyazını dəyiş",
@@ -1026,6 +1031,7 @@ var keyStrings = {
     system: "sistem",
     Tabox: "Tabox",
     "Tabox settings": "Tabox ayarları",
+    "Text color": "Mətn rəngi",
     "Text is too long for remote input.":
         "Mətn uzaqdan daxil etmək üçün çox uzundur.",
     "Text is too long. Please shorten it before sending.":

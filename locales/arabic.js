@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "تخطي للخلف/للأمام لمدة دقيقة واحدة",
     "Background color": "لون الخلفية",
     "Background color of selected item": "لون خلفية العنصر المحدد",
+    "Background opacity": "عتامة الخلفية",
     "Backup state changed": "تم تغيير حالة النسخ الاحتياطي",
     "Backup streams": "تدفقات احتياطية",
     "Balance, $": "الرصيد، دولار",
@@ -511,6 +512,7 @@ var keyStrings = {
     "First Run Setup": "إعداد التشغيل الأول",
     "Fit to screen": "مناسب للشاشة",
     Folders: "المجلدات",
+    "Font size": "حجم الخط",
     "Font type": "نوع الخط",
     "For download settings file open": "لتحميل ملف الإعدادات، افتح",
     "For enter value open": "لإدخال قيمة، افتح",
@@ -676,6 +678,7 @@ var keyStrings = {
     "OTT-play remote input": "الإدخال عن بعد OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 متاح. تحميل وتثبيت الآن؟",
+    "Outline thickness": "سُمك الحدود",
     "Overwrite current settings?": "هل تريد استبدال الإعدادات الحالية؟",
     off: "إيقاف",
     on: "تشغيل",
@@ -821,6 +824,7 @@ var keyStrings = {
     "Request sended!": "تم إرسال الطلب!",
     "Requesting approval for %1": "طلب الموافقة على %1",
     "Reset order": 'فرز القنوات: "كما هو"',
+    "Reset to default": "استعادة الإعدادات الافتراضية",
     "Restart player": "إعادة تشغيل المشغّل",
     "Restart stream": "إعادة تشغيل البث",
     "Restart stream / Live": "إعادة تشغيل البث/البث المباشر",
@@ -990,6 +994,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "أحد اثن ثلاث أربع خميس جمعة سبت",
     "Subscription information": "معلومات الاشتراك",
     Subtitle: "الترجمة",
+    "Subtitle appearance": "مظهر الترجمة",
     Switch: "التبديل",
     "Switch sound track": "تبديل المسار الصوتي",
     "Switch subtitle": "تبديل الترجمة",
@@ -1003,6 +1008,7 @@ var keyStrings = {
     system: "النظام",
     Tabox: "Tabox",
     "Tabox settings": "إعدادات Tabox",
+    "Text color": "لون النص",
     "Text is too long for remote input.":
         "النص طويل جدًا بحيث لا يمكن إدخاله عن بعد.",
     "Text is too long. Please shorten it before sending.":

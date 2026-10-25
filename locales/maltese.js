@@ -104,6 +104,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Mur minuta lura / ’il quddiem",
     "Background color": "Kulur tal-isfond",
     "Background color of selected item": "Kulur tal-isfond tal-oġġett magħżul",
+    "Background opacity": "Opaċità tal-isfond",
     "Backup state changed": "L-istat tal-backup inbidel",
     "Backup streams": "Strims ta’ riżerva",
     "Balance, $": "Bilanċ, $",
@@ -535,6 +536,7 @@ var keyStrings = {
     "First Run Setup": "Konfigurazzjoni tal-ewwel użu",
     "Fit to screen": "Adatta għall-iskrin",
     Folders: "Fowlders",
+    "Font size": "Daqs tat-tipa",
     "Font type": "Tip ta’ tipa",
     "For download settings file open":
         "Biex tniżżel il-fajl tal-issettjar, iftaħ",
@@ -707,6 +709,7 @@ var keyStrings = {
     "OTT-play remote input": "Dħul ta’ test mill-bogħod f’OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 huwa disponibbli. Tniżżlu u tinstallah issa?",
+    "Outline thickness": "Ħxuna tal-kontorn",
     "Overwrite current settings?": "Tissostitwixxi l-issettjar attwali?",
     off: "mitfi",
     on: "mixgħul",
@@ -858,6 +861,7 @@ var keyStrings = {
     "Request sended!": "It-talba ntbagħtet!",
     "Requesting approval for %1": "Qed tintalab approvazzjoni għal %1",
     "Reset order": 'Issortja l-kanali: "Kif inhu"',
+    "Reset to default": "Irrisettja għall-valuri predefiniti",
     "Restart player": "Erġa’ ibda l-plejer",
     "Restart stream": "Erġa’ ibda l-istrim",
     "Restart stream / Live": "Erġa’ ibda l-istrim / Dirett",
@@ -1029,6 +1033,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Ħad Tne Tli Erb Ħam Ġim Sib",
     "Subscription information": "Informazzjoni tal-abbonament",
     Subtitle: "Sottotitli",
+    "Subtitle appearance": "Dehra tas-sottotitli",
     Switch: "Aqleb",
     "Switch sound track": "Ibdel il-binarju tal-awdjo",
     "Switch subtitle": "Ibdel is-sottotitli",
@@ -1042,6 +1047,7 @@ var keyStrings = {
     system: "sistema",
     Tabox: "Tabox",
     "Tabox settings": "Issettjar ta’ Tabox",
+    "Text color": "Kulur tat-test",
     "Text is too long for remote input.":
         "It-test huwa twil wisq għad-dħul remot.",
     "Text is too long. Please shorten it before sending.":

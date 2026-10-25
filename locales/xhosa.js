@@ -104,6 +104,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Tsiba umva / phambili ngomzuzu o-1",
     "Background color": "Umbala wemvelaphi",
     "Background color of selected item": "Umbala wemvelaphi yento ekhethiweyo",
+    "Background opacity": "Ukungabonakali ngaphaya kwemvelaphi",
     "Backup state changed": "Imeko yogcino itshintshile",
     "Backup streams": "Imijelo yogcino",
     "Balance, $": "Imali eseleyo, $",
@@ -542,6 +543,7 @@ var keyStrings = {
     "First Run Setup": "Ulungiselelo lokuqala",
     "Fit to screen": "Linganisa nesikrini",
     Folders: "Iifolda",
+    "Font size": "Ubungakanani befonti",
     "Font type": "Uhlobo lwefonti",
     "For download settings file open":
         "Ukuze ukhuphele ifayile yeesetingi, vula",
@@ -714,6 +716,7 @@ var keyStrings = {
     "OTT-play remote input": "Ukufaka umbhalo ukude kwi-OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "I-OttPlay FOSS %1 iyafumaneka. Uyikhuphele uze uyifake ngoku?",
+    "Outline thickness": "Ubukhulu bomgca ongqongileyo",
     "Overwrite current settings?": "Bhala ngaphezulu kweesetingi zangoku?",
     off: "icinyiwe",
     on: "ivuliwe",
@@ -862,6 +865,7 @@ var keyStrings = {
     "Request sended!": "Isicelo sithunyelwe!",
     "Requesting approval for %1": "Kucelwa imvume ye-%1",
     "Reset order": 'Hlela amajelo ngokulandelelana: "Njengoko injalo"',
+    "Reset to default": "Buyisela useto olusisiseko",
     "Restart player": "Qala isidlali kwakhona",
     "Restart stream": "Qala usasazo kwakhona",
     "Restart stream / Live": "Qala usasazo kwakhona / Usasazo ngqo",
@@ -1036,6 +1040,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Caw Mvu Lwesb Tha Sin Hla Mgq",
     "Subscription information": "Ulwazi lomrhumo",
     Subtitle: "Imibhalo engezantsi",
+    "Subtitle appearance": "Inkangeleko yemibhalo engezantsi",
     Switch: "Tshintsha",
     "Switch sound track": "Tshintsha ithrekhi yesandi",
     "Switch subtitle": "Tshintsha imibhalo engezantsi",
@@ -1049,6 +1054,7 @@ var keyStrings = {
     system: "isixokelelwano",
     Tabox: "Tabox",
     "Tabox settings": "Iisetingi ze-Tabox",
+    "Text color": "Umbala wombhalo",
     "Text is too long for remote input.":
         "Umbhalo mde kakhulu ukuba ungafakwa ukude.",
     "Text is too long. Please shorten it before sending.":

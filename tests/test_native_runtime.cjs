@@ -107,7 +107,7 @@ const family = one(
         node.name.getText() === "fontFamilyList"
 );
 const fontOptions = one(
-    indexSource,
+    read("src/ui/subtitle-appearance.ts"),
     (node) =>
         ts.isBinaryExpression(node) &&
         node.operatorToken.kind === ts.SyntaxKind.BarBarToken &&

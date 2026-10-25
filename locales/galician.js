@@ -105,6 +105,7 @@ var keyStrings = {
     "Background color": "Cor do fondo",
     "Background color of selected item":
         "Cor do fondo do elemento seleccionado",
+    "Background opacity": "Opacidade do fondo",
     "Backup state changed": "O estado da copia de seguranza cambiou",
     "Backup streams": "Fluxos de reserva",
     "Balance, $": "Saldo, $",
@@ -543,6 +544,7 @@ var keyStrings = {
     "First Run Setup": "Configuración inicial",
     "Fit to screen": "Axustar á pantalla",
     Folders: "Cartafoles",
+    "Font size": "Tamaño da letra",
     "Font type": "Tipo de letra",
     "For download settings file open":
         "Para descargar o ficheiro de configuración, abre",
@@ -715,6 +717,7 @@ var keyStrings = {
     "OTT-play remote input": "Entrada remota OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 está dispoñible. Queres descargalo e instalalo agora?",
+    "Outline thickness": "Grosor do contorno",
     "Overwrite current settings?": "Sobrescribir a configuración actual?",
     off: "desactivado",
     on: "activado",
@@ -863,6 +866,7 @@ var keyStrings = {
     "Request sended!": "Solicitude enviada!",
     "Requesting approval for %1": "Solicitando aprobación para %1",
     "Reset order": 'Ordenar canles: "Tal como está"',
+    "Reset to default": "Restablecer os valores predeterminados",
     "Restart player": "Reiniciar o reprodutor",
     "Restart stream": "Reiniciar a transmisión",
     "Restart stream / Live": "Reiniciar a transmisión / En directo",
@@ -1037,6 +1041,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Dom Lun Mar Mér Xov Ven Sáb",
     "Subscription information": "Información da subscrición",
     Subtitle: "Subtítulos",
+    "Subtitle appearance": "Aparencia dos subtítulos",
     Switch: "Cambiar",
     "Switch sound track": "Cambiar a pista de son",
     "Switch subtitle": "Cambiar os subtítulos",
@@ -1050,6 +1055,7 @@ var keyStrings = {
     system: "sistema",
     Tabox: "Tabox",
     "Tabox settings": "Configuración de Tabox",
+    "Text color": "Cor do texto",
     "Text is too long for remote input.":
         "O texto é demasiado longo para a entrada remota.",
     "Text is too long. Please shorten it before sending.":

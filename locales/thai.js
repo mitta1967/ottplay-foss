@@ -100,6 +100,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "ข้ามกลับ / ไปข้างหน้า 1 นาที",
     "Background color": "สีพื้นหลัง",
     "Background color of selected item": "สีพื้นหลังของรายการที่เลือก",
+    "Background opacity": "ความทึบของพื้นหลัง",
     "Backup state changed": "สถานะการสำรองข้อมูลมีการเปลี่ยนแปลง",
     "Backup streams": "สตรีมสำรอง",
     "Balance, $": "ยอดคงเหลือ, $",
@@ -509,6 +510,7 @@ var keyStrings = {
     "First Run Setup": "การตั้งค่าการทำงานครั้งแรก",
     "Fit to screen": "พอดีกับหน้าจอ",
     Folders: "โฟลเดอร์",
+    "Font size": "ขนาดตัวอักษร",
     "Font type": "ประเภทแบบอักษร",
     "For download settings file open": "หากต้องการดาวน์โหลดไฟล์การตั้งค่า ให้เปิด",
     "For enter value open": "หากต้องการป้อนค่า ให้เปิด",
@@ -674,6 +676,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play อินพุตระยะไกล",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 มีจำหน่ายแล้ว ดาวน์โหลดและติดตั้งทันที?",
+    "Outline thickness": "ความหนาเส้นขอบ",
     "Overwrite current settings?": "เขียนทับการตั้งค่าปัจจุบันหรือไม่?",
     off: "ปิด",
     on: "เปิด",
@@ -816,6 +819,7 @@ var keyStrings = {
     "Request sended!": "ส่งคำขอแล้ว!",
     "Requesting approval for %1": "กำลังขออนุมัติ %1",
     "Reset order": 'จัดเรียงช่อง: "ตามสภาพ"',
+    "Reset to default": "คืนค่าเริ่มต้น",
     "Restart player": "รีสตาร์ทเครื่องเล่น",
     "Restart stream": "เริ่มสตรีมใหม่",
     "Restart stream / Live": "เริ่มสตรีมใหม่ / ถ่ายทอดสด",
@@ -981,6 +985,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "อา. จ. อ. พ. พฤ. ศ. ส.",
     "Subscription information": "ข้อมูลการสมัครสมาชิก",
     Subtitle: "คำบรรยาย",
+    "Subtitle appearance": "รูปแบบคำบรรยาย",
     Switch: "สวิตช์",
     "Switch sound track": "เปลี่ยนแทร็กเสียง",
     "Switch subtitle": "เปลี่ยนคำบรรยาย",
@@ -994,6 +999,7 @@ var keyStrings = {
     system: "ระบบ",
     Tabox: "Tabox",
     "Tabox settings": "การตั้งค่า Tabox",
+    "Text color": "สีข้อความ",
     "Text is too long for remote input.":
         "ข้อความยาวเกินไปสำหรับการป้อนข้อมูลระยะไกล",
     "Text is too long. Please shorten it before sending.":

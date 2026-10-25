@@ -99,6 +99,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Zpět / vpřed o 1 minutu",
     "Background color": "Barva pozadí",
     "Background color of selected item": "Barva pozadí vybrané položky",
+    "Background opacity": "Neprůhlednost pozadí",
     "Backup state changed": "Stav zálohy se změnil",
     "Backup streams": "Záložní streamy",
     "Balance, $": "Zůstatek, $",
@@ -521,6 +522,7 @@ var keyStrings = {
     "First Run Setup": "Počáteční nastavení",
     "Fit to screen": "Přizpůsobit obrazovce",
     Folders: "Složky",
+    "Font size": "Velikost písma",
     "Font type": "Druh písma",
     "For download settings file open": "Pro stažení souboru nastavení otevřete",
     "For enter value open": "Pro zadání hodnoty otevřete",
@@ -688,6 +690,7 @@ var keyStrings = {
     "OTT-play remote input": "Dálkový vstup OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Je k dispozici OttPlay FOSS %1. Stáhnout a nainstalovat nyní?",
+    "Outline thickness": "Tloušťka obrysu",
     "Overwrite current settings?": "Přepsat aktuální nastavení?",
     off: "vypnuto",
     on: "zapnuto",
@@ -834,6 +837,7 @@ var keyStrings = {
     "Request sended!": "Požadavek odeslán!",
     "Requesting approval for %1": "Žádost o schválení pro %1",
     "Reset order": "Řadit kanály: „Beze změn“",
+    "Reset to default": "Obnovit výchozí nastavení",
     "Restart player": "Restartovat přehrávač",
     "Restart stream": "Restartovat stream",
     "Restart stream / Live": "Restartovat stream / živě",
@@ -1003,6 +1007,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Ne Po Út St Čt Pá So",
     "Subscription information": "Informace o předplatném",
     Subtitle: "Titulky",
+    "Subtitle appearance": "Vzhled titulků",
     Switch: "Přepnout",
     "Switch sound track": "Změnit zvukovou stopu",
     "Switch subtitle": "Změnit titulky",
@@ -1016,6 +1021,7 @@ var keyStrings = {
     system: "systémový",
     Tabox: "Tabox",
     "Tabox settings": "Nastavení Tabox",
+    "Text color": "Barva textu",
     "Text is too long for remote input.":
         "Text je pro vzdálený vstup příliš dlouhý.",
     "Text is too long. Please shorten it before sending.":

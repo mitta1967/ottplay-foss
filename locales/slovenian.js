@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Preskoči nazaj/naprej 1 minuto",
     "Background color": "Barva ozadja",
     "Background color of selected item": "Barva ozadja izbranega elementa",
+    "Background opacity": "Neprosojnost ozadja",
     "Backup state changed": "Stanje varnostne kopije spremenjeno",
     "Backup streams": "Nadomestni tokovi",
     "Balance, $": "Stanje, $",
@@ -533,6 +534,7 @@ var keyStrings = {
     "First Run Setup": "Nastavitev prvega zagona",
     "Fit to screen": "Prilagodi zaslonu",
     Folders: "Mape",
+    "Font size": "Velikost pisave",
     "Font type": "Vrsta pisave",
     "For download settings file open":
         "Za prenos datoteke z nastavitvami odprite",
@@ -702,6 +704,7 @@ var keyStrings = {
     "OTT-play remote input": "Oddaljeni vnos OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 je na voljo. Prenesti in namestiti zdaj?",
+    "Outline thickness": "Debelina obrobe",
     "Overwrite current settings?": "Želite prepisati trenutne nastavitve?",
     off: "izklopljeno",
     on: "vklopljeno",
@@ -851,6 +854,7 @@ var keyStrings = {
     "Request sended!": "Zahteva poslana!",
     "Requesting approval for %1": "Zahtevam odobritev za %1",
     "Reset order": 'Razvrsti kanale: "Kot je"',
+    "Reset to default": "Ponastavi na privzeto",
     "Restart player": "Znova zaženite predstavnostni predvajalnik",
     "Restart stream": "Znova zaženi tok",
     "Restart stream / Live": "Znova zaženi tok / V živo",
@@ -1022,6 +1026,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Ne Po To Sr Če Pe So",
     "Subscription information": "Informacije o naročnini",
     Subtitle: "Podnapisi",
+    "Subtitle appearance": "Videz podnapisov",
     Switch: "Stikalo",
     "Switch sound track": "Zamenjaj zvočno stezo",
     "Switch subtitle": "Zamenjaj podnapise",
@@ -1035,6 +1040,7 @@ var keyStrings = {
     system: "sistem",
     Tabox: "Tabox",
     "Tabox settings": "nastavitve Tabox",
+    "Text color": "Barva besedila",
     "Text is too long for remote input.":
         "Besedilo je predolgo za daljinski vnos.",
     "Text is too long. Please shorten it before sending.":

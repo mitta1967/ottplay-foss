@@ -100,6 +100,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Назад / наперад на 1 хвіліну",
     "Background color": "Колер фону",
     "Background color of selected item": "Колер фону выбранага пункта",
+    "Background opacity": "Непразрыстасць фону",
     "Backup state changed": "Стан рэзервовай копіі зменены",
     "Backup streams": "Рэзервовыя патокі",
     "Balance, $": "Баланс, $",
@@ -523,6 +524,7 @@ var keyStrings = {
     "First Run Setup": "Пачатковае наладжванне",
     "Fit to screen": "Упісаць у экран",
     Folders: "Папкі",
+    "Font size": "Памер шрыфту",
     "Font type": "Шрыфт",
     "For download settings file open": "Каб спампаваць файл налад, адкрыйце",
     "For enter value open": "Каб увесці значэнне, адкрыйце",
@@ -690,6 +692,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play дыстанцыйны ўвод",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Даступны OttPlay FOSS %1. Спампаваць і ўсталяваць зараз?",
+    "Outline thickness": "Таўшчыня абводкі",
     "Overwrite current settings?": "Перазапісаць бягучыя налады?",
     off: "выключана",
     on: "уключаны",
@@ -836,6 +839,7 @@ var keyStrings = {
     "Request sended!": "Запыт адпраўлены!",
     "Requesting approval for %1": "Запыт пацвярджэння для %1",
     "Reset order": "Сартаваць каналы: «Як ёсць»",
+    "Reset to default": "Аднавіць прадвызначаныя налады",
     "Restart player": "Перазапусціць прайгравальнік",
     "Restart stream": "Перазапусціць паток",
     "Restart stream / Live": "Перазапусціць паток / прамы эфір",
@@ -1004,6 +1008,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Нд Пн Аў Ср Чц Пт Сб",
     "Subscription information": "Інфармацыя пра падпіску",
     Subtitle: "Субцітры",
+    "Subtitle appearance": "Афармленне субтытраў",
     Switch: "Пераключыць",
     "Switch sound track": "Змяніць гукавую дарожку",
     "Switch subtitle": "Змяніць субцітры",
@@ -1017,6 +1022,7 @@ var keyStrings = {
     system: "сістэмны",
     Tabox: "Tabox",
     "Tabox settings": "Налады Tabox",
+    "Text color": "Колер тэксту",
     "Text is too long for remote input.":
         "Тэкст занадта доўгі для дыстанцыйнага ўводу.",
     "Text is too long. Please shorten it before sending.":

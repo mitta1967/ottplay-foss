@@ -103,6 +103,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 hûrdem paşde / pêşde biçe",
     "Background color": "Rengê paşxanê",
     "Background color of selected item": "Rengê paşxaneya tiştê hilbijartî",
+    "Background opacity": "Neşefafiya paşxanê",
     "Backup state changed": "Rewşa hilanînê guherî",
     "Backup streams": "Herikînên yedek",
     "Balance, $": "Bîlanço, $",
@@ -530,6 +531,7 @@ var keyStrings = {
     "First Run Setup": "Sazkirina pêşîn",
     "Fit to screen": "Li ser ekranê bicivîne",
     Folders: "Peldank",
+    "Font size": "Mezinahiya tîpan",
     "Font type": "Curenivîs",
     "For download settings file open": "Ji bo daxistina pelê mîhengan, veke",
     "For enter value open": "Ji bo têketina nirxekê, veke",
@@ -696,6 +698,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play ketina dûr",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 heye. Niha dakêşin û saz bikin?",
+    "Outline thickness": "Stûrahiya xeta derdorê",
     "Overwrite current settings?": "Mîhengên heyî bên guhartin?",
     off: "girtî",
     on: "vekirî",
@@ -844,6 +847,7 @@ var keyStrings = {
     "Request sended!": "Daxwaz şandin!",
     "Requesting approval for %1": "Daxwaza pejirandinê ji bo %1",
     "Reset order": 'Kanalan rêz bike: "Wekî ye"',
+    "Reset to default": "Vegerîne mîhengên bingehîn",
     "Restart player": "Lêdêra medyayê ji nû ve bidin destpêkirin",
     "Restart stream": "Weşanê ji nû ve dest pê bike",
     "Restart stream / Live": "Weşanê ji nû ve bide destpêkirin / Weşana zindî",
@@ -1018,6 +1022,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Yekşem Duşem Sêşem Çarşem Pêncşem În Şemî",
     "Subscription information": "Agahiyên abonetiyê",
     Subtitle: "Binnivîs",
+    "Subtitle appearance": "Xuyabûna binnivîsan",
     Switch: "Biguherîne",
     "Switch sound track": "Rêça dengî biguherîne",
     "Switch subtitle": "Binnivîsan biguherîne",
@@ -1031,6 +1036,7 @@ var keyStrings = {
     system: "pergal",
     Tabox: "Tabox",
     "Tabox settings": "Mîhengên Tabox",
+    "Text color": "Rengê nivîsê",
     "Text is too long for remote input.":
         "Nivîs ji bo têketina dûr pir dirêj e.",
     "Text is too long. Please shorten it before sending.":

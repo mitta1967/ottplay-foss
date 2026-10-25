@@ -103,6 +103,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Πίσω / μπροστά κατά 1 λεπτό",
     "Background color": "Χρώμα φόντου",
     "Background color of selected item": "Χρώμα φόντου επιλεγμένου στοιχείου",
+    "Background opacity": "Αδιαφάνεια φόντου",
     "Backup state changed":
         "Η κατάσταση δημιουργίας αντιγράφων ασφαλείας άλλαξε",
     "Backup streams": "Εφεδρικές ροές",
@@ -544,6 +545,7 @@ var keyStrings = {
     "First Run Setup": "Ρύθμιση πρώτης εκκίνησης",
     "Fit to screen": "Προσαρμογή στην οθόνη",
     Folders: "Φάκελοι",
+    "Font size": "Μέγεθος γραμματοσειράς",
     "Font type": "Γραμματοσειρά",
     "For download settings file open":
         "Για λήψη του αρχείου ρυθμίσεων, ανοίξτε",
@@ -715,6 +717,7 @@ var keyStrings = {
     "OTT-play remote input": "Απομακρυσμένη είσοδος OTT-play",
     "OttPlay FOSS %1 is available. Download and install now?":
         "Το OttPlay FOSS %1 είναι διαθέσιμο. Λήψη και εγκατάσταση τώρα;",
+    "Outline thickness": "Πάχος περιγράμματος",
     "Overwrite current settings?": "Αντικατάσταση των τρεχουσών ρυθμίσεων;",
     off: "απενεργοποιημένο",
     on: "ενεργός",
@@ -869,6 +872,7 @@ var keyStrings = {
     "Request sended!": "Το αίτημα στάλθηκε!",
     "Requesting approval for %1": "Αίτημα έγκρισης για %1",
     "Reset order": "Ταξινόμηση καναλιών: «Ως έχει»",
+    "Reset to default": "Επαναφορά προεπιλογών",
     "Restart player": "Επανεκκίνηση προγράμματος αναπαραγωγής",
     "Restart stream": "Επανεκκίνηση ροής",
     "Restart stream / Live": "Επανεκκίνηση ροής / ζωντανά",
@@ -1043,6 +1047,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Κυ Δε Τρ Τε Πε Πα Σα",
     "Subscription information": "Πληροφορίες συνδρομής",
     Subtitle: "Υπότιτλοι",
+    "Subtitle appearance": "Εμφάνιση υποτίτλων",
     Switch: "Εναλλαγή",
     "Switch sound track": "Αλλαγή κομματιού ήχου",
     "Switch subtitle": "Αλλαγή υποτίτλων",
@@ -1056,6 +1061,7 @@ var keyStrings = {
     system: "συστήματος",
     Tabox: "Tabox",
     "Tabox settings": "Ρυθμίσεις Tabox",
+    "Text color": "Χρώμα κειμένου",
     "Text is too long for remote input.":
         "Το κείμενο είναι πολύ μεγάλο για απομακρυσμένη εισαγωγή.",
     "Text is too long. Please shorten it before sending.":

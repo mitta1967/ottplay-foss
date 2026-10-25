@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "Lọ sẹ́yìn / síwájú ní ìṣẹ́jú 1",
     "Background color": "Àwọ̀ abẹ́lẹ̀",
     "Background color of selected item": "Àwọ̀ abẹ́lẹ̀ ohun tí a yàn",
+    "Background opacity": "Àìmọ́lẹ̀ kọjá abẹ́lẹ̀",
     "Backup state changed": "Ipo afẹyinti yipada",
     "Backup streams": "Àwọn ìṣàn àfẹ́yìntì",
     "Balance, $": "Iye owó tó kù, $",
@@ -515,6 +516,7 @@ var keyStrings = {
     "First Run Setup": "Ètò ìbẹ̀rẹ̀ àkọ́kọ́",
     "Fit to screen": "Bá ìwọ̀n ibojú mu",
     Folders: "Àwọn fódà",
+    "Font size": "Ìwọ̀n lẹ́tà",
     "Font type": "Irú lẹ́tà",
     "For download settings file open": "Láti gba fáìlì ètò sílẹ̀, ṣí",
     "For enter value open": "Láti tẹ iye kan, ṣí",
@@ -682,6 +684,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play titẹ sii latọna jijin",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 ti wà. Ṣé kí a gbà á sílẹ̀ kí a sì fi í sí ẹ̀rọ báyìí?",
+    "Outline thickness": "Sísanra ìlà ààlà",
     "Overwrite current settings?": "Rọ́pò ètò lọ́wọ́lọ́wọ́?",
     off: "pípa",
     on: "ṣíṣí",
@@ -829,6 +832,7 @@ var keyStrings = {
     "Request sended!": "A ti fi ìbéèrè ránṣẹ́!",
     "Requesting approval for %1": "Ń béèrè ìfọwọ́sí fún %1",
     "Reset order": 'To àwọn ìkànnì: "Bí ó ṣe rí"',
+    "Reset to default": "Dá àwọn ètò àkọ́kọ́ padà",
     "Restart player": "Tún ẹ̀rọ ìṣeré bẹ̀rẹ̀",
     "Restart stream": "Tún ìṣàn bẹ̀rẹ̀",
     "Restart stream / Live": "Tún ìṣàn bẹ̀rẹ̀ / Ìgbóhùnsáfẹ́fẹ́ tààrà",
@@ -996,6 +1000,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Àìkú Ajé Ìsẹ́gun Ọjọ́rú Ọjọ́bọ Ẹtì Àbámẹ́ta",
     "Subscription information": "Ìwífún ìforúkọsílẹ̀",
     Subtitle: "Àkọlé ìsàlẹ̀",
+    "Subtitle appearance": "Ìrísí àkọlé ìsàlẹ̀",
     Switch: "Yí padà",
     "Switch sound track": "Yí ọ̀nà ohùn padà",
     "Switch subtitle": "Yí àkọlé ìsàlẹ̀ padà",
@@ -1009,6 +1014,7 @@ var keyStrings = {
     system: "ètò ẹ̀rọ",
     Tabox: "Tabox",
     "Tabox settings": "Ètò Tabox",
+    "Text color": "Àwọ̀ ọ̀rọ̀",
     "Text is too long for remote input.":
         "Ọ̀rọ̀ náà gùn jù fún títẹ láti ọ̀nà jíjìn.",
     "Text is too long. Please shorten it before sending.":

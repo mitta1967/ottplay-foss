@@ -191,6 +191,11 @@ export interface PlayerSettings {
     stopPlay: number;
     streamMaxBitrate: number;
     streamMaxHeight: number;
+    subtitleBackground: number;
+    subtitleFontFamily: number;
+    subtitleFontSize: number;
+    subtitleOutline: number;
+    subtitleTextColor: number;
     swopBaseUrl: string;
     thumbnail: number;
     timezone: number;
@@ -290,6 +295,11 @@ export function defaultSettings(): PlayerSettings {
         stopPlay: 0,
         streamMaxBitrate: 0,
         streamMaxHeight: 0,
+        subtitleBackground: 0,
+        subtitleFontFamily: 0,
+        subtitleFontSize: 0,
+        subtitleOutline: 0,
+        subtitleTextColor: 0,
         swopBaseUrl: "",
         thumbnail: 1,
         timezone: 0,
@@ -405,6 +415,30 @@ function defineSetting(
     };
 }
 export const settingsSchema: SettingDefinition[] = [
+    defineSetting(
+        "subtitleFontFamily",
+        "sSubtitleFontFamily",
+        { range: [0, 3] },
+        ["applySubtitleAppearance"]
+    ),
+    defineSetting("subtitleFontSize", "sSubtitleFontSize", { range: [0, 5] }, [
+        "applySubtitleAppearance",
+    ]),
+    defineSetting(
+        "subtitleTextColor",
+        "sSubtitleTextColor",
+        { range: [0, 5] },
+        ["applySubtitleAppearance"]
+    ),
+    defineSetting("subtitleOutline", "sSubtitleOutline", { range: [0, 4] }, [
+        "applySubtitleAppearance",
+    ]),
+    defineSetting(
+        "subtitleBackground",
+        "sSubtitleBackground",
+        { range: [0, 5] },
+        ["applySubtitleAppearance"]
+    ),
     defineSetting("streamMaxHeight", "sStreamMaxHeight", {
         values: [0, 360, 480, 720, 1080, 2160],
     }),

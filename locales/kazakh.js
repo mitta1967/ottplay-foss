@@ -101,6 +101,7 @@ var keyStrings = {
     "Back / Forward for 1 minute": "1 минут артқа / алға",
     "Background color": "Фон түсі",
     "Background color of selected item": "Таңдалған элементтің фон түсі",
+    "Background opacity": "Фонның мөлдір еместігі",
     "Backup state changed": "Сақтық көшірме күйі өзгертілді",
     "Backup streams": "Қосалқы ағындар",
     "Balance, $": "Баланс, $",
@@ -526,6 +527,7 @@ var keyStrings = {
     "First Run Setup": "Алғашқы іске қосу баптауы",
     "Fit to screen": "Экранға сыйдыру",
     Folders: "Қалталар",
+    "Font size": "Қаріп өлшемі",
     "Font type": "Қаріп түрі",
     "For download settings file open":
         "Баптаулар файлын жүктеп алу үшін ашыңыз",
@@ -695,6 +697,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play қашықтан енгізу",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 қолжетімді. Қазір жүктеп алып, орнату керек пе?",
+    "Outline thickness": "Жиек қалыңдығы",
     "Overwrite current settings?": "Ағымдағы баптаулар қайта жазылсын ба?",
     off: "өшірулі",
     on: "қосулы",
@@ -841,6 +844,7 @@ var keyStrings = {
     "Request sended!": "Сұрау жіберілді!",
     "Requesting approval for %1": "%1 үшін растау сұралуда",
     "Reset order": "Арналарды сұрыптау: «Өзгеріссіз»",
+    "Reset to default": "Әдепкі мәндерді қалпына келтіру",
     "Restart player": "Ойнатқышты қайта іске қосу",
     "Restart stream": "Ағынды қайта іске қосу",
     "Restart stream / Live": "Ағынды қайта іске қосу / тікелей эфир",
@@ -1012,6 +1016,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Жс Дс Сс Ср Бс Жм Сб",
     "Subscription information": "Жазылым туралы ақпарат",
     Subtitle: "Субтитрлер",
+    "Subtitle appearance": "Субтитрлердің көрінісі",
     Switch: "Ауыстыру",
     "Switch sound track": "Дыбыс жолын ауыстыру",
     "Switch subtitle": "Субтитрді ауыстыру",
@@ -1025,6 +1030,7 @@ var keyStrings = {
     system: "жүйелік",
     Tabox: "Tabox",
     "Tabox settings": "Tabox баптаулары",
+    "Text color": "Мәтін түсі",
     "Text is too long for remote input.":
         "Мәтін қашықтан енгізу үшін тым ұзын.",
     "Text is too long. Please shorten it before sending.":

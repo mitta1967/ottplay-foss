@@ -4,7 +4,10 @@ const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { CLASSIC_PROVIDER_BUNDLES } = require("../scripts/classic-bundle.cjs");
+const {
+    CLASSIC_OPTIONAL_BUNDLES,
+    CLASSIC_PROVIDER_BUNDLES,
+} = require("../scripts/classic-bundle.cjs");
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "ottplay-package-test-"));
 try {
     const git = (...args) =>
@@ -37,7 +40,10 @@ try {
     fs.writeFileSync(
         path.join(root, "scripts/classic-bundle.cjs"),
         "module.exports = " +
-            JSON.stringify({ CLASSIC_PROVIDER_BUNDLES }) +
+            JSON.stringify({
+                CLASSIC_OPTIONAL_BUNDLES,
+                CLASSIC_PROVIDER_BUNDLES,
+            }) +
             ";\n"
     );
     fs.writeFileSync(
@@ -85,6 +91,16 @@ try {
             );
             fs.writeFileSync(path.join(root, "dist", file), bytes);
             return { bytes, file, kind };
+        }
+    );
+    const optionalBundles = Object.keys(CLASSIC_OPTIONAL_BUNDLES).map(
+        (name) => {
+            const file = name + ".js";
+            const bytes = Buffer.from(
+                'var optionalFixture = "' + name + '";\n'
+            );
+            fs.writeFileSync(path.join(root, "dist", file), bytes);
+            return { bytes, file, name };
         }
     );
     fs.writeFileSync(path.join(root, "dist/provider-obsolete.js"), "stale");
@@ -171,6 +187,20 @@ try {
         });
     }
     assert.equal(entries.includes("./dist/provider-obsolete.js"), false);
+    assert.deepEqual(
+        Object.keys(metadata.optionalBundles).sort(),
+        Object.keys(CLASSIC_OPTIONAL_BUNDLES).sort()
+    );
+    for (const { bytes, file, name } of optionalBundles) {
+        const entry = "./dist/" + file;
+        assert.equal(entries.filter((value) => value === entry).length, 1);
+        assert.deepEqual(execFileSync("tar", ["-xOf", archive, entry]), bytes);
+        assert.deepEqual(metadata.optionalBundles[name], {
+            bytes: bytes.length,
+            file: "dist/" + file,
+            sha256: createHash("sha256").update(bytes).digest("hex"),
+        });
+    }
     assert.equal(
         entries.some((name) => name.includes("diagnostics/")),
         false
@@ -285,6 +315,14 @@ try {
         fs.rmdirSync(built);
         fs.writeFileSync(built, bytes);
     }
+    for (const { bytes, file } of optionalBundles) {
+        const built = path.join(root, "dist", file);
+        fs.unlinkSync(built);
+        assert.throws(packageAndRead, (error) =>
+            error.message.includes("Missing dist/" + file)
+        );
+        fs.writeFileSync(built, bytes);
+    }
     for (const file of [
         "pc.webmanifest",
         "window-controls.js",
@@ -306,6 +344,8 @@ try {
     fs.mkdirSync(path.join(candidate, "dist"), { recursive: true });
     fs.writeFileSync(path.join(candidate, "index.html"), "<html></html>");
     fs.writeFileSync(path.join(candidate, "dist/player.js"), "");
+    for (const name of Object.keys(CLASSIC_OPTIONAL_BUNDLES))
+        fs.writeFileSync(path.join(candidate, "dist", name + ".js"), "");
     const missing = providerBundles[0].file;
     const incompleteProviders = {};
     for (const { file, kind } of providerBundles.slice(1)) {

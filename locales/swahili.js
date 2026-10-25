@@ -104,6 +104,7 @@ var keyStrings = {
     "Background color": "Rangi ya usuli",
     "Background color of selected item":
         "Rangi ya mandharinyuma ya kipengee kilichochaguliwa",
+    "Background opacity": "Kiwango cha kutopitisha mwanga cha usuli",
     "Backup state changed": "Hali ya kuhifadhi nakala imebadilishwa",
     "Backup streams": "Mitiririko ya akiba",
     "Balance, $": "Salio, $",
@@ -536,6 +537,7 @@ var keyStrings = {
     "First Run Setup": "Mpangilio wa kwanza",
     "Fit to screen": "Itoshee skrini",
     Folders: "Folda",
+    "Font size": "Ukubwa wa fonti",
     "Font type": "Aina ya herufi",
     "For download settings file open":
         "Ili kupakua faili ya mipangilio, fungua",
@@ -705,6 +707,7 @@ var keyStrings = {
     "OTT-play remote input": "OTT-play ingizo la mbali",
     "OttPlay FOSS %1 is available. Download and install now?":
         "OttPlay FOSS %1 inapatikana. Pakua na usakinishe sasa?",
+    "Outline thickness": "Unene wa mstari wa nje",
     "Overwrite current settings?": "Je, ungependa kufuta mipangilio ya sasa?",
     off: "imezimwa",
     on: "imewashwa",
@@ -853,6 +856,7 @@ var keyStrings = {
     "Request sended!": "Ombi limetumwa!",
     "Requesting approval for %1": "Inaomba idhini ya %1",
     "Reset order": 'Panga vituo: "Kama ilivyo"',
+    "Reset to default": "Rejesha mipangilio chaguomsingi",
     "Restart player": "Anzisha tena kicheza media",
     "Restart stream": "Anzisha tena mtiririko",
     "Restart stream / Live": "Anzisha tena mtiririko / Moja kwa moja",
@@ -1024,6 +1028,7 @@ var keyStrings = {
     "Su Mo Tu We Th Fr Sa": "Jpil Jtat Jnne Jtan Alh Ijm Jmos",
     "Subscription information": "Maelezo ya usajili",
     Subtitle: "Manukuu",
+    "Subtitle appearance": "Mwonekano wa manukuu",
     Switch: "Badili",
     "Switch sound track": "Badilisha wimbo wa sauti",
     "Switch subtitle": "Badilisha manukuu",
@@ -1037,6 +1042,7 @@ var keyStrings = {
     system: "mfumo",
     Tabox: "Tabox",
     "Tabox settings": "Tabox mipangilio",
+    "Text color": "Rangi ya maandishi",
     "Text is too long for remote input.":
         "Maandishi ni marefu sana kwa ingizo la mbali.",
     "Text is too long. Please shorten it before sending.":

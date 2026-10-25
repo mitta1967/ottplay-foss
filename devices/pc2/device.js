@@ -97,6 +97,13 @@ var keys = {
         var wantsPlay = request.paused !== true;
         if (!wantsPlay) media.autoplay = false;
         var sourceAttached = false;
+        var backend =
+            !pip && typeof w.__ottCoreBackend === "function"
+                ? w.__ottCoreBackend()
+                : null;
+        // The public track choice belongs to the outer backend handle, not
+        // this Video.js lease. Never borrow a later source's choice.
+        var owner = backend && backend.current();
         var seekReady = false;
         var pendingSeek =
             request.position > 0 ? Number(request.position) : null;
@@ -139,26 +146,50 @@ var keys = {
                 ? player.audioTracks()
                 : player.textTracks();
         }
+        function ownsTracks() {
+            return (
+                alive &&
+                (!owner ||
+                    (backend.current() === owner &&
+                        (typeof owner.active !== "function" || owner.active())))
+            );
+        }
         function selectTrack(kind, index) {
-            if (!alive) return;
+            if (!ownsTracks()) return;
             var tracks = trackList(kind);
             var target = kind === "audio" ? index : index - 1;
             if (kind === "audio" && (target < 0 || target >= tracks.length))
                 return;
             for (var i = 0; i < tracks.length; i++) {
-                if (kind === "audio") tracks[i].enabled = i === target;
-                else if (/^(subtitles|captions)$/.test(tracks[i].kind))
-                    tracks[i].mode = i === target ? "showing" : "disabled";
+                if (kind === "audio") {
+                    if (tracks[i].enabled !== (i === target))
+                        tracks[i].enabled = i === target;
+                } else if (/^(subtitles|captions)$/.test(tracks[i].kind)) {
+                    var mode = i === target ? "showing" : "disabled";
+                    if (tracks[i].mode !== mode) tracks[i].mode = mode;
+                }
             }
         }
         function restoreTracks() {
-            if (!alive || pip) return;
+            if (!ownsTracks() || pip) return;
             ["audio", "subtitle"].forEach(function (kind) {
+                var choice =
+                    owner &&
+                    owner.__ottExplicitTracks &&
+                    owner.__ottExplicitTracks[kind];
+                if (choice) {
+                    selectTrack(kind, choice - 1);
+                    return;
+                }
                 if (typeof w.applyChannelPreference === "function")
                     w.applyChannelPreference(
                         kind === "audio" ? "aAudios" : "aSubs",
                         function (index) {
-                            selectTrack(kind, index);
+                            var selected =
+                                owner &&
+                                owner.__ottExplicitTracks &&
+                                owner.__ottExplicitTracks[kind];
+                            selectTrack(kind, selected ? selected - 1 : index);
                         }
                     );
             });
@@ -190,6 +221,8 @@ var keys = {
         });
         on(player.audioTracks(), "addtrack", restoreTracks);
         on(player.textTracks(), "addtrack", restoreTracks);
+        on(player.audioTracks(), "change", restoreTracks);
+        on(player.textTracks(), "change", restoreTracks);
         if (!pip) {
             w.forcePlay = wantsPlay;
             if (w.__ottPlaybackFeedback) {
