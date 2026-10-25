@@ -792,6 +792,33 @@ test("normalization matching uses the exact parsed route and falls back without 
         f.w.stbPlay(url);
         assert.equal(f.players.length, 0);
     }
+    for (const suffix of ["", "?", "#", "?#"]) {
+        assert.equal(
+            f.w.coreNormalizedMse(root + "/master.m3u8" + suffix),
+            true
+        );
+    }
+    for (const prefix of ["http://gateway.test:8080", "https://[::1]:8443"]) {
+        assert.equal(
+            f.w.coreNormalizedMse(
+                root.replace("https://gateway.test", prefix) + "/master.m3u8"
+            ),
+            true
+        );
+    }
+    for (const credentials of ["user@", ":password@", "user:password@"])
+        assert.equal(
+            f.w.coreNormalizedMse(
+                root.replace("https://", "https://" + credentials) +
+                    "/master.m3u8"
+            ),
+            false
+        );
+    assert.equal(
+        f.w.coreNormalizedMse(root.replace("https:", "ftp:") + "/master.m3u8"),
+        false
+    );
+    assert.equal(f.w.coreNormalizedMse("not a URL"), false);
     const unsupported = fixture({
         globals: { location: { href: "https://player.test/" }, URL },
         hlsMissing: true,

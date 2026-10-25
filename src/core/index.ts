@@ -1372,19 +1372,11 @@ function startCoreEngine(
 /** The registered normalization routes require separate rendition playback. */
 function coreNormalizedMse(url: string): boolean {
     try {
-        var parsed = new URL(url);
-        return (
-            !(
-                parsed.username ||
-                parsed.password ||
-                parsed.search ||
-                parsed.hash
-            ) &&
-            /^https?:\/normalize\/(?:play\/[A-Za-z0-9_-]{1,64}\/[A-Za-z0-9_-]{32,128}|lease\/[a-f0-9]{32}\/[a-f0-9]{32})\/master\.m3u8$/.test(
-                parsed.protocol + parsed.pathname
-            )
+        // RegExp stringifies the parsed URL; only empty query/fragment suffixes are allowed.
+        return /^https?:\/\/[^@/?#]+\/normalize\/(?:play\/[\w-]{1,64}\/[\w-]{32,128}\/|lease\/[\da-f]{32}\/[\da-f]{32}\/)master\.m3u8\??#?$/.test(
+            new URL(url) as unknown as string
         );
-    } catch (_) {
+    } catch (error) {
         return false;
     }
 }
