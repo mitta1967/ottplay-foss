@@ -885,6 +885,10 @@ export function stbEventToKeyCode(event: any): number {
     var code = event.code || "";
     var digit = /^[0-9]$/.test(key) ? Number(key) : -1;
     var deviceKeys = (window as any).keys || {};
+    // A named transport key is distinct from the PC's advertised S audio key,
+    // even when a browser reports the old colliding numeric code.
+    if (key === "MediaStop" || code === "MediaStop")
+        keyCode = deviceKeys.STOP || 178;
     // Firefox uses 61/173 for these keyboard keys. Require keyboard identity:
     // bare 173 is also a remote-control mute code on some platforms.
     if (
@@ -956,8 +960,6 @@ export function stbEventToKeyCode(event: any): number {
             code === "MediaPause"
         )
             keyCode = 80; // keys.PLAY / keys.PAUSE
-        else if (key === "MediaStop" || code === "MediaStop")
-            keyCode = 83; // keys.STOP
         else if (key === "GoBack" || code === "GoBack" || key === "BrowserBack")
             keyCode = 27; // keys.EXIT (menu/back remotes; Android BACK parity)
         else if (key === "l" || key === "L" || code === "KeyL") keyCode = 76;
