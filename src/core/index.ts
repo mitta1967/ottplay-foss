@@ -2419,7 +2419,12 @@ function avTracks(
     selected?: number,
     audio?: boolean
 ): any[] {
-    var hls = hlsInstance,
+    var hls =
+            media === video
+                ? hlsInstance
+                : media === videoPip
+                  ? hlsPipInstance
+                  : null,
         key = audio ? "audioTrack" : "subtitleTrack";
     var rows: any[] = [],
         manifest = (hls && hls[key + "s"]) || [];

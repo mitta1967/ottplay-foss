@@ -492,6 +492,45 @@ test("PiP track discovery reads its own native media element", () => {
     assert.equal(pip.tracks("audio")[0].name, "Preview audio");
     assert.equal(pip.tracks("subtitle")[0].name, "Preview captions");
 });
+test("native PiP track discovery ignores the main HLS instance", () => {
+    const { w, players } = fixture();
+    w.playerMode = 1;
+    w.stbPlay("main.m3u8");
+    players[0].audioTracks = [{ name: "Main HLS audio" }];
+    players[0].subtitleTracks = [{ name: "Main HLS captions" }];
+    w.videoPip.audioTracks = [{ enabled: true, label: "Preview native audio" }];
+    w.videoPip.textTracks = [
+        { kind: "captions", label: "Preview native captions", mode: "showing" },
+    ];
+    w.playerMode = 0;
+    w.stbPlayPip("preview.mp4");
+    const pip = w.__ottCoreBackend().current("pip");
+    assert.equal(pip.tracks("audio")[0].name, "Preview native audio");
+    assert.equal(pip.tracks("subtitle")[0].name, "Preview native captions");
+    assert.equal(
+        w.__ottCoreBackend().current().tracks("audio")[0].name,
+        "Main HLS audio"
+    );
+});
+test("HLS PiP track discovery uses its instance before media attachment", () => {
+    const { w, players } = fixture();
+    w.video.audioTracks = [{ enabled: true, label: "Main native audio" }];
+    w.playerMode = 0;
+    w.stbPlay("main.mp4");
+    w.playerMode = 1;
+    w.stbPlayPip("preview.m3u8");
+    const hls = players[0];
+    hls.audioTracks = [{ name: "Preview HLS audio" }];
+    hls.subtitleTracks = [{ name: "Preview HLS captions" }];
+    hls.media = null; // The owned instance can exist before async attachment completes.
+    const pip = w.__ottCoreBackend().current("pip");
+    assert.equal(pip.tracks("audio")[0].name, "Preview HLS audio");
+    assert.equal(pip.tracks("subtitle")[0].name, "Preview HLS captions");
+    assert.equal(
+        w.__ottCoreBackend().current().tracks("audio")[0].name,
+        "Main native audio"
+    );
+});
 test("shared native track collection preserves audio index zero and does not alter captions", () => {
     const { w } = fixture();
     w.video.audioTracks = [

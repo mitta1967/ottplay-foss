@@ -5,7 +5,10 @@ const os = require("node:os");
 const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
-const { CLASSIC_PROVIDER_BUNDLES } = require("../scripts/classic-bundle.cjs");
+const {
+    CLASSIC_OPTIONAL_BUNDLES,
+    CLASSIC_PROVIDER_BUNDLES,
+} = require("../scripts/classic-bundle.cjs");
 
 const configPath = path.resolve(__dirname, "../vite.config.ts");
 const text = fs.readFileSync(configPath, "utf8");
@@ -42,6 +45,7 @@ const code = ts.transpileModule(
 const context = vm.createContext({
     ...fs,
     ...path,
+    CLASSIC_OPTIONAL_BUNDLES,
     CLASSIC_PROVIDER_BUNDLES,
     console: { log() {} },
     isRetiredRuntimeScript: require("../scripts/runtime-assets.cjs")
@@ -124,6 +128,9 @@ try {
         write(name);
     for (const kind of Object.keys(CLASSIC_PROVIDER_BUNDLES)) {
         write("dist/provider-" + kind + ".js", "provider " + kind);
+    }
+    for (const name of Object.keys(CLASSIC_OPTIONAL_BUNDLES)) {
+        write("dist/" + name + ".js", "optional " + name);
     }
     write(
         "src/build/core/auto-playback.js",
@@ -244,8 +251,20 @@ try {
         );
     }
 
+    for (const name of Object.keys(CLASSIC_OPTIONAL_BUNDLES)) {
+        assert.equal(
+            fs.readFileSync(
+                path.join(fixture, "stage/dist", name + ".js"),
+                "utf8"
+            ),
+            "optional " + name
+        );
+        assert.equal(exists("stage/" + name + ".js"), false);
+    }
+
     const scripts = [
         "player.js",
+        ...Object.keys(CLASSIC_OPTIONAL_BUNDLES).map((name) => name + ".js"),
         ...Object.keys(CLASSIC_PROVIDER_BUNDLES).map(
             (kind) => "provider-" + kind + ".js"
         ),
