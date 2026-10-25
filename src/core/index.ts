@@ -1373,7 +1373,7 @@ function startCoreEngine(
 function coreNormalizedMse(url: string): boolean {
     try {
         if (typeof URL !== "function") return false;
-        var parsed = new URL(url, window.location && window.location.href);
+        var parsed = new URL(url);
         return (
             /^(https?:)$/.test(parsed.protocol) &&
             !parsed.username &&
