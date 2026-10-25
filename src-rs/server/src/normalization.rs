@@ -78,6 +78,14 @@ struct Settings {
     ffprobe: PathBuf,
     directory: PathBuf,
     sources: HashMap<String, Source>,
+    #[serde(default)]
+    profiles: HashMap<String, Profile>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Profile {
+    file: PathBuf,
+    key: String,
 }
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -330,6 +338,7 @@ impl Generations {
 
 struct Gateway {
     settings: Settings,
+    profiles: HashMap<String, Vec<u8>>,
     manager: Manager,
     leases: Mutex<HashMap<String, Arc<Lease>>>,
     client: reqwest::Client,
@@ -341,16 +350,18 @@ struct Gateway {
 }
 
 /// Disabled unless the operator supplies a private JSON configuration file.
-pub async fn routes_from_env() -> Result<Router> {
+pub async fn routes_from_env(bound_host: &str) -> Result<Router> {
     let Some(file) = std::env::var_os("OTT_NORMALIZATION_CONFIG") else {
         return Ok(Router::new());
     };
     let settings: Settings = serde_json::from_slice(&tokio::fs::read(file).await?)
         .context("invalid normalization configuration")?;
+    validate_bind(&settings.public_base, bound_host)?;
     configured_routes(settings).await
 }
 async fn configured_routes(settings: Settings) -> Result<Router> {
     validate_settings(&settings)?;
+    let profiles = load_profiles(&settings.profiles).await?;
     let origins: Vec<HeaderValue> = settings
         .origins
         .iter()
@@ -373,6 +384,7 @@ async fn configured_routes(settings: Settings) -> Result<Router> {
     let generation = Generations::open(&settings.directory)?;
     let gateway = Arc::new(Gateway {
         settings,
+        profiles,
         manager,
         leases: Mutex::new(HashMap::new()),
         client: client.clone(),
@@ -433,6 +445,7 @@ async fn configured_routes(settings: Settings) -> Result<Router> {
                 admin_auth,
             )),
         )
+        .route("/normalize/profile/:profile/:key/index.m3u", get(profile))
         .route("/normalize/media/:lease/:file", get(media))
         .route("/normalize/lease/:lease/:key/:file", get(leased_playlist))
         .route("/normalize/play/:source/:key/:file", get(play))
@@ -489,6 +502,120 @@ async fn source_client(settings: &Settings) -> Result<reqwest::Client> {
     Ok(builder.build()?)
 }
 
+fn literal_loopback_base(base: &str) -> bool {
+    let Some(authority) = base
+        .strip_prefix("http://")
+        .and_then(|v| v.split('/').next())
+    else {
+        return false;
+    };
+    authority == "127.0.0.1"
+        || authority == "[::1]"
+        || authority
+            .strip_prefix("127.0.0.1:")
+            .is_some_and(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+        || authority
+            .strip_prefix("[::1]:")
+            .is_some_and(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+}
+fn validate_bind(base: &str, host: &str) -> Result<()> {
+    if reqwest::Url::parse(base)?.scheme() == "http"
+        && (!literal_loopback_base(base) || !matches!(host, "127.0.0.1" | "::1"))
+    {
+        bail!("HTTP normalization requires a literal loopback base and bind address");
+    }
+    Ok(())
+}
+fn validate_profiles(settings: &Settings) -> Result<()> {
+    if settings.profiles.len() > 8 {
+        bail!("profile registry too large");
+    }
+    let mut keys = std::collections::HashSet::new();
+    for (id, profile) in &settings.profiles {
+        if id.is_empty()
+            || id.len() > 64
+            || !id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+            || !profile.file.is_absolute()
+            || !(32..=128).contains(&profile.key.len())
+            || !profile
+                .key
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+            || same_secret(&profile.key, &settings.key)
+            || settings
+                .sources
+                .values()
+                .any(|source| same_secret(&profile.key, &source.playback_key))
+            || !keys.insert(&profile.key)
+        {
+            bail!("invalid independent profile registration");
+        }
+    }
+    Ok(())
+}
+async fn load_profiles(profiles: &HashMap<String, Profile>) -> Result<HashMap<String, Vec<u8>>> {
+    use tokio::io::AsyncReadExt;
+    let mut snapshots = HashMap::new();
+    for (id, profile) in profiles {
+        let bytes = tokio::time::timeout(Duration::from_secs(3), async {
+            let before = tokio::fs::symlink_metadata(&profile.file).await?;
+            if !before.is_file() || before.len() > 4 * 1024 * 1024 {
+                bail!("invalid profile file");
+            }
+            let file = tokio::fs::File::open(&profile.file).await?;
+            let opened = file.metadata().await?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
+                if before.dev() != opened.dev()
+                    || before.ino() != opened.ino()
+                    || opened.mode() & 0o077 != 0
+                {
+                    bail!("profile file must remain private and unchanged while opening");
+                }
+            }
+            let mut bytes = Vec::new();
+            file.take(4 * 1024 * 1024 + 1)
+                .read_to_end(&mut bytes)
+                .await?;
+            if bytes.len() > 4 * 1024 * 1024
+                || !std::str::from_utf8(&bytes)?
+                    .trim_start_matches('\u{feff}')
+                    .starts_with("#EXTM3U")
+            {
+                bail!("invalid profile snapshot");
+            }
+            Ok::<_, anyhow::Error>(bytes)
+        })
+        .await
+        .context("profile snapshot timed out")??;
+        snapshots.insert(id.clone(), bytes);
+    }
+    Ok(snapshots)
+}
+async fn profile(
+    State(gateway): State<Shared>,
+    Path((id, key)): Path<(String, String)>,
+) -> Response {
+    let Some(profile) = gateway.settings.profiles.get(&id) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if !same_secret(&key, &profile.key) {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let Ok(permit) = gateway.serve_slots.clone().try_acquire_owned() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    let mut response = guarded_response("audio/x-mpegurl", gateway.profiles[&id].clone(), permit);
+    response.headers_mut().insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
+    response
+}
+
 fn validate_settings(settings: &Settings) -> Result<()> {
     if settings.key.len() < 32 || settings.key.len() > 256 {
         bail!("normalization key must contain 32 to 256 bytes");
@@ -497,7 +624,7 @@ fn validate_settings(settings: &Settings) -> Result<()> {
         bail!("source registry too large");
     }
     let base = reqwest::Url::parse(&settings.public_base)?;
-    if base.scheme() != "https"
+    if !(base.scheme() == "https" || literal_loopback_base(&settings.public_base))
         || !base.username().is_empty()
         || base.password().is_some()
         || base.path() != "/"
@@ -506,6 +633,7 @@ fn validate_settings(settings: &Settings) -> Result<()> {
     {
         bail!("normalization public base requires HTTPS");
     }
+    validate_profiles(settings)?;
     for origin in &settings.origins {
         let url = reqwest::Url::parse(origin)?;
         let native = matches!(
@@ -1745,6 +1873,90 @@ mod tests {
         assert!(same_secret("long key", "long key"));
         assert!(!same_secret("long key", "other key"));
     }
+    #[test]
+    fn local_base_requires_exact_loopback_bind() {
+        for base in ["http://127.0.0.1:8765", "http://[::1]:8765"] {
+            assert!(validate_bind(base, "127.0.0.1").is_ok());
+            assert!(validate_bind(base, "::1").is_ok());
+            for host in ["0.0.0.0", "::", "localhost", "127.0.0.2"] {
+                assert!(validate_bind(base, host).is_err());
+            }
+        }
+        for base in [
+            "http://localhost:8765",
+            "http://127.1:8765",
+            "http://2130706433:8765",
+            "http://127.0.0.2:8765",
+            "http://127.0.0.1.evil:8765",
+        ] {
+            assert!(validate_bind(base, "127.0.0.1").is_err());
+        }
+        assert!(validate_bind("https://media.example", "0.0.0.0").is_ok());
+    }
+
+    #[test]
+    fn profile_keys_are_independent_of_playback_and_admin() {
+        let mut settings: Settings = serde_json::from_value(json!({
+            "key": "a".repeat(40), "public_base": "https://media.example", "origins": [],
+            "ffmpeg": "/bin/ffmpeg", "ffprobe": "/bin/ffprobe", "directory": "/private/state",
+            "sources": {"demo": {"url": "https://source.example/a", "allowed_origins": ["https://source.example"], "playback_key": "b".repeat(40)}},
+            "profiles": {"home": {"file": "/private/home.m3u", "key": "c".repeat(40)}}
+        })).unwrap();
+        assert!(validate_settings(&settings).is_ok());
+        for key in [
+            "a".repeat(40),
+            "b".repeat(40),
+            "short".into(),
+            "?".repeat(40),
+        ] {
+            settings.profiles.get_mut("home").unwrap().key = key;
+            assert!(validate_settings(&settings).is_err());
+        }
+        settings.profiles.get_mut("home").unwrap().key = "c".repeat(40);
+        settings.profiles.get_mut("home").unwrap().file = "relative.m3u".into();
+        assert!(validate_settings(&settings).is_err());
+    }
+
+    #[tokio::test]
+    async fn private_profile_snapshot_is_bounded_and_immutable() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = std::env::temp_dir().join(format!("ott-profile-{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir(&directory).await.unwrap();
+        let file = directory.join("home.m3u");
+        tokio::fs::write(
+            &file,
+            b"#EXTM3U\n#EXTINF:-1,Sample\nhttps://example.invalid/video\n",
+        )
+        .await
+        .unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let profiles = HashMap::from([(
+            "home".into(),
+            Profile {
+                file: file.clone(),
+                key: "z".repeat(40),
+            },
+        )]);
+        let snapshot = load_profiles(&profiles).await.unwrap();
+        tokio::fs::write(&file, b"#EXTM3U\nchanged").await.unwrap();
+        assert!(String::from_utf8(snapshot["home"].clone())
+            .unwrap()
+            .contains("Sample"));
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(load_profiles(&profiles).await.is_err());
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+        tokio::fs::write(&file, vec![b'x'; 4 * 1024 * 1024 + 1])
+            .await
+            .unwrap();
+        assert!(load_profiles(&profiles).await.is_err());
+        tokio::fs::write(&file, b"not a playlist").await.unwrap();
+        assert!(load_profiles(&profiles).await.is_err());
+        tokio::fs::remove_file(&file).await.unwrap();
+        std::os::unix::fs::symlink("missing", &file).unwrap();
+        assert!(load_profiles(&profiles).await.is_err());
+        tokio::fs::remove_dir_all(&directory).await.unwrap();
+    }
+
     #[tokio::test]
     async fn response_keeps_capacity_until_last_emitted_bytes_are_dropped() {
         use futures_util::StreamExt;
@@ -1805,7 +2017,7 @@ mod tests {
         let bytes = tokio::fs::read(&input).await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
-        let upstream=Router::new().route("/master.m3u8",get(||async{"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:12\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:12,\nsix.ts\n"})).route("/six.ts",get(move||{let bytes=bytes.clone();async move{bytes}}));
+        let upstream=Router::new().route("/master.m3u8",get(||async{"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:12\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:12,\nsix.ts\n#EXT-X-ENDLIST\n"})).route("/six.ts",get(move||{let bytes=bytes.clone();async move{bytes}}));
         let slow_started = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let started = slow_started.clone();
         let upstream = upstream.route(
@@ -1852,6 +2064,19 @@ mod tests {
                 playback_key: "q".repeat(40),
             },
         );
+        let profile_file = directory.join("home.m3u");
+        tokio::fs::write(
+            &profile_file,
+            b"#EXTM3U\n#EXTINF:-1,Sample\nhttps://example.invalid/video\n",
+        )
+        .await
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&profile_file, std::fs::Permissions::from_mode(0o600))
+                .unwrap();
+        }
         let app = configured_routes(Settings {
             key: key.clone(),
             public_base: "https://media.example".into(),
@@ -1860,9 +2085,88 @@ mod tests {
             ffprobe,
             directory: directory.join("sessions"),
             sources,
+            profiles: HashMap::from([(
+                "home".into(),
+                Profile {
+                    file: profile_file.clone(),
+                    key: "z".repeat(40),
+                },
+            )]),
         })
         .await
         .unwrap();
+        for method in ["GET", "HEAD"] {
+            let response = app
+                .clone()
+                .oneshot(
+                    axum::http::Request::builder()
+                        .method(method)
+                        .uri(format!(
+                            "/normalize/profile/home/{}/index.m3u",
+                            "z".repeat(40)
+                        ))
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.headers()["cache-control"], "private, no-store");
+            assert_eq!(response.headers()["referrer-policy"], "no-referrer");
+            let body = axum::body::to_bytes(response.into_body(), 4096)
+                .await
+                .unwrap();
+            assert_eq!(body.is_empty(), method == "HEAD");
+        }
+        tokio::fs::write(&profile_file, b"#EXTM3U\nchanged")
+            .await
+            .unwrap();
+        let snapshot_response = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri(format!(
+                        "/normalize/profile/home/{}/index.m3u",
+                        "z".repeat(40)
+                    ))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let snapshot = axum::body::to_bytes(snapshot_response.into_body(), 4096)
+            .await
+            .unwrap();
+        assert!(std::str::from_utf8(&snapshot).unwrap().contains("Sample"));
+        for invalid in [&key, &playback] {
+            let response = app
+                .clone()
+                .oneshot(
+                    axum::http::Request::builder()
+                        .uri(format!("/normalize/profile/home/{invalid}/index.m3u"))
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        }
+        for path in [
+            format!("/normalize/profile/missing/{}/index.m3u", "z".repeat(40)),
+            format!("/normalize/profile/home/{}/other.m3u", "z".repeat(40)),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    axum::http::Request::builder()
+                        .uri(path)
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        }
         async fn request(
             app: &Router,
             path: &str,
@@ -2246,6 +2550,7 @@ mod tests {
                 ffmpeg: failed,
                 ffprobe: PathBuf::from(std::env::var_os("OTT_TEST_FFPROBE").unwrap()),
                 directory: directory.join("fallback"),
+                profiles: HashMap::new(),
                 sources: HashMap::from([(
                     "demo".into(),
                     Source {
@@ -2313,6 +2618,7 @@ mod tests {
                 ffmpeg: PathBuf::from(std::env::var_os("OTT_TEST_FFMPEG").unwrap()),
                 ffprobe: slow,
                 directory: directory.join("pending"),
+                profiles: HashMap::new(),
                 sources: HashMap::from([(
                     "demo".into(),
                     Source {

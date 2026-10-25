@@ -53,6 +53,35 @@ after an intentional upstream DNS migration. Source headers are sent only to the
 initial source's origin. Workers receive a
 loopback proxy URL, never direct unrestricted upstream access.
 
+## Private local profile delivery
+
+A managed local desktop deployment may use `public_base` such as
+`http://127.0.0.1:8789`, only while the server also binds explicitly to
+`--host 127.0.0.1` (or literal `::1`). Non-loopback deployments still require
+HTTPS. Hostnames and alternate numeric IP spellings cannot enable this exception.
+Use the normalization-only role for this dedicated service.
+
+Optional `profiles` configuration delivers an operator-created private overlay:
+
+```json
+"profiles": {
+  "home": {
+    "file": "/absolute/private/home-overlay.m3u",
+    "key": "REPLACE_WITH_SEPARATE_RANDOM_PROFILE_KEY"
+  }
+}
+```
+
+The profile key is independent of every source playback key and the admin key:
+a playlist can contain credentials for several sources. Its GET/HEAD endpoint is
+`/normalize/profile/home/PROFILE_KEY/index.m3u`. Keep that URL private too.
+At startup the server reads at most eight regular, non-symlink UTF-8 M3U files,
+up to 4 MiB each, with a three-second read deadline per file. Unix files must have
+no group/other permissions. The immutable snapshot requires a service restart to
+change; no request accepts a path, URL, or replacement content. Responses use the
+shared bounded response capacity, `no-store`, `no-referrer`, and `nosniff`.
+Keep the original profile intact and select a cloned profile for validation.
+
 ## Portable playlist integration
 
 A registered source's stable playback entry is:

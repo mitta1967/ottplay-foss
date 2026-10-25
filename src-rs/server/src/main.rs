@@ -309,7 +309,7 @@ async fn main() -> anyhow::Result<()> {
         );
         let app = Router::new()
             .route("/health", get(health))
-            .merge(normalization::routes_from_env().await?);
+            .merge(normalization::routes_from_env(&cli.host).await?);
         return serve_listeners(listeners, app, tls_config).await;
     }
     if hosted_epg::enabled()? {
@@ -356,7 +356,7 @@ async fn main() -> anyhow::Result<()> {
         // Installation-authenticated relay must not inherit permissive asset CORS.
         .merge(swop::routes_from_env()?)
         .merge(nas_library::routes_from_env()?)
-        .merge(normalization::routes_from_env().await?)
+        .merge(normalization::routes_from_env(&cli.host).await?)
         .merge(control_discovery::routes())
         .merge(offline_media_routes(None).await?);
 
