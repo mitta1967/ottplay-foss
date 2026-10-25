@@ -1,4 +1,4 @@
-/** Optional settings UI and cue styling; default playback never loads this asset. */
+/** Optional settings UI and cue styling; default playback never executes this asset. */
 (function (host: any): void {
     var keys = [
         "subtitleFontFamily",

@@ -22,9 +22,10 @@ already embedded in video pixels.
 The five application settings are part of ordinary profile export/import. Invalid
 indices fall back to their defaults. Switching channels does not reset them.
 The editor and style implementation are a separate, versioned
-`dist/subtitle-appearance.js` asset: default startup does not request it. The asset
-loads when the settings page is opened, or when saved custom appearance must be
-applied. Navigating Back or changing source while that request is pending cannot
+`dist/subtitle-appearance.js` asset: default playback does not execute it. The
+player loads it when the settings page is opened, or when saved custom appearance
+must be applied. An installed web app may independently precache this static
+asset with its offline shell. Navigating Back or changing source while that request is pending cannot
 reopen the cancelled page.
 
 The build measures the optional asset separately and includes it in complete
