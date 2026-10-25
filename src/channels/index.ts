@@ -9,7 +9,7 @@ import {
  * Channel management — data structures, navigation, favorites, parental control.
  */
 
-import { clearPlayTimeInterval, stbIsPlaying } from "../core/index";
+import { stbIsPlaying } from "../core/index";
 import {
     translate as _,
     formatLocaleDateTime,
@@ -17,7 +17,7 @@ import {
 } from "../localization";
 import { preferredTrackIndex } from "../localization/media";
 import { settings } from "../settings/index";
-import { providerSetItem, storage } from "../storage/index";
+import { providerSetItem } from "../storage/index";
 import { getThumbnail, time2time } from "../utils/helpers";
 import {
     activeFavoritesList,
@@ -298,20 +298,6 @@ export interface MediaPortalTarget {
 
 /** Public provider ABI: URL, local history/favorites, or a VPortal request. */
 export type MediaTarget = string | -1 | -2 | MediaPortalTarget;
-
-/** Legacy callbacks remain callable with no arguments; built-ins can reject stale work earlier. */
-interface MediaListCompletion {
-    isCurrent?: () => boolean;
-    (): void;
-}
-
-interface MediaLoadState {
-    name: string;
-    pending: boolean;
-    provider: unknown;
-    records: MediaHistoryEntry[];
-    urls: MediaTarget[] | null;
-}
 
 export interface MediaHistoryEntry {
     adult?: number | string;
@@ -2480,7 +2466,6 @@ function renderArchiveInfo(model: ArchiveView): void {
     var elapsed = position - (prog ? prog.time : position);
     var pct = Math.min(100, Math.max(0, (elapsed / duration) * 100));
     if (progressEl) progressEl.style.width = pct + "%";
-    var nowSec = Date.now() / 1000;
     // remainingPct: use archive position (not clock time) since prog.time may be synthetic
     var remainingPct =
         prog && prog.time_to > position
@@ -2581,27 +2566,6 @@ export function pauseLivePlayback(): void {
 /** Decode the existing remote action at the compatibility boundary. */
 export function shiftArchive(delta: number): void {
     (window as any).__ottClassicPlayback.shift(delta);
-}
-
-/**
- * Format a shift delta (seconds) as a localized ">> mm:ss / << mm:ss" string.
- *
- * @param e - Delta in seconds.
- * Side effects: Reads global window._ for localization.
- */
-function formatSeekOffset(e: number): string {
-    if (!e) return "&nbsp;";
-    var abs = Math.abs(e);
-    var m = Math.floor(abs / 60);
-    var s = abs % 60;
-    var w = window as any;
-    var _ =
-        (w._ && w._.bind(w)) ||
-        function (s: string) {
-            return s;
-        };
-    var prefix = e > 0 ? ">> " : "<< ";
-    return prefix + (m ? m + _(" m ") : "") + (s ? s + _(" s") : "");
 }
 
 /**
