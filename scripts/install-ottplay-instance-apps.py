@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import plistlib
 import re
 import shutil
@@ -21,6 +22,14 @@ LSREGISTER = "/System/Library/Frameworks/CoreServices.framework/Frameworks/Launc
 def require(value, message):
     if not value:
         raise RuntimeError(message)
+
+
+def require_supported_macos():
+    # This migration relies on WKWebsiteDataStore's named UUID stores, which
+    # are only available on macOS 14+. Do not guess at older default stores.
+    match = re.fullmatch(r"([0-9]+)(?:\.[0-9]+){1,2}", platform.mac_ver()[0])
+    require(sys.platform == "darwin" and match and int(match[1]) >= 14,
+            "Instance-store migration requires a recognized macOS 14 or later version")
 
 
 def run(*args):
@@ -102,6 +111,7 @@ def require_closed(main, applications):
 
 
 def prepare(main, applications, work, home):
+    require_supported_macos()
     require(not work.exists(), "Use a new work directory")
     require(main.is_dir() and (main / EXECUTABLE).is_file(), "Main app missing")
     require(read_info(main).get("CFBundleIdentifier") == IDENTIFIER, "Unexpected main app identity")
@@ -168,6 +178,7 @@ def prepare(main, applications, work, home):
 
 
 def apply(work):
+    require_supported_macos()
     plan = json.loads((work / "plan.json").read_text())
     expected = plan.pop("sha256")
     require(digest(plan) == expected, "Plan changed")

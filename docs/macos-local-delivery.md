@@ -87,6 +87,13 @@ installed main bundle, with their own executable paths and bundle identifiers
 unchanged. The copies are signed locally with an ad-hoc signature; that signature
 does not replace verification of the main application's release provenance.
 
+This migration helper requires **macOS 14 or later**, because its verified
+profile migration uses named UUID WebKit data stores. It rejects older or
+unrecognized macOS versions before preparing files or applying changes. This
+restriction applies to this helper; it does not change the player's supported
+macOS versions. Older default-store layouts require a separately verified
+migration procedure.
+
 Close all native players before preparing a migration. The installer preserves
 the existing instance numbers and queue ports from recognized launchers; it does
 not replace a custom launcher whose configuration it cannot recognize. Changing

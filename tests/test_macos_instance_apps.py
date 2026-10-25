@@ -49,6 +49,8 @@ class InstanceApps(unittest.TestCase):
             self.old_stores[number] = store
         self.running = ""
         self.mock_run = patch.object(INSTALL, "run", side_effect=self.run_tool).start()
+        patch.object(INSTALL.sys, "platform", "darwin").start()
+        patch.object(INSTALL.platform, "mac_ver", return_value=("14.0", (), "")).start()
         self.addCleanup(patch.stopall)
         self.addCleanup(self.temp.cleanup)
 
@@ -93,6 +95,27 @@ class InstanceApps(unittest.TestCase):
             self.assertEqual(INSTALL.tree(self.old_stores[n]), stores[n])
         with self.assertRaisesRegex(RuntimeError, "Previous apply"):
             INSTALL.apply(self.work)
+
+    def test_unsupported_system_stops_before_files_or_commands(self):
+        for version in ("13.6.9", "12.7", "", "unknown", "14.unknown"):
+            with self.subTest(version=version), patch.object(
+                INSTALL.platform, "mac_ver", return_value=(version, (), "")
+            ):
+                with self.assertRaisesRegex(RuntimeError, "macOS 14 or later"):
+                    self.prepare()
+                # No plan exists, and apply must reject the system before
+                # attempting even to read it.
+                with self.assertRaisesRegex(RuntimeError, "macOS 14 or later"):
+                    INSTALL.apply(self.work)
+                self.assertFalse(self.work.exists())
+                self.mock_run.assert_not_called()
+
+    def test_named_store_macos_versions_are_accepted(self):
+        for version in ("14.0", "14.7.3", "15.1", "26.0.1"):
+            with self.subTest(version=version), patch.object(
+                INSTALL.platform, "mac_ver", return_value=(version, (), "")
+            ):
+                INSTALL.require_supported_macos()
 
     def test_existing_new_store_is_never_replaced_by_old_store(self):
         self.prepare()
