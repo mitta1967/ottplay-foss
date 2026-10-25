@@ -432,18 +432,27 @@ async function timedBanner(page, context, baseURL, options = {}) {
 
 async function animationStyle(banner, time) {
     return banner.evaluate((element, time) => {
-        for (const animation of element.getAnimations()) {
+        for (const animation of element.getAnimations({ subtree: true })) {
             animation.pause();
             animation.currentTime = time;
         }
         const style = getComputedStyle(element);
+        const surface = getComputedStyle(element, "::before");
         return {
-            background: style.backgroundColor,
+            background: surface.backgroundColor,
             clip: style.clipPath,
             names: element
-                .getAnimations()
-                .map((animation) => animation.animationName),
+                .getAnimations({ subtree: true })
+                .map((animation) => animation.animationName)
+                .filter((name) => name !== "remoteNotifyFold"),
             opacity: Number(style.opacity),
+            surfaceOpacity: Number(surface.opacity),
+            textOpacity: Number(
+                getComputedStyle(
+                    element.querySelector(".remote-notify-message") ||
+                        element.querySelector("img")
+                ).opacity
+            ),
             width: element.offsetWidth,
             x: new DOMMatrix(style.transform).m41,
         };
@@ -457,23 +466,36 @@ test("remote banner slides and reveals, holds then fades without restarting or e
 }) => {
     const h = await timedBanner(page, context, baseURL);
     const start = await animationStyle(h.banner, 0);
-    expect(start.names.sort()).toEqual(["remoteNotifyFade", "remoteNotifyIn"]);
+    expect(start.names.sort()).toEqual([
+        "remoteNotifyFade",
+        "remoteNotifyIn",
+        "remoteNotifySurfaceIn",
+    ]);
     expect(start.x).toBeGreaterThan(start.width);
     expect(start.clip).toContain("46%");
-    expect(start.opacity).toBeLessThanOrEqual(0.05);
+    expect(start.surfaceOpacity).toBeLessThanOrEqual(0.05);
+    expect(start.opacity).toBe(1);
+    expect(start.textOpacity).toBe(1);
     expect(start.background).toBe("rgba(22, 28, 39, 0.37)");
 
     const shown = await animationStyle(h.banner, 480);
     expect(shown.x).toBeCloseTo(0, 3);
     expect(shown.clip).not.toContain("46%");
-    expect(shown.opacity).toBeCloseTo(1, 3);
-    expect((await animationStyle(h.banner, 979)).opacity).toBeCloseTo(1, 3);
+    expect(shown.surfaceOpacity).toBeCloseTo(1, 3);
+    expect(shown.opacity).toBe(1);
+    expect(shown.textOpacity).toBe(1);
+    expect((await animationStyle(h.banner, 979)).surfaceOpacity).toBeCloseTo(
+        1,
+        3
+    );
     const fading = await animationStyle(h.banner, 2500);
-    expect(fading.opacity).toBeLessThan(0.9);
-    expect(fading.opacity).toBeGreaterThan(0.4);
+    expect(fading.surfaceOpacity).toBeLessThan(0.9);
+    expect(fading.surfaceOpacity).toBeGreaterThan(0.4);
+    expect(fading.opacity).toBe(1);
+    expect(fading.textOpacity).toBe(1);
     await h.banner.evaluate((element) => {
         element.__fixtureFade = element
-            .getAnimations()
+            .getAnimations({ subtree: true })
             .find(
                 (animation) => animation.animationName === "remoteNotifyFade"
             );
@@ -485,27 +507,37 @@ test("remote banner slides and reveals, holds then fades without restarting or e
     await expect(h.banner).toHaveClass(/remote-notify-out/);
     const exiting = await h.banner.evaluate((element) => {
         const fade = element
-            .getAnimations()
+            .getAnimations({ subtree: true })
             .find(
                 (animation) => animation.animationName === "remoteNotifyFade"
             );
         const exit = element
-            .getAnimations()
+            .getAnimations({ subtree: true })
             .find((animation) => animation.animationName === "remoteNotifyOut");
         exit.pause();
         exit.currentTime = 160;
         const style = getComputedStyle(element);
         return {
-            background: style.backgroundColor,
+            background: getComputedStyle(element, "::before").backgroundColor,
             fadeTime: fade.currentTime,
             opacity: Number(style.opacity),
             sameFade: fade === element.__fixtureFade,
+            surfaceOpacity: Number(
+                getComputedStyle(element, "::before").opacity
+            ),
+            textOpacity: Number(
+                getComputedStyle(
+                    element.querySelector(".remote-notify-message")
+                ).opacity
+            ),
             x: new DOMMatrix(style.transform).m41,
         };
     });
     expect(exiting.sameFade).toBe(true);
     expect(exiting.fadeTime).toBeCloseTo(2500, 1);
-    expect(exiting.opacity).toBeCloseTo(fading.opacity, 3);
+    expect(exiting.surfaceOpacity).toBeCloseTo(fading.surfaceOpacity, 3);
+    expect(exiting.opacity).toBe(1);
+    expect(exiting.textOpacity).toBe(1);
     expect(exiting.x).toBeGreaterThan(0);
     expect(exiting.background).toBe(start.background);
     await page.clock.runFor(319);
@@ -542,15 +574,24 @@ test("remote banner folds its label then title upward and retains its message", 
         }, time);
     }
     const full = await stage(979);
+    const labelFolding = await stage(1220);
+    expect(labelFolding.labelHeight).toBeGreaterThan(0);
+    expect(labelFolding.labelHeight).toBeLessThan(full.labelHeight);
+    expect(labelFolding.labelOpacity).toBe(1);
+    expect(labelFolding.titleOpacity).toBe(1);
     const labelGone = await stage(1460);
     expect(labelGone.labelHeight).toBe(0);
-    expect(labelGone.labelOpacity).toBe(0);
+    expect(labelGone.labelOpacity).toBe(1);
     expect(labelGone.titleOpacity).toBe(1);
     expect(labelGone.titleHeight).toBeGreaterThan(0);
     expect(labelGone.messageY).toBeLessThan(full.messageY);
+    const titleFolding = await stage(1820);
+    expect(titleFolding.titleHeight).toBeGreaterThan(0);
+    expect(titleFolding.titleHeight).toBeLessThan(full.titleHeight);
+    expect(titleFolding.titleOpacity).toBe(1);
     const compact = await stage(1940);
     expect(compact.titleHeight).toBe(0);
-    expect(compact.titleOpacity).toBe(0);
+    expect(compact.titleOpacity).toBe(1);
     expect(compact.messageY).toBeLessThan(labelGone.messageY);
     expect(compact.messageHeight).toBeGreaterThan(0);
     expect(compact.messageText).toBe("Before disabling");
@@ -602,8 +643,8 @@ test("remote banner reduced motion keeps configured alpha and the original expir
     await page.emulateMedia({ reducedMotion: "reduce" });
     const h = await timedBanner(page, context, baseURL, { durationMs: 1000 });
     const style = await h.banner.evaluate((element) => ({
-        animations: element.getAnimations().length,
-        background: getComputedStyle(element).backgroundColor,
+        animations: element.getAnimations({ subtree: true }).length,
+        background: getComputedStyle(element, "::before").backgroundColor,
         opacity: getComputedStyle(element).opacity,
     }));
     expect(style).toEqual({
@@ -614,7 +655,9 @@ test("remote banner reduced motion keeps configured alpha and the original expir
     await page.clock.runFor(680);
     await expect(h.banner).toHaveClass(/remote-notify-out/);
     expect(
-        await h.banner.evaluate((element) => element.getAnimations().length)
+        await h.banner.evaluate(
+            (element) => element.getAnimations({ subtree: true }).length
+        )
     ).toBe(0);
     await page.clock.runFor(319);
     await expect(h.banner).toHaveCount(1);
@@ -652,7 +695,7 @@ test("delayed image banner fits its fade and exit inside the original privacy de
     await expect(h.banner.locator("img")).toBeVisible();
     const durations = await h.banner.evaluate((element) =>
         element
-            .getAnimations()
+            .getAnimations({ subtree: true })
             .map((animation) => [
                 animation.animationName,
                 animation.effect.getTiming().duration,
@@ -662,9 +705,10 @@ test("delayed image banner fits its fade and exit inside the original privacy de
     expect(durations).toContainEqual(["remoteNotifyFade", 2020]);
     expect((await animationStyle(h.banner, 480)).opacity).toBeCloseTo(1, 3);
     expect((await animationStyle(h.banner, 979)).opacity).toBeCloseTo(1, 3);
-    expect((await animationStyle(h.banner, 3000)).opacity).toBeLessThanOrEqual(
-        0.05
-    );
+    const imageFaded = await animationStyle(h.banner, 3000);
+    expect(imageFaded.surfaceOpacity).toBeLessThanOrEqual(0.05);
+    expect(imageFaded.textOpacity).toBeLessThanOrEqual(0.05);
+    expect(imageFaded.opacity).toBe(1);
     await page.clock.runFor(2679);
     await expect(h.banner).not.toHaveClass(/remote-notify-out/);
     await page.clock.runFor(1);
