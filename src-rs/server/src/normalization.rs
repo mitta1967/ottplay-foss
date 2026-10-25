@@ -1919,6 +1919,7 @@ mod tests {
 
     #[tokio::test]
     async fn private_profile_snapshot_is_bounded_and_immutable() {
+        #[cfg(unix)]
         use std::os::unix::fs::PermissionsExt;
         let directory = std::env::temp_dir().join(format!("ott-profile-{}", uuid::Uuid::new_v4()));
         tokio::fs::create_dir(&directory).await.unwrap();
@@ -1929,6 +1930,7 @@ mod tests {
         )
         .await
         .unwrap();
+        #[cfg(unix)]
         std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
         let profiles = HashMap::from([(
             "home".into(),
@@ -1942,9 +1944,12 @@ mod tests {
         assert!(String::from_utf8(snapshot["home"].clone())
             .unwrap()
             .contains("Sample"));
-        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
-        assert!(load_profiles(&profiles).await.is_err());
-        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+        #[cfg(unix)]
+        {
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+            assert!(load_profiles(&profiles).await.is_err());
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
         tokio::fs::write(&file, vec![b'x'; 4 * 1024 * 1024 + 1])
             .await
             .unwrap();
@@ -1952,8 +1957,11 @@ mod tests {
         tokio::fs::write(&file, b"not a playlist").await.unwrap();
         assert!(load_profiles(&profiles).await.is_err());
         tokio::fs::remove_file(&file).await.unwrap();
-        std::os::unix::fs::symlink("missing", &file).unwrap();
-        assert!(load_profiles(&profiles).await.is_err());
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("missing", &file).unwrap();
+            assert!(load_profiles(&profiles).await.is_err());
+        }
         tokio::fs::remove_dir_all(&directory).await.unwrap();
     }
 
