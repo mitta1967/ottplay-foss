@@ -3656,8 +3656,8 @@ function openCoreEngineLease(
         },
         selectTrack: function (kind: string, index: number) {
             if (!active()) return;
-            if (kind === "audio") setAudioTrack(index);
-            else if (kind === "subtitle") setSubtitleTrack(index);
+            if (kind === "audio" || kind === "subtitle")
+                avTracks(media, index, kind === "audio");
         },
         supportsPausedStart: !pip,
         tracks: function (kind: string) {

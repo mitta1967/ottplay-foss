@@ -498,7 +498,10 @@ test("native PiP track discovery ignores the main HLS instance", () => {
     w.stbPlay("main.m3u8");
     players[0].audioTracks = [{ name: "Main HLS audio" }];
     players[0].subtitleTracks = [{ name: "Main HLS captions" }];
-    w.videoPip.audioTracks = [{ enabled: true, label: "Preview native audio" }];
+    w.videoPip.audioTracks = [
+        { enabled: true, label: "Preview native audio" },
+        { enabled: false, label: "Alternative preview audio" },
+    ];
     w.videoPip.textTracks = [
         { kind: "captions", label: "Preview native captions", mode: "showing" },
     ];
@@ -507,6 +510,13 @@ test("native PiP track discovery ignores the main HLS instance", () => {
     const pip = w.__ottCoreBackend().current("pip");
     assert.equal(pip.tracks("audio")[0].name, "Preview native audio");
     assert.equal(pip.tracks("subtitle")[0].name, "Preview native captions");
+    const mainAudio = players[0].audioTrack;
+    pip.selectTrack("audio", 1);
+    assert.deepEqual(
+        Array.from(w.videoPip.audioTracks, (t) => t.enabled),
+        [false, true]
+    );
+    assert.equal(players[0].audioTrack, mainAudio);
     assert.equal(
         w.__ottCoreBackend().current().tracks("audio")[0].name,
         "Main HLS audio"
@@ -520,12 +530,18 @@ test("HLS PiP track discovery uses its instance before media attachment", () => 
     w.playerMode = 1;
     w.stbPlayPip("preview.m3u8");
     const hls = players[0];
-    hls.audioTracks = [{ name: "Preview HLS audio" }];
+    hls.audioTracks = [
+        { name: "Preview HLS audio" },
+        { name: "Alternative preview HLS audio" },
+    ];
     hls.subtitleTracks = [{ name: "Preview HLS captions" }];
     hls.media = null; // The owned instance can exist before async attachment completes.
     const pip = w.__ottCoreBackend().current("pip");
     assert.equal(pip.tracks("audio")[0].name, "Preview HLS audio");
     assert.equal(pip.tracks("subtitle")[0].name, "Preview HLS captions");
+    pip.selectTrack("audio", 1);
+    assert.equal(hls.audioTrack, 1);
+    assert.equal(w.video.audioTracks[0].enabled, true);
     assert.equal(
         w.__ottCoreBackend().current().tracks("audio")[0].name,
         "Main native audio"
