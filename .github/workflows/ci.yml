@@ -235,6 +235,26 @@ jobs:
           sudo env CI="$CI" python3 scripts/ci-apt-mirror.py
           npx playwright install --with-deps chromium webkit
 
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Verify isolated multiaudio playback and worker replacement
+        timeout-minutes: 20
+        run: |
+          sudo apt-get install -y ffmpeg
+          cargo build --locked -p ottplay-server
+          export OTT_TEST_FFMPEG="$(command -v ffmpeg)"
+          export OTT_TEST_FFPROBE="$(command -v ffprobe)"
+          export OTT_TEST_SERVER="$PWD/target/debug/ottplay-server"
+          export OTT_TEST_DIRECT_HTTPS=1
+          export OTT_TEST_ENGINE=hls
+          export OTT_TEST_CRASH=1
+          export OTT_TEST_FAIL_START_ONCE=1
+          export OTT_TEST_CAPTURE_WORKER=1
+          export OTT_TEST_OBSERVE_SECONDS=20
+          node tests/test_normalization_webkit.cjs
+
       - name: Test local browser media and offline app shell
         # The runner terminates this isolated browser test process group if an
         # unexpected browser promise stops settling; normal runs take <2 min.
@@ -353,6 +373,19 @@ jobs:
         run: python3 tests/test_container_workspace.py
       - name: Test core and server including shared XMLTV differential contracts
         run: cargo test --locked -p ottplay-core -p ottplay-server
+      - name: Install media tools for isolated normalization checks
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+      - name: Verify real multiaudio normalization and private overlays
+        run: |
+          export OTT_TEST_FFMPEG="$(command -v ffmpeg)"
+          export OTT_TEST_FFPROBE="$(command -v ffprobe)"
+          cargo test --locked -p ottplay-core audio_normalization --lib -- --include-ignored
+          cargo test --locked -p ottplay-server normalization --bin ottplay-server -- --include-ignored
+          python3 tests/test_normalize_m3u_overlay.py
       - name: Verify private Linux playback selection guards
         run: cargo test --locked --manifest-path tests/linux-media-compat/Cargo.toml
       - name: Test Linux playback packaging contracts
