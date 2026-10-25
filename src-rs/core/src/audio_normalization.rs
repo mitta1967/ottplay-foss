@@ -364,8 +364,8 @@ impl Manager {
         let mut retain = false;
         let result: Result<()> = async {
             let mut command = Command::new(&config.ffmpeg);
-            // Match inventory bounds so sparse live input cannot delay worker startup.
-            command.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-rw_timeout", "10000000", "-protocol_whitelist", "http,https,tcp,tls,crypto", "-format_whitelist", "hls,mpegts,mov,aac,mp3,ac3,eac3,webvtt", "-max_streams", "32", "-probesize", "2097152", "-analyzeduration", "3000000", "-re", "-live_start_index", "-3", "-i", &source, "-map", "0:v:0"]);
+            // Bound probing; live HLS already supplies pacing, so -re would lag behind its window.
+            command.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-rw_timeout", "10000000", "-protocol_whitelist", "http,https,tcp,tls,crypto", "-format_whitelist", "hls,mpegts,mov,aac,mp3,ac3,eac3,webvtt", "-max_streams", "32", "-probesize", "2097152", "-analyzeduration", "3000000", "-live_start_index", "-3", "-i", &source, "-map", "0:v:0"]);
             for (index,track) in tracks.iter().enumerate() {
                 command.args(["-map", &format!("0:a:{index}")]);
                 if track.codec_name=="aac" { command.args([&format!("-bsf:a:{index}"),"aac_adtstoasc"]); }
@@ -684,7 +684,12 @@ mod tests {
         tokio::fs::create_dir(&directory).await.unwrap();
         for name in ["ffmpeg", "ffprobe"] {
             let file = directory.join(name);
-            tokio::fs::write(&file, format!("#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then echo '{name} version test'; exit 0; fi\nexit 1\n")).await.unwrap();
+            let capture = if name == "ffmpeg" {
+                "printf '%s\\n' \"$@\" > ../args.txt\n"
+            } else {
+                ""
+            };
+            tokio::fs::write(&file, format!("#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then echo '{name} version test'; exit 0; fi\n{capture}exit 1\n")).await.unwrap();
             std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o700)).unwrap();
         }
         let manager = Manager::new(Config {
@@ -737,6 +742,20 @@ mod tests {
         assert!(!directory.join("sessions").join(&id).exists());
         assert_eq!(manager.0.slots.available_permits(), 1);
         assert_eq!(manager.0.directory_slots.available_permits(), 2);
+        let arguments = tokio::fs::read_to_string(directory.join("sessions/args.txt"))
+            .await
+            .unwrap();
+        let arguments: Vec<_> = arguments.lines().collect();
+        assert!(
+            !arguments.contains(&"-re") && !arguments.contains(&"-readrate"),
+            "live HLS must not receive file-input pacing"
+        );
+        assert!(arguments
+            .windows(2)
+            .any(|pair| pair == ["-probesize", "2097152"]));
+        assert!(arguments
+            .windows(2)
+            .any(|pair| pair == ["-analyzeduration", "3000000"]));
         assert!(tokio::time::timeout(
             Duration::from_secs(2),
             manager.start_named(id.clone(), "http://localhost/live.m3u8", &tracks),
