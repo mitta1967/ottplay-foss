@@ -101,7 +101,9 @@ const CLASSIC_MODULES = [
     "build/commands/index.js",
     "build/commands/remote-profiles.js",
     "build/commands/remote-plex.js",
+    "build/commands/remote-feature.js",
     "build/commands/remote-settings.js",
+    "build/commands/remote-perf.js",
     "build/commands/remote-favorites-contract.js",
     "build/commands/remote-favorites.js",
     "build/commands/remote-app-update.js",
@@ -149,6 +151,9 @@ const CLASSIC_MODULES = [
     "build/plugins/remote-plex-folders.js",
     "build/plugins/remote-legacy-settings.js",
     "build/plugins/runtime-debug.js",
+    "build/plugins/runtime-debug-details.js",
+    "build/plugins/perf-sensors.js",
+    "build/plugins/perf-capture.js",
     "build/plugins/dash-exo-player.js",
     "build/plugins/m3u-proxy.js",
     "build/plugins/stalker-portal.js",
@@ -175,6 +180,10 @@ const CLASSIC_PROVIDER_BUNDLES = Object.freeze({
 const CLASSIC_OPTIONAL_BUNDLES = Object.freeze({
     "control-transport": ["build/plugins/hosted-control-transport.js"],
 
+    "perf-capture": [
+        "build/plugins/perf-sensors.js",
+        "build/plugins/perf-capture.js",
+    ],
     "remote-provider-fields": [
         "build/plugins/remote-provider-fields.js",
         "build/plugins/remote-plex-folders.js",
@@ -192,6 +201,7 @@ const CLASSIC_OPTIONAL_BUNDLES = Object.freeze({
         "build/plugins/remote-settings-host.js",
         "build/plugins/remote-settings-lifecycle.js",
     ],
+    "runtime-debug-details": ["build/plugins/runtime-debug-details.js"],
     "subtitle-appearance": ["build/ui/subtitle-appearance.js"],
 });
 const providerModules = new Set([
@@ -264,6 +274,10 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
         "window.installTauriHttpTransport",
         "window.installCapacitorHttpTransport",
     ]),
+    "build/plugins/perf-capture.js": Object.freeze([
+        "window.__ottPerfCaptureFactory",
+    ]),
+    "build/plugins/perf-sensors.js": Object.freeze(["window.__ottPerfSensors"]),
     "build/plugins/plex-auth.js": Object.freeze(["window.__ottPlexAuth"]),
     "build/plugins/plex-queue.js": Object.freeze([
         "window.__ottPlexQueueFactory",
@@ -301,6 +315,9 @@ const CLASSIC_PRIVATE_MODULES = Object.freeze({
     ]),
     "build/plugins/remote-settings.js": Object.freeze([
         "window.__ottPlayerSettingsFactory",
+    ]),
+    "build/plugins/runtime-debug-details.js": Object.freeze([
+        "window.__ottRuntimeDebugDetails",
     ]),
     "build/provider/assets.js": Object.freeze(["window.__ottProviderAssets"]),
     "build/provider/catalog-drivers.js": Object.freeze([
