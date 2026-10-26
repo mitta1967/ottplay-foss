@@ -45,6 +45,7 @@ class GsyLivePlayerPlugin : Plugin() {
         private const val TAG = "GsyLive"
         private const val EXO_START_TIMEOUT_MS = 8000L
         private const val INJECT_PERIOD_MS = 2000L
+        private const val FRAME_CHECK_DELAY_MS = 3000L
         private val ASPECT_TYPES = intArrayOf(
             GSYVideoType.SCREEN_TYPE_DEFAULT,
             GSYVideoType.SCREEN_TYPE_16_9,
@@ -316,6 +317,19 @@ class GsyLivePlayerPlugin : Plugin() {
                     prepared = true
                     Log.i(TAG, "prepared ijk=$usingIjk")
                     notifyListeners("state", JSObject().apply { put("state", "ready") })
+                    ui.postDelayed({
+                        if (token != playToken) return
+                        val cur = player ?: return
+                        val w = cur.currentVideoWidth
+                        val h = cur.currentVideoHeight
+                        val pos = cur.currentPositionWhenPlaying
+                        val playing = GSYVideoManager.instance().isPlaying
+                        Log.i(TAG, "frame check w=$w h=$h pos=$pos playing=$playing ijk=$usingIjk")
+                        if (!usingIjk && (w == 0 || h == 0)) {
+                            Log.w(TAG, "no video frames on Exo2, falling back to IJK")
+                            fallbackToIjk()
+                        }
+                    }, FRAME_CHECK_DELAY_MS)
                 }
 
                 override fun onAutoComplete(url: String?, vararg objects: Any?) {
