@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a persistent 50–200% interface font scale shared across providers.
+  Resize list pages to keep enlarged text and settings actions reachable;
+  preserve independent subtitle appearance and video geometry.
 - Save VPortal and Plex video progress alongside the channel selection during
   playback, so reopening the player restores the selected film and its saved
   position across the shared TV, browser and native player builds.

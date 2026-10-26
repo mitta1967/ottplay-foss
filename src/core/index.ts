@@ -52,7 +52,6 @@ export function setPlayerMode(v: number): void {
     var nextMode = normalizePlayerMode(v);
     if (nextMode !== playerMode) cancelCoreAutoPlayback(true);
     playerMode = nextMode;
-    console.log("[setPlayerMode] playerMode=" + playerMode);
 }
 /** Human-readable labels for each playerMode value. */
 export var playerModeNames =
@@ -135,7 +134,7 @@ function loadCoreMediaEngine(
         );
 }
 
-/** Available preload buffer sizes (indexes into a numeric range). */
+/** Useful explicit buffer seconds; zero retains automatic buffering. */
 export var bufferSizes = [
     "0",
     "1",
@@ -148,6 +147,13 @@ export var bufferSizes = [
     "8",
     "9",
     "10",
+    "15",
+    "20",
+    "30",
+    "45",
+    "60",
+    "90",
+    "120",
 ];
 
 /** Button label for the Exit key. */
@@ -1499,7 +1505,6 @@ function startCorePlayback(
             : mode === 2 && !_forceNative
               ? "shaka"
               : "html5";
-    console.log("[stbPlay] playerMode=" + playerMode + " (" + _pm + ")");
     var useHls =
         mode === 1 &&
         !_forceNative &&
@@ -1604,12 +1609,6 @@ function startCorePlayback(
                               : hlsInstance.currentLevel;
                     if (lvls.length > 1 && failed > 0) {
                         var cap = failed - 1;
-                        console.log(
-                            "[HLS] MEDIA_ERROR: drop level " +
-                                failed +
-                                " cap=" +
-                                cap
-                        );
                         hlsInstance.autoLevelCapping = cap;
                         if (typeof hlsInstance.removeLevel === "function") {
                             hlsInstance.removeLevel(failed);
@@ -1622,22 +1621,8 @@ function startCorePlayback(
                             return;
                         }
                         hlsInstance.currentLevel = cap;
-                    } else {
-                        // hls-proxy always exposes a single STREAM-INF, so
-                        // drop-level never runs for proxied live channels.
-                        console.log(
-                            "[HLS] MEDIA_ERROR: skip drop level (levels=" +
-                                lvls.length +
-                                " failed=" +
-                                failed +
-                                ")"
-                        );
                     }
                     if (recovery.media()) {
-                        console.log(
-                            "[HLS] trying recoverMediaError" +
-                                (data.details ? " (" + data.details + ")" : "")
-                        );
                         cancelCoreSeek();
                         hlsInstance.recoverMediaError();
                         if (
@@ -1686,9 +1671,6 @@ function startCorePlayback(
                             !limits.maxHeight &&
                             !limits.maxBitrate
                         ) {
-                            console.log(
-                                "[HLS] MEDIA_ERROR twice, fallback native HTML5"
-                            );
                             _corePlaybackMode = 0;
                             countCoreAttempt(session, "nativeFallbacks");
                             countCoreAttempt(session, "engineStarts");
@@ -1702,13 +1684,6 @@ function startCorePlayback(
                             if ((window as any).forcePlay !== false)
                                 playCoreMedia(video!);
                         } else {
-                            console.log(
-                                "[HLS] MEDIA_ERROR twice, no native HLS" +
-                                    (det ? " details=" + det : "") +
-                                    (appendFail
-                                        ? " (HD Orig often mp2/ac3 + strict Chrome decode)"
-                                        : "")
-                            );
                             coreStreamFailure(
                                 "decode",
                                 undefined,
@@ -1734,9 +1709,6 @@ function startCorePlayback(
                     // purged segments, proxy HTML error pages).
                     var det = String((data && data.details) || "");
                     if (!recovery.network(det)) {
-                        console.log(
-                            "[HLS] unrecoverable network/parse, destroying"
-                        );
                         coreStreamFailure(
                             window.OttPlayCore.playbackParsingFailure(det)
                                 ? "parse"
@@ -1746,7 +1718,6 @@ function startCorePlayback(
                         hlsInstance.destroy();
                         hlsInstance = null;
                     } else {
-                        console.log("[HLS] trying startLoad");
                         hlsInstance.startLoad(
                             _corePendingSeek || !hlsInstance.hasEnoughToStart
                                 ? hlsInstance.config.startPosition
@@ -1754,7 +1725,6 @@ function startCorePlayback(
                         );
                     }
                 } else {
-                    console.log("[HLS] unrecoverable, destroying");
                     coreStreamFailure("decode");
                     hlsInstance.destroy();
                     hlsInstance = null;
@@ -1943,9 +1913,6 @@ function startCorePlayback(
                             media.pause();
                             coreNativeAttached = false;
                             media.removeAttribute("src");
-                            console.log(
-                                "[Auto] native HLS incompatible, using hls.js"
-                            );
                             startCorePlayback(
                                 url,
                                 nextPosition,
@@ -2972,12 +2939,6 @@ export function stbInit(): void {
                 $("#buffering").show();
                 $("#video_res").text(_("Loading..."));
             });
-            video!.addEventListener("loadeddata", function () {
-                console.log("Event: loadeddata");
-            });
-            video!.addEventListener("loadedmetadata", function () {
-                console.log("Event: loadedmetadata");
-            });
             video!.addEventListener("canplay", function () {
                 if (!host.__ottPlaybackFeedback?.visible()) {
                     $("#buffering").hide();
@@ -3107,8 +3068,7 @@ export function stbInit(): void {
 }
 
 /**
- * Log all video events to the console for debugging.
- * On 'error' events, also logs the MediaError code and message.
+ * Forward video events to the debug collector and report media errors.
  *
  * @param event - Raw video DOM event.
  *
@@ -3116,7 +3076,6 @@ export function stbInit(): void {
  */
 function videoEvent(event: Event): void {
     if (event && event.type) {
-        console.log("[video] event: " + event.type);
         if (event.type === "error") {
             var me = video ? video!.error : null;
             if (me)
@@ -3416,13 +3375,15 @@ export function unload(): void {
 }
 
 /**
- * Auto-start the player if the `stb_autorun` setting is "1".
- * Called on page load to check whether to begin playback immediately.
+ * Legacy player-initialization helper. This does not configure OS startup.
+ * Prefer the registered key; preserve old installs only when it is absent.
  *
  * Side effects: Calls startPlayer() if autorun is enabled.
  */
 export function setAutorun(): void {
-    var autorun = window.stbGetItem ? window.stbGetItem("stb_autorun") : null;
+    var autorun = window.stbGetItem ? window.stbGetItem("sAutorun") : null;
+    if (autorun == null && window.stbGetItem)
+        autorun = window.stbGetItem("stb_autorun");
     if (autorun === "1" && typeof window.startPlayer === "function") {
         window.startPlayer();
     }

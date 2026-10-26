@@ -536,7 +536,30 @@ const LEGACY_TOTAL_BUDGET = Object.freeze({
     gzipBytes: 370946,
 });
 const OPTIONAL_BUDGET = Object.freeze({ bytes: 7800, gzipBytes: 3300 });
-const TOTAL_BUDGET = Object.freeze({ bytes: 1184600, gzipBytes: 374150 });
+// Optional hosted transport and remote settings retain independent feature caps.
+// Their union does not change the legacy entry/provider or subtitle limits.
+const OPTIONAL_BUDGETS = Object.freeze({
+    "control-transport": Object.freeze({ bytes: 6000, gzipBytes: 2000 }),
+    // Provider scalar codecs and the paginated Plex folder collection reuse normal
+    // save paths. Node22 development: provider fields15528/5460, settings20128/6781;
+    // moving legacy Plex setup into the optional asset leaves legacy1175608/370795.
+    "remote-provider-fields": Object.freeze({ bytes: 18000, gzipBytes: 6200 }),
+    // Move the typed factory/dispatcher into the lifecycle asset, and the remote-only
+    // handoff/notification handlers out of startup. Combined Node22: base15851/5206,
+    // lifecycle29193/9276; entry1037905/321296. Existing entry/legacy caps stay fixed.
+    "remote-settings": Object.freeze({ bytes: 17500, gzipBytes: 5800 }),
+    // Existing UI/debug owners stay in startup; typed extras, CAS and ACK handling
+    // are optional. Node22 level9: extras5651/2255, combined entry1038397/320895.
+    "remote-settings-extras": Object.freeze({ bytes: 7000, gzipBytes: 2800 }),
+    "remote-settings-lifecycle": Object.freeze({
+        bytes: 31000,
+        gzipBytes: 10000,
+    }),
+    "subtitle-appearance": OPTIONAL_BUDGET,
+});
+// Carry the approved 96-byte VOD checkpoint allowance into the complete
+// payload exactly once; retain every optional-module and raw-byte limit.
+const TOTAL_BUDGET = Object.freeze({ bytes: 1264100, gzipBytes: 401046 });
 const ARTIFACTS = Object.freeze([
     "dist/player.js",
     "src-tauri/frontend/dist/player.js",
@@ -606,10 +629,13 @@ function inspectBundleSets(root, artifacts = ARTIFACTS, providerKinds) {
         const optionalAssets = Object.keys(CLASSIC_OPTIONAL_BUNDLES).map(
             (name) => {
                 const file = path.join(directory, name + ".js");
+                const budget = OPTIONAL_BUDGETS[name];
+                if (!budget)
+                    throw new Error("Missing optional budget: " + name);
                 return measureBundle(
                     fs.readFileSync(path.join(root, file)),
                     file,
-                    OPTIONAL_BUDGET
+                    budget
                 );
             }
         );
@@ -668,6 +694,7 @@ function writeBundleReport(
         modules,
         optimizer,
         optionalBudget: OPTIONAL_BUDGET,
+        optionalBudgets: OPTIONAL_BUDGETS,
         privateModules: Object.fromEntries(
             Object.entries(CLASSIC_PRIVATE_MODULES).filter(([file]) =>
                 modules.includes(file)
@@ -707,6 +734,7 @@ module.exports = {
     LEGACY_TOTAL_BUDGET,
     measureBundle,
     OPTIONAL_BUDGET,
+    OPTIONAL_BUDGETS,
     PROVIDER_BUDGET,
     TOTAL_BUDGET,
     writeBundleReport,
