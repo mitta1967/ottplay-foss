@@ -34,7 +34,8 @@ class BareGsyPlayer(context: Context) : StandardGSYVideoPlayer(context) {
 /**
  * Live playback through GSYVideoPlayer. The video view sits BEHIND the transparent
  * WebView, so the web UI (channel list, infobar, OSD) stays visible on top.
- * After the page loads a small script replaces the window.stb* device ABI.
+ * A small script replaces the window.stb* device ABI; the plugin injects it
+ * repeatedly (the script ignores repeated runs).
  * Disable with localStorage ott_use_gsy = 0.
  */
 @CapacitorPlugin(name = "GsyLive")
@@ -43,6 +44,7 @@ class GsyLivePlayerPlugin : Plugin() {
     companion object {
         private const val TAG = "GsyLive"
         private const val EXO_START_TIMEOUT_MS = 8000L
+        private const val INJECT_PERIOD_MS = 2000L
         private val ASPECT_TYPES = intArrayOf(
             GSYVideoType.SCREEN_TYPE_DEFAULT,
             GSYVideoType.SCREEN_TYPE_16_9,
@@ -54,13 +56,15 @@ class GsyLivePlayerPlugin : Plugin() {
         private val SHIM = """
 (function () {
   var w = window;
+  if (w.__gsyShim) return;
   var C = w.Capacitor;
+  if (!C) return;
   function noop() {}
   function call(m, o) {
     try {
-      var p = C && C.Plugins && C.Plugins.GsyLive;
+      var p = C.Plugins && C.Plugins.GsyLive;
       if (p && typeof p[m] === 'function') return p[m](o || {});
-      if (C && typeof C.nativePromise === 'function') return C.nativePromise('GsyLive', m, o || {});
+      if (typeof C.nativePromise === 'function') return C.nativePromise('GsyLive', m, o || {});
     } catch (e) {}
     return Promise.reject(new Error('GsyLive unavailable'));
   }
@@ -68,10 +72,8 @@ class GsyLivePlayerPlugin : Plugin() {
     try { w.console.log('[GsyShim] ' + msg); } catch (e) {}
     try { call('log', { msg: String(msg) }).then(noop, noop); } catch (e) {}
   }
-  if (w.__gsyShim) { log('already installed'); return; }
-  if (!C) { log('no Capacitor'); return; }
   try {
-    if (w.localStorage.getItem('ott_use_gsy') === '0') { log('disabled by flag'); return; }
+    if (w.localStorage.getItem('ott_use_gsy') === '0') return;
   } catch (e) {}
   w.__gsyShim = true;
   log('installing; stbPlay=' + typeof w.stbPlay + ' stbStop=' + typeof w.stbStop +
@@ -182,6 +184,23 @@ class GsyLivePlayerPlugin : Plugin() {
     }
 
     private val ui = Handler(Looper.getMainLooper())
+    private val injector = Handler(Looper.getMainLooper())
+    private var injectCount = 0
+    private val injectTask = object : Runnable {
+        override fun run() {
+            try {
+                val web = bridge.webView
+                if (web != null) {
+                    if (injectCount < 3) Log.i(TAG, "inject #" + injectCount)
+                    injectCount++
+                    web.evaluateJavascript(SHIM, null)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "inject failed", e)
+            }
+            injector.postDelayed(this, INJECT_PERIOD_MS)
+        }
+    }
     private var stopSubscription: (() -> Unit)? = null
     private var player: BareGsyPlayer? = null
 
@@ -208,6 +227,7 @@ class GsyLivePlayerPlugin : Plugin() {
                 webView.evaluateJavascript(SHIM, null)
             }
         })
+        injector.postDelayed(injectTask, 500L)
     }
 
     private fun fail(call: PluginCall, msg: String) {
@@ -398,6 +418,7 @@ class GsyLivePlayerPlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
+        injector.removeCallbacks(injectTask)
         stopSubscription?.invoke()
         stopSubscription = null
         tearDown()
