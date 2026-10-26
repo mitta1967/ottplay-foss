@@ -54,21 +54,32 @@ class GsyLivePlayerPlugin : Plugin() {
         private val SHIM = """
 (function () {
   var w = window;
-  if (w.__gsyShim) return;
   var C = w.Capacitor;
-  if (!C) return;
-  try { if (w.localStorage.getItem('ott_use_gsy') === '0') return; } catch (e) {}
-  w.__gsyShim = true;
-  var st = { active: false, playing: false, pos: 0, len: 0, ended: false };
-  var orig = { stop: w.stbStop };
+  function noop() {}
   function call(m, o) {
     try {
-      var p = C.Plugins && C.Plugins.GsyLive;
+      var p = C && C.Plugins && C.Plugins.GsyLive;
       if (p && typeof p[m] === 'function') return p[m](o || {});
-      if (typeof C.nativePromise === 'function') return C.nativePromise('GsyLive', m, o || {});
+      if (C && typeof C.nativePromise === 'function') return C.nativePromise('GsyLive', m, o || {});
     } catch (e) {}
     return Promise.reject(new Error('GsyLive unavailable'));
   }
+  function log(msg) {
+    try { w.console.log('[GsyShim] ' + msg); } catch (e) {}
+    try { call('log', { msg: String(msg) }).then(noop, noop); } catch (e) {}
+  }
+  if (w.__gsyShim) { log('already installed'); return; }
+  if (!C) { log('no Capacitor'); return; }
+  try {
+    if (w.localStorage.getItem('ott_use_gsy') === '0') { log('disabled by flag'); return; }
+  } catch (e) {}
+  w.__gsyShim = true;
+  log('installing; stbPlay=' + typeof w.stbPlay + ' stbStop=' + typeof w.stbStop +
+      ' transport=' + (w.__ottCoreTransport ? 'yes' : 'no') +
+      ' plugin=' + (C.Plugins && C.Plugins.GsyLive ? 'proxy' : 'none') +
+      ' nativePromise=' + typeof C.nativePromise);
+  var st = { active: false, playing: false, pos: 0, len: 0, ended: false };
+  var orig = { stop: w.stbStop };
   function skin(on) {
     var s = w.document.getElementById('gsy-skin');
     if (!s) {
@@ -78,7 +89,6 @@ class GsyLivePlayerPlugin : Plugin() {
     }
     s.textContent = on ? 'html,body{background:transparent!important}video{opacity:0!important}' : '';
   }
-  function noop() {}
   function poll() {
     if (!st.active) return;
     call('status', {}).then(function (r) {
@@ -98,18 +108,24 @@ class GsyLivePlayerPlugin : Plugin() {
       if (!p) p = Number(u.substring(i + 3)) || 0;
       u = u.substring(0, i);
     }
+    log('stbPlay ' + u.split('?')[0].substring(0, 90) + ' pos=' + p);
     if (!st.active && typeof orig.stop === 'function') { try { orig.stop(); } catch (e) {} }
     st.active = true; st.playing = true; st.ended = false; st.pos = p; st.len = 0;
     skin(true);
     call('start', { url: u, position: p, headers: {} }).then(function (r) {
+      log('start -> ' + JSON.stringify(r));
       if (r && r.ok === false) st.playing = false;
-    }, function () { st.playing = false; });
+    }, function (e) {
+      log('start failed: ' + e);
+      st.playing = false;
+    });
   }
   function stbStop() {
     if (!st.active) {
       if (typeof orig.stop === 'function') { try { orig.stop(); } catch (e) {} }
       return;
     }
+    log('stbStop');
     st.active = false; st.playing = false; st.pos = 0; st.len = 0;
     call('stop', {}).then(noop, noop);
     skin(false);
@@ -138,11 +154,27 @@ class GsyLivePlayerPlugin : Plugin() {
     stbContinue: stbContinue, stbIsPlaying: stbIsPlaying, stbGetPosTime: stbGetPosTime,
     stbGetLen: stbGetLen, stbSetPosTime: stbSetPosTime
   };
-  function apply() {
-    for (var k in api) {
-      if (w[k] !== api[k]) { try { w[k] = api[k]; } catch (e) {} }
+  var locked = {};
+  function lock(k, fn) {
+    try {
+      Object.defineProperty(w, k, {
+        configurable: true,
+        enumerable: true,
+        get: function () { return fn; },
+        set: function () {}
+      });
+      locked[k] = true;
+    } catch (e) {
+      try { w[k] = fn; } catch (e2) {}
     }
   }
+  function apply() {
+    for (var k in api) {
+      if (!locked[k] && w[k] !== api[k]) { try { w[k] = api[k]; } catch (e) {} }
+    }
+  }
+  for (var key in api) lock(key, api[key]);
+  log('locked=' + Object.keys(locked).join(',') + ' of ' + Object.keys(api).length);
   apply();
   setInterval(apply, 1000);
 })();
@@ -164,6 +196,7 @@ class GsyLivePlayerPlugin : Plugin() {
     private var lastPositionMs = 0L
 
     override fun load() {
+        Log.i(TAG, "plugin load()")
         stopSubscription = NativeWork.onStandbyAsync { done ->
             val act = activity
             if (act == null) done()
@@ -171,6 +204,7 @@ class GsyLivePlayerPlugin : Plugin() {
         }
         bridge.addWebViewListener(object : WebViewListener() {
             override fun onPageLoaded(webView: WebView) {
+                Log.i(TAG, "page loaded, injecting shim")
                 webView.evaluateJavascript(SHIM, null)
             }
         })
@@ -185,6 +219,12 @@ class GsyLivePlayerPlugin : Plugin() {
 
     private fun ok(call: PluginCall) {
         call.resolve(JSObject().apply { put("ok", true) })
+    }
+
+    @PluginMethod
+    fun log(call: PluginCall) {
+        Log.i(TAG, "js: " + (call.getString("msg") ?: ""))
+        call.resolve()
     }
 
     @PluginMethod
@@ -221,6 +261,7 @@ class GsyLivePlayerPlugin : Plugin() {
                 lastName = name
                 lastHeaders = headers
                 lastPositionMs = positionMs
+                Log.i(TAG, "start ijk=$usingIjk url=" + url.substringBefore('?').take(90))
                 startPlay()
                 ok(call)
             } catch (e: Exception) {
@@ -253,6 +294,7 @@ class GsyLivePlayerPlugin : Plugin() {
                 override fun onPrepared(url: String?, vararg objects: Any?) {
                     if (token != playToken) return
                     prepared = true
+                    Log.i(TAG, "prepared ijk=$usingIjk")
                     notifyListeners("state", JSObject().apply { put("state", "ready") })
                 }
 
